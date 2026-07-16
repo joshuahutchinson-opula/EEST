@@ -189,19 +189,6 @@ interface CatalogDevice {
   fov?: string;
   operatingTemp?: string;
   msrp?: number;
-  series?: string;
-  minIlluminationColor?: string;
-  minIlluminationBW?: string;
-  opticalZoom?: string;
-  panTiltRange?: string;
-  netd?: string;
-  objectTempRange?: string;
-  audioSupport?: string;
-  inOutPorts?: string;
-  wdr?: string;
-  optimizedIR?: string;
-  specialFeatures?: string;
-  subCategory?: "Box" | "Bullet" | "Dome" | "Panoramic" | "PTZ" | "Thermal";
 }
 
 interface Column { id: Stage; label: string; color: string; }
@@ -631,7 +618,7 @@ function AppTopbar({ page, navigate, breadcrumb }: { page: Page; navigate: (p: P
     <header className="fixed top-0 inset-x-0 z-50 h-14 flex items-center gap-5 px-5"
       style={{ background: "rgba(7,12,26,0.65)", backdropFilter: "blur(40px) saturate(180%)", WebkitBackdropFilter: "blur(40px) saturate(180%)", borderBottom: "1px solid rgba(255,255,255,0.08)", boxShadow: "0 1px 0 rgba(255,255,255,0.04), 0 8px 32px rgba(0,0,0,0.5)" }}>
       <button onClick={() => navigate("dashboard")} className="flex items-center gap-2.5 flex-shrink-0 cursor-pointer active:scale-[0.97] transition-transform">
-        <img src={logoImg} alt="E-Tech Systems" className="h-7 object-contain" style={{ filter: "brightness(1.1)" }} />
+        <img src={logoImg} alt="E-Tech Systems" className="h-10 object-contain" style={{ filter: "brightness(1.1)", marginTop: "-2px", marginBottom: "-2px" }} />
       </button>
 
       <div className="w-px h-4 flex-shrink-0" style={{ background: "rgba(255,255,255,0.12)" }} />
@@ -2608,18 +2595,42 @@ function QuoteBuilder({ navigate, quoteItems, setQuoteItems }: { navigate: (p: P
   );
 }
 
+const IMG = {
+  dome: "https://images.unsplash.com/photo-1618482914248-29272d021005?w=400&q=80",
+  bullet: "https://images.unsplash.com/photo-1496368077930-c1e31b4e5b44?w=400&q=80",
+  ptz: "https://images.unsplash.com/photo-1589935447067-5531094415d1?w=400&q=80",
+  outdoor: "https://images.unsplash.com/photo-1528312635006-8ea0bc49ec63?w=400&q=80",
+  wall: "https://images.unsplash.com/photo-1549109926-58f039549485?w=400&q=80",
+  rack: "https://images.unsplash.com/photo-1732327390234-c78eb47d1b88?w=400&q=80",
+};
+
 const CATALOG_DEVICES: CatalogDevice[] = [
-  { id: "ax1", model: "AXIS M1055-L", manufacturer: "Axis", category: "camera", subCategory: "Box", series: "M10", imageUrl: "https://www.axis.com/sites/axis/files/styles/comparison_table_115_x_115/public/2022-11/m1055l_angle_left_2203-Productimageswithcropping.png?itok=ilT3Fe5j", resolution: "1920x1080 (2.1 MP)", lens: "1/2.9'' 3.16mm F2.0 103deg", minIlluminationColor: "0.18", minIlluminationBW: "0.00", frameRate: "25/30", powerInput: "PoE Class 2", inOutPorts: "2", operatingTemp: "0C to 35C (32F to 95F)", wdr: "WDR/Lightfinder", optimizedIR: "Yes/Yes", specialFeatures: "WLAN option, Edge-to-edge tech" },
-  { id: "ax2", model: "AXIS M1075-L Mk II", manufacturer: "Axis", category: "camera", subCategory: "Box", series: "M10", imageUrl: "https://www.axis.com/sites/axis/files/styles/comparison_table_115_x_115/public/2025-11/78752e7a3bc136d07faddfc5e4e45a5f(1)_Productimagewithcropping.png?itok=ifxNEOsi", resolution: "1920x1080 (2.1 MP)", lens: "1/2.9'' 3.16mm F2.0 103deg", minIlluminationColor: "0.18", minIlluminationBW: "0.00", frameRate: "25/30", powerInput: "PoE Class 3", inOutPorts: "2", operatingTemp: "0C to 35C (32F to 95F)", wdr: "WDR/Lightfinder", optimizedIR: "Yes/Yes", specialFeatures: "Built-in PIR sensor, HDMI, Edge-to-edge tech", audioSupport: "Yes/Yes" },
+  { id: "c1", model: "P3245-V", manufacturer: "Axis", category: "camera", resolution: "1920×1080 (2MP)", lens: "3–10mm P-Iris varifocal", sensor: "1/2.8\" progressive CMOS", nightVision: "IR 15m", weatherRating: "IP66 / IK10", powerInput: "PoE IEEE 802.3af (max 6.4W)", frameRate: "25/30fps", compression: "H.264, H.265, MJPEG", fov: "H: 102–28°  V: 56–16°", operatingTemp: "−30 °C to 50 °C", price: 485, sku: "AXI-P3245V", imageUrl: IMG.dome },
+  { id: "c2", model: "P5655-E", manufacturer: "Axis", category: "camera", resolution: "1920×1080 (2MP)", lens: "4.3–129mm 30× optical autofocus", sensor: "1/2.8\" progressive CMOS", nightVision: "IR 250m", weatherRating: "IP66 / IK10", powerInput: "High PoE 802.3at (max 30W)", frameRate: "25/30fps", compression: "H.264, H.265, MJPEG", fov: "H: 62.9–2.2°", operatingTemp: "−40 °C to 65 °C", price: 2890, sku: "AXI-P5655E", imageUrl: IMG.ptz },
+  { id: "c3", model: "M3046-V", manufacturer: "Axis", category: "camera", resolution: "2688×1520 (4MP)", lens: "2.4mm fixed", sensor: "1/3\" progressive CMOS", nightVision: "N/A (indoor)", weatherRating: "IK08", powerInput: "PoE IEEE 802.3af (max 4.7W)", frameRate: "25/30fps", compression: "H.264, H.265, MJPEG", fov: "H: 106°  V: 57°", operatingTemp: "0 °C to 45 °C", price: 385, sku: "AXI-M3046V", imageUrl: IMG.dome },
+  { id: "c4", model: "P1465-LE", manufacturer: "Axis", category: "camera", resolution: "1920×1080 (2MP)", lens: "2.8mm fixed", sensor: "1/2.9\" progressive CMOS", nightVision: "IR 25m", weatherRating: "IP66 / IK10", powerInput: "PoE IEEE 802.3af (max 7.5W)", frameRate: "25/30fps", compression: "H.264, H.265, MJPEG", fov: "H: 102°  V: 55°", operatingTemp: "−40 °C to 55 °C", price: 520, sku: "AXI-P1465LE", imageUrl: IMG.bullet },
+  { id: "c5", model: "Q6075-E", manufacturer: "Axis", category: "camera", resolution: "1920×1080 (2MP)", lens: "5.7–205mm 36× optical autofocus", sensor: "1/2.8\" progressive CMOS", nightVision: "IR 400m", weatherRating: "IP66 / IK10", powerInput: "High PoE 802.3at (max 55W)", frameRate: "25/30fps", compression: "H.264, H.265, MJPEG", fov: "H: 63.4–1.8°", operatingTemp: "−50 °C to 65 °C", price: 4200, sku: "AXI-Q6075E", imageUrl: IMG.ptz },
+  { id: "c6", model: "Sarix IBE332-1IR", manufacturer: "Pelco", category: "camera", resolution: "3840×2160 (8MP)", lens: "2.8–12mm varifocal", sensor: "1/2.5\" progressive CMOS", nightVision: "IR 50m", weatherRating: "IP66 / IK10", powerInput: "PoE+ 802.3at (max 25.5W)", frameRate: "15fps @ 4K / 30fps @ 1080p", compression: "H.264, H.265, MJPEG", fov: "H: 117–33°", operatingTemp: "−40 °C to 50 °C", price: 795, sku: "PEL-IBE332", imageUrl: IMG.outdoor },
+  { id: "c7", model: "Spectra Enhanced 7", manufacturer: "Pelco", category: "camera", resolution: "1920×1080 (2MP)", lens: "5.9–177mm 30× optical autofocus", sensor: "1/2.8\" progressive CMOS", nightVision: "IR 200m", weatherRating: "IP66 / IK10", powerInput: "24VAC / High PoE 802.3at", frameRate: "25/30fps", compression: "H.264, H.265", fov: "H: 62.3–2.1°", operatingTemp: "−40 °C to 65 °C", price: 3200, sku: "PEL-SE7", imageUrl: IMG.ptz },
+  { id: "c8", model: "Optera IMM 12027", manufacturer: "Pelco", category: "camera", resolution: "12MP panoramic (4 × 3MP)", lens: "Four 2.8mm fixed sensors", sensor: "1/2.9\" CMOS (×4)", nightVision: "N/A", weatherRating: "IP66 / IK10", powerInput: "PoE+ 802.3at (max 25W)", frameRate: "12fps per sensor", compression: "H.264, MJPEG", fov: "360° horizontal", operatingTemp: "−40 °C to 50 °C", price: 2400, sku: "PEL-IMM12027", imageUrl: IMG.dome },
+  { id: "c9", model: "ExSite Enhanced 2", manufacturer: "Pelco", category: "camera", resolution: "1920×1080 (2MP)", lens: "6.5–260mm 40× optical autofocus", sensor: "1/2.8\" progressive CMOS", nightVision: "IR 350m", weatherRating: "IP68 / IK10", powerInput: "24VAC", frameRate: "25/30fps", compression: "H.264, H.265", fov: "H: 53.5–1.4°", operatingTemp: "−50 °C to 60 °C", price: 5800, sku: "PEL-EXE2", imageUrl: IMG.ptz },
+  { id: "c10", model: "H5A Dome", manufacturer: "Avigilon", category: "camera", resolution: "3840×2160 (8MP)", lens: "4.9–8mm varifocal", sensor: "1/2.5\" progressive CMOS", nightVision: "IR 30m", weatherRating: "IK10", powerInput: "PoE+ 802.3at (max 25.5W)", frameRate: "20fps @ 8MP / 30fps @ 4MP", compression: "H.264, H.265", fov: "H: 108–65°", operatingTemp: "−10 °C to 50 °C", price: 950, sku: "AVI-H5A-DO", imageUrl: IMG.dome },
+  { id: "c11", model: "H5A Bullet", manufacturer: "Avigilon", category: "camera", resolution: "3840×2160 (8MP)", lens: "4.9–8mm varifocal", sensor: "1/2.5\" progressive CMOS", nightVision: "IR 50m", weatherRating: "IP67 / IK10", powerInput: "PoE+ 802.3at (max 25.5W)", frameRate: "20fps @ 8MP / 30fps @ 4MP", compression: "H.264, H.265", fov: "H: 108–65°", operatingTemp: "−40 °C to 50 °C", price: 985, sku: "AVI-H5A-BO", imageUrl: IMG.bullet },
+  { id: "c12", model: "H5SL PTZ", manufacturer: "Avigilon", category: "camera", resolution: "1920×1080 (2MP)", lens: "4.7–94mm 20× optical autofocus", sensor: "1/2.8\" progressive CMOS", nightVision: "IR 150m", weatherRating: "IP66 / IK10", powerInput: "High PoE 802.3at (max 55W)", frameRate: "30fps", compression: "H.264, H.265", fov: "H: 60.1–3.1°", operatingTemp: "−40 °C to 60 °C", price: 3600, sku: "AVI-H5SL-PTZ", imageUrl: IMG.ptz },
+  { id: "c13", model: "H6A Fisheye", manufacturer: "Avigilon", category: "camera", resolution: "7680×4320 (32MP)", lens: "1.05mm fisheye", sensor: "1/1.8\" progressive CMOS", nightVision: "N/A", weatherRating: "IK10", powerInput: "PoE+ 802.3at (max 25.5W)", frameRate: "15fps @ 32MP / 30fps @ 8MP", compression: "H.264, H.265", fov: "360° panoramic", operatingTemp: "0 °C to 40 °C", price: 1850, sku: "AVI-H6A-FE", imageUrl: IMG.dome },
+  { id: "n1", model: "Security Center 5.11", manufacturer: "Genetec", category: "analytics", sku: "GSC-511-E", price: 22500, channels: "300 cameras", imageUrl: IMG.rack },
+  { id: "n2", model: "Synergis Cloud Link", manufacturer: "Genetec", category: "access-control", sku: "GSC-SCL", price: 1850, readers: "32 doors", imageUrl: IMG.rack },
+  { id: "n3", model: "AutoVu ALPR 6.0", manufacturer: "Genetec", category: "analytics", sku: "GSC-ALPR", price: 8500, channels: "License plate recognition", imageUrl: IMG.outdoor },
+  { id: "a1", model: "BioLite N2", manufacturer: "Suprema", category: "access-control", authentication: "Fingerprint + RFID", weatherRating: "IP65", powerInput: "12VDC / PoE", price: 890, sku: "SUP-BION2", imageUrl: IMG.wall },
+  { id: "a2", model: "BioStation 3", manufacturer: "Suprema", category: "access-control", authentication: "Face + Fingerprint + Card", weatherRating: "IP65", powerInput: "12VDC / PoE", price: 1450, sku: "SUP-BS3", imageUrl: IMG.wall },
+  { id: "a3", model: "Edge EVO Solo", manufacturer: "HID", category: "access-control", authentication: "Multi-tech RFID", weatherRating: "IP65 / IK08", powerInput: "12VDC", price: 1240, sku: "HID-EVOS", imageUrl: IMG.wall },
+  { id: "a4", model: "Signo 20", manufacturer: "HID", category: "access-control", authentication: "Biometric keypad", weatherRating: "IP67 / IK09", powerInput: "12-24VDC / PoE", price: 980, sku: "HID-SIGNO20", imageUrl: IMG.wall },
+  { id: "s1", model: "Camera Station S2212", manufacturer: "Axis", category: "nvr", storage: "12-bay rack", channels: "64 cameras", powerInput: "Redundant PSU", price: 6800, sku: "ACS-S2212", imageUrl: IMG.rack },
+  { id: "s2", model: "VideoXpert Pro", manufacturer: "Pelco", category: "nvr", storage: "16-bay rack", channels: "128 cameras", powerInput: "Redundant PSU", price: 8900, sku: "PEL-VXPRO", imageUrl: IMG.rack },
+  { id: "s3", model: "ACC 7 Server", manufacturer: "Avigilon", category: "nvr", storage: "Custom build", channels: "256 cameras", powerInput: "Redundant PSU", price: 12000, sku: "AVI-ACC7", imageUrl: IMG.rack },
 ];
 
 const CAT_COLOR: Record<string, { bg: string; text: string; label: string }> = {
-  Box: { bg: "rgba(59,130,246,0.12)", text: "#60a5fa", label: "Box" },
-  Bullet: { bg: "rgba(249,115,22,0.12)", text: "#fb923c", label: "Bullet" },
-  Dome: { bg: "rgba(139,92,246,0.12)", text: "#a78bfa", label: "Dome" },
-  Panoramic: { bg: "rgba(16,185,129,0.12)", text: "#34d399", label: "Panoramic" },
-  PTZ: { bg: "rgba(236,72,153,0.12)", text: "#f472b6", label: "PTZ" },
-  Thermal: { bg: "rgba(245,158,11,0.12)", text: "#fbbf24", label: "Thermal" },
   camera: { bg: "rgba(59,130,246,0.12)", text: "#60a5fa", label: "Camera" },
   "access-control": { bg: "rgba(139,92,246,0.12)", text: "#a78bfa", label: "Access" },
   nvr: { bg: "rgba(16,185,129,0.12)", text: "#34d399", label: "NVR" },
@@ -2630,25 +2641,24 @@ const CAT_COLOR: Record<string, { bg: string; text: string; label: string }> = {
 function DeviceSpecModal({ device, onClose }: { device: CatalogDevice; onClose: () => void }) {
   const { addToQuote } = useQuote();
   const { fmt } = useCurrency();
-  const cc = CAT_COLOR[device.subCategory ?? device.category] ?? CAT_COLOR.other;
+  const cc = CAT_COLOR[device.category] ?? CAT_COLOR.other;
   const specs: { label: string; value?: string }[] = [
-    { label: "Manufacturer", value: device.manufacturer },
+    { label: "SKU", value: device.sku },
     { label: "Category", value: cc.label },
-    { label: "Series", value: device.series },
     { label: "Resolution", value: device.resolution },
-    { label: "Lens / FOV", value: device.lens },
-    { label: "Min Illumination (Color)", value: device.minIlluminationColor },
-    { label: "Min Illumination (B&W)", value: device.minIlluminationBW },
-    { label: "Max FPS", value: device.frameRate },
-    { label: "Optical Zoom", value: device.opticalZoom },
-    { label: "Audio Support", value: device.audioSupport },
-    { label: "Power", value: device.powerInput },
-    { label: "I/O Ports", value: device.inOutPorts },
+    { label: "Sensor", value: device.sensor },
+    { label: "Lens", value: device.lens },
+    { label: "Frame Rate", value: device.frameRate },
+    { label: "Compression", value: device.compression },
+    { label: "Field of View", value: device.fov },
+    { label: "Night Vision", value: device.nightVision },
+    { label: "Weather Rating", value: device.weatherRating },
+    { label: "Power Input", value: device.powerInput },
+    { label: "Storage", value: device.storage },
+    { label: "Max Cameras", value: device.channels },
+    { label: "Max Readers", value: device.readers },
+    { label: "Authentication", value: device.authentication },
     { label: "Operating Temp", value: device.operatingTemp },
-    { label: "IP/IK Rating", value: device.weatherRating },
-    { label: "WDR/Lightfinder", value: device.wdr },
-    { label: "OptimizedIR", value: device.optimizedIR },
-    { label: "Special Features", value: device.specialFeatures },
   ].filter((s) => !!s.value);
 
   return (
@@ -2716,22 +2726,33 @@ function DeviceSpecModal({ device, onClose }: { device: CatalogDevice; onClose: 
 function DeviceLibrary({ navigate: _navigate }: { navigate: (p: Page) => void }) {
   const [search, setSearch] = useState("");
   const [categoryFilter, setCategoryFilter] = useState<string>("all");
+  const [manufacturerFilter, setManufacturerFilter] = useState<string>("all");
   const [viewMode, setViewMode] = useState<"grid" | "table">("grid");
   const [selectedDevice, setSelectedDevice] = useState<CatalogDevice | null>(null);
   const { addToQuote } = useQuote();
   const { fmt } = useCurrency();
 
-  const subCategories = ["all", "Box", "Bullet", "Dome", "Panoramic", "PTZ", "Thermal"];
+  const manufacturers = Array.from(new Set(CATALOG_DEVICES.map((d) => d.manufacturer))).sort();
+  const categories: { id: string; label: string }[] = [
+    { id: "all", label: "All Devices" },
+    { id: "camera", label: "Cameras" },
+    { id: "access-control", label: "Access Control" },
+    { id: "nvr", label: "NVR / Storage" },
+    { id: "analytics", label: "Analytics / VMS" },
+  ];
 
   const filtered = useMemo(() => {
     let result = CATALOG_DEVICES;
-    if (categoryFilter !== "all") result = result.filter((d) => d.subCategory === categoryFilter);
+    if (categoryFilter !== "all") result = result.filter((d) => d.category === categoryFilter);
+    if (manufacturerFilter !== "all") result = result.filter((d) => d.manufacturer === manufacturerFilter);
     if (search.trim()) {
       const q = search.toLowerCase();
-      result = result.filter((d) => d.model.toLowerCase().includes(q) || d.manufacturer.toLowerCase().includes(q) || (d.sku ?? "").toLowerCase().includes(q) || (d.series ?? "").toLowerCase().includes(q));
+      result = result.filter((d) => d.model.toLowerCase().includes(q) || d.manufacturer.toLowerCase().includes(q) || (d.sku ?? "").toLowerCase().includes(q));
     }
     return result;
-  }, [search, categoryFilter]);
+  }, [search, categoryFilter, manufacturerFilter]);
+
+  const inputCls = "h-9 rounded-xl px-3 text-[#e6edf3] text-[12px] placeholder:text-[#484f58] focus:outline-none focus:ring-1 focus:ring-blue-500/50 transition-all";
 
   return (
     <div className="px-5 py-6">
@@ -2740,7 +2761,7 @@ function DeviceLibrary({ navigate: _navigate }: { navigate: (p: Page) => void })
       <div className="flex items-center justify-between mb-6">
         <div>
           <h1 className="text-white font-bold text-xl tracking-tight">Device Library</h1>
-          <p className="text-[#8b949e] text-[13px] mt-0.5">{filtered.length} products · Axis Communications</p>
+          <p className="text-[#8b949e] text-[13px] mt-0.5">{filtered.length} products · Axis · Avigilon · Pelco · Genetec · Suprema · HID</p>
         </div>
         <div className="flex items-center gap-2">
           <div className="flex items-center h-8 rounded-xl overflow-hidden" style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.10)" }}>
@@ -2753,31 +2774,43 @@ function DeviceLibrary({ navigate: _navigate }: { navigate: (p: Page) => void })
               <List className="w-3.5 h-3.5" />
             </button>
           </div>
+          <button onClick={() => { toast.success("Device catalog exported"); downloadCSV("device-library.csv", [["Model","Manufacturer","Category","SKU","Price (USD)","Resolution","Lens","Sensor","Night Vision","Weather","Power","Frame Rate","Compression","FOV","Operating Temp"], ...filtered.map((d) => [d.model, d.manufacturer, d.category, d.sku ?? "", d.price ? String(d.price) : "", d.resolution ?? "", d.lens ?? "", d.sensor ?? "", d.nightVision ?? "", d.weatherRating ?? "", d.powerInput ?? "", d.frameRate ?? "", d.compression ?? "", d.fov ?? "", d.operatingTemp ?? ""])]); }}
+            className="flex items-center gap-1.5 h-9 px-4 rounded-xl text-[#8b949e] text-[12px] font-semibold hover:text-white transition-all cursor-pointer active:scale-[0.97] transition-transform" style={G.btn}>
+            <Download className="w-3.5 h-3.5" /> Export CSV
+          </button>
         </div>
       </div>
 
       <div className="mb-5 flex items-center gap-3 flex-wrap">
         <div className="relative flex-1 min-w-[200px] max-w-sm">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[#484f58]" />
-          <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search model, series…" className="h-9 rounded-xl pl-9 pr-3 text-[12px] text-[#e6edf3] placeholder:text-[#484f58] focus:outline-none focus:ring-1 focus:ring-blue-500/50 w-full transition-all" style={G.input} />
+          <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search model, SKU…" className={`${inputCls} pl-9 w-full`} style={G.input} />
         </div>
         <div className="flex gap-2">
-          {subCategories.map((c) => (
-            <button key={c} onClick={() => setCategoryFilter(c)}
+          {categories.map((c) => (
+            <button key={c.id} onClick={() => setCategoryFilter(c.id)}
               className="h-9 px-3.5 rounded-xl text-[12px] font-semibold transition-all cursor-pointer active:scale-[0.97] transition-transform"
-              style={categoryFilter === c
+              style={categoryFilter === c.id
                 ? { background: "rgba(59,130,246,0.15)", border: "1px solid rgba(59,130,246,0.35)", color: "#60a5fa" }
                 : { ...G.btn, color: "#8b949e" }}>
-              {c === "all" ? "All Devices" : c}
+              {c.label}
             </button>
           ))}
+        </div>
+        <div className="relative">
+          <select value={manufacturerFilter} onChange={(e) => setManufacturerFilter(e.target.value)}
+            className={`${inputCls} appearance-none cursor-pointer pr-7 min-w-[150px]`} style={G.input}>
+            <option value="all" style={{ background: "#0d1117" }}>All Brands</option>
+            {manufacturers.map((m) => <option key={m} value={m} style={{ background: "#0d1117" }}>{m}</option>)}
+          </select>
+          <ChevronDown className="absolute right-2.5 top-1/2 -translate-y-1/2 w-3 h-3 text-[#484f58] pointer-events-none" />
         </div>
       </div>
 
       {viewMode === "grid" && (
         <div className="grid gap-4" style={{ gridTemplateColumns: "repeat(auto-fill, minmax(220px, 1fr))" }}>
           {filtered.map((device) => {
-            const cc = CAT_COLOR[device.subCategory ?? device.category] ?? CAT_COLOR.other;
+            const cc = CAT_COLOR[device.category] ?? CAT_COLOR.other;
             return (
               <div key={device.id} onClick={() => setSelectedDevice(device)}
                 className="rounded-2xl overflow-hidden cursor-pointer group transition-all hover:-translate-y-1"
@@ -2802,9 +2835,10 @@ function DeviceLibrary({ navigate: _navigate }: { navigate: (p: Page) => void })
                   <p className="text-[#8b949e] text-[10px] font-semibold">{device.manufacturer}</p>
                   <p className="text-white text-[13px] font-bold mt-0.5 truncate">{device.model}</p>
                   {device.resolution && <p className="text-[#484f58] text-[10px] mt-1 truncate">{device.resolution}</p>}
-                  {device.lens && !device.resolution && <p className="text-[#484f58] text-[10px] mt-1 truncate">{device.lens}</p>}
+                  {device.authentication && <p className="text-[#484f58] text-[10px] mt-1 truncate">{device.authentication}</p>}
+                  {device.channels && !device.resolution && <p className="text-[#484f58] text-[10px] mt-1 truncate">{device.channels}</p>}
                   <div className="flex items-center justify-between mt-3 pt-2.5" style={{ borderTop: "1px solid rgba(255,255,255,0.06)" }}>
-                    <span className="text-[#484f58] text-[9px] font-mono">{device.series}</span>
+                    <span className="text-[#484f58] text-[9px] font-mono">{device.sku}</span>
                     <span className="font-bold text-[12px] tabular-nums" style={{ color: cc.text }}>{device.price ? fmt(device.price) : "—"}</span>
                   </div>
                 </div>
@@ -2817,17 +2851,17 @@ function DeviceLibrary({ navigate: _navigate }: { navigate: (p: Page) => void })
       {viewMode === "table" && (
         <div className="rounded-2xl overflow-hidden" style={G.card}>
           <div className="overflow-x-auto">
-            <table className="w-full" style={{ minWidth: "900px" }}>
+            <table className="w-full" style={{ minWidth: "1100px" }}>
               <thead>
                 <tr style={{ background: "rgba(255,255,255,0.03)", borderBottom: "1px solid rgba(255,255,255,0.08)" }}>
-                  {["", "Model", "Series", "Category", "Resolution", "Lens / FOV", "Power", "Operating Temp", "WDR", "IR"].map((h) => (
-                    <th key={h} className="text-left px-4 py-3 text-[#484f58] text-[10px] font-bold uppercase tracking-widest">{h}</th>
+                  {["", "Model", "Manufacturer", "Category", "Resolution", "Sensor", "Night Vision", "Weather", "Power", "Frame Rate", "SKU", "Price"].map((h) => (
+                    <th key={h} className={`${h === "Price" ? "text-right" : "text-left"} px-4 py-3 text-[#484f58] text-[10px] font-bold uppercase tracking-widest`}>{h}</th>
                   ))}
                 </tr>
               </thead>
               <tbody>
                 {filtered.map((device, i) => {
-                  const cc = CAT_COLOR[device.subCategory ?? device.category] ?? CAT_COLOR.other;
+                  const cc = CAT_COLOR[device.category] ?? CAT_COLOR.other;
                   return (
                     <tr key={device.id} onClick={() => setSelectedDevice(device)} className="cursor-pointer hover:bg-white/[0.02] transition-colors group"
                       style={{ borderBottom: i < filtered.length - 1 ? "1px solid rgba(255,255,255,0.04)" : "none" }}>
@@ -2837,16 +2871,27 @@ function DeviceLibrary({ navigate: _navigate }: { navigate: (p: Page) => void })
                         </div>
                       </td>
                       <td className="px-4 py-2.5 text-white text-[12px] font-semibold">{device.model}</td>
-                      <td className="px-4 py-2.5 text-[#8b949e] text-[11px]">{device.series ?? "—"}</td>
+                      <td className="px-4 py-2.5 text-[#8b949e] text-[11px]">{device.manufacturer}</td>
                       <td className="px-4 py-2.5">
                         <span className="inline-block px-2 py-0.5 rounded-lg text-[10px] font-bold uppercase tracking-wider" style={{ background: cc.bg, color: cc.text }}>{cc.label}</span>
                       </td>
-                      <td className="px-4 py-2.5 text-[#8b949e] text-[11px]">{device.resolution ?? "—"}</td>
-                      <td className="px-4 py-2.5 text-[#8b949e] text-[11px] max-w-[200px] truncate">{device.lens ?? "—"}</td>
-                      <td className="px-4 py-2.5 text-[#8b949e] text-[11px]">{device.powerInput ?? "—"}</td>
-                      <td className="px-4 py-2.5 text-[#8b949e] text-[11px]">{device.operatingTemp ?? "—"}</td>
-                      <td className="px-4 py-2.5 text-[#8b949e] text-[11px]">{device.wdr ?? "—"}</td>
-                      <td className="px-4 py-2.5 text-[#8b949e] text-[11px]">{device.optimizedIR ?? "—"}</td>
+                      <td className="px-4 py-2.5 text-[#8b949e] text-[11px]">{device.resolution || device.channels || "—"}</td>
+                      <td className="px-4 py-2.5 text-[#8b949e] text-[11px]">{device.sensor || device.authentication || "—"}</td>
+                      <td className="px-4 py-2.5 text-[#8b949e] text-[11px]">{device.nightVision || "—"}</td>
+                      <td className="px-4 py-2.5 text-[#8b949e] text-[11px]">{device.weatherRating || "—"}</td>
+                      <td className="px-4 py-2.5 text-[#8b949e] text-[11px]">{device.powerInput || device.storage || "—"}</td>
+                      <td className="px-4 py-2.5 text-[#8b949e] text-[11px]">{device.frameRate || "—"}</td>
+                      <td className="px-4 py-2.5 text-[#484f58] text-[10px] font-mono">{device.sku}</td>
+                      <td className="px-4 py-2.5 text-right">
+                        <div className="flex items-center justify-end gap-2">
+                          <span className="text-white text-[12px] font-bold tabular-nums">{device.price ? fmt(device.price) : "—"}</span>
+                          <button onClick={(e) => { e.stopPropagation(); addToQuote(device); }}
+                            className="w-6 h-6 rounded-lg flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all cursor-pointer active:scale-[0.97] transition-transform"
+                            style={{ background: "#3b82f6" }}>
+                            <Plus className="w-3 h-3 text-white" />
+                          </button>
+                        </div>
+                      </td>
                     </tr>
                   );
                 })}
