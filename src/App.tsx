@@ -639,7 +639,7 @@ function AppTopbar({ page, navigate, breadcrumb }: { page: Page; navigate: (p: P
     <header className="fixed top-0 inset-x-0 z-50 h-14 flex items-center gap-5 px-5"
       style={{ background: "rgba(7,12,26,0.65)", backdropFilter: "blur(40px) saturate(180%)", WebkitBackdropFilter: "blur(40px) saturate(180%)", borderBottom: "1px solid rgba(255,255,255,0.08)", boxShadow: "0 1px 0 rgba(255,255,255,0.04), 0 8px 32px rgba(0,0,0,0.5)" }}>
       <button onClick={() => navigate("dashboard")} className="flex items-center gap-2.5 flex-shrink-0">
-   <img src={faviconWhite} alt="E-Tech Systems" className="h-10 object-contain" style={{ marginTop: "-2px", marginBottom: "-2px" }} />
+<img src={logoImg} alt="E-Tech Systems" className="h-7 object-contain" style={{ filter: "brightness(1.1)" }} />
       </button>
 
       <div className="w-px h-4 flex-shrink-0" style={{ background: "rgba(255,255,255,0.12)" }} />
