@@ -639,7 +639,7 @@ function AppTopbar({ page, navigate, breadcrumb }: { page: Page; navigate: (p: P
     <header className="fixed top-0 inset-x-0 z-50 h-14 flex items-center gap-5 px-5"
       style={{ background: "rgba(7,12,26,0.65)", backdropFilter: "blur(40px) saturate(180%)", WebkitBackdropFilter: "blur(40px) saturate(180%)", borderBottom: "1px solid rgba(255,255,255,0.08)", boxShadow: "0 1px 0 rgba(255,255,255,0.04), 0 8px 32px rgba(0,0,0,0.5)" }}>
       <button onClick={() => navigate("dashboard")} className="flex items-center gap-2.5 flex-shrink-0">
-        <img src={faviconWhite} alt="E-Tech Systems" className="h-8 object-contain" />
+   <img src={faviconWhite} alt="E-Tech Systems" className="h-10 object-contain" style={{ marginTop: "-2px", marginBottom: "-2px" }} />
       </button>
 
       <div className="w-px h-4 flex-shrink-0" style={{ background: "rgba(255,255,255,0.12)" }} />
@@ -1572,13 +1572,13 @@ function Dashboard({ navigate }: { navigate: (p: Page) => void }) {
           ].map((stat, i) => (
             <div key={stat.label} className="rounded-2xl p-4 transition-all duration-200 hover:-translate-y-0.5" style={G.card}>
               <div className="flex items-center justify-between mb-3">
-                <span className="text-[#8b949e] text-[10px] font-bold uppercase tracking-[0.1em]">{stat.label}</span>
-                <div className="w-7 h-7 rounded-xl flex items-center justify-center"
+              <span className="text-[#8b949e] text-[12px] font-extrabold uppercase tracking-[0.12em]">{stat.label}</span>
+            <div className="w-8 h-8 rounded-xl flex items-center justify-center"
                   style={{ background: `${STAT_COLORS[i]}18`, border: `1px solid ${STAT_COLORS[i]}30` }}>
                   <stat.icon className="w-3.5 h-3.5" style={{ color: STAT_COLORS[i] }} />
                 </div>
               </div>
-              <p className="text-white text-[1.6rem] font-bold tracking-tight leading-none mb-1.5">
+<p className="text-white text-[2rem] font-extrabold tracking-tight leading-none mb-1.5">
                 {stat.isPct ? `${stat.value}%` : fmt(stat.value as number, stat.compact)}
               </p>
               <div className="flex items-center justify-between">
@@ -1915,7 +1915,7 @@ function ProjectDetail({ navigate }: { navigate: (p: Page) => void }) {
           <div key={s.label} className="rounded-2xl p-4" style={G.card}>
             <div className="flex items-center justify-between mb-3">
               <span className="text-[#8b949e] text-[10px] font-bold uppercase tracking-[0.09em]">{s.label}</span>
-              <div className="w-7 h-7 rounded-xl flex items-center justify-center"
+        <div className="w-8 h-8 rounded-xl flex items-center justify-center"
                 style={{ background: `${s.color}18`, border: `1px solid ${s.color}30` }}>
                 <s.icon className="w-3.5 h-3.5" style={{ color: s.color }} />
               </div>
@@ -2486,7 +2486,7 @@ function QuoteBuilder({ navigate, quoteItems, setQuoteItems }: { navigate: (p: P
         />
       )}
 
-      <div className="w-64 flex-shrink-0 flex flex-col" style={{ ...sidebarStyle, borderRight: "1px solid rgba(255,255,255,0.07)" }}>
+      <div className="w-72 flex-shrink-0 flex flex-col" style={{ ...sidebarStyle, borderRight: "1px solid rgba(255,255,255,0.07)" }}>
         <div className="px-3 pt-3 pb-2" style={{ borderBottom: "1px solid rgba(255,255,255,0.06)" }}>
           <p className="text-white text-[12px] font-bold mb-2">Device Library</p>
           <div className="relative mb-2">
@@ -2513,7 +2513,7 @@ function QuoteBuilder({ navigate, quoteItems, setQuoteItems }: { navigate: (p: P
               <p className="text-[#484f58] text-[9px] font-bold uppercase tracking-widest mb-1 px-3">{group.category}</p>
               {group.devices.map((device) => (
                 <button key={device.id} onClick={() => addFromLib(device)}
-                  className="w-full text-left px-3 py-2 hover:bg-white/[0.05] transition-colors flex items-center gap-2 group">
+                 className="w-full text-left px-3 py-2.5 hover:bg-white/[0.05] transition-colors flex items-center gap-3 group">
                   <div className="w-7 h-7 rounded-lg overflow-hidden flex-shrink-0" style={{ background: "rgba(255,255,255,0.06)" }}>
                     {device.imageUrl
                       ? <img src={device.imageUrl} alt={device.model} className="w-full h-full object-cover opacity-70 group-hover:opacity-100 transition-opacity" />
@@ -2532,7 +2532,7 @@ function QuoteBuilder({ navigate, quoteItems, setQuoteItems }: { navigate: (p: P
       </div>
 
       <div className="flex-1 flex flex-col overflow-hidden">
-        <div className="px-5 py-4 flex items-center justify-between flex-shrink-0" style={{ borderBottom: "1px solid rgba(255,255,255,0.07)" }}>
+        <div className="px-6 py-5 flex items-center justify-between flex-shrink-0" style={{ borderBottom: "1px solid rgba(255,255,255,0.07)" }}>
           <div>
             <div className="flex items-center gap-2 mb-1">
               <h2 className="text-white font-bold text-[15px]">Q-2026-044-v3</h2>
@@ -2569,7 +2569,7 @@ function QuoteBuilder({ navigate, quoteItems, setQuoteItems }: { navigate: (p: P
           </div>
         </div>
 
-        <div className="grid gap-3 px-5 py-2.5 flex-shrink-0" style={{ gridTemplateColumns: "2fr 110px 130px 130px 32px", borderBottom: "1px solid rgba(255,255,255,0.06)", background: "rgba(255,255,255,0.02)" }}>
+        <div className="grid gap-3 px-5 py-3 flex-shrink-0" style={{ gridTemplateColumns: "2fr 110px 130px 130px 32px", borderBottom: "1px solid rgba(255,255,255,0.06)", background: "rgba(255,255,255,0.02)" }}>
           {["Line Item", "SKU", "Qty", "Line Total", ""].map((h) => (
             <span key={h} className="text-[#484f58] text-[10px] font-bold uppercase tracking-widest">{h}</span>
           ))}
@@ -2582,7 +2582,7 @@ function QuoteBuilder({ navigate, quoteItems, setQuoteItems }: { navigate: (p: P
             return (
               <div key={item.id}
                 onClick={() => setSelectedIds((prev) => { const next = new Set(prev); if (next.has(item.id)) next.delete(item.id); else next.add(item.id); return next; })}
-                className={clsx("grid gap-3 px-5 py-3.5 items-center cursor-pointer transition-colors group",
+                className={clsx("grid gap-4 px-5 py-4 items-center cursor-pointer transition-colors group",
                   isSelected ? "bg-blue-500/[0.07]" : "hover:bg-white/[0.02]",
                   idx % 2 === 1 && "bg-white/[0.01]")}
                 style={{ gridTemplateColumns: "2fr 110px 130px 130px 32px", borderBottom: "1px solid rgba(255,255,255,0.04)" }}>
@@ -2616,12 +2616,12 @@ function QuoteBuilder({ navigate, quoteItems, setQuoteItems }: { navigate: (p: P
         </div>
       </div>
 
-      <div className="w-64 flex-shrink-0 flex flex-col" style={{ ...sidebarStyle, borderLeft: "1px solid rgba(255,255,255,0.07)" }}>
+      <div className="w-72 flex-shrink-0 flex flex-col" style={{ ...sidebarStyle, borderLeft: "1px solid rgba(255,255,255,0.07)" }}>
         <div className="px-4 py-3" style={{ borderBottom: "1px solid rgba(255,255,255,0.06)" }}>
           <p className="text-white text-[12px] font-bold">Pricing Summary</p>
         </div>
         <div className="flex-1 p-4 space-y-3">
-          <div className="rounded-2xl p-4" style={G.card}>
+          <div className="rounded-2xl p-5" style={G.card}>
             <p className="text-[#484f58] text-[10px] font-bold uppercase tracking-widest mb-1">Subtotal (ex. GCT)</p>
             <p className="text-white text-[1.4rem] font-bold tracking-tight tabular-nums">{fmt(totals.subtotal)}</p>
           </div>
@@ -3178,7 +3178,7 @@ function InstallTracker({ navigate: _navigate }: { navigate: (p: Page) => void }
                       <div key={device.id}
                         className={clsx("grid gap-4 px-5 py-3.5 items-center hover:bg-white/[0.015] transition-colors", i % 2 === 1 && "bg-white/[0.01]")}
                         style={{ gridTemplateColumns: "36px 2fr 1.5fr 120px 1fr", borderTop: "1px solid rgba(255,255,255,0.04)" }}>
-                        <div className="w-7 h-7 rounded-xl flex items-center justify-center" style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.07)" }}>
+                        <div className="w-8 h-8 rounded-xl flex items-center justify-center" style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.07)" }}>
                           <TypeIcon className="w-3.5 h-3.5 text-[#484f58]" />
                         </div>
                         <div className="min-w-0">
