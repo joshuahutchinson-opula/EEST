@@ -15,9 +15,7 @@ import {
 } from "lucide-react";
 import { clsx } from "clsx";
 import logoImg from "./assets/2026-06-14_21.13.34_e-techsystemsja.com_2f51395e09e8-removebg-preview (1).png";
-import faviconWhite from "./assets/faviconwhite.png";
 
-// ─── CSV export helper ────────────────────────────────────────────────────────
 function downloadCSV(filename: string, rows: string[][]) {
   const csv = rows.map(r => r.map(c => `"${String(c ?? "").replace(/"/g, '""')}"`).join(",")).join("\n");
   const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
@@ -27,12 +25,9 @@ function downloadCSV(filename: string, rows: string[][]) {
   URL.revokeObjectURL(url);
 }
 
-// ─── PDF export helper (simulated) ────────────────────────────────────────────
 function downloadPDF(filename: string, _items: QuoteItem[]) {
   toast.success(`${filename} exported as PDF`);
 }
-
-// ─── Glass utility ────────────────────────────────────────────────────────────
 
 const G = {
   card: {
@@ -72,8 +67,6 @@ const G = {
   } as React.CSSProperties,
 };
 
-// ─── Currency ────────────────────────────────────────────────────────────────
-
 const JMD_RATE = 157.4;
 
 interface CurrencyCtx {
@@ -101,8 +94,6 @@ function makeFmt(currency: "USD" | "JMD") {
     return `${sym}${amt.toLocaleString("en-US", { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`;
   };
 }
-
-// ─── Types ───────────────────────────────────────────────────────────────────
 
 type Page =
   | "login"
@@ -198,9 +189,20 @@ interface CatalogDevice {
   fov?: string;
   operatingTemp?: string;
   msrp?: number;
+  series?: string;
+  minIlluminationColor?: string;
+  minIlluminationBW?: string;
+  opticalZoom?: string;
+  panTiltRange?: string;
+  netd?: string;
+  objectTempRange?: string;
+  audioSupport?: string;
+  inOutPorts?: string;
+  wdr?: string;
+  optimizedIR?: string;
+  specialFeatures?: string;
+  subCategory?: "Box" | "Bullet" | "Dome" | "Panoramic" | "PTZ" | "Thermal";
 }
-
-// ─── Kanban Data ──────────────────────────────────────────────────────────────
 
 interface Column { id: Stage; label: string; color: string; }
 
@@ -417,8 +419,6 @@ const PROJECTS: Project[] = [
   },
 ];
 
-// ─── Quote Data ───────────────────────────────────────────────────────────────
-
 const INITIAL_QUOTE_ITEMS: QuoteItem[] = [
   { id: "q1", name: "Axis P3245-V Fixed Dome Network Camera", sku: "AXI-P3245V", qty: 280, unitPrice: 485 },
   { id: "q2", name: "Axis P5655-E 2MP PTZ Network Camera", sku: "AXI-P5655E", qty: 34, unitPrice: 2890 },
@@ -431,8 +431,6 @@ const INITIAL_QUOTE_ITEMS: QuoteItem[] = [
   { id: "q9", name: "Camera & Device Installation (Labour Days)", sku: "LAB-INST", qty: 48, unitPrice: 1600 },
   { id: "q10", name: "Commissioning, Configuration & Training (Days)", sku: "LAB-COMM", qty: 12, unitPrice: 2200 },
 ];
-
-// ─── Install Data ─────────────────────────────────────────────────────────────
 
 const INITIAL_ZONES: InstallZone[] = [
   { id: "z1", name: "Building Entry & Reception", devices: [
@@ -472,8 +470,6 @@ const INITIAL_ZONES: InstallZone[] = [
   ]},
 ];
 
-// ─── Helpers ──────────────────────────────────────────────────────────────────
-
 function fmtValue(v: number) {
   return v >= 1_000_000 ? `$${(v / 1_000_000).toFixed(2)}M` : `$${(v / 1000).toFixed(0)}K`;
 }
@@ -489,15 +485,13 @@ function fovPath(cx: number, cy: number, rotDeg: number, fovDeg: number, r: numb
   const x2 = cx + r * Math.cos(rot + half), y2 = cy + r * Math.sin(rot + half);
   return `M${cx},${cy} L${x1.toFixed(1)},${y1.toFixed(1)} A${r},${r} 0 0,1 ${x2.toFixed(1)},${y2.toFixed(1)} Z`;
 }
-// ─── Currency Toggle ──────────────────────────────────────────────────────────
-
 function CurrencyToggle() {
   const { currency, setCurrency } = useCurrency();
   return (
     <div className="flex items-center h-8 rounded-xl overflow-hidden" style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.10)" }}>
       {(["USD", "JMD"] as const).map((c) => (
         <button key={c} onClick={() => setCurrency(c)}
-          className="h-full px-2.5 text-[11px] font-bold transition-all"
+          className="h-full px-2.5 text-[11px] font-bold transition-all cursor-pointer active:scale-[0.97] transition-transform"
           style={currency === c
             ? { background: "#3b82f6", color: "#fff", boxShadow: "inset 0 1px 0 rgba(255,255,255,0.18)" }
             : { color: "#8b949e" }}>
@@ -507,8 +501,6 @@ function CurrencyToggle() {
     </div>
   );
 }
-
-// ─── Shared Topbar ────────────────────────────────────────────────────────────
 
 const NAV_ITEMS = [
   { id: "dashboard" as Page, label: "Pipeline" },
@@ -565,7 +557,7 @@ function SearchPalette({ onClose, navigate }: { onClose: () => void; navigate: (
             className="flex-1 bg-transparent text-white text-[14px] placeholder:text-[#484f58] focus:outline-none"
           />
           {query && (
-            <button onClick={() => setQuery("")} className="w-5 h-5 rounded flex items-center justify-center text-[#484f58] hover:text-white">
+            <button onClick={() => setQuery("")} className="w-5 h-5 rounded flex items-center justify-center text-[#484f58] hover:text-white cursor-pointer active:scale-[0.97] transition-transform">
               <X className="w-3.5 h-3.5" />
             </button>
           )}
@@ -578,7 +570,7 @@ function SearchPalette({ onClose, navigate }: { onClose: () => void; navigate: (
               <p className="text-[#484f58] text-[10px] font-bold uppercase tracking-widest mb-1 px-1">Pages</p>
               {pageHits.map(({ label, sub, page, icon: Icon }) => (
                 <button key={page} onClick={() => { navigate(page); onClose(); }}
-                  className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-white/[0.06] transition-colors text-left group">
+                  className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-white/[0.06] transition-colors text-left group cursor-pointer active:scale-[0.97] transition-transform">
                   <div className="w-7 h-7 rounded-lg flex items-center justify-center flex-shrink-0"
                     style={{ background: "rgba(59,130,246,0.15)", border: "1px solid rgba(59,130,246,0.22)" }}>
                     <Icon className="w-3.5 h-3.5 text-blue-400" />
@@ -600,7 +592,7 @@ function SearchPalette({ onClose, navigate }: { onClose: () => void; navigate: (
                 const col = COLUMNS.find((c) => c.id === p.stage)!;
                 return (
                   <button key={p.id} onClick={() => { navigate("project-detail"); onClose(); }}
-                    className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-white/[0.06] transition-colors text-left group">
+                    className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-white/[0.06] transition-colors text-left group cursor-pointer active:scale-[0.97] transition-transform">
                     <div className="w-7 h-7 rounded-full flex items-center justify-center text-[9px] font-bold text-white flex-shrink-0"
                       style={{ background: p.assignee.color, boxShadow: `0 0 10px ${p.assignee.color}44` }}>
                       {p.assignee.initials}
@@ -638,15 +630,15 @@ function AppTopbar({ page, navigate, breadcrumb }: { page: Page; navigate: (p: P
   return (
     <header className="fixed top-0 inset-x-0 z-50 h-14 flex items-center gap-5 px-5"
       style={{ background: "rgba(7,12,26,0.65)", backdropFilter: "blur(40px) saturate(180%)", WebkitBackdropFilter: "blur(40px) saturate(180%)", borderBottom: "1px solid rgba(255,255,255,0.08)", boxShadow: "0 1px 0 rgba(255,255,255,0.04), 0 8px 32px rgba(0,0,0,0.5)" }}>
-      <button onClick={() => navigate("dashboard")} className="flex items-center gap-2.5 flex-shrink-0">
-<img src={logoImg} alt="E-Tech Systems" className="h-7 object-contain" style={{ filter: "brightness(1.1)" }} />
+      <button onClick={() => navigate("dashboard")} className="flex items-center gap-2.5 flex-shrink-0 cursor-pointer active:scale-[0.97] transition-transform">
+        <img src={logoImg} alt="E-Tech Systems" className="h-7 object-contain" style={{ filter: "brightness(1.1)" }} />
       </button>
 
       <div className="w-px h-4 flex-shrink-0" style={{ background: "rgba(255,255,255,0.12)" }} />
 
       {breadcrumb ? (
         <div className="flex items-center gap-2">
-          <button onClick={() => navigate(breadcrumb.parent)} className="flex items-center gap-1.5 text-[#8b949e] hover:text-white text-[12px] font-semibold transition-colors">
+          <button onClick={() => navigate(breadcrumb.parent)} className="flex items-center gap-1.5 text-[#8b949e] hover:text-white text-[12px] font-semibold transition-colors cursor-pointer active:scale-[0.97] transition-transform">
             <ArrowLeft className="w-3.5 h-3.5" />{breadcrumb.label}
           </button>
           <ChevronRight className="w-3.5 h-3.5 text-[#484f58]" />
@@ -656,7 +648,7 @@ function AppTopbar({ page, navigate, breadcrumb }: { page: Page; navigate: (p: P
         <nav className="flex items-center gap-0.5">
           {NAV_ITEMS.map((item) => (
             <button key={item.id} onClick={() => navigate(item.id)}
-              className={clsx("h-8 px-3.5 rounded-xl text-[13px] font-semibold transition-all duration-150",
+              className={clsx("h-8 px-3.5 rounded-xl text-[13px] font-semibold transition-all duration-150 cursor-pointer active:scale-[0.97] transition-transform",
                 activeTab === item.id ? "text-white" : "text-[#8b949e] hover:text-white")}
               style={activeTab === item.id ? { background: "rgba(255,255,255,0.10)", border: "1px solid rgba(255,255,255,0.13)", boxShadow: "inset 0 1px 0 rgba(255,255,255,0.08)" } : undefined}>
               {item.label}
@@ -670,7 +662,7 @@ function AppTopbar({ page, navigate, breadcrumb }: { page: Page; navigate: (p: P
       {showSearch && <SearchPalette onClose={() => setShowSearch(false)} navigate={navigate} />}
       <div className="flex items-center gap-1.5">
         <CurrencyToggle />
-        <button onClick={() => setShowSearch(true)} className="flex items-center gap-2 h-8 px-3 rounded-xl text-[#8b949e] text-[12px] hover:text-white transition-all"
+        <button onClick={() => setShowSearch(true)} className="flex items-center gap-2 h-8 px-3 rounded-xl text-[#8b949e] text-[12px] hover:text-white transition-all cursor-pointer active:scale-[0.97] transition-transform"
           style={G.btn}>
           <Search className="w-3.5 h-3.5" />
           <span>Search…</span>
@@ -678,7 +670,7 @@ function AppTopbar({ page, navigate, breadcrumb }: { page: Page; navigate: (p: P
         </button>
         <div className="relative">
           <button onClick={() => { setShowNotifications(!showNotifications); setShowSettings(false); }}
-            className="relative w-8 h-8 rounded-xl hover:bg-white/[0.06] flex items-center justify-center transition-colors">
+            className="relative w-8 h-8 rounded-xl hover:bg-white/[0.06] flex items-center justify-center transition-colors cursor-pointer active:scale-[0.97] transition-transform">
             <Bell className={clsx("w-4 h-4 transition-colors", showNotifications ? "text-white" : "text-[#8b949e]")} />
             <span className="absolute top-1.5 right-1.5 w-[5px] h-[5px] rounded-full bg-blue-500" style={{ boxShadow: "0 0 6px #3b82f6" }} />
           </button>
@@ -699,7 +691,7 @@ function AppTopbar({ page, navigate, breadcrumb }: { page: Page; navigate: (p: P
                   { icon: Star, color: "text-violet-400", bg: "rgba(139,92,246,0.12)", title: "New project won", body: "Lakeside University · $398K Phase 1 complete", time: "2 days ago" },
                 ].map((n, i) => (
                   <button key={i} onClick={() => setShowNotifications(false)}
-                    className="w-full flex items-start gap-3 px-4 py-3 hover:bg-white/[0.04] transition-colors text-left"
+                    className="w-full flex items-start gap-3 px-4 py-3 hover:bg-white/[0.04] transition-colors text-left cursor-pointer active:scale-[0.97] transition-transform"
                     style={{ borderBottom: "1px solid rgba(255,255,255,0.04)" }}>
                     <div className="w-7 h-7 rounded-xl flex items-center justify-center flex-shrink-0 mt-0.5"
                       style={{ background: n.bg }}>
@@ -713,7 +705,7 @@ function AppTopbar({ page, navigate, breadcrumb }: { page: Page; navigate: (p: P
                   </button>
                 ))}
                 <div className="px-4 py-2.5">
-                  <button className="w-full text-center text-blue-400 text-[12px] font-semibold hover:text-blue-300 transition-colors">
+                  <button className="w-full text-center text-blue-400 text-[12px] font-semibold hover:text-blue-300 transition-colors cursor-pointer active:scale-[0.97] transition-transform">
                     Mark all as read
                   </button>
                 </div>
@@ -723,7 +715,7 @@ function AppTopbar({ page, navigate, breadcrumb }: { page: Page; navigate: (p: P
         </div>
         <div className="relative">
           <button onClick={() => { setShowSettings(!showSettings); setShowNotifications(false); }}
-            className="w-8 h-8 rounded-xl hover:bg-white/[0.06] flex items-center justify-center transition-colors">
+            className="w-8 h-8 rounded-xl hover:bg-white/[0.06] flex items-center justify-center transition-colors cursor-pointer active:scale-[0.97] transition-transform">
             <Settings className={clsx("w-4 h-4 transition-colors", showSettings ? "text-white" : "text-[#8b949e]")} />
           </button>
           {showSettings && (
@@ -746,7 +738,7 @@ function AppTopbar({ page, navigate, breadcrumb }: { page: Page; navigate: (p: P
                         <p className="text-white text-[12px] font-semibold">{s.label}</p>
                         <p className="text-[#484f58] text-[10px]">{s.sub}</p>
                       </div>
-                      <div className={clsx("w-8 h-4.5 rounded-full transition-colors flex items-center px-0.5 cursor-pointer",
+                      <div className={clsx("w-8 h-4.5 rounded-full transition-colors flex items-center px-0.5 cursor-pointer active:scale-[0.97] transition-transform",
                         s.on ? "bg-blue-500" : "bg-white/[0.10]")} style={{ height: "18px" }}>
                         <div className={clsx("w-3.5 h-3.5 rounded-full bg-white transition-transform shadow-sm",
                           s.on ? "translate-x-3" : "translate-x-0")} />
@@ -756,7 +748,7 @@ function AppTopbar({ page, navigate, breadcrumb }: { page: Page; navigate: (p: P
                 </div>
                 <div className="px-4 py-3" style={{ borderTop: "1px solid rgba(255,255,255,0.07)" }}>
                   <button onClick={() => { setShowSettings(false); navigate("login"); }}
-                    className="w-full flex items-center gap-2 text-rose-400 text-[12px] font-semibold hover:text-rose-300 transition-colors">
+                    className="w-full flex items-center gap-2 text-rose-400 text-[12px] font-semibold hover:text-rose-300 transition-colors cursor-pointer active:scale-[0.97] transition-transform">
                     <X className="w-3.5 h-3.5" /> Sign out
                   </button>
                 </div>
@@ -764,7 +756,7 @@ function AppTopbar({ page, navigate, breadcrumb }: { page: Page; navigate: (p: P
             </>
           )}
         </div>
-        <button onClick={() => navigate("login")} className="flex items-center gap-2 h-8 pl-1.5 pr-2.5 rounded-xl hover:bg-white/[0.06] transition-colors ml-1">
+        <button onClick={() => navigate("login")} className="flex items-center gap-2 h-8 pl-1.5 pr-2.5 rounded-xl hover:bg-white/[0.06] transition-colors ml-1 cursor-pointer active:scale-[0.97] transition-transform">
           <div className="w-6 h-6 rounded-full flex items-center justify-center text-white text-[9px] font-bold flex-shrink-0"
             style={{ background: "linear-gradient(135deg, #3b82f6, #8b5cf6)", boxShadow: "0 0 12px rgba(139,92,246,0.5)" }}>
             MW
@@ -776,8 +768,6 @@ function AppTopbar({ page, navigate, breadcrumb }: { page: Page; navigate: (p: P
     </header>
   );
 }
-
-// ─── Deal Modal ───────────────────────────────────────────────────────────────
 
 function DealModal({ project, column, onClose, navigate }: { project: Project; column: Column; onClose: () => void; navigate: (p: Page) => void }) {
   const [tab, setTab] = useState<"overview" | "contact" | "notes">("overview");
@@ -818,7 +808,7 @@ function DealModal({ project, column, onClose, navigate }: { project: Project; c
                 <Building2 className="w-3.5 h-3.5 flex-shrink-0" />{project.client}
               </p>
             </div>
-            <button onClick={onClose} className="w-8 h-8 rounded-xl flex items-center justify-center flex-shrink-0 mt-0.5 hover:bg-white/[0.08] transition-colors"
+            <button onClick={onClose} className="w-8 h-8 rounded-xl flex items-center justify-center flex-shrink-0 mt-0.5 hover:bg-white/[0.08] transition-colors cursor-pointer active:scale-[0.97] transition-transform"
               style={{ border: "1px solid rgba(255,255,255,0.10)" }}>
               <X className="w-4 h-4 text-[#8b949e]" />
             </button>
@@ -840,7 +830,7 @@ function DealModal({ project, column, onClose, navigate }: { project: Project; c
         <div className="flex items-center gap-0.5 px-7 mb-0" style={{ borderBottom: "1px solid rgba(255,255,255,0.07)" }}>
           {(["overview", "contact", "notes"] as const).map((t) => (
             <button key={t} onClick={() => setTab(t)}
-              className={clsx("h-9 px-3.5 text-[12px] font-semibold capitalize border-b-2 transition-all -mb-px",
+              className={clsx("h-9 px-3.5 text-[12px] font-semibold capitalize border-b-2 transition-all -mb-px cursor-pointer active:scale-[0.97] transition-transform",
                 tab === t ? "border-blue-500 text-white" : "border-transparent text-[#8b949e] hover:text-white")}>
               {t === "notes" ? "Notes & Summary" : t.charAt(0).toUpperCase() + t.slice(1)}
             </button>
@@ -980,17 +970,17 @@ function DealModal({ project, column, onClose, navigate }: { project: Project; c
 
         <div className="px-7 pb-7 flex gap-2.5">
           <button onClick={() => { navigate("project-detail"); onClose(); }}
-            className="flex-1 h-10 rounded-xl flex items-center justify-center gap-2 text-white text-[13px] font-bold transition-all duration-150"
+            className="flex-1 h-10 rounded-xl flex items-center justify-center gap-2 text-white text-[13px] font-bold transition-all duration-150 cursor-pointer active:scale-[0.97] transition-transform"
             style={{ background: "#3b82f6", boxShadow: "0 4px 20px rgba(59,130,246,0.4), inset 0 1px 0 rgba(255,255,255,0.2)" }}>
             <ExternalLink className="w-3.5 h-3.5" />Open Project
           </button>
           <button onClick={() => { navigate("design-canvas"); onClose(); }}
-            className="flex-1 h-10 rounded-xl flex items-center justify-center gap-2 text-[#e6edf3] text-[13px] font-bold transition-all duration-150 hover:bg-white/[0.12]"
+            className="flex-1 h-10 rounded-xl flex items-center justify-center gap-2 text-[#e6edf3] text-[13px] font-bold transition-all duration-150 hover:bg-white/[0.12] cursor-pointer active:scale-[0.97] transition-transform"
             style={G.btn}>
             <Layers className="w-3.5 h-3.5 text-violet-400" />Design
           </button>
           <button onClick={() => { navigate("quote-builder"); onClose(); }}
-            className="flex-1 h-10 rounded-xl flex items-center justify-center gap-2 text-[#e6edf3] text-[13px] font-bold transition-all duration-150 hover:bg-white/[0.12]"
+            className="flex-1 h-10 rounded-xl flex items-center justify-center gap-2 text-[#e6edf3] text-[13px] font-bold transition-all duration-150 hover:bg-white/[0.12] cursor-pointer active:scale-[0.97] transition-transform"
             style={G.btn}>
             <DollarSign className="w-3.5 h-3.5 text-blue-400" />Quote
           </button>
@@ -999,9 +989,6 @@ function DealModal({ project, column, onClose, navigate }: { project: Project; c
     </div>
   );
 }
-
-// ─── Kanban Card ──────────────────────────────────────────────────────────────
-
 function KanbanCard({ project, column, dragging, onDragStart, onDragEnd, onClick, onDelete }: {
   project: Project; column: Column; dragging: string | null;
   onDragStart: (e: React.DragEvent<HTMLDivElement>, id: string) => void;
@@ -1033,7 +1020,7 @@ function KanbanCard({ project, column, dragging, onDragStart, onDragEnd, onClick
           <h3 className="text-white text-[13px] font-semibold leading-snug flex-1 min-w-0">{project.name}</h3>
           <div className="relative flex-shrink-0">
             <button onClick={(e) => { e.stopPropagation(); setMenuOpen(!menuOpen); }}
-              className="opacity-0 group-hover:opacity-100 transition-opacity w-6 h-6 rounded-lg hover:bg-white/10 flex items-center justify-center mt-0.5">
+              className="opacity-0 group-hover:opacity-100 transition-opacity w-6 h-6 rounded-lg hover:bg-white/10 flex items-center justify-center mt-0.5 cursor-pointer active:scale-[0.97] transition-transform">
               <MoreHorizontal className="w-3.5 h-3.5 text-[#8b949e]" />
             </button>
             {menuOpen && (
@@ -1042,7 +1029,7 @@ function KanbanCard({ project, column, dragging, onDragStart, onDragEnd, onClick
                 <div className="absolute right-0 top-7 z-20 w-40 rounded-xl overflow-hidden py-1"
                   style={{ background: "rgba(7,12,26,0.97)", border: "1px solid rgba(255,255,255,0.12)", boxShadow: "0 8px 32px rgba(0,0,0,0.8)", backdropFilter: "blur(20px)", WebkitBackdropFilter: "blur(20px)" }}>
                   <button onClick={(e) => { e.stopPropagation(); onDelete(project.id); setMenuOpen(false); toast.success("Project deleted"); }}
-                    className="w-full flex items-center gap-2.5 px-3 py-2 text-rose-400 text-[12px] font-semibold hover:bg-rose-500/10 transition-colors text-left">
+                    className="w-full flex items-center gap-2.5 px-3 py-2 text-rose-400 text-[12px] font-semibold hover:bg-rose-500/10 transition-colors text-left cursor-pointer active:scale-[0.97] transition-transform">
                     <Trash2 className="w-3.5 h-3.5" /> Delete project
                   </button>
                 </div>
@@ -1086,8 +1073,6 @@ function KanbanCard({ project, column, dragging, onDragStart, onDragEnd, onClick
   );
 }
 
-// ─── Kanban Column ────────────────────────────────────────────────────────────
-
 function KanbanColumn({ column, projects, totalValue, dragging, isOver, onDragStart, onDragEnd, onDragOver, onDragLeave, onDrop, onCardClick, onDelete }: {
   column: Column; projects: Project[]; totalValue: number; dragging: string | null; isOver: boolean;
   onDragStart: (e: React.DragEvent<HTMLDivElement>, id: string) => void;
@@ -1110,7 +1095,7 @@ function KanbanColumn({ column, projects, totalValue, dragging, isOver, onDragSt
               style={{ background: "rgba(255,255,255,0.08)", border: "1px solid rgba(255,255,255,0.10)" }}>
               {projects.length}
             </span>
-            <button className="w-5 h-5 rounded-lg hover:bg-white/[0.08] flex items-center justify-center transition-colors">
+            <button className="w-5 h-5 rounded-lg hover:bg-white/[0.08] flex items-center justify-center transition-colors cursor-pointer active:scale-[0.97] transition-transform">
               <Plus className="w-3 h-3 text-[#484f58]" />
             </button>
           </div>
@@ -1127,7 +1112,6 @@ function KanbanColumn({ column, projects, totalValue, dragging, isOver, onDragSt
     </div>
   );
 }
-// ─── New Project Modal ────────────────────────────────────────────────────────
 
 const ASSIGNEES = [
   { name: "Donovan", initials: "DV", color: "#8b5cf6" },
@@ -1199,7 +1183,7 @@ function NewProjectModal({ onClose, onAdd }: { onClose: () => void; onAdd: (p: P
             <h2 className="text-white text-[1.1rem] font-bold tracking-tight">New Project</h2>
             <p className="text-[#8b949e] text-[12px] mt-0.5">Add a new project to the pipeline</p>
           </div>
-          <button onClick={onClose} className="w-8 h-8 rounded-xl flex items-center justify-center hover:bg-white/[0.08] transition-colors"
+          <button onClick={onClose} className="w-8 h-8 rounded-xl flex items-center justify-center hover:bg-white/[0.08] transition-colors cursor-pointer active:scale-[0.97] transition-transform"
             style={{ border: "1px solid rgba(255,255,255,0.10)" }}>
             <X className="w-4 h-4 text-[#8b949e]" />
           </button>
@@ -1264,7 +1248,7 @@ function NewProjectModal({ onClose, onAdd }: { onClose: () => void; onAdd: (p: P
               <div className="flex flex-wrap gap-2">
                 {ASSIGNEES.map((a, i) => (
                   <button key={a.name} type="button" onClick={() => setAssigneeIdx(i)}
-                    className="flex items-center gap-2 h-9 px-3 rounded-xl transition-all"
+                    className="flex items-center gap-2 h-9 px-3 rounded-xl transition-all cursor-pointer active:scale-[0.97] transition-transform"
                     style={assigneeIdx === i ? { background: `${a.color}22`, border: `1px solid ${a.color}55` } : G.subtle}>
                     <div className="w-5 h-5 rounded-full flex items-center justify-center text-[9px] font-bold text-white flex-shrink-0"
                       style={{ background: a.color }}>
@@ -1310,12 +1294,12 @@ function NewProjectModal({ onClose, onAdd }: { onClose: () => void; onAdd: (p: P
 
           <div className="px-7 pb-7 pt-4 flex gap-3" style={{ borderTop: "1px solid rgba(255,255,255,0.07)" }}>
             <button type="button" onClick={onClose}
-              className="flex-1 h-10 rounded-xl text-[#8b949e] text-[13px] font-semibold hover:text-white transition-all"
+              className="flex-1 h-10 rounded-xl text-[#8b949e] text-[13px] font-semibold hover:text-white transition-all cursor-pointer active:scale-[0.97] transition-transform"
               style={G.btn}>
               Cancel
             </button>
             <button type="submit" disabled={!canSubmit}
-              className="flex-1 h-10 rounded-xl text-white text-[13px] font-bold transition-all disabled:opacity-40 disabled:cursor-not-allowed"
+              className="flex-1 h-10 rounded-xl text-white text-[13px] font-bold transition-all disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer active:scale-[0.97] transition-transform"
               style={{ background: "#3b82f6", boxShadow: canSubmit ? "0 4px 20px rgba(59,130,246,0.4), inset 0 1px 0 rgba(255,255,255,0.2)" : "none" }}>
               Add to Pipeline
             </button>
@@ -1325,8 +1309,6 @@ function NewProjectModal({ onClose, onAdd }: { onClose: () => void; onAdd: (p: P
     </div>
   );
 }
-
-// ─── Upload Floor Plan Modal ──────────────────────────────────────────────────
 
 function UploadFloorPlanModal({ onClose }: { onClose: () => void }) {
   const [dragOver, setDragOver] = useState(false);
@@ -1366,7 +1348,7 @@ function UploadFloorPlanModal({ onClose }: { onClose: () => void }) {
             <h2 className="text-white text-[1rem] font-bold">Upload Floor Plan</h2>
             <p className="text-[#8b949e] text-[12px] mt-0.5">Upload a floor plan or mockup to start designing</p>
           </div>
-          <button onClick={onClose} className="w-8 h-8 rounded-xl flex items-center justify-center hover:bg-white/[0.08]"
+          <button onClick={onClose} className="w-8 h-8 rounded-xl flex items-center justify-center hover:bg-white/[0.08] cursor-pointer active:scale-[0.97] transition-transform"
             style={{ border: "1px solid rgba(255,255,255,0.10)" }}>
             <X className="w-4 h-4 text-[#8b949e]" />
           </button>
@@ -1405,12 +1387,12 @@ function UploadFloorPlanModal({ onClose }: { onClose: () => void }) {
 
           <div className="flex gap-3 mt-5">
             <button onClick={onClose}
-              className="flex-1 h-10 rounded-xl text-[#8b949e] text-[13px] font-semibold hover:text-white transition-all"
+              className="flex-1 h-10 rounded-xl text-[#8b949e] text-[13px] font-semibold hover:text-white transition-all cursor-pointer active:scale-[0.97] transition-transform"
               style={G.btn}>
               Cancel
             </button>
             <button onClick={handleUpload} disabled={!file}
-              className="flex-1 h-10 rounded-xl text-white text-[13px] font-bold transition-all disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+              className="flex-1 h-10 rounded-xl text-white text-[13px] font-bold transition-all disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center gap-2 cursor-pointer active:scale-[0.97] transition-transform"
               style={{ background: "#8b5cf6", boxShadow: file ? "0 4px 20px rgba(139,92,246,0.4), inset 0 1px 0 rgba(255,255,255,0.2)" : "none" }}>
               <Upload className="w-3.5 h-3.5" /> Upload & Open Canvas
             </button>
@@ -1420,8 +1402,6 @@ function UploadFloorPlanModal({ onClose }: { onClose: () => void }) {
     </div>
   );
 }
-
-// ─── Select Project Modal ─────────────────────────────────────────────────────
 
 function SelectProjectModal({ onClose, onSelect, currentId }: { onClose: () => void; onSelect: (id: string) => void; currentId: string }) {
   const [search, setSearch] = useState("");
@@ -1446,7 +1426,7 @@ function SelectProjectModal({ onClose, onSelect, currentId }: { onClose: () => v
             <h2 className="text-white text-[1rem] font-bold">Select Project</h2>
             <p className="text-[#8b949e] text-[12px] mt-0.5">Choose which project this quote is for</p>
           </div>
-          <button onClick={onClose} className="w-8 h-8 rounded-xl flex items-center justify-center hover:bg-white/[0.08]"
+          <button onClick={onClose} className="w-8 h-8 rounded-xl flex items-center justify-center hover:bg-white/[0.08] cursor-pointer active:scale-[0.97] transition-transform"
             style={{ border: "1px solid rgba(255,255,255,0.10)" }}>
             <X className="w-4 h-4 text-[#8b949e]" />
           </button>
@@ -1470,7 +1450,7 @@ function SelectProjectModal({ onClose, onSelect, currentId }: { onClose: () => v
             <button
               key={p.id}
               onClick={() => { onSelect(p.id); onClose(); }}
-              className="w-full flex items-center gap-3 px-5 py-3 hover:bg-white/[0.04] transition-colors text-left"
+              className="w-full flex items-center gap-3 px-5 py-3 hover:bg-white/[0.04] transition-colors text-left cursor-pointer active:scale-[0.97] transition-transform"
               style={{ borderBottom: "1px solid rgba(255,255,255,0.04)", background: p.id === currentId ? "rgba(59,130,246,0.06)" : "transparent" }}>
               <div className="w-8 h-8 rounded-xl flex items-center justify-center text-[10px] font-bold text-white flex-shrink-0"
                 style={{ background: p.assignee.color, boxShadow: `0 0 10px ${p.assignee.color}44` }}>
@@ -1492,9 +1472,6 @@ function SelectProjectModal({ onClose, onSelect, currentId }: { onClose: () => v
     </div>
   );
 }
-
-// ─── Dashboard ────────────────────────────────────────────────────────────────
-
 function Dashboard({ navigate }: { navigate: (p: Page) => void }) {
   const { fmt } = useCurrency();
   const [projects, setProjects] = useState<Project[]>(PROJECTS);
@@ -1557,7 +1534,7 @@ function Dashboard({ navigate }: { navigate: (p: Page) => void }) {
             <p className="text-[#8b949e] text-[13px] mt-0.5">{projects.length} projects · FY 2026 · Q3</p>
           </div>
           <div className="flex items-center gap-2">
-            <button onClick={() => setShowNewProject(true)} className="flex items-center gap-1.5 h-8 px-4 rounded-xl text-white text-[12px] font-bold transition-colors"
+            <button onClick={() => setShowNewProject(true)} className="flex items-center gap-1.5 h-8 px-4 rounded-xl text-white text-[12px] font-bold transition-colors cursor-pointer active:scale-[0.97] transition-transform"
               style={{ background: "#3b82f6", boxShadow: "0 4px 16px rgba(59,130,246,0.35), inset 0 1px 0 rgba(255,255,255,0.2)" }}>
               <Plus className="w-3.5 h-3.5" /> New Project
             </button>
@@ -1572,13 +1549,13 @@ function Dashboard({ navigate }: { navigate: (p: Page) => void }) {
           ].map((stat, i) => (
             <div key={stat.label} className="rounded-2xl p-4 transition-all duration-200 hover:-translate-y-0.5" style={G.card}>
               <div className="flex items-center justify-between mb-3">
-              <span className="text-[#8b949e] text-[12px] font-extrabold uppercase tracking-[0.12em]">{stat.label}</span>
-            <div className="w-8 h-8 rounded-xl flex items-center justify-center"
+                <span className="text-[#8b949e] text-[12px] font-extrabold uppercase tracking-[0.12em]">{stat.label}</span>
+                <div className="w-8 h-8 rounded-xl flex items-center justify-center"
                   style={{ background: `${STAT_COLORS[i]}18`, border: `1px solid ${STAT_COLORS[i]}30` }}>
                   <stat.icon className="w-3.5 h-3.5" style={{ color: STAT_COLORS[i] }} />
                 </div>
               </div>
-<p className="text-white text-[2rem] font-extrabold tracking-tight leading-none mb-1.5">
+              <p className="text-white text-[2rem] font-extrabold tracking-tight leading-none mb-1.5">
                 {stat.isPct ? `${stat.value}%` : fmt(stat.value as number, stat.compact)}
               </p>
               <div className="flex items-center justify-between">
@@ -1613,8 +1590,6 @@ function Dashboard({ navigate }: { navigate: (p: Page) => void }) {
     </div>
   );
 }
-
-// ─── Mini Floor Plan ──────────────────────────────────────────────────────────
 
 function MiniFloorPlan({ project }: { project: Project }) {
   const hasDesign = ["design", "proposal", "negotiation", "win"].includes(project.stage);
@@ -1679,8 +1654,6 @@ function MiniFloorPlan({ project }: { project: Project }) {
   );
 }
 
-// ─── Stage badge ──────────────────────────────────────────────────────────────
-
 function stageBadge(stage: Stage) {
   const map: Record<Stage, { label: string; cls: string }> = {
     "assessment-scheduled": { label: "Assessment", cls: "bg-amber-500/12 text-amber-400" },
@@ -1693,8 +1666,6 @@ function stageBadge(stage: Stage) {
   };
   return map[stage];
 }
-
-// ─── System Design Studio ─────────────────────────────────────────────────────
 
 function DesignStudio({ navigate }: { navigate: (p: Page) => void }) {
   const { fmt } = useCurrency();
@@ -1730,7 +1701,7 @@ function DesignStudio({ navigate }: { navigate: (p: Page) => void }) {
           <div className="flex items-center rounded-xl p-0.5 gap-0.5" style={G.btn}>
             {(["grid", "list"] as const).map((m) => (
               <button key={m} onClick={() => setViewMode(m)}
-                className={clsx("w-7 h-7 rounded-lg flex items-center justify-center transition-all",
+                className={clsx("w-7 h-7 rounded-lg flex items-center justify-center transition-all cursor-pointer active:scale-[0.97] transition-transform",
                   viewMode === m ? "text-white" : "text-[#484f58] hover:text-[#8b949e]")}
                 style={viewMode === m ? { background: "rgba(255,255,255,0.12)", boxShadow: "inset 0 1px 0 rgba(255,255,255,0.10)" } : undefined}>
                 {m === "grid" ? <Grid3x3 className="w-3.5 h-3.5" /> : <List className="w-3.5 h-3.5" />}
@@ -1738,7 +1709,7 @@ function DesignStudio({ navigate }: { navigate: (p: Page) => void }) {
             ))}
           </div>
           <button onClick={() => setShowUploadModal(true)}
-            className="flex items-center gap-1.5 h-8 px-4 rounded-xl text-white text-[12px] font-bold"
+            className="flex items-center gap-1.5 h-8 px-4 rounded-xl text-white text-[12px] font-bold cursor-pointer active:scale-[0.97] transition-transform"
             style={{ background: "#3b82f6", boxShadow: "0 4px 16px rgba(59,130,246,0.35), inset 0 1px 0 rgba(255,255,255,0.2)" }}>
             <Plus className="w-3.5 h-3.5" /> New Design
           </button>
@@ -1748,7 +1719,7 @@ function DesignStudio({ navigate }: { navigate: (p: Page) => void }) {
       <div className="flex items-center gap-2 mb-5 flex-wrap">
         {stageFilters.map((f) => (
           <button key={f.id} onClick={() => setFilter(f.id)}
-            className={clsx("h-7 px-3 rounded-full text-[12px] font-semibold transition-all",
+            className={clsx("h-7 px-3 rounded-full text-[12px] font-semibold transition-all cursor-pointer active:scale-[0.97] transition-transform",
               filter === f.id ? "text-white" : "text-[#8b949e] hover:text-white")}
             style={filter === f.id ? { background: "#3b82f6", boxShadow: "0 2px 12px rgba(59,130,246,0.3)" } : G.subtle}>
             {f.label}
@@ -1780,12 +1751,12 @@ function DesignStudio({ navigate }: { navigate: (p: Page) => void }) {
                     <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2"
                       style={{ background: "rgba(0,0,0,0.5)", backdropFilter: "blur(4px)" }}>
                       <button onClick={(e) => { e.stopPropagation(); navigate("design-canvas"); }}
-                        className="h-7 px-3 rounded-xl text-white text-[11px] font-bold flex items-center gap-1.5"
+                        className="h-7 px-3 rounded-xl text-white text-[11px] font-bold flex items-center gap-1.5 cursor-pointer active:scale-[0.97] transition-transform"
                         style={{ background: "#3b82f6", boxShadow: "0 4px 16px rgba(59,130,246,0.4)" }}>
                         <Eye className="w-3 h-3" /> Open
                       </button>
                       <button onClick={(e) => { e.stopPropagation(); downloadCSV(`${project.name.replace(/[^a-z0-9]/gi,"_")}.csv`, [["Name","Client","Stage","Value","Cameras","Devices","Location","Due Date"],[project.name,project.client,project.stage,String(project.value),String(project.cameras),String(project.devices),project.location,project.dueDate]]); toast.success("Exported project data"); }}
-                        className="h-7 px-3 rounded-xl text-white text-[11px] font-bold flex items-center gap-1.5"
+                        className="h-7 px-3 rounded-xl text-white text-[11px] font-bold flex items-center gap-1.5 cursor-pointer active:scale-[0.97] transition-transform"
                         style={{ background: "rgba(255,255,255,0.15)", border: "1px solid rgba(255,255,255,0.2)" }}>
                         <Download className="w-3 h-3" /> Export
                       </button>
@@ -1807,7 +1778,7 @@ function DesignStudio({ navigate }: { navigate: (p: Page) => void }) {
                         {project.assignee.initials}
                       </div>
                       <button onClick={(e) => { e.stopPropagation(); handleDelete(project.id); }}
-                        className="w-6 h-6 rounded-lg flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity hover:bg-rose-500/20"
+                        className="w-6 h-6 rounded-lg flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity hover:bg-rose-500/20 cursor-pointer active:scale-[0.97] transition-transform"
                         title="Delete project">
                         <Trash2 className="w-3 h-3 text-rose-400" />
                       </button>
@@ -1841,7 +1812,7 @@ function DesignStudio({ navigate }: { navigate: (p: Page) => void }) {
                 <span className={clsx("text-[10px] font-bold px-2 py-0.5 rounded-full w-fit", badge.cls)}>{badge.label}</span>
                 <p className="text-white text-[13px] font-bold">{fmt(project.value, true)}</p>
                 <button onClick={() => handleDelete(project.id)}
-                  className="w-6 h-6 rounded-lg flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity hover:bg-rose-500/20">
+                  className="w-6 h-6 rounded-lg flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity hover:bg-rose-500/20 cursor-pointer active:scale-[0.97] transition-transform">
                   <Trash2 className="w-3 h-3 text-rose-400" />
                 </button>
               </div>
@@ -1852,9 +1823,6 @@ function DesignStudio({ navigate }: { navigate: (p: Page) => void }) {
     </div>
   );
 }
-
-// ─── Project Detail ───────────────────────────────────────────────────────────
-
 const CASINO = PROJECTS.find((p) => p.id === "p13")!;
 const AUDIT_LOG = [
   { id: "a1", action: "Quote v3 approved by client", user: "Marcus Webb", time: "2 hours ago", type: "approval" },
@@ -1896,7 +1864,7 @@ function ProjectDetail({ navigate }: { navigate: (p: Page) => void }) {
             { label: "Reports", icon: FileText, color: "text-cyan-400", action: undefined },
           ].map(({ label, icon: Icon, color, action }) => (
             <button key={label} onClick={action}
-              className="flex items-center gap-1.5 h-9 px-4 rounded-xl text-white text-[12px] font-semibold transition-all hover:bg-white/[0.10]"
+              className="flex items-center gap-1.5 h-9 px-4 rounded-xl text-white text-[12px] font-semibold transition-all hover:bg-white/[0.10] cursor-pointer active:scale-[0.97] transition-transform"
               style={G.btn}>
               <Icon className={clsx("w-3.5 h-3.5", color)} /> {label}
             </button>
@@ -1915,7 +1883,7 @@ function ProjectDetail({ navigate }: { navigate: (p: Page) => void }) {
           <div key={s.label} className="rounded-2xl p-4" style={G.card}>
             <div className="flex items-center justify-between mb-3">
               <span className="text-[#8b949e] text-[10px] font-bold uppercase tracking-[0.09em]">{s.label}</span>
-        <div className="w-8 h-8 rounded-xl flex items-center justify-center"
+              <div className="w-7 h-7 rounded-xl flex items-center justify-center"
                 style={{ background: `${s.color}18`, border: `1px solid ${s.color}30` }}>
                 <s.icon className="w-3.5 h-3.5" style={{ color: s.color }} />
               </div>
@@ -1928,7 +1896,7 @@ function ProjectDetail({ navigate }: { navigate: (p: Page) => void }) {
       <div className="flex items-center gap-0.5 mb-5" style={{ borderBottom: "1px solid rgba(255,255,255,0.07)" }}>
         {tabs.map((tab) => (
           <button key={tab} onClick={() => setActiveTab(tab)}
-            className={clsx("h-10 px-4 text-[13px] font-semibold border-b-2 transition-all -mb-px",
+            className={clsx("h-10 px-4 text-[13px] font-semibold border-b-2 transition-all -mb-px cursor-pointer active:scale-[0.97] transition-transform",
               activeTab === tab ? "border-blue-500 text-white" : "border-transparent text-[#8b949e] hover:text-white")}>
             {tabLabels[tab]}
           </button>
@@ -1991,7 +1959,7 @@ function ProjectDetail({ navigate }: { navigate: (p: Page) => void }) {
                   { label: "Assessment Report", icon: FileText, color: "text-cyan-400" },
                   { label: "As-Built Draft", icon: Download, color: "text-emerald-400" },
                 ].map((link) => (
-                  <button key={link.label} className="w-full flex items-center gap-2.5 h-8 px-3 rounded-xl hover:bg-white/[0.05] transition-colors text-left">
+                  <button key={link.label} className="w-full flex items-center gap-2.5 h-8 px-3 rounded-xl hover:bg-white/[0.05] transition-colors text-left cursor-pointer active:scale-[0.97] transition-transform">
                     <link.icon className={clsx("w-3.5 h-3.5 flex-shrink-0", link.color)} />
                     <span className="text-[#8b949e] text-[12px] font-medium hover:text-white transition-colors">{link.label}</span>
                   </button>
@@ -2023,7 +1991,7 @@ function ProjectDetail({ navigate }: { navigate: (p: Page) => void }) {
                 <span className={clsx("text-[10px] font-bold px-2 py-0.5 rounded-full", q.status === "Pending Approval" ? "bg-amber-500/12 text-amber-400" : "bg-white/[0.05] text-[#484f58]")}>{q.status}</span>
                 <p className="text-white font-bold text-[15px]">{fmt(q.value, true)}</p>
                 <button onClick={() => navigate("quote-builder")}
-                  className="h-8 px-3 rounded-xl text-[#8b949e] text-[12px] font-semibold hover:text-white transition-all opacity-0 group-hover:opacity-100"
+                  className="h-8 px-3 rounded-xl text-[#8b949e] text-[12px] font-semibold hover:text-white transition-all opacity-0 group-hover:opacity-100 cursor-pointer active:scale-[0.97] transition-transform"
                   style={G.btn}>Open</button>
               </div>
             </div>
@@ -2084,7 +2052,6 @@ function ProjectDetail({ navigate }: { navigate: (p: Page) => void }) {
     </div>
   );
 }
-// ─── Design Canvas ────────────────────────────────────────────────────────────
 
 const CANVAS_CAMERAS = [
   { id: "cam1", x: 118, y: 68, rot: 135, fov: 80, range: 90, label: "CAM-01 Reception NW", selected: false },
@@ -2149,7 +2116,7 @@ function DesignCanvas({ navigate }: { navigate: (p: Page) => void }) {
     <div className="fixed inset-0 flex flex-col" style={{ background: "#070c1a" }}>
       <header className="h-12 flex items-center gap-4 px-4 flex-shrink-0 z-40"
         style={{ ...panelStyle, borderBottom: "1px solid rgba(255,255,255,0.08)", boxShadow: "0 1px 0 rgba(255,255,255,0.04), 0 4px 24px rgba(0,0,0,0.5)" }}>
-        <button onClick={() => navigate("project-detail")} className="flex items-center gap-1.5 text-[#8b949e] hover:text-white text-[12px] font-semibold transition-colors flex-shrink-0">
+        <button onClick={() => navigate("project-detail")} className="flex items-center gap-1.5 text-[#8b949e] hover:text-white text-[12px] font-semibold transition-colors flex-shrink-0 cursor-pointer active:scale-[0.97] transition-transform">
           <ArrowLeft className="w-3.5 h-3.5" /> Back
         </button>
         <div className="w-px h-4 flex-shrink-0" style={{ background: "rgba(255,255,255,0.10)" }} />
@@ -2164,26 +2131,26 @@ function DesignCanvas({ navigate }: { navigate: (p: Page) => void }) {
         </div>
         <div className="flex-1" />
         <button onClick={() => setShowFov(!showFov)}
-          className={clsx("flex items-center gap-1.5 h-7 px-3 rounded-xl text-[11px] font-semibold transition-all",
+          className={clsx("flex items-center gap-1.5 h-7 px-3 rounded-xl text-[11px] font-semibold transition-all cursor-pointer active:scale-[0.97] transition-transform",
             showFov ? "text-blue-400" : "text-[#8b949e] hover:text-white")}
           style={showFov ? { background: "rgba(59,130,246,0.15)", border: "1px solid rgba(59,130,246,0.30)" } : G.btn}>
           <Eye className="w-3 h-3" /> Show FOV
         </button>
         <button onClick={() => setShowDeviceTray(!showDeviceTray)}
-          className={clsx("flex items-center gap-1.5 h-7 px-3 rounded-xl text-[11px] font-semibold transition-all",
+          className={clsx("flex items-center gap-1.5 h-7 px-3 rounded-xl text-[11px] font-semibold transition-all cursor-pointer active:scale-[0.97] transition-transform",
             showDeviceTray ? "text-white" : "text-[#8b949e] hover:text-white")}
           style={G.btn}>
           <Package className="w-3 h-3" /> Devices
         </button>
         <div className="flex items-center gap-1 rounded-xl p-0.5" style={G.btn}>
-          <button className="w-7 h-7 rounded-lg hover:bg-white/[0.08] flex items-center justify-center transition-colors"><ZoomOut className="w-3.5 h-3.5 text-[#8b949e]" /></button>
+          <button className="w-7 h-7 rounded-lg hover:bg-white/[0.08] flex items-center justify-center transition-colors cursor-pointer active:scale-[0.97] transition-transform"><ZoomOut className="w-3.5 h-3.5 text-[#8b949e]" /></button>
           <span className="text-white text-[11px] font-semibold px-2 min-w-[40px] text-center">100%</span>
-          <button className="w-7 h-7 rounded-lg hover:bg-white/[0.08] flex items-center justify-center transition-colors"><ZoomIn className="w-3.5 h-3.5 text-[#8b949e]" /></button>
+          <button className="w-7 h-7 rounded-lg hover:bg-white/[0.08] flex items-center justify-center transition-colors cursor-pointer active:scale-[0.97] transition-transform"><ZoomIn className="w-3.5 h-3.5 text-[#8b949e]" /></button>
         </div>
-        <button className="flex items-center gap-1.5 h-7 px-3 rounded-xl text-[#e6edf3] text-[11px] font-semibold hover:bg-white/[0.10] transition-all" style={G.btn}>
+        <button className="flex items-center gap-1.5 h-7 px-3 rounded-xl text-[#e6edf3] text-[11px] font-semibold hover:bg-white/[0.10] transition-all cursor-pointer active:scale-[0.97] transition-transform" style={G.btn}>
           <Download className="w-3 h-3" /> Export PDF
         </button>
-        <button className="flex items-center gap-1.5 h-7 px-3 rounded-xl text-white text-[11px] font-bold"
+        <button className="flex items-center gap-1.5 h-7 px-3 rounded-xl text-white text-[11px] font-bold cursor-pointer active:scale-[0.97] transition-transform"
           style={{ background: "#3b82f6", boxShadow: "0 2px 12px rgba(59,130,246,0.35)", border: "1px solid rgba(255,255,255,0.15)" }}>
           <Share2 className="w-3 h-3" /> Share
         </button>
@@ -2194,7 +2161,7 @@ function DesignCanvas({ navigate }: { navigate: (p: Page) => void }) {
           style={{ ...panelStyle, borderRight: "1px solid rgba(255,255,255,0.08)" }}>
           <div className="px-4 py-3 flex items-center justify-between" style={{ borderBottom: "1px solid rgba(255,255,255,0.07)" }}>
             <p className="text-white text-[12px] font-bold">Device Library</p>
-            <button onClick={() => setShowDeviceTray(false)} className="w-6 h-6 rounded-lg hover:bg-white/[0.08] flex items-center justify-center">
+            <button onClick={() => setShowDeviceTray(false)} className="w-6 h-6 rounded-lg hover:bg-white/[0.08] flex items-center justify-center cursor-pointer active:scale-[0.97] transition-transform">
               <X className="w-3.5 h-3.5 text-[#8b949e]" />
             </button>
           </div>
@@ -2220,7 +2187,7 @@ function DesignCanvas({ navigate }: { navigate: (p: Page) => void }) {
                 </p>
                 <div className="space-y-0.5">
                   {cat.items.map((item) => (
-                    <button key={item} className="w-full text-left px-2.5 py-2 rounded-xl hover:bg-white/[0.05] transition-colors flex items-center gap-2.5 group">
+                    <button key={item} className="w-full text-left px-2.5 py-2 rounded-xl hover:bg-white/[0.05] transition-colors flex items-center gap-2.5 group cursor-pointer active:scale-[0.97] transition-transform">
                       <div className="w-6 h-6 rounded-lg flex items-center justify-center flex-shrink-0" style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.07)" }}>
                         <Camera className="w-3 h-3 text-[#484f58]" />
                       </div>
@@ -2301,7 +2268,7 @@ function DesignCanvas({ navigate }: { navigate: (p: Page) => void }) {
             style={{ ...panelStyle, borderLeft: "1px solid rgba(255,255,255,0.08)" }}>
             <div className="px-4 py-3 flex items-center justify-between" style={{ borderBottom: "1px solid rgba(255,255,255,0.07)" }}>
               <p className="text-white text-[12px] font-bold">Properties</p>
-              <button onClick={() => setShowProperties(false)} className="w-6 h-6 rounded-lg hover:bg-white/[0.08] flex items-center justify-center">
+              <button onClick={() => setShowProperties(false)} className="w-6 h-6 rounded-lg hover:bg-white/[0.08] flex items-center justify-center cursor-pointer active:scale-[0.97] transition-transform">
                 <X className="w-3.5 h-3.5 text-[#8b949e]" />
               </button>
             </div>
@@ -2356,10 +2323,10 @@ function DesignCanvas({ navigate }: { navigate: (p: Page) => void }) {
                 </div>
               </div>
               <div className="flex gap-2">
-                <button className="flex-1 h-8 rounded-xl text-[#8b949e] text-[11px] font-semibold hover:text-white transition-all flex items-center justify-center gap-1.5" style={G.btn}>
+                <button className="flex-1 h-8 rounded-xl text-[#8b949e] text-[11px] font-semibold hover:text-white transition-all flex items-center justify-center gap-1.5 cursor-pointer active:scale-[0.97] transition-transform" style={G.btn}>
                   <Pencil className="w-3 h-3" /> Edit
                 </button>
-                <button className="flex-1 h-8 rounded-xl text-rose-400 text-[11px] font-semibold flex items-center justify-center gap-1.5"
+                <button className="flex-1 h-8 rounded-xl text-rose-400 text-[11px] font-semibold flex items-center justify-center gap-1.5 cursor-pointer active:scale-[0.97] transition-transform"
                   style={{ background: "rgba(244,63,94,0.10)", border: "1px solid rgba(244,63,94,0.20)" }}>
                   <Trash2 className="w-3 h-3" /> Delete
                 </button>
@@ -2375,7 +2342,7 @@ function DesignCanvas({ navigate }: { navigate: (p: Page) => void }) {
               {i === 2 && <div className="w-px h-6 mx-1" style={{ background: "rgba(255,255,255,0.10)" }} />}
               {i === 9 && <div className="w-px h-6 mx-1" style={{ background: "rgba(255,255,255,0.10)" }} />}
               <button onClick={() => setActiveTool(tool.id)} title={tool.label}
-                className={clsx("w-9 h-9 rounded-xl flex items-center justify-center transition-all duration-150",
+                className={clsx("w-9 h-9 rounded-xl flex items-center justify-center transition-all duration-150 cursor-pointer active:scale-[0.97] transition-transform",
                   activeTool === tool.id ? "text-white" : "text-[#8b949e] hover:bg-white/[0.07] hover:text-white")}
                 style={activeTool === tool.id ? { background: "#3b82f6", boxShadow: "0 4px 16px rgba(59,130,246,0.45), inset 0 1px 0 rgba(255,255,255,0.2)" } : undefined}>
                 <tool.icon className="w-4 h-4" />
@@ -2384,7 +2351,7 @@ function DesignCanvas({ navigate }: { navigate: (p: Page) => void }) {
           ))}
           <div className="w-px h-6 mx-1" style={{ background: "rgba(255,255,255,0.10)" }} />
           <button onClick={() => setShowProperties(!showProperties)}
-            className={clsx("w-9 h-9 rounded-xl flex items-center justify-center transition-all",
+            className={clsx("w-9 h-9 rounded-xl flex items-center justify-center transition-all cursor-pointer active:scale-[0.97] transition-transform",
               showProperties ? "text-white" : "text-[#484f58] hover:text-white hover:bg-white/[0.05]")}
             style={showProperties ? { background: "rgba(255,255,255,0.10)", border: "1px solid rgba(255,255,255,0.12)" } : undefined}>
             <ChevronRight className="w-4 h-4" />
@@ -2394,9 +2361,6 @@ function DesignCanvas({ navigate }: { navigate: (p: Page) => void }) {
     </div>
   );
 }
-
-// ─── Quote Builder ────────────────────────────────────────────────────────────
-
 const TAX_RATE = 0.085;
 
 function QuoteBuilder({ navigate, quoteItems, setQuoteItems }: { navigate: (p: Page) => void; quoteItems: QuoteItem[]; setQuoteItems: React.Dispatch<React.SetStateAction<QuoteItem[]>> }) {
@@ -2497,7 +2461,7 @@ function QuoteBuilder({ navigate, quoteItems, setQuoteItems }: { navigate: (p: P
           <div className="flex gap-1 flex-wrap">
             {catalogCategories.map((c) => (
               <button key={c} onClick={() => setLibCategory(c)}
-                className="text-[9px] font-bold px-2 py-0.5 rounded-full transition-all"
+                className="text-[9px] font-bold px-2 py-0.5 rounded-full transition-all cursor-pointer active:scale-[0.97] transition-transform"
                 style={libCategory === c ? { background: "#3b82f620", color: "#60a5fa", border: "1px solid #3b82f640" } : { color: "#484f58", border: "1px solid rgba(255,255,255,0.06)" }}>
                 {c === "all" ? "All" : c}
               </button>
@@ -2513,7 +2477,7 @@ function QuoteBuilder({ navigate, quoteItems, setQuoteItems }: { navigate: (p: P
               <p className="text-[#484f58] text-[9px] font-bold uppercase tracking-widest mb-1 px-3">{group.category}</p>
               {group.devices.map((device) => (
                 <button key={device.id} onClick={() => addFromLib(device)}
-                 className="w-full text-left px-3 py-2.5 hover:bg-white/[0.05] transition-colors flex items-center gap-3 group">
+                  className="w-full text-left px-3 py-2.5 hover:bg-white/[0.05] transition-colors flex items-center gap-3 group cursor-pointer active:scale-[0.97] transition-transform">
                   <div className="w-7 h-7 rounded-lg overflow-hidden flex-shrink-0" style={{ background: "rgba(255,255,255,0.06)" }}>
                     {device.imageUrl
                       ? <img src={device.imageUrl} alt={device.model} className="w-full h-full object-cover opacity-70 group-hover:opacity-100 transition-opacity" />
@@ -2541,35 +2505,28 @@ function QuoteBuilder({ navigate, quoteItems, setQuoteItems }: { navigate: (p: P
             <div className="flex items-center gap-2">
               <button
                 onClick={() => setShowProjectSelect(true)}
-                className="flex items-center gap-1.5 text-[#8b949e] hover:text-white text-[12px] font-semibold transition-colors"
+                className="flex items-center gap-1.5 text-[#8b949e] hover:text-white text-[12px] font-semibold transition-colors cursor-pointer active:scale-[0.97] transition-transform"
                 style={{ ...G.btn, padding: "4px 10px", borderRadius: "8px" }}>
                 <Building2 className="w-3 h-3" />
                 {selectedProject ? selectedProject.name : "Select project"}
                 <ChevronDown className="w-3 h-3" />
               </button>
-              {selectedProject && (
-                <span className="text-[#484f58] text-[11px]">{selectedProject.client}</span>
-              )}
             </div>
           </div>
           <div className="flex items-center gap-2">
             <button onClick={() => { downloadPDF(`Q-2026-044-v3_${selectedProject?.client?.replace(/[^a-z0-9]/gi,"_") ?? "quote"}.pdf`, items); }}
-              className="flex items-center gap-1.5 h-8 px-3 rounded-xl text-[#8b949e] text-[12px] font-semibold hover:text-white transition-all" style={G.btn}>
+              className="flex items-center gap-1.5 h-8 px-3 rounded-xl text-[#8b949e] text-[11px] font-semibold hover:text-white transition-all cursor-pointer active:scale-[0.97] transition-transform" style={G.btn}>
               <FileText className="w-3.5 h-3.5" /> Export PDF
             </button>
-            <button onClick={() => toast.success("Quote sent for approval — Marcus Webb notified")}
-              className="flex items-center gap-1.5 h-8 px-3 rounded-xl text-[#8b949e] text-[12px] font-semibold hover:text-white transition-all" style={G.btn}>
-              <Share2 className="w-3.5 h-3.5" /> Send for Approval
-            </button>
             <button onClick={() => toast.success("Quote Q-2026-044-v3 approved")}
-              className="flex items-center gap-1.5 h-8 px-4 rounded-xl text-white text-[12px] font-bold"
+              className="flex items-center gap-1.5 h-8 px-4 rounded-xl text-white text-[11px] font-bold cursor-pointer active:scale-[0.97] transition-transform"
               style={{ background: "#3b82f6", boxShadow: "0 4px 16px rgba(59,130,246,0.35), inset 0 1px 0 rgba(255,255,255,0.2)" }}>
               <CheckCircle2 className="w-3.5 h-3.5" /> Approve Quote
             </button>
           </div>
         </div>
 
-        <div className="grid gap-3 px-5 py-3 flex-shrink-0" style={{ gridTemplateColumns: "2fr 110px 130px 130px 32px", borderBottom: "1px solid rgba(255,255,255,0.06)", background: "rgba(255,255,255,0.02)" }}>
+        <div className="grid gap-4 px-5 py-3 flex-shrink-0" style={{ gridTemplateColumns: "2fr 110px 130px 130px 32px", borderBottom: "1px solid rgba(255,255,255,0.06)", background: "rgba(255,255,255,0.02)" }}>
           {["Line Item", "SKU", "Qty", "Line Total", ""].map((h) => (
             <span key={h} className="text-[#484f58] text-[10px] font-bold uppercase tracking-widest">{h}</span>
           ))}
@@ -2592,24 +2549,24 @@ function QuoteBuilder({ navigate, quoteItems, setQuoteItems }: { navigate: (p: P
                 </div>
                 <span className="text-[#484f58] text-[11px] font-mono truncate">{item.sku}</span>
                 <div className="flex items-center gap-1">
-                  <button onClick={(e) => { e.stopPropagation(); updateItem(item.id, "qty", Math.max(1, item.qty - 1)); }} className="w-5 h-5 rounded-lg hover:bg-white/[0.10] flex items-center justify-center text-[#8b949e] transition-colors" style={{ background: "rgba(255,255,255,0.05)" }}>
+                  <button onClick={(e) => { e.stopPropagation(); updateItem(item.id, "qty", Math.max(1, item.qty - 1)); }} className="w-5 h-5 rounded-lg hover:bg-white/[0.10] flex items-center justify-center text-[#8b949e] transition-colors cursor-pointer active:scale-[0.97] transition-transform" style={{ background: "rgba(255,255,255,0.05)" }}>
                     <ChevronDown className="w-2.5 h-2.5" />
                   </button>
                   <span className="text-white text-[12px] font-semibold w-10 text-center tabular-nums">{item.qty}</span>
-                  <button onClick={(e) => { e.stopPropagation(); updateItem(item.id, "qty", item.qty + 1); }} className="w-5 h-5 rounded-lg hover:bg-white/[0.10] flex items-center justify-center text-[#8b949e] transition-colors" style={{ background: "rgba(255,255,255,0.05)" }}>
+                  <button onClick={(e) => { e.stopPropagation(); updateItem(item.id, "qty", item.qty + 1); }} className="w-5 h-5 rounded-lg hover:bg-white/[0.10] flex items-center justify-center text-[#8b949e] transition-colors cursor-pointer active:scale-[0.97] transition-transform" style={{ background: "rgba(255,255,255,0.05)" }}>
                     <ChevronUp className="w-2.5 h-2.5" />
                   </button>
                 </div>
                 <span className="text-white text-[13px] font-bold tabular-nums">{fmt(lineTotal)}</span>
                 <button onClick={(e) => { e.stopPropagation(); setItems((prev) => prev.filter((i) => i.id !== item.id)); }}
-                  className="w-6 h-6 rounded-lg hover:bg-rose-500/15 flex items-center justify-center transition-colors opacity-0 group-hover:opacity-100">
+                  className="w-6 h-6 rounded-lg hover:bg-rose-500/15 flex items-center justify-center transition-colors opacity-0 group-hover:opacity-100 cursor-pointer active:scale-[0.97] transition-transform">
                   <X className="w-3 h-3 text-rose-400" />
                 </button>
               </div>
             );
           })}
           <div className="px-5 py-3">
-            <button className="flex items-center gap-2 text-[#484f58] hover:text-blue-400 text-[12px] font-semibold transition-colors">
+            <button className="flex items-center gap-2 text-[#484f58] hover:text-blue-400 text-[12px] font-semibold transition-colors cursor-pointer active:scale-[0.97] transition-transform">
               <Plus className="w-3.5 h-3.5" /> Add line item
             </button>
           </div>
@@ -2625,7 +2582,7 @@ function QuoteBuilder({ navigate, quoteItems, setQuoteItems }: { navigate: (p: P
             <p className="text-[#484f58] text-[10px] font-bold uppercase tracking-widest mb-1">Subtotal (ex. GCT)</p>
             <p className="text-white text-[1.4rem] font-bold tracking-tight tabular-nums">{fmt(totals.subtotal)}</p>
           </div>
-          <div className="rounded-2xl p-4 space-y-2.5" style={G.card}>
+          <div className="rounded-2xl p-5 space-y-2.5" style={G.card}>
             <div className="flex items-center justify-between">
               <span className="text-[#8b949e] text-[11px]">{`GCT (${(TAX_RATE * 100).toFixed(1)}%)`}</span>
               <span className="text-[#8b949e] text-[12px] font-bold tabular-nums">+{fmt(totals.tax)}</span>
@@ -2651,44 +2608,18 @@ function QuoteBuilder({ navigate, quoteItems, setQuoteItems }: { navigate: (p: P
   );
 }
 
-// ─── Device Library ───────────────────────────────────────────────────────────
-
-const IMG = {
-  dome: "https://images.unsplash.com/photo-1618482914248-29272d021005?w=400&q=80",
-  bullet: "https://images.unsplash.com/photo-1496368077930-c1e31b4e5b44?w=400&q=80",
-  ptz: "https://images.unsplash.com/photo-1589935447067-5531094415d1?w=400&q=80",
-  outdoor: "https://images.unsplash.com/photo-1528312635006-8ea0bc49ec63?w=400&q=80",
-  wall: "https://images.unsplash.com/photo-1549109926-58f039549485?w=400&q=80",
-  rack: "https://images.unsplash.com/photo-1732327390234-c78eb47d1b88?w=400&q=80",
-};
-
 const CATALOG_DEVICES: CatalogDevice[] = [
-  { id: "c1", model: "P3245-V", manufacturer: "Axis", category: "camera", resolution: "1920×1080 (2MP)", lens: "3–10mm P-Iris varifocal", sensor: "1/2.8\" progressive CMOS", nightVision: "IR 15m", weatherRating: "IP66 / IK10", powerInput: "PoE IEEE 802.3af (max 6.4W)", frameRate: "25/30fps", compression: "H.264, H.265, MJPEG", fov: "H: 102–28°  V: 56–16°", operatingTemp: "−30 °C to 50 °C", price: 485, sku: "AXI-P3245V", imageUrl: IMG.dome },
-  { id: "c2", model: "P5655-E", manufacturer: "Axis", category: "camera", resolution: "1920×1080 (2MP)", lens: "4.3–129mm 30× optical autofocus", sensor: "1/2.8\" progressive CMOS", nightVision: "IR 250m", weatherRating: "IP66 / IK10", powerInput: "High PoE 802.3at (max 30W)", frameRate: "25/30fps", compression: "H.264, H.265, MJPEG", fov: "H: 62.9–2.2°", operatingTemp: "−40 °C to 65 °C", price: 2890, sku: "AXI-P5655E", imageUrl: IMG.ptz },
-  { id: "c3", model: "M3046-V", manufacturer: "Axis", category: "camera", resolution: "2688×1520 (4MP)", lens: "2.4mm fixed", sensor: "1/3\" progressive CMOS", nightVision: "N/A (indoor)", weatherRating: "IK08", powerInput: "PoE IEEE 802.3af (max 4.7W)", frameRate: "25/30fps", compression: "H.264, H.265, MJPEG", fov: "H: 106°  V: 57°", operatingTemp: "0 °C to 45 °C", price: 385, sku: "AXI-M3046V", imageUrl: IMG.dome },
-  { id: "c4", model: "P1465-LE", manufacturer: "Axis", category: "camera", resolution: "1920×1080 (2MP)", lens: "2.8mm fixed", sensor: "1/2.9\" progressive CMOS", nightVision: "IR 25m", weatherRating: "IP66 / IK10", powerInput: "PoE IEEE 802.3af (max 7.5W)", frameRate: "25/30fps", compression: "H.264, H.265, MJPEG", fov: "H: 102°  V: 55°", operatingTemp: "−40 °C to 55 °C", price: 520, sku: "AXI-P1465LE", imageUrl: IMG.bullet },
-  { id: "c5", model: "Q6075-E", manufacturer: "Axis", category: "camera", resolution: "1920×1080 (2MP)", lens: "5.7–205mm 36× optical autofocus", sensor: "1/2.8\" progressive CMOS", nightVision: "IR 400m", weatherRating: "IP66 / IK10", powerInput: "High PoE 802.3at (max 55W)", frameRate: "25/30fps", compression: "H.264, H.265, MJPEG", fov: "H: 63.4–1.8°", operatingTemp: "−50 °C to 65 °C", price: 4200, sku: "AXI-Q6075E", imageUrl: IMG.ptz },
-  { id: "c6", model: "Sarix IBE332-1IR", manufacturer: "Pelco", category: "camera", resolution: "3840×2160 (8MP)", lens: "2.8–12mm varifocal", sensor: "1/2.5\" progressive CMOS", nightVision: "IR 50m", weatherRating: "IP66 / IK10", powerInput: "PoE+ 802.3at (max 25.5W)", frameRate: "15fps @ 4K / 30fps @ 1080p", compression: "H.264, H.265, MJPEG", fov: "H: 117–33°", operatingTemp: "−40 °C to 50 °C", price: 795, sku: "PEL-IBE332", imageUrl: IMG.outdoor },
-  { id: "c7", model: "Spectra Enhanced 7", manufacturer: "Pelco", category: "camera", resolution: "1920×1080 (2MP)", lens: "5.9–177mm 30× optical autofocus", sensor: "1/2.8\" progressive CMOS", nightVision: "IR 200m", weatherRating: "IP66 / IK10", powerInput: "24VAC / High PoE 802.3at", frameRate: "25/30fps", compression: "H.264, H.265", fov: "H: 62.3–2.1°", operatingTemp: "−40 °C to 65 °C", price: 3200, sku: "PEL-SE7", imageUrl: IMG.ptz },
-  { id: "c8", model: "Optera IMM 12027", manufacturer: "Pelco", category: "camera", resolution: "12MP panoramic (4 × 3MP)", lens: "Four 2.8mm fixed sensors", sensor: "1/2.9\" CMOS (×4)", nightVision: "N/A", weatherRating: "IP66 / IK10", powerInput: "PoE+ 802.3at (max 25W)", frameRate: "12fps per sensor", compression: "H.264, MJPEG", fov: "360° horizontal", operatingTemp: "−40 °C to 50 °C", price: 2400, sku: "PEL-IMM12027", imageUrl: IMG.dome },
-  { id: "c9", model: "ExSite Enhanced 2", manufacturer: "Pelco", category: "camera", resolution: "1920×1080 (2MP)", lens: "6.5–260mm 40× optical autofocus", sensor: "1/2.8\" progressive CMOS", nightVision: "IR 350m", weatherRating: "IP68 / IK10", powerInput: "24VAC", frameRate: "25/30fps", compression: "H.264, H.265", fov: "H: 53.5–1.4°", operatingTemp: "−50 °C to 60 °C", price: 5800, sku: "PEL-EXE2", imageUrl: IMG.ptz },
-  { id: "c10", model: "H5A Dome", manufacturer: "Avigilon", category: "camera", resolution: "3840×2160 (8MP)", lens: "4.9–8mm varifocal", sensor: "1/2.5\" progressive CMOS", nightVision: "IR 30m", weatherRating: "IK10", powerInput: "PoE+ 802.3at (max 25.5W)", frameRate: "20fps @ 8MP / 30fps @ 4MP", compression: "H.264, H.265", fov: "H: 108–65°", operatingTemp: "−10 °C to 50 °C", price: 950, sku: "AVI-H5A-DO", imageUrl: IMG.dome },
-  { id: "c11", model: "H5A Bullet", manufacturer: "Avigilon", category: "camera", resolution: "3840×2160 (8MP)", lens: "4.9–8mm varifocal", sensor: "1/2.5\" progressive CMOS", nightVision: "IR 50m", weatherRating: "IP67 / IK10", powerInput: "PoE+ 802.3at (max 25.5W)", frameRate: "20fps @ 8MP / 30fps @ 4MP", compression: "H.264, H.265", fov: "H: 108–65°", operatingTemp: "−40 °C to 50 °C", price: 985, sku: "AVI-H5A-BO", imageUrl: IMG.bullet },
-  { id: "c12", model: "H5SL PTZ", manufacturer: "Avigilon", category: "camera", resolution: "1920×1080 (2MP)", lens: "4.7–94mm 20× optical autofocus", sensor: "1/2.8\" progressive CMOS", nightVision: "IR 150m", weatherRating: "IP66 / IK10", powerInput: "High PoE 802.3at (max 55W)", frameRate: "30fps", compression: "H.264, H.265", fov: "H: 60.1–3.1°", operatingTemp: "−40 °C to 60 °C", price: 3600, sku: "AVI-H5SL-PTZ", imageUrl: IMG.ptz },
-  { id: "c13", model: "H6A Fisheye", manufacturer: "Avigilon", category: "camera", resolution: "7680×4320 (32MP)", lens: "1.05mm fisheye", sensor: "1/1.8\" progressive CMOS", nightVision: "N/A", weatherRating: "IK10", powerInput: "PoE+ 802.3at (max 25.5W)", frameRate: "15fps @ 32MP / 30fps @ 8MP", compression: "H.264, H.265", fov: "360° panoramic", operatingTemp: "0 °C to 40 °C", price: 1850, sku: "AVI-H6A-FE", imageUrl: IMG.dome },
-  { id: "n1", model: "Security Center 5.11", manufacturer: "Genetec", category: "analytics", sku: "GSC-511-E", price: 22500, channels: "300 cameras", imageUrl: IMG.rack },
-  { id: "n2", model: "Synergis Cloud Link", manufacturer: "Genetec", category: "access-control", sku: "GSC-SCL", price: 1850, readers: "32 doors", imageUrl: IMG.rack },
-  { id: "n3", model: "AutoVu ALPR 6.0", manufacturer: "Genetec", category: "analytics", sku: "GSC-ALPR", price: 8500, channels: "License plate recognition", imageUrl: IMG.outdoor },
-  { id: "a1", model: "BioLite N2", manufacturer: "Suprema", category: "access-control", authentication: "Fingerprint + RFID", weatherRating: "IP65", powerInput: "12VDC / PoE", price: 890, sku: "SUP-BION2", imageUrl: IMG.wall },
-  { id: "a2", model: "BioStation 3", manufacturer: "Suprema", category: "access-control", authentication: "Face + Fingerprint + Card", weatherRating: "IP65", powerInput: "12VDC / PoE", price: 1450, sku: "SUP-BS3", imageUrl: IMG.wall },
-  { id: "a3", model: "Edge EVO Solo", manufacturer: "HID", category: "access-control", authentication: "Multi-tech RFID", weatherRating: "IP65 / IK08", powerInput: "12VDC", price: 1240, sku: "HID-EVOS", imageUrl: IMG.wall },
-  { id: "a4", model: "Signo 20", manufacturer: "HID", category: "access-control", authentication: "Biometric keypad", weatherRating: "IP67 / IK09", powerInput: "12-24VDC / PoE", price: 980, sku: "HID-SIGNO20", imageUrl: IMG.wall },
-  { id: "s1", model: "Camera Station S2212", manufacturer: "Axis", category: "nvr", storage: "12-bay rack", channels: "64 cameras", powerInput: "Redundant PSU", price: 6800, sku: "ACS-S2212", imageUrl: IMG.rack },
-  { id: "s2", model: "VideoXpert Pro", manufacturer: "Pelco", category: "nvr", storage: "16-bay rack", channels: "128 cameras", powerInput: "Redundant PSU", price: 8900, sku: "PEL-VXPRO", imageUrl: IMG.rack },
-  { id: "s3", model: "ACC 7 Server", manufacturer: "Avigilon", category: "nvr", storage: "Custom build", channels: "256 cameras", powerInput: "Redundant PSU", price: 12000, sku: "AVI-ACC7", imageUrl: IMG.rack },
+  { id: "ax1", model: "AXIS M1055-L", manufacturer: "Axis", category: "camera", subCategory: "Box", series: "M10", imageUrl: "https://www.axis.com/sites/axis/files/styles/comparison_table_115_x_115/public/2022-11/m1055l_angle_left_2203-Productimageswithcropping.png?itok=ilT3Fe5j", resolution: "1920x1080 (2.1 MP)", lens: "1/2.9'' 3.16mm F2.0 103deg", minIlluminationColor: "0.18", minIlluminationBW: "0.00", frameRate: "25/30", powerInput: "PoE Class 2", inOutPorts: "2", operatingTemp: "0C to 35C (32F to 95F)", wdr: "WDR/Lightfinder", optimizedIR: "Yes/Yes", specialFeatures: "WLAN option, Edge-to-edge tech" },
+  { id: "ax2", model: "AXIS M1075-L Mk II", manufacturer: "Axis", category: "camera", subCategory: "Box", series: "M10", imageUrl: "https://www.axis.com/sites/axis/files/styles/comparison_table_115_x_115/public/2025-11/78752e7a3bc136d07faddfc5e4e45a5f(1)_Productimagewithcropping.png?itok=ifxNEOsi", resolution: "1920x1080 (2.1 MP)", lens: "1/2.9'' 3.16mm F2.0 103deg", minIlluminationColor: "0.18", minIlluminationBW: "0.00", frameRate: "25/30", powerInput: "PoE Class 3", inOutPorts: "2", operatingTemp: "0C to 35C (32F to 95F)", wdr: "WDR/Lightfinder", optimizedIR: "Yes/Yes", specialFeatures: "Built-in PIR sensor, HDMI, Edge-to-edge tech", audioSupport: "Yes/Yes" },
 ];
 
 const CAT_COLOR: Record<string, { bg: string; text: string; label: string }> = {
+  Box: { bg: "rgba(59,130,246,0.12)", text: "#60a5fa", label: "Box" },
+  Bullet: { bg: "rgba(249,115,22,0.12)", text: "#fb923c", label: "Bullet" },
+  Dome: { bg: "rgba(139,92,246,0.12)", text: "#a78bfa", label: "Dome" },
+  Panoramic: { bg: "rgba(16,185,129,0.12)", text: "#34d399", label: "Panoramic" },
+  PTZ: { bg: "rgba(236,72,153,0.12)", text: "#f472b6", label: "PTZ" },
+  Thermal: { bg: "rgba(245,158,11,0.12)", text: "#fbbf24", label: "Thermal" },
   camera: { bg: "rgba(59,130,246,0.12)", text: "#60a5fa", label: "Camera" },
   "access-control": { bg: "rgba(139,92,246,0.12)", text: "#a78bfa", label: "Access" },
   nvr: { bg: "rgba(16,185,129,0.12)", text: "#34d399", label: "NVR" },
@@ -2699,24 +2630,25 @@ const CAT_COLOR: Record<string, { bg: string; text: string; label: string }> = {
 function DeviceSpecModal({ device, onClose }: { device: CatalogDevice; onClose: () => void }) {
   const { addToQuote } = useQuote();
   const { fmt } = useCurrency();
-  const cc = CAT_COLOR[device.category] ?? CAT_COLOR.other;
+  const cc = CAT_COLOR[device.subCategory ?? device.category] ?? CAT_COLOR.other;
   const specs: { label: string; value?: string }[] = [
-    { label: "SKU", value: device.sku },
+    { label: "Manufacturer", value: device.manufacturer },
     { label: "Category", value: cc.label },
+    { label: "Series", value: device.series },
     { label: "Resolution", value: device.resolution },
-    { label: "Sensor", value: device.sensor },
-    { label: "Lens", value: device.lens },
-    { label: "Frame Rate", value: device.frameRate },
-    { label: "Compression", value: device.compression },
-    { label: "Field of View", value: device.fov },
-    { label: "Night Vision", value: device.nightVision },
-    { label: "Weather Rating", value: device.weatherRating },
-    { label: "Power Input", value: device.powerInput },
-    { label: "Storage", value: device.storage },
-    { label: "Max Cameras", value: device.channels },
-    { label: "Max Readers", value: device.readers },
-    { label: "Authentication", value: device.authentication },
+    { label: "Lens / FOV", value: device.lens },
+    { label: "Min Illumination (Color)", value: device.minIlluminationColor },
+    { label: "Min Illumination (B&W)", value: device.minIlluminationBW },
+    { label: "Max FPS", value: device.frameRate },
+    { label: "Optical Zoom", value: device.opticalZoom },
+    { label: "Audio Support", value: device.audioSupport },
+    { label: "Power", value: device.powerInput },
+    { label: "I/O Ports", value: device.inOutPorts },
     { label: "Operating Temp", value: device.operatingTemp },
+    { label: "IP/IK Rating", value: device.weatherRating },
+    { label: "WDR/Lightfinder", value: device.wdr },
+    { label: "OptimizedIR", value: device.optimizedIR },
+    { label: "Special Features", value: device.specialFeatures },
   ].filter((s) => !!s.value);
 
   return (
@@ -2748,7 +2680,7 @@ function DeviceSpecModal({ device, onClose }: { device: CatalogDevice; onClose: 
                 <p className="text-[1rem] font-bold mt-1 tabular-nums" style={{ color: cc.text }}>{fmt(device.price)} <span className="text-[#484f58] text-[11px] font-normal">/ unit (excl. GCT)</span></p>
               )}
             </div>
-            <button onClick={onClose} className="w-8 h-8 rounded-xl flex items-center justify-center hover:bg-white/[0.08] transition-colors flex-shrink-0"
+            <button onClick={onClose} className="w-8 h-8 rounded-xl flex items-center justify-center hover:bg-white/[0.08] transition-colors flex-shrink-0 cursor-pointer active:scale-[0.97] transition-transform"
               style={{ border: "1px solid rgba(255,255,255,0.10)" }}>
               <X className="w-4 h-4 text-[#8b949e]" />
             </button>
@@ -2765,12 +2697,12 @@ function DeviceSpecModal({ device, onClose }: { device: CatalogDevice; onClose: 
           </div>
           <div className="px-6 py-4 flex items-center gap-3 flex-shrink-0" style={{ borderTop: "1px solid rgba(255,255,255,0.07)" }}>
             <button onClick={() => { addToQuote(device); onClose(); }}
-              className="flex items-center gap-2 h-9 px-5 rounded-xl text-white text-[12px] font-bold"
+              className="flex items-center gap-2 h-9 px-5 rounded-xl text-white text-[12px] font-bold cursor-pointer active:scale-[0.97] transition-transform"
               style={{ background: "#3b82f6", boxShadow: "0 4px 16px rgba(59,130,246,0.35), inset 0 1px 0 rgba(255,255,255,0.2)" }}>
               <Plus className="w-3.5 h-3.5" /> Add to Quote
             </button>
             <button onClick={() => toast.success(`Spec sheet for ${device.model} would open here`)}
-              className="flex items-center gap-2 h-9 px-4 rounded-xl text-[#8b949e] text-[12px] font-semibold hover:text-white transition-all"
+              className="flex items-center gap-2 h-9 px-4 rounded-xl text-[#8b949e] text-[12px] font-semibold hover:text-white transition-all cursor-pointer active:scale-[0.97] transition-transform"
               style={G.btn}>
               <ExternalLink className="w-3.5 h-3.5" /> Spec Sheet
             </button>
@@ -2784,33 +2716,22 @@ function DeviceSpecModal({ device, onClose }: { device: CatalogDevice; onClose: 
 function DeviceLibrary({ navigate: _navigate }: { navigate: (p: Page) => void }) {
   const [search, setSearch] = useState("");
   const [categoryFilter, setCategoryFilter] = useState<string>("all");
-  const [manufacturerFilter, setManufacturerFilter] = useState<string>("all");
   const [viewMode, setViewMode] = useState<"grid" | "table">("grid");
   const [selectedDevice, setSelectedDevice] = useState<CatalogDevice | null>(null);
   const { addToQuote } = useQuote();
   const { fmt } = useCurrency();
 
-  const manufacturers = Array.from(new Set(CATALOG_DEVICES.map((d) => d.manufacturer))).sort();
-  const categories: { id: string; label: string }[] = [
-    { id: "all", label: "All Devices" },
-    { id: "camera", label: "Cameras" },
-    { id: "access-control", label: "Access Control" },
-    { id: "nvr", label: "NVR / Storage" },
-    { id: "analytics", label: "Analytics / VMS" },
-  ];
+  const subCategories = ["all", "Box", "Bullet", "Dome", "Panoramic", "PTZ", "Thermal"];
 
   const filtered = useMemo(() => {
     let result = CATALOG_DEVICES;
-    if (categoryFilter !== "all") result = result.filter((d) => d.category === categoryFilter);
-    if (manufacturerFilter !== "all") result = result.filter((d) => d.manufacturer === manufacturerFilter);
+    if (categoryFilter !== "all") result = result.filter((d) => d.subCategory === categoryFilter);
     if (search.trim()) {
       const q = search.toLowerCase();
-      result = result.filter((d) => d.model.toLowerCase().includes(q) || d.manufacturer.toLowerCase().includes(q) || (d.sku ?? "").toLowerCase().includes(q));
+      result = result.filter((d) => d.model.toLowerCase().includes(q) || d.manufacturer.toLowerCase().includes(q) || (d.sku ?? "").toLowerCase().includes(q) || (d.series ?? "").toLowerCase().includes(q));
     }
     return result;
-  }, [search, categoryFilter, manufacturerFilter]);
-
-  const inputCls = "h-9 rounded-xl px-3 text-[#e6edf3] text-[12px] placeholder:text-[#484f58] focus:outline-none focus:ring-1 focus:ring-blue-500/50 transition-all";
+  }, [search, categoryFilter]);
 
   return (
     <div className="px-5 py-6">
@@ -2819,56 +2740,44 @@ function DeviceLibrary({ navigate: _navigate }: { navigate: (p: Page) => void })
       <div className="flex items-center justify-between mb-6">
         <div>
           <h1 className="text-white font-bold text-xl tracking-tight">Device Library</h1>
-          <p className="text-[#8b949e] text-[13px] mt-0.5">{filtered.length} products · Axis · Avigilon · Pelco · Genetec · Suprema · HID</p>
+          <p className="text-[#8b949e] text-[13px] mt-0.5">{filtered.length} products · Axis Communications</p>
         </div>
         <div className="flex items-center gap-2">
           <div className="flex items-center h-8 rounded-xl overflow-hidden" style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.10)" }}>
-            <button onClick={() => setViewMode("grid")} className="h-full px-2.5 flex items-center justify-center transition-all"
+            <button onClick={() => setViewMode("grid")} className="h-full px-2.5 flex items-center justify-center transition-all cursor-pointer active:scale-[0.97] transition-transform"
               style={viewMode === "grid" ? { background: "#3b82f620", color: "#60a5fa" } : { color: "#484f58" }}>
               <Grid3x3 className="w-3.5 h-3.5" />
             </button>
-            <button onClick={() => setViewMode("table")} className="h-full px-2.5 flex items-center justify-center transition-all"
+            <button onClick={() => setViewMode("table")} className="h-full px-2.5 flex items-center justify-center transition-all cursor-pointer active:scale-[0.97] transition-transform"
               style={viewMode === "table" ? { background: "#3b82f620", color: "#60a5fa" } : { color: "#484f58" }}>
               <List className="w-3.5 h-3.5" />
             </button>
           </div>
-          <button onClick={() => { toast.success("Device catalog exported"); downloadCSV("device-library.csv", [["Model","Manufacturer","Category","SKU","Price (USD)","Resolution","Lens","Sensor","Night Vision","Weather","Power","Frame Rate","Compression","FOV","Operating Temp"], ...filtered.map((d) => [d.model, d.manufacturer, d.category, d.sku ?? "", d.price ? String(d.price) : "", d.resolution ?? "", d.lens ?? "", d.sensor ?? "", d.nightVision ?? "", d.weatherRating ?? "", d.powerInput ?? "", d.frameRate ?? "", d.compression ?? "", d.fov ?? "", d.operatingTemp ?? ""])]); }}
-            className="flex items-center gap-1.5 h-9 px-4 rounded-xl text-[#8b949e] text-[12px] font-semibold hover:text-white transition-all" style={G.btn}>
-            <Download className="w-3.5 h-3.5" /> Export CSV
-          </button>
         </div>
       </div>
 
       <div className="mb-5 flex items-center gap-3 flex-wrap">
         <div className="relative flex-1 min-w-[200px] max-w-sm">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[#484f58]" />
-          <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search model, SKU…" className={`${inputCls} pl-9 w-full`} style={G.input} />
+          <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search model, series…" className="h-9 rounded-xl pl-9 pr-3 text-[12px] text-[#e6edf3] placeholder:text-[#484f58] focus:outline-none focus:ring-1 focus:ring-blue-500/50 w-full transition-all" style={G.input} />
         </div>
         <div className="flex gap-2">
-          {categories.map((c) => (
-            <button key={c.id} onClick={() => setCategoryFilter(c.id)}
-              className="h-9 px-3.5 rounded-xl text-[12px] font-semibold transition-all"
-              style={categoryFilter === c.id
+          {subCategories.map((c) => (
+            <button key={c} onClick={() => setCategoryFilter(c)}
+              className="h-9 px-3.5 rounded-xl text-[12px] font-semibold transition-all cursor-pointer active:scale-[0.97] transition-transform"
+              style={categoryFilter === c
                 ? { background: "rgba(59,130,246,0.15)", border: "1px solid rgba(59,130,246,0.35)", color: "#60a5fa" }
                 : { ...G.btn, color: "#8b949e" }}>
-              {c.label}
+              {c === "all" ? "All Devices" : c}
             </button>
           ))}
-        </div>
-        <div className="relative">
-          <select value={manufacturerFilter} onChange={(e) => setManufacturerFilter(e.target.value)}
-            className={`${inputCls} appearance-none cursor-pointer pr-7 min-w-[150px]`} style={G.input}>
-            <option value="all" style={{ background: "#0d1117" }}>All Brands</option>
-            {manufacturers.map((m) => <option key={m} value={m} style={{ background: "#0d1117" }}>{m}</option>)}
-          </select>
-          <ChevronDown className="absolute right-2.5 top-1/2 -translate-y-1/2 w-3 h-3 text-[#484f58] pointer-events-none" />
         </div>
       </div>
 
       {viewMode === "grid" && (
         <div className="grid gap-4" style={{ gridTemplateColumns: "repeat(auto-fill, minmax(220px, 1fr))" }}>
           {filtered.map((device) => {
-            const cc = CAT_COLOR[device.category] ?? CAT_COLOR.other;
+            const cc = CAT_COLOR[device.subCategory ?? device.category] ?? CAT_COLOR.other;
             return (
               <div key={device.id} onClick={() => setSelectedDevice(device)}
                 className="rounded-2xl overflow-hidden cursor-pointer group transition-all hover:-translate-y-1"
@@ -2883,7 +2792,7 @@ function DeviceLibrary({ navigate: _navigate }: { navigate: (p: Page) => void })
                   </div>
                   <div className="absolute top-2.5 right-2.5">
                     <button onClick={(e) => { e.stopPropagation(); addToQuote(device); }}
-                      className="w-7 h-7 rounded-xl flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all hover:scale-110"
+                      className="w-7 h-7 rounded-xl flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all hover:scale-110 cursor-pointer active:scale-[0.97] transition-transform"
                       style={{ background: "rgba(59,130,246,0.9)", boxShadow: "0 4px 12px rgba(59,130,246,0.4)" }}>
                       <Plus className="w-3.5 h-3.5 text-white" />
                     </button>
@@ -2893,10 +2802,9 @@ function DeviceLibrary({ navigate: _navigate }: { navigate: (p: Page) => void })
                   <p className="text-[#8b949e] text-[10px] font-semibold">{device.manufacturer}</p>
                   <p className="text-white text-[13px] font-bold mt-0.5 truncate">{device.model}</p>
                   {device.resolution && <p className="text-[#484f58] text-[10px] mt-1 truncate">{device.resolution}</p>}
-                  {device.authentication && <p className="text-[#484f58] text-[10px] mt-1 truncate">{device.authentication}</p>}
-                  {device.channels && !device.resolution && <p className="text-[#484f58] text-[10px] mt-1 truncate">{device.channels}</p>}
+                  {device.lens && !device.resolution && <p className="text-[#484f58] text-[10px] mt-1 truncate">{device.lens}</p>}
                   <div className="flex items-center justify-between mt-3 pt-2.5" style={{ borderTop: "1px solid rgba(255,255,255,0.06)" }}>
-                    <span className="text-[#484f58] text-[9px] font-mono">{device.sku}</span>
+                    <span className="text-[#484f58] text-[9px] font-mono">{device.series}</span>
                     <span className="font-bold text-[12px] tabular-nums" style={{ color: cc.text }}>{device.price ? fmt(device.price) : "—"}</span>
                   </div>
                 </div>
@@ -2909,17 +2817,17 @@ function DeviceLibrary({ navigate: _navigate }: { navigate: (p: Page) => void })
       {viewMode === "table" && (
         <div className="rounded-2xl overflow-hidden" style={G.card}>
           <div className="overflow-x-auto">
-            <table className="w-full" style={{ minWidth: "1100px" }}>
+            <table className="w-full" style={{ minWidth: "900px" }}>
               <thead>
                 <tr style={{ background: "rgba(255,255,255,0.03)", borderBottom: "1px solid rgba(255,255,255,0.08)" }}>
-                  {["", "Model", "Manufacturer", "Category", "Resolution", "Sensor", "Night Vision", "Weather", "Power", "Frame Rate", "SKU", "Price"].map((h) => (
-                    <th key={h} className={`${h === "Price" ? "text-right" : "text-left"} px-4 py-3 text-[#484f58] text-[10px] font-bold uppercase tracking-widest`}>{h}</th>
+                  {["", "Model", "Series", "Category", "Resolution", "Lens / FOV", "Power", "Operating Temp", "WDR", "IR"].map((h) => (
+                    <th key={h} className="text-left px-4 py-3 text-[#484f58] text-[10px] font-bold uppercase tracking-widest">{h}</th>
                   ))}
                 </tr>
               </thead>
               <tbody>
                 {filtered.map((device, i) => {
-                  const cc = CAT_COLOR[device.category] ?? CAT_COLOR.other;
+                  const cc = CAT_COLOR[device.subCategory ?? device.category] ?? CAT_COLOR.other;
                   return (
                     <tr key={device.id} onClick={() => setSelectedDevice(device)} className="cursor-pointer hover:bg-white/[0.02] transition-colors group"
                       style={{ borderBottom: i < filtered.length - 1 ? "1px solid rgba(255,255,255,0.04)" : "none" }}>
@@ -2929,27 +2837,16 @@ function DeviceLibrary({ navigate: _navigate }: { navigate: (p: Page) => void })
                         </div>
                       </td>
                       <td className="px-4 py-2.5 text-white text-[12px] font-semibold">{device.model}</td>
-                      <td className="px-4 py-2.5 text-[#8b949e] text-[11px]">{device.manufacturer}</td>
+                      <td className="px-4 py-2.5 text-[#8b949e] text-[11px]">{device.series ?? "—"}</td>
                       <td className="px-4 py-2.5">
                         <span className="inline-block px-2 py-0.5 rounded-lg text-[10px] font-bold uppercase tracking-wider" style={{ background: cc.bg, color: cc.text }}>{cc.label}</span>
                       </td>
-                      <td className="px-4 py-2.5 text-[#8b949e] text-[11px]">{device.resolution || device.channels || "—"}</td>
-                      <td className="px-4 py-2.5 text-[#8b949e] text-[11px]">{device.sensor || device.authentication || "—"}</td>
-                      <td className="px-4 py-2.5 text-[#8b949e] text-[11px]">{device.nightVision || "—"}</td>
-                      <td className="px-4 py-2.5 text-[#8b949e] text-[11px]">{device.weatherRating || "—"}</td>
-                      <td className="px-4 py-2.5 text-[#8b949e] text-[11px]">{device.powerInput || device.storage || "—"}</td>
-                      <td className="px-4 py-2.5 text-[#8b949e] text-[11px]">{device.frameRate || "—"}</td>
-                      <td className="px-4 py-2.5 text-[#484f58] text-[10px] font-mono">{device.sku}</td>
-                      <td className="px-4 py-2.5 text-right">
-                        <div className="flex items-center justify-end gap-2">
-                          <span className="text-white text-[12px] font-bold tabular-nums">{device.price ? fmt(device.price) : "—"}</span>
-                          <button onClick={(e) => { e.stopPropagation(); addToQuote(device); }}
-                            className="w-6 h-6 rounded-lg flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all"
-                            style={{ background: "#3b82f6" }}>
-                            <Plus className="w-3 h-3 text-white" />
-                          </button>
-                        </div>
-                      </td>
+                      <td className="px-4 py-2.5 text-[#8b949e] text-[11px]">{device.resolution ?? "—"}</td>
+                      <td className="px-4 py-2.5 text-[#8b949e] text-[11px] max-w-[200px] truncate">{device.lens ?? "—"}</td>
+                      <td className="px-4 py-2.5 text-[#8b949e] text-[11px]">{device.powerInput ?? "—"}</td>
+                      <td className="px-4 py-2.5 text-[#8b949e] text-[11px]">{device.operatingTemp ?? "—"}</td>
+                      <td className="px-4 py-2.5 text-[#8b949e] text-[11px]">{device.wdr ?? "—"}</td>
+                      <td className="px-4 py-2.5 text-[#8b949e] text-[11px]">{device.optimizedIR ?? "—"}</td>
                     </tr>
                   );
                 })}
@@ -2961,8 +2858,6 @@ function DeviceLibrary({ navigate: _navigate }: { navigate: (p: Page) => void })
     </div>
   );
 }
-
-// ─── Install Tracker ──────────────────────────────────────────────────────────
 
 const STATUS_META: Record<InstallStatus, { label: string; color: string; bg: string; icon: React.ElementType }> = {
   complete: { label: "Complete", color: "text-emerald-400", bg: "bg-emerald-500/12", icon: CheckCircle2 },
@@ -3021,10 +2916,10 @@ function InstallTracker({ navigate: _navigate }: { navigate: (p: Page) => void }
           <p className="text-[#8b949e] text-[13px] mt-0.5">Data Center — Full Security Stack · Stratum Cloud Services</p>
         </div>
         <div className="flex items-center gap-2">
-          <button onClick={handleExport} className="flex items-center gap-1.5 h-8 px-3 rounded-xl text-[#8b949e] text-[12px] font-semibold hover:text-white transition-all" style={G.btn}>
+          <button onClick={handleExport} className="flex items-center gap-1.5 h-8 px-3 rounded-xl text-[#8b949e] text-[12px] font-semibold hover:text-white transition-all cursor-pointer active:scale-[0.97] transition-transform" style={G.btn}>
             <Download className="w-3.5 h-3.5" /> Export Report
           </button>
-          <button onClick={() => setShowAddDevice(true)} className="flex items-center gap-1.5 h-8 px-4 rounded-xl text-white text-[12px] font-bold"
+          <button onClick={() => setShowAddDevice(true)} className="flex items-center gap-1.5 h-8 px-4 rounded-xl text-white text-[12px] font-bold cursor-pointer active:scale-[0.97] transition-transform"
             style={{ background: "#3b82f6", boxShadow: "0 4px 16px rgba(59,130,246,0.35), inset 0 1px 0 rgba(255,255,255,0.2)" }}>
             <Plus className="w-3.5 h-3.5" /> Add Device
           </button>
@@ -3041,7 +2936,7 @@ function InstallTracker({ navigate: _navigate }: { navigate: (p: Page) => void }
             <div className="absolute inset-x-0 top-0 h-[2px] rounded-t-3xl" style={{ background: "linear-gradient(90deg, #3b82f6dd, #3b82f633)" }} />
             <div className="flex items-center justify-between px-6 pt-6 pb-5" style={{ borderBottom: "1px solid rgba(255,255,255,0.07)" }}>
               <div><h2 className="text-white text-[1rem] font-bold">Add Device</h2><p className="text-[#8b949e] text-[12px] mt-0.5">Add a new device to the install list</p></div>
-              <button onClick={() => setShowAddDevice(false)} className="w-7 h-7 rounded-xl flex items-center justify-center hover:bg-white/[0.08]" style={{ border: "1px solid rgba(255,255,255,0.10)" }}><X className="w-4 h-4 text-[#8b949e]" /></button>
+              <button onClick={() => setShowAddDevice(false)} className="w-7 h-7 rounded-xl flex items-center justify-center hover:bg-white/[0.08] cursor-pointer active:scale-[0.97] transition-transform" style={{ border: "1px solid rgba(255,255,255,0.10)" }}><X className="w-4 h-4 text-[#8b949e]" /></button>
             </div>
             <form onSubmit={handleAddDevice} className="px-6 py-5 space-y-4">
               <div>
@@ -3095,9 +2990,9 @@ function InstallTracker({ navigate: _navigate }: { navigate: (p: Page) => void }
               </div>
               <div className="flex gap-3 pt-1">
                 <button type="button" onClick={() => setShowAddDevice(false)}
-                  className="flex-1 h-10 rounded-xl text-[#8b949e] text-[13px] font-semibold hover:text-white transition-all" style={G.btn}>Cancel</button>
+                  className="flex-1 h-10 rounded-xl text-[#8b949e] text-[13px] font-semibold hover:text-white transition-all cursor-pointer active:scale-[0.97] transition-transform" style={G.btn}>Cancel</button>
                 <button type="submit" disabled={!newDeviceName.trim()}
-                  className="flex-1 h-10 rounded-xl text-white text-[13px] font-bold disabled:opacity-40"
+                  className="flex-1 h-10 rounded-xl text-white text-[13px] font-bold disabled:opacity-40 cursor-pointer active:scale-[0.97] transition-transform"
                   style={{ background: "#3b82f6", boxShadow: "0 4px 20px rgba(59,130,246,0.4), inset 0 1px 0 rgba(255,255,255,0.2)" }}>Add Device</button>
               </div>
             </form>
@@ -3144,7 +3039,7 @@ function InstallTracker({ navigate: _navigate }: { navigate: (p: Page) => void }
           return (
             <div key={zone.id} className="rounded-2xl overflow-hidden" style={G.card}>
               <button onClick={() => setExpandedZone(isExpanded ? null : zone.id)}
-                className="w-full flex items-center gap-4 px-5 py-4 hover:bg-white/[0.02] transition-colors">
+                className="w-full flex items-center gap-4 px-5 py-4 hover:bg-white/[0.02] transition-colors cursor-pointer active:scale-[0.97] transition-transform">
                 <div className="flex-1 flex items-center gap-4 min-w-0">
                   <div className={clsx("w-8 h-8 rounded-xl flex items-center justify-center flex-shrink-0",
                     zPct === 100 ? "bg-emerald-500/15" : zPct > 0 ? "bg-blue-500/15" : "bg-white/[0.04]")}
@@ -3178,7 +3073,7 @@ function InstallTracker({ navigate: _navigate }: { navigate: (p: Page) => void }
                       <div key={device.id}
                         className={clsx("grid gap-4 px-5 py-3.5 items-center hover:bg-white/[0.015] transition-colors", i % 2 === 1 && "bg-white/[0.01]")}
                         style={{ gridTemplateColumns: "36px 2fr 1.5fr 120px 1fr", borderTop: "1px solid rgba(255,255,255,0.04)" }}>
-                        <div className="w-8 h-8 rounded-xl flex items-center justify-center" style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.07)" }}>
+                        <div className="w-7 h-7 rounded-xl flex items-center justify-center" style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.07)" }}>
                           <TypeIcon className="w-3.5 h-3.5 text-[#484f58]" />
                         </div>
                         <div className="min-w-0">
@@ -3215,8 +3110,6 @@ function InstallTracker({ navigate: _navigate }: { navigate: (p: Page) => void }
     </div>
   );
 }
-
-// ─── Login Page ───────────────────────────────────────────────────────────────
 
 function LoginPage({ onLogin }: { onLogin: () => void }) {
   const [email, setEmail] = useState("");
@@ -3296,7 +3189,7 @@ function LoginPage({ onLogin }: { onLogin: () => void }) {
             <p className="text-[#8b949e] text-[13px] mb-7">Sign in to your workspace</p>
 
             <button onClick={submit}
-              className="w-full flex items-center justify-center gap-3 h-11 rounded-2xl text-white text-[13px] font-bold transition-all duration-150 mb-6 hover:bg-white/[0.12] active:scale-[0.99]"
+              className="w-full flex items-center justify-center gap-3 h-11 rounded-2xl text-white text-[13px] font-bold transition-all duration-150 mb-6 hover:bg-white/[0.12] active:scale-[0.99] cursor-pointer active:scale-[0.97] transition-transform"
               style={{ background: "rgba(255,255,255,0.08)", border: "1px solid rgba(255,255,255,0.14)", boxShadow: "inset 0 1px 0 rgba(255,255,255,0.09)" }}>
               <svg width="17" height="17" viewBox="0 0 21 21" fill="none" aria-hidden="true">
                 <rect width="10" height="10" fill="#f25022" /><rect x="11" width="10" height="10" fill="#7fba00" />
@@ -3333,7 +3226,7 @@ function LoginPage({ onLogin }: { onLogin: () => void }) {
                 </div>
               </div>
               <button type="submit" disabled={loading}
-                className="w-full h-11 rounded-2xl text-white font-bold text-[13px] transition-all duration-150 active:scale-[0.99] flex items-center justify-center gap-2 disabled:opacity-60 mt-1"
+                className="w-full h-11 rounded-2xl text-white font-bold text-[13px] transition-all duration-150 active:scale-[0.99] flex items-center justify-center gap-2 disabled:opacity-60 mt-1 cursor-pointer active:scale-[0.97] transition-transform"
                 style={{ background: "linear-gradient(135deg, #3b82f6, #2563eb)", boxShadow: "0 4px 20px rgba(59,130,246,0.45), inset 0 1px 0 rgba(255,255,255,0.2)" }}>
                 {loading && <Loader2 className="w-4 h-4 animate-spin" />}
                 {loading ? "Signing in…" : "Sign in"}
@@ -3350,8 +3243,6 @@ function LoginPage({ onLogin }: { onLogin: () => void }) {
     </div>
   );
 }
-
-// ─── Root ─────────────────────────────────────────────────────────────────────
 
 export default function App() {
   const [page, setPage] = useState<Page>("login");
