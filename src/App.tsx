@@ -1,4 +1,4 @@
-import { useState, useMemo, createContext, useContext, useEffect, useRef } from "react";
+import { useState, useMemo, createContext, useContext } from "react";
 import { toast, Toaster } from "sonner";
 import { motion, AnimatePresence } from "motion/react";
 import {
@@ -30,7 +30,6 @@ function downloadCSV(filename: string, rows: string[][]) {
 // ─── PDF export helper (simulated) ────────────────────────────────────────────
 function downloadPDF(filename: string, _items: QuoteItem[]) {
   toast.success(`${filename} exported as PDF`);
-  // In production, this would call a real PDF generation library or API
 }
 
 // ─── Glass utility ────────────────────────────────────────────────────────────
@@ -75,7 +74,7 @@ const G = {
 
 // ─── Currency ────────────────────────────────────────────────────────────────
 
-const JMD_RATE = 157.4; // 1 USD = 157.4 JMD (approximate)
+const JMD_RATE = 157.4;
 
 interface CurrencyCtx {
   currency: "USD" | "JMD";
@@ -147,7 +146,7 @@ interface QuoteItem {
   name: string;
   sku: string;
   qty: number;
-  unitPrice: number; // always in USD
+  unitPrice: number;
 }
 
 interface QuoteCtx {
@@ -490,74 +489,22 @@ function fovPath(cx: number, cy: number, rotDeg: number, fovDeg: number, r: numb
   const x2 = cx + r * Math.cos(rot + half), y2 = cy + r * Math.sin(rot + half);
   return `M${cx},${cy} L${x1.toFixed(1)},${y1.toFixed(1)} A${r},${r} 0 0,1 ${x2.toFixed(1)},${y2.toFixed(1)} Z`;
 }
-
-// ─── Liquid Glass Background ──────────────────────────────────────────────────
-
-function LiquidGlassBg({ children, className }: { children: React.ReactNode; className?: string }) {
-  return (
-    <div className={clsx("relative overflow-hidden", className)}>
-      <div className="absolute inset-0 pointer-events-none" style={{
-        background: "radial-gradient(ellipse 60% 50% at 20% 20%, rgba(59,130,246,0.06) 0%, transparent 60%), radial-gradient(ellipse 50% 40% at 80% 80%, rgba(139,92,246,0.05) 0%, transparent 60%), radial-gradient(ellipse 40% 35% at 50% 50%, rgba(16,185,129,0.03) 0%, transparent 70%)",
-        animation: "liquidShift 8s ease-in-out infinite alternate",
-      }} />
-      <div className="absolute inset-0 pointer-events-none opacity-30" style={{
-        background: "radial-gradient(circle at 30% 70%, rgba(59,130,246,0.08) 0%, transparent 40%), radial-gradient(circle at 70% 30%, rgba(139,92,246,0.06) 0%, transparent 40%)",
-        animation: "liquidShift 12s ease-in-out infinite alternate-reverse",
-      }} />
-      {children}
-    </div>
-  );
-}
-
-// ─── Page Transition Wrapper ──────────────────────────────────────────────────
-
-function PageTransition({ children, id }: { children: React.ReactNode; id: string }) {
-  return (
-    <motion.div
-      key={id}
-      initial={{ opacity: 0, y: 6 }}
-      animate={{ opacity: 1, y: 0 }}
-      exit={{ opacity: 0, y: -4 }}
-      transition={{ duration: 0.25, ease: "easeOut" }}
-    >
-      {children}
-    </motion.div>
-  );
-}
-
 // ─── Currency Toggle ──────────────────────────────────────────────────────────
 
 function CurrencyToggle() {
   const { currency, setCurrency } = useCurrency();
   return (
-    <motion.div
-      className="flex items-center h-8 rounded-xl overflow-hidden"
-      style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.10)" }}
-      whileHover={{ scale: 1.02 }}
-      transition={{ type: "spring", stiffness: 400, damping: 25 }}
-    >
+    <div className="flex items-center h-8 rounded-xl overflow-hidden" style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.10)" }}>
       {(["USD", "JMD"] as const).map((c) => (
-        <motion.button
-          key={c}
-          onClick={() => setCurrency(c)}
-          className="h-full px-2.5 text-[11px] font-bold transition-all relative"
+        <button key={c} onClick={() => setCurrency(c)}
+          className="h-full px-2.5 text-[11px] font-bold transition-all"
           style={currency === c
             ? { background: "#3b82f6", color: "#fff", boxShadow: "inset 0 1px 0 rgba(255,255,255,0.18)" }
-            : { color: "#8b949e" }}
-          whileTap={{ scale: 0.95 }}
-        >
-          {currency === c && (
-            <motion.div
-              layoutId="currencyActive"
-              className="absolute inset-0 rounded-xl"
-              style={{ background: "#3b82f6" }}
-              transition={{ type: "spring", stiffness: 500, damping: 30 }}
-            />
-          )}
-          <span className="relative z-10">{c}</span>
-        </motion.button>
+            : { color: "#8b949e" }}>
+          {c}
+        </button>
       ))}
-    </motion.div>
+    </div>
   );
 }
 
@@ -599,21 +546,14 @@ function SearchPalette({ onClose, navigate }: { onClose: () => void; navigate: (
 
   return (
     <div className="fixed inset-0 z-[300] flex items-start justify-center pt-[12vh]" onClick={onClose}>
+      <div className="absolute inset-0" style={{ background: "rgba(0,0,0,0.55)", backdropFilter: "blur(8px)", WebkitBackdropFilter: "blur(8px)" }} />
       <motion.div
-        className="absolute inset-0"
-        style={{ background: "rgba(0,0,0,0.55)", backdropFilter: "blur(8px)", WebkitBackdropFilter: "blur(8px)" }}
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        exit={{ opacity: 0 }}
-      />
-      <motion.div
-        initial={{ opacity: 0, scale: 0.94, y: -16 }}
+        initial={{ opacity: 0, scale: 0.96, y: -12 }}
         animate={{ opacity: 1, scale: 1, y: 0 }}
         transition={{ type: "spring", damping: 28, stiffness: 400 }}
         onClick={(e) => e.stopPropagation()}
         className="relative z-10 w-full max-w-[560px] rounded-2xl overflow-hidden"
         style={{ background: "rgba(7,12,26,0.92)", backdropFilter: "blur(48px) saturate(200%)", WebkitBackdropFilter: "blur(48px) saturate(200%)", border: "1px solid rgba(255,255,255,0.13)", boxShadow: "0 24px 64px rgba(0,0,0,0.85), inset 0 1px 0 rgba(255,255,255,0.10)" }}>
-        {/* Search input */}
         <div className="flex items-center gap-3 px-4 py-3.5" style={{ borderBottom: "1px solid rgba(255,255,255,0.08)" }}>
           <Search className="w-4 h-4 text-[#8b949e] flex-shrink-0" />
           <input
@@ -633,17 +573,12 @@ function SearchPalette({ onClose, navigate }: { onClose: () => void; navigate: (
         </div>
 
         <div className="max-h-[400px] overflow-y-auto" style={{ scrollbarWidth: "none" }}>
-          {/* Pages */}
           {pageHits.length > 0 && (
             <div className="px-3 pt-3 pb-1">
               <p className="text-[#484f58] text-[10px] font-bold uppercase tracking-widest mb-1 px-1">Pages</p>
               {pageHits.map(({ label, sub, page, icon: Icon }) => (
-                <motion.button
-                  key={page}
-                  onClick={() => { navigate(page); onClose(); }}
-                  className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-white/[0.06] transition-colors text-left group"
-                  whileHover={{ x: 2 }}
-                >
+                <button key={page} onClick={() => { navigate(page); onClose(); }}
+                  className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-white/[0.06] transition-colors text-left group">
                   <div className="w-7 h-7 rounded-lg flex items-center justify-center flex-shrink-0"
                     style={{ background: "rgba(59,130,246,0.15)", border: "1px solid rgba(59,130,246,0.22)" }}>
                     <Icon className="w-3.5 h-3.5 text-blue-400" />
@@ -653,24 +588,19 @@ function SearchPalette({ onClose, navigate }: { onClose: () => void; navigate: (
                     <p className="text-[#484f58] text-[11px]">{sub}</p>
                   </div>
                   <ChevronRight className="w-3.5 h-3.5 text-[#484f58] opacity-0 group-hover:opacity-100 transition-opacity" />
-                </motion.button>
+                </button>
               ))}
             </div>
           )}
 
-          {/* Projects */}
           {projectHits.length > 0 && (
             <div className="px-3 pt-2 pb-3" style={{ borderTop: pageHits.length > 0 ? "1px solid rgba(255,255,255,0.06)" : undefined }}>
               <p className="text-[#484f58] text-[10px] font-bold uppercase tracking-widest mb-1 px-1 pt-2">Projects</p>
               {projectHits.map((p) => {
                 const col = COLUMNS.find((c) => c.id === p.stage)!;
                 return (
-                  <motion.button
-                    key={p.id}
-                    onClick={() => { navigate("project-detail"); onClose(); }}
-                    className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-white/[0.06] transition-colors text-left group"
-                    whileHover={{ x: 2 }}
-                  >
+                  <button key={p.id} onClick={() => { navigate("project-detail"); onClose(); }}
+                    className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-white/[0.06] transition-colors text-left group">
                     <div className="w-7 h-7 rounded-full flex items-center justify-center text-[9px] font-bold text-white flex-shrink-0"
                       style={{ background: p.assignee.color, boxShadow: `0 0 10px ${p.assignee.color}44` }}>
                       {p.assignee.initials}
@@ -683,7 +613,7 @@ function SearchPalette({ onClose, navigate }: { onClose: () => void; navigate: (
                       style={{ background: `${col.color}20`, color: col.color, border: `1px solid ${col.color}35` }}>
                       {col.label}
                     </span>
-                  </motion.button>
+                  </button>
                 );
               })}
             </div>
@@ -708,14 +638,9 @@ function AppTopbar({ page, navigate, breadcrumb }: { page: Page; navigate: (p: P
   return (
     <header className="fixed top-0 inset-x-0 z-50 h-14 flex items-center gap-5 px-5"
       style={{ background: "rgba(7,12,26,0.65)", backdropFilter: "blur(40px) saturate(180%)", WebkitBackdropFilter: "blur(40px) saturate(180%)", borderBottom: "1px solid rgba(255,255,255,0.08)", boxShadow: "0 1px 0 rgba(255,255,255,0.04), 0 8px 32px rgba(0,0,0,0.5)" }}>
-      <motion.button
-        onClick={() => navigate("dashboard")}
-        className="flex items-center gap-2.5 flex-shrink-0"
-        whileHover={{ scale: 1.03 }}
-        whileTap={{ scale: 0.97 }}
-      >
+      <button onClick={() => navigate("dashboard")} className="flex items-center gap-2.5 flex-shrink-0">
         <img src={faviconWhite} alt="E-Tech Systems" className="h-8 object-contain" />
-      </motion.button>
+      </button>
 
       <div className="w-px h-4 flex-shrink-0" style={{ background: "rgba(255,255,255,0.12)" }} />
 
@@ -731,13 +656,10 @@ function AppTopbar({ page, navigate, breadcrumb }: { page: Page; navigate: (p: P
         <nav className="flex items-center gap-0.5">
           {NAV_ITEMS.map((item) => (
             <button key={item.id} onClick={() => navigate(item.id)}
-              className={clsx("relative h-8 px-3.5 rounded-xl text-[13px] font-semibold transition-all duration-150",
+              className={clsx("h-8 px-3.5 rounded-xl text-[13px] font-semibold transition-all duration-150",
                 activeTab === item.id ? "text-white" : "text-[#8b949e] hover:text-white")}
               style={activeTab === item.id ? { background: "rgba(255,255,255,0.10)", border: "1px solid rgba(255,255,255,0.13)", boxShadow: "inset 0 1px 0 rgba(255,255,255,0.08)" } : undefined}>
-              {activeTab === item.id && (
-                <motion.div layoutId="activeNav" className="absolute inset-0 rounded-xl" style={{ background: "rgba(255,255,255,0.10)", border: "1px solid rgba(255,255,255,0.13)" }} transition={{ type: "spring", stiffness: 500, damping: 30 }} />
-              )}
-              <span className="relative z-10">{item.label}</span>
+              {item.label}
             </button>
           ))}
         </nav>
@@ -745,161 +667,111 @@ function AppTopbar({ page, navigate, breadcrumb }: { page: Page; navigate: (p: P
 
       <div className="flex-1" />
 
-      <AnimatePresence>
-        {showSearch && <SearchPalette onClose={() => setShowSearch(false)} navigate={navigate} />}
-      </AnimatePresence>
+      {showSearch && <SearchPalette onClose={() => setShowSearch(false)} navigate={navigate} />}
       <div className="flex items-center gap-1.5">
-        {/* Currency toggle */}
         <CurrencyToggle />
-        <motion.button
-          onClick={() => setShowSearch(true)}
-          className="flex items-center gap-2 h-8 px-3 rounded-xl text-[#8b949e] text-[12px] hover:text-white transition-all"
-          style={G.btn}
-          whileHover={{ scale: 1.03 }}
-          whileTap={{ scale: 0.97 }}
-        >
+        <button onClick={() => setShowSearch(true)} className="flex items-center gap-2 h-8 px-3 rounded-xl text-[#8b949e] text-[12px] hover:text-white transition-all"
+          style={G.btn}>
           <Search className="w-3.5 h-3.5" />
           <span>Search…</span>
           <kbd className="ml-1 text-[10px] px-1.5 py-0.5 rounded font-mono opacity-60" style={{ background: "rgba(255,255,255,0.08)" }}>⌘K</kbd>
-        </motion.button>
-        {/* Bell */}
+        </button>
         <div className="relative">
-          <motion.button
-            onClick={() => { setShowNotifications(!showNotifications); setShowSettings(false); }}
-            className="relative w-8 h-8 rounded-xl hover:bg-white/[0.06] flex items-center justify-center transition-colors"
-            whileHover={{ scale: 1.08 }}
-            whileTap={{ scale: 0.92 }}
-          >
+          <button onClick={() => { setShowNotifications(!showNotifications); setShowSettings(false); }}
+            className="relative w-8 h-8 rounded-xl hover:bg-white/[0.06] flex items-center justify-center transition-colors">
             <Bell className={clsx("w-4 h-4 transition-colors", showNotifications ? "text-white" : "text-[#8b949e]")} />
             <span className="absolute top-1.5 right-1.5 w-[5px] h-[5px] rounded-full bg-blue-500" style={{ boxShadow: "0 0 6px #3b82f6" }} />
-          </motion.button>
-          <AnimatePresence>
-            {showNotifications && (
-              <>
-                <div className="fixed inset-0 z-[60]" onClick={() => setShowNotifications(false)} />
-                <motion.div
-                  className="absolute right-0 top-10 w-80 z-[70] rounded-2xl overflow-hidden"
-                  style={{ background: "rgba(7,12,26,0.95)", backdropFilter: "blur(40px)", WebkitBackdropFilter: "blur(40px)", border: "1px solid rgba(255,255,255,0.12)", boxShadow: "0 16px 48px rgba(0,0,0,0.8), inset 0 1px 0 rgba(255,255,255,0.09)" }}
-                  initial={{ opacity: 0, y: -8, scale: 0.96 }}
-                  animate={{ opacity: 1, y: 0, scale: 1 }}
-                  exit={{ opacity: 0, y: -8, scale: 0.96 }}
-                  transition={{ type: "spring", stiffness: 400, damping: 25 }}
-                >
-                  <div className="flex items-center justify-between px-4 py-3" style={{ borderBottom: "1px solid rgba(255,255,255,0.07)" }}>
-                    <p className="text-white text-[13px] font-bold">Notifications</p>
-                    <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-blue-500/20 text-blue-400">4 new</span>
-                  </div>
-                  {[
-                    { icon: AlertTriangle, color: "text-amber-400", bg: "rgba(245,158,11,0.12)", title: "Negotiation deadline today", body: "Casino — Floor Surveillance · Victor Salinas expecting answer by EOD", time: "Just now" },
-                    { icon: DollarSign, color: "text-blue-400", bg: "rgba(59,130,246,0.12)", title: "Quote Q-2026-044-v3 approved", body: "Crestline Federal Bank · $534K", time: "2h ago" },
-                    { icon: CheckCircle2, color: "text-emerald-400", bg: "rgba(16,185,129,0.12)", title: "Install phase 1 complete", body: "Data Center — Stratum Cloud · Building Entry zone signed off", time: "5h ago" },
-                    { icon: AlertCircle, color: "text-rose-400", bg: "rgba(244,63,94,0.12)", title: "Device defect logged", body: "SR1 Corner Ceiling NE — conduit blocked, reroute required", time: "Yesterday" },
-                    { icon: Star, color: "text-violet-400", bg: "rgba(139,92,246,0.12)", title: "New project won", body: "Lakeside University · $398K Phase 1 complete", time: "2 days ago" },
-                  ].map((n, i) => (
-                    <motion.button
-                      key={i}
-                      onClick={() => setShowNotifications(false)}
-                      className="w-full flex items-start gap-3 px-4 py-3 hover:bg-white/[0.04] transition-colors text-left"
-                      style={{ borderBottom: "1px solid rgba(255,255,255,0.04)" }}
-                      whileHover={{ backgroundColor: "rgba(255,255,255,0.04)" }}
-                    >
-                      <div className="w-7 h-7 rounded-xl flex items-center justify-center flex-shrink-0 mt-0.5"
-                        style={{ background: n.bg }}>
-                        <n.icon className={clsx("w-3.5 h-3.5", n.color)} />
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <p className="text-white text-[12px] font-semibold leading-snug">{n.title}</p>
-                        <p className="text-[#8b949e] text-[11px] leading-snug mt-0.5 truncate">{n.body}</p>
-                      </div>
-                      <span className="text-[#484f58] text-[10px] flex-shrink-0 mt-0.5">{n.time}</span>
-                    </motion.button>
-                  ))}
-                  <div className="px-4 py-2.5">
-                    <button className="w-full text-center text-blue-400 text-[12px] font-semibold hover:text-blue-300 transition-colors">
-                      Mark all as read
-                    </button>
-                  </div>
-                </motion.div>
-              </>
-            )}
-          </AnimatePresence>
+          </button>
+          {showNotifications && (
+            <>
+              <div className="fixed inset-0 z-[60]" onClick={() => setShowNotifications(false)} />
+              <div className="absolute right-0 top-10 w-80 z-[70] rounded-2xl overflow-hidden"
+                style={{ background: "rgba(7,12,26,0.95)", backdropFilter: "blur(40px)", WebkitBackdropFilter: "blur(40px)", border: "1px solid rgba(255,255,255,0.12)", boxShadow: "0 16px 48px rgba(0,0,0,0.8), inset 0 1px 0 rgba(255,255,255,0.09)" }}>
+                <div className="flex items-center justify-between px-4 py-3" style={{ borderBottom: "1px solid rgba(255,255,255,0.07)" }}>
+                  <p className="text-white text-[13px] font-bold">Notifications</p>
+                  <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-blue-500/20 text-blue-400">4 new</span>
+                </div>
+                {[
+                  { icon: AlertTriangle, color: "text-amber-400", bg: "rgba(245,158,11,0.12)", title: "Negotiation deadline today", body: "Casino — Floor Surveillance · Victor Salinas expecting answer by EOD", time: "Just now" },
+                  { icon: DollarSign, color: "text-blue-400", bg: "rgba(59,130,246,0.12)", title: "Quote Q-2026-044-v3 approved", body: "Crestline Federal Bank · $534K", time: "2h ago" },
+                  { icon: CheckCircle2, color: "text-emerald-400", bg: "rgba(16,185,129,0.12)", title: "Install phase 1 complete", body: "Data Center — Stratum Cloud · Building Entry zone signed off", time: "5h ago" },
+                  { icon: AlertCircle, color: "text-rose-400", bg: "rgba(244,63,94,0.12)", title: "Device defect logged", body: "SR1 Corner Ceiling NE — conduit blocked, reroute required", time: "Yesterday" },
+                  { icon: Star, color: "text-violet-400", bg: "rgba(139,92,246,0.12)", title: "New project won", body: "Lakeside University · $398K Phase 1 complete", time: "2 days ago" },
+                ].map((n, i) => (
+                  <button key={i} onClick={() => setShowNotifications(false)}
+                    className="w-full flex items-start gap-3 px-4 py-3 hover:bg-white/[0.04] transition-colors text-left"
+                    style={{ borderBottom: "1px solid rgba(255,255,255,0.04)" }}>
+                    <div className="w-7 h-7 rounded-xl flex items-center justify-center flex-shrink-0 mt-0.5"
+                      style={{ background: n.bg }}>
+                      <n.icon className={clsx("w-3.5 h-3.5", n.color)} />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-white text-[12px] font-semibold leading-snug">{n.title}</p>
+                      <p className="text-[#8b949e] text-[11px] leading-snug mt-0.5 truncate">{n.body}</p>
+                    </div>
+                    <span className="text-[#484f58] text-[10px] flex-shrink-0 mt-0.5">{n.time}</span>
+                  </button>
+                ))}
+                <div className="px-4 py-2.5">
+                  <button className="w-full text-center text-blue-400 text-[12px] font-semibold hover:text-blue-300 transition-colors">
+                    Mark all as read
+                  </button>
+                </div>
+              </div>
+            </>
+          )}
         </div>
-        {/* Settings */}
         <div className="relative">
-          <motion.button
-            onClick={() => { setShowSettings(!showSettings); setShowNotifications(false); }}
-            className="w-8 h-8 rounded-xl hover:bg-white/[0.06] flex items-center justify-center transition-colors"
-            whileHover={{ scale: 1.08 }}
-            whileTap={{ scale: 0.92 }}
-          >
+          <button onClick={() => { setShowSettings(!showSettings); setShowNotifications(false); }}
+            className="w-8 h-8 rounded-xl hover:bg-white/[0.06] flex items-center justify-center transition-colors">
             <Settings className={clsx("w-4 h-4 transition-colors", showSettings ? "text-white" : "text-[#8b949e]")} />
-          </motion.button>
-          <AnimatePresence>
-            {showSettings && (
-              <>
-                <div className="fixed inset-0 z-[60]" onClick={() => setShowSettings(false)} />
-                <motion.div
-                  className="absolute right-0 top-10 w-72 z-[70] rounded-2xl overflow-hidden"
-                  style={{ background: "rgba(7,12,26,0.95)", backdropFilter: "blur(40px)", WebkitBackdropFilter: "blur(40px)", border: "1px solid rgba(255,255,255,0.12)", boxShadow: "0 16px 48px rgba(0,0,0,0.8), inset 0 1px 0 rgba(255,255,255,0.09)" }}
-                  initial={{ opacity: 0, y: -8, scale: 0.96 }}
-                  animate={{ opacity: 1, y: 0, scale: 1 }}
-                  exit={{ opacity: 0, y: -8, scale: 0.96 }}
-                  transition={{ type: "spring", stiffness: 400, damping: 25 }}
-                >
-                  <div className="px-4 py-3" style={{ borderBottom: "1px solid rgba(255,255,255,0.07)" }}>
-                    <p className="text-white text-[13px] font-bold">Settings</p>
-                  </div>
-                  <div className="p-3 space-y-1">
-                    {[
-                      { label: "Dark mode", sub: "Always on", on: true },
-                      { label: "Email notifications", sub: "Quotes & approvals", on: true },
-                      { label: "Desktop alerts", sub: "Deal stage changes", on: false },
-                      { label: "Compact view", sub: "Denser kanban cards", on: false },
-                    ].map((s) => (
-                      <div key={s.label} className="flex items-center justify-between px-3 py-2.5 rounded-xl hover:bg-white/[0.04] transition-colors">
-                        <div>
-                          <p className="text-white text-[12px] font-semibold">{s.label}</p>
-                          <p className="text-[#484f58] text-[10px]">{s.sub}</p>
-                        </div>
-                        <motion.div
-                          className={clsx("w-8 h-4.5 rounded-full flex items-center px-0.5 cursor-pointer",
-                            s.on ? "bg-blue-500" : "bg-white/[0.10]")}
-                          style={{ height: "18px" }}
-                          whileTap={{ scale: 0.9 }}
-                        >
-                          <motion.div
-                            className="w-3.5 h-3.5 rounded-full bg-white shadow-sm"
-                            animate={{ x: s.on ? 12 : 0 }}
-                            transition={{ type: "spring", stiffness: 500, damping: 30 }}
-                          />
-                        </motion.div>
+          </button>
+          {showSettings && (
+            <>
+              <div className="fixed inset-0 z-[60]" onClick={() => setShowSettings(false)} />
+              <div className="absolute right-0 top-10 w-72 z-[70] rounded-2xl overflow-hidden"
+                style={{ background: "rgba(7,12,26,0.95)", backdropFilter: "blur(40px)", WebkitBackdropFilter: "blur(40px)", border: "1px solid rgba(255,255,255,0.12)", boxShadow: "0 16px 48px rgba(0,0,0,0.8), inset 0 1px 0 rgba(255,255,255,0.09)" }}>
+                <div className="px-4 py-3" style={{ borderBottom: "1px solid rgba(255,255,255,0.07)" }}>
+                  <p className="text-white text-[13px] font-bold">Settings</p>
+                </div>
+                <div className="p-3 space-y-1">
+                  {[
+                    { label: "Dark mode", sub: "Always on", on: true },
+                    { label: "Email notifications", sub: "Quotes & approvals", on: true },
+                    { label: "Desktop alerts", sub: "Deal stage changes", on: false },
+                    { label: "Compact view", sub: "Denser kanban cards", on: false },
+                  ].map((s) => (
+                    <div key={s.label} className="flex items-center justify-between px-3 py-2.5 rounded-xl hover:bg-white/[0.04] transition-colors">
+                      <div>
+                        <p className="text-white text-[12px] font-semibold">{s.label}</p>
+                        <p className="text-[#484f58] text-[10px]">{s.sub}</p>
                       </div>
-                    ))}
-                  </div>
-                  <div className="px-4 py-3" style={{ borderTop: "1px solid rgba(255,255,255,0.07)" }}>
-                    <button onClick={() => { setShowSettings(false); navigate("login"); }}
-                      className="w-full flex items-center gap-2 text-rose-400 text-[12px] font-semibold hover:text-rose-300 transition-colors">
-                      <X className="w-3.5 h-3.5" /> Sign out
-                    </button>
-                  </div>
-                </motion.div>
-              </>
-            )}
-          </AnimatePresence>
+                      <div className={clsx("w-8 h-4.5 rounded-full transition-colors flex items-center px-0.5 cursor-pointer",
+                        s.on ? "bg-blue-500" : "bg-white/[0.10]")} style={{ height: "18px" }}>
+                        <div className={clsx("w-3.5 h-3.5 rounded-full bg-white transition-transform shadow-sm",
+                          s.on ? "translate-x-3" : "translate-x-0")} />
+                      </div>
+                    </div>
+                  ))}
+                </div>
+                <div className="px-4 py-3" style={{ borderTop: "1px solid rgba(255,255,255,0.07)" }}>
+                  <button onClick={() => { setShowSettings(false); navigate("login"); }}
+                    className="w-full flex items-center gap-2 text-rose-400 text-[12px] font-semibold hover:text-rose-300 transition-colors">
+                    <X className="w-3.5 h-3.5" /> Sign out
+                  </button>
+                </div>
+              </div>
+            </>
+          )}
         </div>
-        <motion.button
-          onClick={() => navigate("login")}
-          className="flex items-center gap-2 h-8 pl-1.5 pr-2.5 rounded-xl hover:bg-white/[0.06] transition-colors ml-1"
-          whileHover={{ scale: 1.03 }}
-          whileTap={{ scale: 0.97 }}
-        >
+        <button onClick={() => navigate("login")} className="flex items-center gap-2 h-8 pl-1.5 pr-2.5 rounded-xl hover:bg-white/[0.06] transition-colors ml-1">
           <div className="w-6 h-6 rounded-full flex items-center justify-center text-white text-[9px] font-bold flex-shrink-0"
             style={{ background: "linear-gradient(135deg, #3b82f6, #8b5cf6)", boxShadow: "0 0 12px rgba(139,92,246,0.5)" }}>
             MW
           </div>
           <span className="text-white text-[12px] font-semibold">Marcus</span>
           <ChevronDown className="w-3 h-3 text-[#484f58]" />
-        </motion.button>
+        </button>
       </div>
     </header>
   );
@@ -913,12 +785,7 @@ function DealModal({ project, column, onClose, navigate }: { project: Project; c
 
   return (
     <div className="fixed inset-0 z-[200] flex items-center justify-center p-4" onClick={onClose}>
-      <motion.div
-        className="absolute inset-0"
-        style={{ background: "rgba(0,0,0,0.65)", backdropFilter: "blur(8px)", WebkitBackdropFilter: "blur(8px)" }}
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-      />
+      <div className="absolute inset-0" style={{ background: "rgba(0,0,0,0.65)", backdropFilter: "blur(8px)", WebkitBackdropFilter: "blur(8px)" }} />
       <motion.div
         initial={{ opacity: 0, scale: 0.93, y: 20 }}
         animate={{ opacity: 1, scale: 1, y: 0 }}
@@ -927,11 +794,9 @@ function DealModal({ project, column, onClose, navigate }: { project: Project; c
         className="relative z-10 w-full max-w-[540px] rounded-3xl overflow-hidden"
         style={{ background: "rgba(7,12,26,0.78)", backdropFilter: "blur(52px) saturate(200%)", WebkitBackdropFilter: "blur(52px) saturate(200%)", border: "1px solid rgba(255,255,255,0.13)", boxShadow: "0 32px 80px rgba(0,0,0,0.9), inset 0 1px 0 rgba(255,255,255,0.12)" }}>
 
-        {/* Stage colour accent line */}
         <div className="absolute inset-x-0 top-0 h-[2px] rounded-t-3xl" style={{ background: `linear-gradient(90deg, ${column.color}dd, ${column.color}33)` }} />
         <div className="absolute inset-x-0 top-0 h-36 pointer-events-none" style={{ background: `radial-gradient(ellipse 80% 100% at 50% 0%, ${column.color}1a, transparent)` }} />
 
-        {/* Header */}
         <div className="relative px-7 pt-7 pb-5">
           <div className="flex items-start justify-between gap-4">
             <div className="flex-1 min-w-0">
@@ -953,51 +818,35 @@ function DealModal({ project, column, onClose, navigate }: { project: Project; c
                 <Building2 className="w-3.5 h-3.5 flex-shrink-0" />{project.client}
               </p>
             </div>
-            <motion.button
-              onClick={onClose}
-              className="w-8 h-8 rounded-xl flex items-center justify-center flex-shrink-0 mt-0.5 hover:bg-white/[0.08] transition-colors"
-              style={{ border: "1px solid rgba(255,255,255,0.10)" }}
-              whileHover={{ scale: 1.1, rotate: 90 }}
-              whileTap={{ scale: 0.9 }}
-            >
+            <button onClick={onClose} className="w-8 h-8 rounded-xl flex items-center justify-center flex-shrink-0 mt-0.5 hover:bg-white/[0.08] transition-colors"
+              style={{ border: "1px solid rgba(255,255,255,0.10)" }}>
               <X className="w-4 h-4 text-[#8b949e]" />
-            </motion.button>
+            </button>
           </div>
 
-          {/* Stats row */}
           <div className="grid grid-cols-2 gap-2 mt-5">
             {[
               { label: "Quote Value", value: fmt(project.value, true), color: "#3b82f6" },
               { label: "Devices", value: String(project.devices), color: "#06b6d4" },
             ].map((s) => (
-              <motion.div
-                key={s.label}
-                className="rounded-2xl px-3 py-3 text-center"
-                style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)", boxShadow: "inset 0 1px 0 rgba(255,255,255,0.06)" }}
-                whileHover={{ scale: 1.02 }}
-              >
+              <div key={s.label} className="rounded-2xl px-3 py-3 text-center" style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)", boxShadow: "inset 0 1px 0 rgba(255,255,255,0.06)" }}>
                 <p className="text-[10px] font-bold uppercase tracking-widest mb-1" style={{ color: "rgba(139,148,158,0.85)" }}>{s.label}</p>
                 <p className="text-[1.2rem] font-bold tracking-tight leading-none" style={{ color: s.color }}>{s.value}</p>
-              </motion.div>
+              </div>
             ))}
           </div>
         </div>
 
-        {/* Tabs */}
         <div className="flex items-center gap-0.5 px-7 mb-0" style={{ borderBottom: "1px solid rgba(255,255,255,0.07)" }}>
           {(["overview", "contact", "notes"] as const).map((t) => (
             <button key={t} onClick={() => setTab(t)}
-              className={clsx("h-9 px-3.5 text-[12px] font-semibold capitalize border-b-2 transition-all -mb-px relative",
+              className={clsx("h-9 px-3.5 text-[12px] font-semibold capitalize border-b-2 transition-all -mb-px",
                 tab === t ? "border-blue-500 text-white" : "border-transparent text-[#8b949e] hover:text-white")}>
-              {tab === t && (
-                <motion.div layoutId="dealTab" className="absolute inset-x-0 bottom-[-2px] h-[2px] bg-blue-500 rounded-full" transition={{ type: "spring", stiffness: 500, damping: 30 }} />
-              )}
               {t === "notes" ? "Notes & Summary" : t.charAt(0).toUpperCase() + t.slice(1)}
             </button>
           ))}
         </div>
 
-        {/* Tab content */}
         <div className="px-7 py-5 space-y-3 max-h-[340px] overflow-y-auto" style={{ scrollbarWidth: "none" }}>
 
           {tab === "overview" && (
@@ -1016,7 +865,6 @@ function DealModal({ project, column, onClose, navigate }: { project: Project; c
                   </div>
                 ))}
               </div>
-              {/* Assignee */}
               <div className="rounded-2xl px-4 py-3.5 flex items-center gap-3"
                 style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)" }}>
                 <div className="w-9 h-9 rounded-xl flex items-center justify-center text-[11px] font-bold text-white flex-shrink-0"
@@ -1028,7 +876,6 @@ function DealModal({ project, column, onClose, navigate }: { project: Project; c
                   <p className="text-white text-[13px] font-semibold">{project.assignee.name}</p>
                 </div>
               </div>
-              {/* Collaborators */}
               {project.collaborators && project.collaborators.length > 0 && (
                 <div className="rounded-2xl px-4 py-3.5" style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)" }}>
                   <p className="text-[10px] font-bold uppercase tracking-widest text-[#484f58] mb-3 flex items-center gap-1.5">
@@ -1131,35 +978,22 @@ function DealModal({ project, column, onClose, navigate }: { project: Project; c
           )}
         </div>
 
-        {/* Actions */}
         <div className="px-7 pb-7 flex gap-2.5">
-          <motion.button
-            onClick={() => { navigate("project-detail"); onClose(); }}
+          <button onClick={() => { navigate("project-detail"); onClose(); }}
             className="flex-1 h-10 rounded-xl flex items-center justify-center gap-2 text-white text-[13px] font-bold transition-all duration-150"
-            style={{ background: "#3b82f6", boxShadow: "0 4px 20px rgba(59,130,246,0.4), inset 0 1px 0 rgba(255,255,255,0.2)" }}
-            whileHover={{ scale: 1.02 }}
-            whileTap={{ scale: 0.98 }}
-          >
+            style={{ background: "#3b82f6", boxShadow: "0 4px 20px rgba(59,130,246,0.4), inset 0 1px 0 rgba(255,255,255,0.2)" }}>
             <ExternalLink className="w-3.5 h-3.5" />Open Project
-          </motion.button>
-          <motion.button
-            onClick={() => { navigate("design-canvas"); onClose(); }}
+          </button>
+          <button onClick={() => { navigate("design-canvas"); onClose(); }}
             className="flex-1 h-10 rounded-xl flex items-center justify-center gap-2 text-[#e6edf3] text-[13px] font-bold transition-all duration-150 hover:bg-white/[0.12]"
-            style={G.btn}
-            whileHover={{ scale: 1.02 }}
-            whileTap={{ scale: 0.98 }}
-          >
+            style={G.btn}>
             <Layers className="w-3.5 h-3.5 text-violet-400" />Design
-          </motion.button>
-          <motion.button
-            onClick={() => { navigate("quote-builder"); onClose(); }}
+          </button>
+          <button onClick={() => { navigate("quote-builder"); onClose(); }}
             className="flex-1 h-10 rounded-xl flex items-center justify-center gap-2 text-[#e6edf3] text-[13px] font-bold transition-all duration-150 hover:bg-white/[0.12]"
-            style={G.btn}
-            whileHover={{ scale: 1.02 }}
-            whileTap={{ scale: 0.98 }}
-          >
+            style={G.btn}>
             <DollarSign className="w-3.5 h-3.5 text-blue-400" />Quote
-          </motion.button>
+          </button>
         </div>
       </motion.div>
     </div>
@@ -1177,14 +1011,10 @@ function KanbanCard({ project, column, dragging, onDragStart, onDragEnd, onClick
   const isDragging = dragging === project.id;
   const [menuOpen, setMenuOpen] = useState(false);
   return (
-    <motion.div
-      draggable
-      onDragStart={(e) => { e.stopPropagation(); onDragStart(e, project.id); }}
-      onDragEnd={onDragEnd}
+    <div
+      draggable onDragStart={(e) => { e.stopPropagation(); onDragStart(e, project.id); }} onDragEnd={onDragEnd}
       onClick={onClick}
-      className={clsx("group relative rounded-2xl cursor-pointer select-none transition-all duration-200", isDragging ? "opacity-25 scale-[0.96]" : "")}
-      layout
-      whileHover={{ y: -2, scale: 1.01, transition: { type: "spring", stiffness: 400, damping: 25 } }}
+      className={clsx("group relative rounded-2xl cursor-pointer select-none transition-all duration-200", isDragging ? "opacity-25 scale-[0.96]" : "hover:-translate-y-1")}
       style={{
         background: "rgba(255,255,255,0.055)",
         backdropFilter: "blur(24px)",
@@ -1202,33 +1032,22 @@ function KanbanCard({ project, column, dragging, onDragStart, onDragEnd, onClick
         <div className="flex items-start justify-between gap-2 mb-2">
           <h3 className="text-white text-[13px] font-semibold leading-snug flex-1 min-w-0">{project.name}</h3>
           <div className="relative flex-shrink-0">
-            <motion.button
-              onClick={(e) => { e.stopPropagation(); setMenuOpen(!menuOpen); }}
-              className="opacity-0 group-hover:opacity-100 transition-opacity w-6 h-6 rounded-lg hover:bg-white/10 flex items-center justify-center mt-0.5"
-              whileTap={{ scale: 0.9 }}
-            >
+            <button onClick={(e) => { e.stopPropagation(); setMenuOpen(!menuOpen); }}
+              className="opacity-0 group-hover:opacity-100 transition-opacity w-6 h-6 rounded-lg hover:bg-white/10 flex items-center justify-center mt-0.5">
               <MoreHorizontal className="w-3.5 h-3.5 text-[#8b949e]" />
-            </motion.button>
-            <AnimatePresence>
-              {menuOpen && (
-                <>
-                  <div className="fixed inset-0 z-10" onClick={(e) => { e.stopPropagation(); setMenuOpen(false); }} />
-                  <motion.div
-                    className="absolute right-0 top-7 z-20 w-40 rounded-xl overflow-hidden py-1"
-                    style={{ background: "rgba(7,12,26,0.97)", border: "1px solid rgba(255,255,255,0.12)", boxShadow: "0 8px 32px rgba(0,0,0,0.8)", backdropFilter: "blur(20px)", WebkitBackdropFilter: "blur(20px)" }}
-                    initial={{ opacity: 0, scale: 0.92 }}
-                    animate={{ opacity: 1, scale: 1 }}
-                    exit={{ opacity: 0, scale: 0.92 }}
-                    transition={{ type: "spring", stiffness: 400, damping: 25 }}
-                  >
-                    <button onClick={(e) => { e.stopPropagation(); onDelete(project.id); setMenuOpen(false); toast.success("Project deleted"); }}
-                      className="w-full flex items-center gap-2.5 px-3 py-2 text-rose-400 text-[12px] font-semibold hover:bg-rose-500/10 transition-colors text-left">
-                      <Trash2 className="w-3.5 h-3.5" /> Delete project
-                    </button>
-                  </motion.div>
-                </>
-              )}
-            </AnimatePresence>
+            </button>
+            {menuOpen && (
+              <>
+                <div className="fixed inset-0 z-10" onClick={(e) => { e.stopPropagation(); setMenuOpen(false); }} />
+                <div className="absolute right-0 top-7 z-20 w-40 rounded-xl overflow-hidden py-1"
+                  style={{ background: "rgba(7,12,26,0.97)", border: "1px solid rgba(255,255,255,0.12)", boxShadow: "0 8px 32px rgba(0,0,0,0.8)", backdropFilter: "blur(20px)", WebkitBackdropFilter: "blur(20px)" }}>
+                  <button onClick={(e) => { e.stopPropagation(); onDelete(project.id); setMenuOpen(false); toast.success("Project deleted"); }}
+                    className="w-full flex items-center gap-2.5 px-3 py-2 text-rose-400 text-[12px] font-semibold hover:bg-rose-500/10 transition-colors text-left">
+                    <Trash2 className="w-3.5 h-3.5" /> Delete project
+                  </button>
+                </div>
+              </>
+            )}
           </div>
         </div>
         <div className="flex items-center gap-1.5 mb-1">
@@ -1263,7 +1082,7 @@ function KanbanCard({ project, column, dragging, onDragStart, onDragEnd, onClick
           <span className="flex items-center gap-1 text-[#484f58] text-[11px]"><Calendar className="w-3 h-3" />{fmtDate(project.dueDate)}</span>
         </div>
       </div>
-    </motion.div>
+    </div>
   );
 }
 
@@ -1277,23 +1096,13 @@ function KanbanColumn({ column, projects, totalValue, dragging, isOver, onDragSt
 }) {
   const { fmt } = useCurrency();
   return (
-    <motion.div
-      onDragOver={onDragOver}
-      onDragLeave={onDragLeave}
-      onDrop={onDrop}
+    <div onDragOver={onDragOver} onDragLeave={onDragLeave} onDrop={onDrop}
       className="w-[272px] flex-shrink-0 flex flex-col rounded-2xl transition-all duration-200"
-      style={isOver ? { background: "rgba(59,130,246,0.08)", backdropFilter: "blur(24px)", WebkitBackdropFilter: "blur(24px)", border: "1px solid rgba(59,130,246,0.35)", boxShadow: "0 0 0 1px rgba(59,130,246,0.15) inset", scale: "1.008" } : { background: "rgba(255,255,255,0.032)", backdropFilter: "blur(24px)", WebkitBackdropFilter: "blur(24px)", border: "1px solid rgba(255,255,255,0.07)", boxShadow: "0 2px 20px rgba(0,0,0,0.3), inset 0 1px 0 rgba(255,255,255,0.05)" }}
-      layout
-    >
+      style={isOver ? { background: "rgba(59,130,246,0.08)", backdropFilter: "blur(24px)", WebkitBackdropFilter: "blur(24px)", border: "1px solid rgba(59,130,246,0.35)", boxShadow: "0 0 0 1px rgba(59,130,246,0.15) inset" } : { background: "rgba(255,255,255,0.032)", backdropFilter: "blur(24px)", WebkitBackdropFilter: "blur(24px)", border: "1px solid rgba(255,255,255,0.07)", boxShadow: "0 2px 20px rgba(0,0,0,0.3), inset 0 1px 0 rgba(255,255,255,0.05)" }}>
       <div className="px-3.5 pt-3.5 pb-3" style={{ borderBottom: "1px solid rgba(255,255,255,0.06)" }}>
         <div className="flex items-center justify-between mb-1">
           <div className="flex items-center gap-2 min-w-0">
-            <motion.div
-              className="w-2 h-2 rounded-full flex-shrink-0"
-              style={{ background: column.color, boxShadow: `0 0 10px ${column.color}88` }}
-              animate={{ scale: [1, 1.3, 1] }}
-              transition={{ duration: 2, repeat: Infinity, ease: "easeInOut" }}
-            />
+            <div className="w-2 h-2 rounded-full flex-shrink-0" style={{ background: column.color, boxShadow: `0 0 10px ${column.color}88` }} />
             <span className="text-white text-[12px] font-bold truncate leading-tight">{column.label}</span>
           </div>
           <div className="flex items-center gap-1 flex-shrink-0 ml-2">
@@ -1301,39 +1110,23 @@ function KanbanColumn({ column, projects, totalValue, dragging, isOver, onDragSt
               style={{ background: "rgba(255,255,255,0.08)", border: "1px solid rgba(255,255,255,0.10)" }}>
               {projects.length}
             </span>
-            <motion.button
-              className="w-5 h-5 rounded-lg hover:bg-white/[0.08] flex items-center justify-center transition-colors"
-              whileHover={{ scale: 1.15 }}
-              whileTap={{ scale: 0.9 }}
-            >
+            <button className="w-5 h-5 rounded-lg hover:bg-white/[0.08] flex items-center justify-center transition-colors">
               <Plus className="w-3 h-3 text-[#484f58]" />
-            </motion.button>
+            </button>
           </div>
         </div>
         <p className="text-[#484f58] text-[11px] font-semibold ml-4">{fmt(totalValue, true)}</p>
       </div>
       <div className="flex-1 p-2 space-y-2 overflow-y-auto" style={{ maxHeight: "calc(100vh - 296px)", scrollbarWidth: "none", scrollBehavior: "smooth", WebkitOverflowScrolling: "touch" }}>
-        <AnimatePresence>
-          {projects.map((p) => (
-            <KanbanCard key={p.id} project={p} column={column} dragging={dragging} onDragStart={onDragStart} onDragEnd={onDragEnd} onClick={() => onCardClick(p)} onDelete={onDelete} />
-          ))}
-        </AnimatePresence>
-        {isOver && (
-          <motion.div
-            className="h-14 rounded-xl border-2 border-dashed border-blue-500/35 bg-blue-500/[0.04] flex items-center justify-center"
-            initial={{ opacity: 0, scale: 0.95 }}
-            animate={{ opacity: 1, scale: 1 }}
-            transition={{ type: "spring", stiffness: 300, damping: 20 }}
-          >
-            <p className="text-blue-400/60 text-[11px] font-semibold">Drop here</p>
-          </motion.div>
-        )}
+        {projects.map((p) => (
+          <KanbanCard key={p.id} project={p} column={column} dragging={dragging} onDragStart={onDragStart} onDragEnd={onDragEnd} onClick={() => onCardClick(p)} onDelete={onDelete} />
+        ))}
+        {isOver && <div className="h-14 rounded-xl border-2 border-dashed border-blue-500/35 bg-blue-500/[0.04] flex items-center justify-center"><p className="text-blue-400/60 text-[11px] font-semibold">Drop here</p></div>}
         {projects.length === 0 && !isOver && <div className="h-14 rounded-xl border border-dashed border-white/[0.04] flex items-center justify-center"><p className="text-[#484f58] text-[11px]">No projects</p></div>}
       </div>
-    </motion.div>
+    </div>
   );
 }
-
 // ─── New Project Modal ────────────────────────────────────────────────────────
 
 const ASSIGNEES = [
@@ -1390,12 +1183,7 @@ function NewProjectModal({ onClose, onAdd }: { onClose: () => void; onAdd: (p: P
 
   return (
     <div className="fixed inset-0 z-[200] flex items-center justify-center p-4" onClick={onClose}>
-      <motion.div
-        className="absolute inset-0"
-        style={{ background: "rgba(0,0,0,0.65)", backdropFilter: "blur(8px)", WebkitBackdropFilter: "blur(8px)" }}
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-      />
+      <div className="absolute inset-0" style={{ background: "rgba(0,0,0,0.65)", backdropFilter: "blur(8px)", WebkitBackdropFilter: "blur(8px)" }} />
       <motion.div
         initial={{ opacity: 0, scale: 0.94, y: 16 }}
         animate={{ opacity: 1, scale: 1, y: 0 }}
@@ -1406,27 +1194,20 @@ function NewProjectModal({ onClose, onAdd }: { onClose: () => void; onAdd: (p: P
         <div className="absolute inset-x-0 top-0 h-[2px] rounded-t-3xl" style={{ background: "linear-gradient(90deg, #3b82f6dd, #8b5cf633)" }} />
         <div className="absolute inset-x-0 top-0 h-32 pointer-events-none" style={{ background: "radial-gradient(ellipse 80% 100% at 50% 0%, rgba(59,130,246,0.12), transparent)" }} />
 
-        {/* Header */}
         <div className="relative flex items-center justify-between px-7 pt-7 pb-5" style={{ borderBottom: "1px solid rgba(255,255,255,0.07)" }}>
           <div>
             <h2 className="text-white text-[1.1rem] font-bold tracking-tight">New Project</h2>
             <p className="text-[#8b949e] text-[12px] mt-0.5">Add a new project to the pipeline</p>
           </div>
-          <motion.button
-            onClick={onClose}
-            className="w-8 h-8 rounded-xl flex items-center justify-center hover:bg-white/[0.08] transition-colors"
-            style={{ border: "1px solid rgba(255,255,255,0.10)" }}
-            whileHover={{ scale: 1.1, rotate: 90 }}
-            whileTap={{ scale: 0.9 }}
-          >
+          <button onClick={onClose} className="w-8 h-8 rounded-xl flex items-center justify-center hover:bg-white/[0.08] transition-colors"
+            style={{ border: "1px solid rgba(255,255,255,0.10)" }}>
             <X className="w-4 h-4 text-[#8b949e]" />
-          </motion.button>
+          </button>
         </div>
 
         <form onSubmit={handleSubmit}>
           <div className="px-7 py-5 space-y-4 max-h-[60vh] overflow-y-auto" style={{ scrollbarWidth: "none" }}>
 
-            {/* Row 1 */}
             <div className="grid grid-cols-2 gap-4">
               <div className="col-span-2">
                 <label className={labelCls}>Project Name *</label>
@@ -1482,21 +1263,15 @@ function NewProjectModal({ onClose, onAdd }: { onClose: () => void; onAdd: (p: P
               <label className={labelCls}>Account Owner</label>
               <div className="flex flex-wrap gap-2">
                 {ASSIGNEES.map((a, i) => (
-                  <motion.button
-                    key={a.name}
-                    type="button"
-                    onClick={() => setAssigneeIdx(i)}
+                  <button key={a.name} type="button" onClick={() => setAssigneeIdx(i)}
                     className="flex items-center gap-2 h-9 px-3 rounded-xl transition-all"
-                    style={assigneeIdx === i ? { background: `${a.color}22`, border: `1px solid ${a.color}55` } : G.subtle}
-                    whileHover={{ scale: 1.03 }}
-                    whileTap={{ scale: 0.97 }}
-                  >
+                    style={assigneeIdx === i ? { background: `${a.color}22`, border: `1px solid ${a.color}55` } : G.subtle}>
                     <div className="w-5 h-5 rounded-full flex items-center justify-center text-[9px] font-bold text-white flex-shrink-0"
                       style={{ background: a.color }}>
                       {a.initials}
                     </div>
                     <span className={`text-[11px] font-semibold ${assigneeIdx === i ? "text-white" : "text-[#8b949e]"}`}>{a.name}</span>
-                  </motion.button>
+                  </button>
                 ))}
               </div>
             </div>
@@ -1533,28 +1308,17 @@ function NewProjectModal({ onClose, onAdd }: { onClose: () => void; onAdd: (p: P
             </div>
           </div>
 
-          {/* Footer */}
           <div className="px-7 pb-7 pt-4 flex gap-3" style={{ borderTop: "1px solid rgba(255,255,255,0.07)" }}>
-            <motion.button
-              type="button"
-              onClick={onClose}
+            <button type="button" onClick={onClose}
               className="flex-1 h-10 rounded-xl text-[#8b949e] text-[13px] font-semibold hover:text-white transition-all"
-              style={G.btn}
-              whileHover={{ scale: 1.02 }}
-              whileTap={{ scale: 0.98 }}
-            >
+              style={G.btn}>
               Cancel
-            </motion.button>
-            <motion.button
-              type="submit"
-              disabled={!canSubmit}
+            </button>
+            <button type="submit" disabled={!canSubmit}
               className="flex-1 h-10 rounded-xl text-white text-[13px] font-bold transition-all disabled:opacity-40 disabled:cursor-not-allowed"
-              style={{ background: "#3b82f6", boxShadow: canSubmit ? "0 4px 20px rgba(59,130,246,0.4), inset 0 1px 0 rgba(255,255,255,0.2)" : "none" }}
-              whileHover={canSubmit ? { scale: 1.02 } : {}}
-              whileTap={canSubmit ? { scale: 0.98 } : {}}
-            >
+              style={{ background: "#3b82f6", boxShadow: canSubmit ? "0 4px 20px rgba(59,130,246,0.4), inset 0 1px 0 rgba(255,255,255,0.2)" : "none" }}>
               Add to Pipeline
-            </motion.button>
+            </button>
           </div>
         </form>
       </motion.div>
@@ -1587,12 +1351,7 @@ function UploadFloorPlanModal({ onClose }: { onClose: () => void }) {
 
   return (
     <div className="fixed inset-0 z-[200] flex items-center justify-center p-4" onClick={onClose}>
-      <motion.div
-        className="absolute inset-0"
-        style={{ background: "rgba(0,0,0,0.65)", backdropFilter: "blur(8px)", WebkitBackdropFilter: "blur(8px)" }}
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-      />
+      <div className="absolute inset-0" style={{ background: "rgba(0,0,0,0.65)", backdropFilter: "blur(8px)", WebkitBackdropFilter: "blur(8px)" }} />
       <motion.div
         initial={{ opacity: 0, scale: 0.94, y: 16 }}
         animate={{ opacity: 1, scale: 1, y: 0 }}
@@ -1607,27 +1366,20 @@ function UploadFloorPlanModal({ onClose }: { onClose: () => void }) {
             <h2 className="text-white text-[1rem] font-bold">Upload Floor Plan</h2>
             <p className="text-[#8b949e] text-[12px] mt-0.5">Upload a floor plan or mockup to start designing</p>
           </div>
-          <motion.button
-            onClick={onClose}
-            className="w-8 h-8 rounded-xl flex items-center justify-center hover:bg-white/[0.08]"
-            style={{ border: "1px solid rgba(255,255,255,0.10)" }}
-            whileHover={{ scale: 1.1, rotate: 90 }}
-            whileTap={{ scale: 0.9 }}
-          >
+          <button onClick={onClose} className="w-8 h-8 rounded-xl flex items-center justify-center hover:bg-white/[0.08]"
+            style={{ border: "1px solid rgba(255,255,255,0.10)" }}>
             <X className="w-4 h-4 text-[#8b949e]" />
-          </motion.button>
+          </button>
         </div>
 
         <div className="p-6">
-          <motion.div
+          <div
             onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
             onDragLeave={() => setDragOver(false)}
             onDrop={handleDrop}
             className={clsx("border-2 border-dashed rounded-2xl p-10 text-center transition-all cursor-pointer",
               dragOver ? "border-violet-400 bg-violet-500/[0.06]" : file ? "border-emerald-500/40 bg-emerald-500/[0.03]" : "border-white/[0.10] hover:border-white/[0.20]")}
-            onClick={() => document.getElementById("floorplan-upload")?.click()}
-            whileHover={{ scale: 1.01 }}
-          >
+            onClick={() => document.getElementById("floorplan-upload")?.click()}>
             <input id="floorplan-upload" type="file" accept="image/*,.pdf,.dwg,.dxf" className="hidden" onChange={handleFileSelect} />
             {file ? (
               <div className="space-y-2">
@@ -1649,28 +1401,19 @@ function UploadFloorPlanModal({ onClose }: { onClose: () => void }) {
                 <p className="text-[#484f58] text-[10px]">Supports JPG, PNG, PDF, DWG, DXF</p>
               </div>
             )}
-          </motion.div>
+          </div>
 
           <div className="flex gap-3 mt-5">
-            <motion.button
-              onClick={onClose}
+            <button onClick={onClose}
               className="flex-1 h-10 rounded-xl text-[#8b949e] text-[13px] font-semibold hover:text-white transition-all"
-              style={G.btn}
-              whileHover={{ scale: 1.02 }}
-              whileTap={{ scale: 0.98 }}
-            >
+              style={G.btn}>
               Cancel
-            </motion.button>
-            <motion.button
-              onClick={handleUpload}
-              disabled={!file}
+            </button>
+            <button onClick={handleUpload} disabled={!file}
               className="flex-1 h-10 rounded-xl text-white text-[13px] font-bold transition-all disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center gap-2"
-              style={{ background: "#8b5cf6", boxShadow: file ? "0 4px 20px rgba(139,92,246,0.4), inset 0 1px 0 rgba(255,255,255,0.2)" : "none" }}
-              whileHover={file ? { scale: 1.02 } : {}}
-              whileTap={file ? { scale: 0.98 } : {}}
-            >
+              style={{ background: "#8b5cf6", boxShadow: file ? "0 4px 20px rgba(139,92,246,0.4), inset 0 1px 0 rgba(255,255,255,0.2)" : "none" }}>
               <Upload className="w-3.5 h-3.5" /> Upload & Open Canvas
-            </motion.button>
+            </button>
           </div>
         </div>
       </motion.div>
@@ -1688,12 +1431,7 @@ function SelectProjectModal({ onClose, onSelect, currentId }: { onClose: () => v
 
   return (
     <div className="fixed inset-0 z-[200] flex items-center justify-center p-4" onClick={onClose}>
-      <motion.div
-        className="absolute inset-0"
-        style={{ background: "rgba(0,0,0,0.55)", backdropFilter: "blur(6px)", WebkitBackdropFilter: "blur(6px)" }}
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-      />
+      <div className="absolute inset-0" style={{ background: "rgba(0,0,0,0.55)", backdropFilter: "blur(6px)", WebkitBackdropFilter: "blur(6px)" }} />
       <motion.div
         initial={{ opacity: 0, scale: 0.94, y: 14 }}
         animate={{ opacity: 1, scale: 1, y: 0 }}
@@ -1708,15 +1446,10 @@ function SelectProjectModal({ onClose, onSelect, currentId }: { onClose: () => v
             <h2 className="text-white text-[1rem] font-bold">Select Project</h2>
             <p className="text-[#8b949e] text-[12px] mt-0.5">Choose which project this quote is for</p>
           </div>
-          <motion.button
-            onClick={onClose}
-            className="w-8 h-8 rounded-xl flex items-center justify-center hover:bg-white/[0.08]"
-            style={{ border: "1px solid rgba(255,255,255,0.10)" }}
-            whileHover={{ scale: 1.1, rotate: 90 }}
-            whileTap={{ scale: 0.9 }}
-          >
+          <button onClick={onClose} className="w-8 h-8 rounded-xl flex items-center justify-center hover:bg-white/[0.08]"
+            style={{ border: "1px solid rgba(255,255,255,0.10)" }}>
             <X className="w-4 h-4 text-[#8b949e]" />
-          </motion.button>
+          </button>
         </div>
 
         <div className="px-4 py-3" style={{ borderBottom: "1px solid rgba(255,255,255,0.06)" }}>
@@ -1734,13 +1467,11 @@ function SelectProjectModal({ onClose, onSelect, currentId }: { onClose: () => v
 
         <div className="max-h-[340px] overflow-y-auto" style={{ scrollbarWidth: "none" }}>
           {filtered.map((p) => (
-            <motion.button
+            <button
               key={p.id}
               onClick={() => { onSelect(p.id); onClose(); }}
               className="w-full flex items-center gap-3 px-5 py-3 hover:bg-white/[0.04] transition-colors text-left"
-              style={{ borderBottom: "1px solid rgba(255,255,255,0.04)", background: p.id === currentId ? "rgba(59,130,246,0.06)" : "transparent" }}
-              whileHover={{ x: 2 }}
-            >
+              style={{ borderBottom: "1px solid rgba(255,255,255,0.04)", background: p.id === currentId ? "rgba(59,130,246,0.06)" : "transparent" }}>
               <div className="w-8 h-8 rounded-xl flex items-center justify-center text-[10px] font-bold text-white flex-shrink-0"
                 style={{ background: p.assignee.color, boxShadow: `0 0 10px ${p.assignee.color}44` }}>
                 {p.assignee.initials}
@@ -1754,7 +1485,7 @@ function SelectProjectModal({ onClose, onSelect, currentId }: { onClose: () => v
                   <CheckCircle2 className="w-3 h-3 text-white" />
                 </div>
               )}
-            </motion.button>
+            </button>
           ))}
         </div>
       </motion.div>
@@ -1800,100 +1531,86 @@ function Dashboard({ navigate }: { navigate: (p: Page) => void }) {
   const STAT_COLORS = ["#3b82f6", "#10b981", "#f97316", "#8b5cf6"];
 
   return (
-    <PageTransition id="dashboard">
-      <LiquidGlassBg>
-        <AnimatePresence>
-          {selectedDeal && selectedColumn && (
-            <DealModal project={selectedDeal} column={selectedColumn} onClose={() => setSelectedDeal(null)} navigate={navigate} />
-          )}
-          {showNewProject && (
-            <NewProjectModal onClose={() => setShowNewProject(false)} onAdd={(p) => setProjects((prev) => [p, ...prev])} />
-          )}
-          {progressAnim && (
-            <motion.div
-              initial={{ opacity: 0, y: 20, scale: 0.9 }}
-              animate={{ opacity: 1, y: 0, scale: 1 }}
-              exit={{ opacity: 0, y: -20, scale: 0.9 }}
-              className="fixed bottom-6 left-1/2 -translate-x-1/2 z-[250] px-5 py-3 rounded-2xl flex items-center gap-3"
-              style={{ background: "rgba(16,185,129,0.95)", backdropFilter: "blur(20px)", boxShadow: "0 8px 32px rgba(16,185,129,0.4)" }}>
-              <CheckCircle2 className="w-5 h-5 text-white" />
-              <span className="text-white text-[13px] font-bold">Project advanced to {COLUMNS.find((c) => c.id === progressAnim.stage)?.label}</span>
-            </motion.div>
-          )}
-        </AnimatePresence>
+    <div>
+      {selectedDeal && selectedColumn && (
+        <DealModal project={selectedDeal} column={selectedColumn} onClose={() => setSelectedDeal(null)} navigate={navigate} />
+      )}
+      {showNewProject && (
+        <NewProjectModal onClose={() => setShowNewProject(false)} onAdd={(p) => setProjects((prev) => [p, ...prev])} />
+      )}
+      {progressAnim && (
+        <motion.div
+          initial={{ opacity: 0, y: 20, scale: 0.9 }}
+          animate={{ opacity: 1, y: 0, scale: 1 }}
+          exit={{ opacity: 0, y: -20, scale: 0.9 }}
+          className="fixed bottom-6 left-1/2 -translate-x-1/2 z-[250] px-5 py-3 rounded-2xl flex items-center gap-3"
+          style={{ background: "rgba(16,185,129,0.95)", backdropFilter: "blur(20px)", boxShadow: "0 8px 32px rgba(16,185,129,0.4)" }}>
+          <CheckCircle2 className="w-5 h-5 text-white" />
+          <span className="text-white text-[13px] font-bold">Project advanced to {COLUMNS.find((c) => c.id === progressAnim.stage)?.label}</span>
+        </motion.div>
+      )}
 
-        <div className="px-5 pt-6 pb-5" style={{ borderBottom: "1px solid rgba(255,255,255,0.06)" }}>
-          <div className="flex items-center justify-between mb-5">
-            <div>
-              <h1 className="text-white font-bold text-xl tracking-tight">Project Pipeline</h1>
-              <p className="text-[#8b949e] text-[13px] mt-0.5">{projects.length} projects · FY 2026 · Q3</p>
-            </div>
-            <div className="flex items-center gap-2">
-              <motion.button
-                onClick={() => setShowNewProject(true)}
-                className="flex items-center gap-1.5 h-8 px-4 rounded-xl text-white text-[12px] font-bold transition-colors"
-                style={{ background: "#3b82f6", boxShadow: "0 4px 16px rgba(59,130,246,0.35), inset 0 1px 0 rgba(255,255,255,0.2)" }}
-                whileHover={{ scale: 1.03 }}
-                whileTap={{ scale: 0.97 }}
-              >
-                <Plus className="w-3.5 h-3.5" /> New Project
-              </motion.button>
-            </div>
+      <div className="px-5 pt-6 pb-5" style={{ borderBottom: "1px solid rgba(255,255,255,0.06)" }}>
+        <div className="flex items-center justify-between mb-5">
+          <div>
+            <h1 className="text-white font-bold text-xl tracking-tight">Project Pipeline</h1>
+            <p className="text-[#8b949e] text-[13px] mt-0.5">{projects.length} projects · FY 2026 · Q3</p>
           </div>
-          <div className="grid grid-cols-4 gap-3">
-            {[
-              { label: "Active Pipeline", value: pipeline, icon: TrendingUp, change: "+12% QoQ", pos: true, compact: true },
-              { label: "Win Rate", value: winRate, icon: Star, change: "+4pp QoQ", pos: true, isPct: true, compact: false },
-              { label: "In Negotiation", value: negoValue, icon: BarChart3, change: "Needs attention", pos: null, compact: true },
-              { label: "Avg Deal Size", value: avgDeal, icon: DollarSign, change: "−$12K QoQ", pos: false, compact: false },
-            ].map((stat, i) => (
-              <motion.div
-                key={stat.label}
-                className="rounded-2xl p-4 transition-all duration-200"
-                style={G.card}
-                whileHover={{ y: -2, scale: 1.01 }}
-              >
-                <div className="flex items-center justify-between mb-3">
-                  <span className="text-[#8b949e] text-[10px] font-bold uppercase tracking-[0.1em]">{stat.label}</span>
-                  <div className="w-7 h-7 rounded-xl flex items-center justify-center"
-                    style={{ background: `${STAT_COLORS[i]}18`, border: `1px solid ${STAT_COLORS[i]}30` }}>
-                    <stat.icon className="w-3.5 h-3.5" style={{ color: STAT_COLORS[i] }} />
-                  </div>
+          <div className="flex items-center gap-2">
+            <button onClick={() => setShowNewProject(true)} className="flex items-center gap-1.5 h-8 px-4 rounded-xl text-white text-[12px] font-bold transition-colors"
+              style={{ background: "#3b82f6", boxShadow: "0 4px 16px rgba(59,130,246,0.35), inset 0 1px 0 rgba(255,255,255,0.2)" }}>
+              <Plus className="w-3.5 h-3.5" /> New Project
+            </button>
+          </div>
+        </div>
+        <div className="grid grid-cols-4 gap-3">
+          {[
+            { label: "Active Pipeline", value: pipeline, icon: TrendingUp, change: "+12% QoQ", pos: true, compact: true },
+            { label: "Win Rate", value: winRate, icon: Star, change: "+4pp QoQ", pos: true, isPct: true, compact: false },
+            { label: "In Negotiation", value: negoValue, icon: BarChart3, change: "Needs attention", pos: null, compact: true },
+            { label: "Avg Deal Size", value: avgDeal, icon: DollarSign, change: "−$12K QoQ", pos: false, compact: false },
+          ].map((stat, i) => (
+            <div key={stat.label} className="rounded-2xl p-4 transition-all duration-200 hover:-translate-y-0.5" style={G.card}>
+              <div className="flex items-center justify-between mb-3">
+                <span className="text-[#8b949e] text-[10px] font-bold uppercase tracking-[0.1em]">{stat.label}</span>
+                <div className="w-7 h-7 rounded-xl flex items-center justify-center"
+                  style={{ background: `${STAT_COLORS[i]}18`, border: `1px solid ${STAT_COLORS[i]}30` }}>
+                  <stat.icon className="w-3.5 h-3.5" style={{ color: STAT_COLORS[i] }} />
                 </div>
-                <p className="text-white text-[1.6rem] font-bold tracking-tight leading-none mb-1.5">
-                  {stat.isPct ? `${stat.value}%` : fmt(stat.value as number, stat.compact)}
+              </div>
+              <p className="text-white text-[1.6rem] font-bold tracking-tight leading-none mb-1.5">
+                {stat.isPct ? `${stat.value}%` : fmt(stat.value as number, stat.compact)}
+              </p>
+              <div className="flex items-center justify-between">
+                <p className="text-[#484f58] text-[11px]">
+                  {stat.isPct ? `${won.length} of ${closed.length} closed` : stat.label === "Active Pipeline" ? `${active.length} active projects` : stat.label === "In Negotiation" ? `${negotiation.length} projects` : "Active projects"}
                 </p>
-                <div className="flex items-center justify-between">
-                  <p className="text-[#484f58] text-[11px]">
-                    {stat.isPct ? `${won.length} of ${closed.length} closed` : stat.label === "Active Pipeline" ? `${active.length} active projects` : stat.label === "In Negotiation" ? `${negotiation.length} projects` : "Active projects"}
-                  </p>
-                  <p className={clsx("text-[11px] font-bold", stat.pos === true && "text-emerald-400", stat.pos === false && "text-rose-400", stat.pos === null && "text-amber-400")}>{stat.change}</p>
-                </div>
-              </motion.div>
-            ))}
-          </div>
+                <p className={clsx("text-[11px] font-bold", stat.pos === true && "text-emerald-400", stat.pos === false && "text-rose-400", stat.pos === null && "text-amber-400")}>{stat.change}</p>
+              </div>
+            </div>
+          ))}
         </div>
+      </div>
 
-        <div className="overflow-x-auto px-5 py-5" style={{ scrollbarWidth: "thin", scrollbarColor: "rgba(255,255,255,0.08) transparent", scrollBehavior: "smooth", WebkitOverflowScrolling: "touch" }}>
-          <div className="flex gap-3 min-w-max pb-3">
-            {COLUMNS.map((col) => {
-              const colProjects = projects.filter((p) => p.stage === col.id);
-              return (
-                <KanbanColumn key={col.id} column={col} projects={colProjects}
-                  totalValue={colProjects.reduce((s, p) => s + p.value, 0)}
-                  dragging={dragging} isOver={dragOverCol === col.id}
-                  onDragStart={handleDragStart} onDragEnd={handleDragEnd}
-                  onDragOver={(e) => { e.preventDefault(); setDragOverCol(col.id); }}
-                  onDragLeave={() => setDragOverCol(null)}
-                  onDrop={() => handleDrop(col.id)}
-                  onCardClick={(p) => setSelectedDeal(p)}
-                  onDelete={(id) => setProjects((prev) => prev.filter((p) => p.id !== id))} />
-              );
-            })}
-          </div>
+      <div className="overflow-x-auto px-5 py-5" style={{ scrollbarWidth: "thin", scrollbarColor: "rgba(255,255,255,0.08) transparent", scrollBehavior: "smooth", WebkitOverflowScrolling: "touch" }}>
+        <div className="flex gap-3 min-w-max pb-3">
+          {COLUMNS.map((col) => {
+            const colProjects = projects.filter((p) => p.stage === col.id);
+            return (
+              <KanbanColumn key={col.id} column={col} projects={colProjects}
+                totalValue={colProjects.reduce((s, p) => s + p.value, 0)}
+                dragging={dragging} isOver={dragOverCol === col.id}
+                onDragStart={handleDragStart} onDragEnd={handleDragEnd}
+                onDragOver={(e) => { e.preventDefault(); setDragOverCol(col.id); }}
+                onDragLeave={() => setDragOverCol(null)}
+                onDrop={() => handleDrop(col.id)}
+                onCardClick={(p) => setSelectedDeal(p)}
+                onDelete={(id) => setProjects((prev) => prev.filter((p) => p.id !== id))} />
+            );
+          })}
         </div>
-      </LiquidGlassBg>
-    </PageTransition>
+      </div>
+    </div>
   );
 }
 
@@ -2003,174 +1720,136 @@ function DesignStudio({ navigate }: { navigate: (p: Page) => void }) {
   const handleDelete = (id: string) => { setProjects((prev) => prev.filter((p) => p.id !== id)); toast.success("Project removed"); };
 
   return (
-    <PageTransition id="design-studio">
-      <LiquidGlassBg>
-        <div className="px-5 py-6">
-          <AnimatePresence>
-            {showUploadModal && <UploadFloorPlanModal onClose={() => setShowUploadModal(false)} />}
-          </AnimatePresence>
-          <div className="flex items-center justify-between mb-6">
-            <div>
-              <h1 className="text-white font-bold text-xl tracking-tight">System Design Studio</h1>
-            </div>
-            <div className="flex items-center gap-2">
-              <div className="flex items-center rounded-xl p-0.5 gap-0.5" style={G.btn}>
-                {(["grid", "list"] as const).map((m) => (
-                  <motion.button
-                    key={m}
-                    onClick={() => setViewMode(m)}
-                    className={clsx("w-7 h-7 rounded-lg flex items-center justify-center transition-all",
-                      viewMode === m ? "text-white" : "text-[#484f58] hover:text-[#8b949e]")}
-                    style={viewMode === m ? { background: "rgba(255,255,255,0.12)", boxShadow: "inset 0 1px 0 rgba(255,255,255,0.10)" } : undefined}
-                    whileTap={{ scale: 0.9 }}
-                  >
-                    {m === "grid" ? <Grid3x3 className="w-3.5 h-3.5" /> : <List className="w-3.5 h-3.5" />}
-                  </motion.button>
-                ))}
-              </div>
-              <motion.button
-                onClick={() => setShowUploadModal(true)}
-                className="flex items-center gap-1.5 h-8 px-4 rounded-xl text-white text-[12px] font-bold"
-                style={{ background: "#3b82f6", boxShadow: "0 4px 16px rgba(59,130,246,0.35), inset 0 1px 0 rgba(255,255,255,0.2)" }}
-                whileHover={{ scale: 1.03 }}
-                whileTap={{ scale: 0.97 }}
-              >
-                <Plus className="w-3.5 h-3.5" /> New Design
-              </motion.button>
-            </div>
-          </div>
-
-          <div className="flex items-center gap-2 mb-5 flex-wrap">
-            {stageFilters.map((f) => (
-              <button key={f.id} onClick={() => setFilter(f.id)}
-                className={clsx("h-7 px-3 rounded-full text-[12px] font-semibold transition-all",
-                  filter === f.id ? "text-white" : "text-[#8b949e] hover:text-white")}
-                style={filter === f.id ? { background: "#3b82f6", boxShadow: "0 2px 12px rgba(59,130,246,0.3)" } : G.subtle}>
-                {f.label}
+    <div className="px-5 py-6">
+      {showUploadModal && <UploadFloorPlanModal onClose={() => setShowUploadModal(false)} />}
+      <div className="flex items-center justify-between mb-6">
+        <div>
+          <h1 className="text-white font-bold text-xl tracking-tight">System Design Studio</h1>
+        </div>
+        <div className="flex items-center gap-2">
+          <div className="flex items-center rounded-xl p-0.5 gap-0.5" style={G.btn}>
+            {(["grid", "list"] as const).map((m) => (
+              <button key={m} onClick={() => setViewMode(m)}
+                className={clsx("w-7 h-7 rounded-lg flex items-center justify-center transition-all",
+                  viewMode === m ? "text-white" : "text-[#484f58] hover:text-[#8b949e]")}
+                style={viewMode === m ? { background: "rgba(255,255,255,0.12)", boxShadow: "inset 0 1px 0 rgba(255,255,255,0.10)" } : undefined}>
+                {m === "grid" ? <Grid3x3 className="w-3.5 h-3.5" /> : <List className="w-3.5 h-3.5" />}
               </button>
             ))}
-            <div className="relative ml-1">
-              <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3 h-3 text-[#484f58]" />
-              <input
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                placeholder="Search projects…"
-                className="h-7 rounded-xl pl-7 pr-3 text-[12px] text-[#e6edf3] placeholder:text-[#484f58] focus:outline-none focus:ring-1 focus:ring-blue-500/50 w-44 transition-all"
-                style={G.input} />
-            </div>
-            <span className="text-[#484f58] text-[12px] ml-1">{filtered.length} projects</span>
           </div>
-
-          {viewMode === "grid" ? (
-            <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-              {filtered.map((project) => {
-                const badge = stageBadge(project.stage);
-                const hasDesign = ["design", "proposal", "negotiation", "win"].includes(project.stage);
-                return (
-                  <motion.div
-                    key={project.id}
-                    className="group rounded-2xl overflow-hidden cursor-pointer relative"
-                    style={{ ...G.card }}
-                    whileHover={{ y: -3, scale: 1.01 }}
-                    layout
-                  >
-                    <div className="relative h-[112px] bg-[#070c1a]" onClick={() => navigate("project-detail")}>
-                      <MiniFloorPlan project={project} />
-                      {hasDesign && (
-                        <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2"
-                          style={{ background: "rgba(0,0,0,0.5)", backdropFilter: "blur(4px)" }}>
-                          <motion.button
-                            onClick={(e) => { e.stopPropagation(); navigate("design-canvas"); }}
-                            className="h-7 px-3 rounded-xl text-white text-[11px] font-bold flex items-center gap-1.5"
-                            style={{ background: "#3b82f6", boxShadow: "0 4px 16px rgba(59,130,246,0.4)" }}
-                            whileHover={{ scale: 1.05 }}
-                            whileTap={{ scale: 0.95 }}
-                          >
-                            <Eye className="w-3 h-3" /> Open
-                          </motion.button>
-                          <motion.button
-                            onClick={(e) => { e.stopPropagation(); downloadCSV(`${project.name.replace(/[^a-z0-9]/gi,"_")}.csv`, [["Name","Client","Stage","Value","Cameras","Devices","Location","Due Date"],[project.name,project.client,project.stage,String(project.value),String(project.cameras),String(project.devices),project.location,project.dueDate]]); toast.success("Exported project data"); }}
-                            className="h-7 px-3 rounded-xl text-white text-[11px] font-bold flex items-center gap-1.5"
-                            style={{ background: "rgba(255,255,255,0.15)", border: "1px solid rgba(255,255,255,0.2)" }}
-                            whileHover={{ scale: 1.05 }}
-                            whileTap={{ scale: 0.95 }}
-                          >
-                            <Download className="w-3 h-3" /> Export
-                          </motion.button>
-                        </div>
-                      )}
-                      <div className={clsx("absolute top-2 right-2 text-[10px] font-bold px-2 py-0.5 rounded-full", badge.cls)}>{badge.label}</div>
-                    </div>
-                    <div className="p-4" onClick={() => navigate("project-detail")}>
-                      <h3 className="text-white text-[13px] font-semibold leading-snug mb-1 line-clamp-1">{project.name}</h3>
-                      <p className="text-[#8b949e] text-[11px] font-medium mb-3 flex items-center gap-1"><Building2 className="w-3 h-3" /> {project.client}</p>
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-2.5">
-                          <span className="flex items-center gap-1 text-[#484f58] text-[11px]"><Camera className="w-3 h-3" />{project.cameras}</span>
-                          <span className="flex items-center gap-1 text-[#484f58] text-[11px]"><Fingerprint className="w-3 h-3" />{project.devices}</span>
-                        </div>
-                        <div className="flex items-center gap-1.5">
-                          <div className="w-5 h-5 rounded-full flex items-center justify-center text-[9px] font-bold text-white"
-                            style={{ background: project.assignee.color, boxShadow: `0 0 8px ${project.assignee.color}55` }}>
-                            {project.assignee.initials}
-                          </div>
-                          <motion.button
-                            onClick={(e) => { e.stopPropagation(); handleDelete(project.id); }}
-                            className="w-6 h-6 rounded-lg flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity hover:bg-rose-500/20"
-                            title="Delete project"
-                            whileHover={{ scale: 1.1 }}
-                            whileTap={{ scale: 0.9 }}
-                          >
-                            <Trash2 className="w-3 h-3 text-rose-400" />
-                          </motion.button>
-                        </div>
-                      </div>
-                    </div>
-                  </motion.div>
-                );
-              })}
-            </div>
-          ) : (
-            <div className="rounded-2xl overflow-hidden" style={G.card}>
-              <div className="grid gap-4 px-4 py-2.5" style={{ gridTemplateColumns: "2fr 1fr 80px 80px 100px 80px 32px", borderBottom: "1px solid rgba(255,255,255,0.06)" }}>
-                {["Project", "Client", "Cameras", "Devices", "Stage", "Value", ""].map((h) => (
-                  <span key={h} className="text-[#484f58] text-[10px] font-bold uppercase tracking-widest">{h}</span>
-                ))}
-              </div>
-              {filtered.map((project) => {
-                const badge = stageBadge(project.stage);
-                return (
-                  <motion.div
-                    key={project.id}
-                    className="grid gap-4 px-4 py-3.5 items-center transition-all group hover:bg-white/[0.03]"
-                    style={{ gridTemplateColumns: "2fr 1fr 80px 80px 100px 80px 32px", borderBottom: "1px solid rgba(255,255,255,0.04)" }}
-                    whileHover={{ backgroundColor: "rgba(255,255,255,0.03)" }}
-                  >
-                    <div className="min-w-0 cursor-pointer" onClick={() => navigate("project-detail")}>
-                      <p className="text-white text-[13px] font-semibold truncate group-hover:text-blue-400 transition-colors">{project.name}</p>
-                      <p className="text-[#484f58] text-[11px] truncate">{project.location}</p>
-                    </div>
-                    <p className="text-[#8b949e] text-[12px] truncate font-medium">{project.client}</p>
-                    <p className="text-[#8b949e] text-[12px] flex items-center gap-1"><Camera className="w-3 h-3 text-[#484f58]" />{project.cameras}</p>
-                    <p className="text-[#8b949e] text-[12px] flex items-center gap-1"><Fingerprint className="w-3 h-3 text-[#484f58]" />{project.devices}</p>
-                    <span className={clsx("text-[10px] font-bold px-2 py-0.5 rounded-full w-fit", badge.cls)}>{badge.label}</span>
-                    <p className="text-white text-[13px] font-bold">{fmt(project.value, true)}</p>
-                    <motion.button
-                      onClick={() => handleDelete(project.id)}
-                      className="w-6 h-6 rounded-lg flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity hover:bg-rose-500/20"
-                      whileHover={{ scale: 1.1 }}
-                      whileTap={{ scale: 0.9 }}
-                    >
-                      <Trash2 className="w-3 h-3 text-rose-400" />
-                    </motion.button>
-                  </motion.div>
-                );
-              })}
-            </div>
-          )}
+          <button onClick={() => setShowUploadModal(true)}
+            className="flex items-center gap-1.5 h-8 px-4 rounded-xl text-white text-[12px] font-bold"
+            style={{ background: "#3b82f6", boxShadow: "0 4px 16px rgba(59,130,246,0.35), inset 0 1px 0 rgba(255,255,255,0.2)" }}>
+            <Plus className="w-3.5 h-3.5" /> New Design
+          </button>
         </div>
-      </LiquidGlassBg>
-    </PageTransition>
+      </div>
+
+      <div className="flex items-center gap-2 mb-5 flex-wrap">
+        {stageFilters.map((f) => (
+          <button key={f.id} onClick={() => setFilter(f.id)}
+            className={clsx("h-7 px-3 rounded-full text-[12px] font-semibold transition-all",
+              filter === f.id ? "text-white" : "text-[#8b949e] hover:text-white")}
+            style={filter === f.id ? { background: "#3b82f6", boxShadow: "0 2px 12px rgba(59,130,246,0.3)" } : G.subtle}>
+            {f.label}
+          </button>
+        ))}
+        <div className="relative ml-1">
+          <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3 h-3 text-[#484f58]" />
+          <input
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="Search projects…"
+            className="h-7 rounded-xl pl-7 pr-3 text-[12px] text-[#e6edf3] placeholder:text-[#484f58] focus:outline-none focus:ring-1 focus:ring-blue-500/50 w-44 transition-all"
+            style={G.input} />
+        </div>
+        <span className="text-[#484f58] text-[12px] ml-1">{filtered.length} projects</span>
+      </div>
+
+      {viewMode === "grid" ? (
+        <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+          {filtered.map((project) => {
+            const badge = stageBadge(project.stage);
+            const hasDesign = ["design", "proposal", "negotiation", "win"].includes(project.stage);
+            return (
+              <div key={project.id} className="group rounded-2xl overflow-hidden cursor-pointer transition-all duration-200 hover:-translate-y-1 relative"
+                style={{ ...G.card }}>
+                <div className="relative h-[112px] bg-[#070c1a]" onClick={() => navigate("project-detail")}>
+                  <MiniFloorPlan project={project} />
+                  {hasDesign && (
+                    <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2"
+                      style={{ background: "rgba(0,0,0,0.5)", backdropFilter: "blur(4px)" }}>
+                      <button onClick={(e) => { e.stopPropagation(); navigate("design-canvas"); }}
+                        className="h-7 px-3 rounded-xl text-white text-[11px] font-bold flex items-center gap-1.5"
+                        style={{ background: "#3b82f6", boxShadow: "0 4px 16px rgba(59,130,246,0.4)" }}>
+                        <Eye className="w-3 h-3" /> Open
+                      </button>
+                      <button onClick={(e) => { e.stopPropagation(); downloadCSV(`${project.name.replace(/[^a-z0-9]/gi,"_")}.csv`, [["Name","Client","Stage","Value","Cameras","Devices","Location","Due Date"],[project.name,project.client,project.stage,String(project.value),String(project.cameras),String(project.devices),project.location,project.dueDate]]); toast.success("Exported project data"); }}
+                        className="h-7 px-3 rounded-xl text-white text-[11px] font-bold flex items-center gap-1.5"
+                        style={{ background: "rgba(255,255,255,0.15)", border: "1px solid rgba(255,255,255,0.2)" }}>
+                        <Download className="w-3 h-3" /> Export
+                      </button>
+                    </div>
+                  )}
+                  <div className={clsx("absolute top-2 right-2 text-[10px] font-bold px-2 py-0.5 rounded-full", badge.cls)}>{badge.label}</div>
+                </div>
+                <div className="p-4" onClick={() => navigate("project-detail")}>
+                  <h3 className="text-white text-[13px] font-semibold leading-snug mb-1 line-clamp-1">{project.name}</h3>
+                  <p className="text-[#8b949e] text-[11px] font-medium mb-3 flex items-center gap-1"><Building2 className="w-3 h-3" /> {project.client}</p>
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2.5">
+                      <span className="flex items-center gap-1 text-[#484f58] text-[11px]"><Camera className="w-3 h-3" />{project.cameras}</span>
+                      <span className="flex items-center gap-1 text-[#484f58] text-[11px]"><Fingerprint className="w-3 h-3" />{project.devices}</span>
+                    </div>
+                    <div className="flex items-center gap-1.5">
+                      <div className="w-5 h-5 rounded-full flex items-center justify-center text-[9px] font-bold text-white"
+                        style={{ background: project.assignee.color, boxShadow: `0 0 8px ${project.assignee.color}55` }}>
+                        {project.assignee.initials}
+                      </div>
+                      <button onClick={(e) => { e.stopPropagation(); handleDelete(project.id); }}
+                        className="w-6 h-6 rounded-lg flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity hover:bg-rose-500/20"
+                        title="Delete project">
+                        <Trash2 className="w-3 h-3 text-rose-400" />
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      ) : (
+        <div className="rounded-2xl overflow-hidden" style={G.card}>
+          <div className="grid gap-4 px-4 py-2.5" style={{ gridTemplateColumns: "2fr 1fr 80px 80px 100px 80px 32px", borderBottom: "1px solid rgba(255,255,255,0.06)" }}>
+            {["Project", "Client", "Cameras", "Devices", "Stage", "Value", ""].map((h) => (
+              <span key={h} className="text-[#484f58] text-[10px] font-bold uppercase tracking-widest">{h}</span>
+            ))}
+          </div>
+          {filtered.map((project) => {
+            const badge = stageBadge(project.stage);
+            return (
+              <div key={project.id}
+                className="grid gap-4 px-4 py-3.5 items-center transition-all group hover:bg-white/[0.03]"
+                style={{ gridTemplateColumns: "2fr 1fr 80px 80px 100px 80px 32px", borderBottom: "1px solid rgba(255,255,255,0.04)" }}>
+                <div className="min-w-0 cursor-pointer" onClick={() => navigate("project-detail")}>
+                  <p className="text-white text-[13px] font-semibold truncate group-hover:text-blue-400 transition-colors">{project.name}</p>
+                  <p className="text-[#484f58] text-[11px] truncate">{project.location}</p>
+                </div>
+                <p className="text-[#8b949e] text-[12px] truncate font-medium">{project.client}</p>
+                <p className="text-[#8b949e] text-[12px] flex items-center gap-1"><Camera className="w-3 h-3 text-[#484f58]" />{project.cameras}</p>
+                <p className="text-[#8b949e] text-[12px] flex items-center gap-1"><Fingerprint className="w-3 h-3 text-[#484f58]" />{project.devices}</p>
+                <span className={clsx("text-[10px] font-bold px-2 py-0.5 rounded-full w-fit", badge.cls)}>{badge.label}</span>
+                <p className="text-white text-[13px] font-bold">{fmt(project.value, true)}</p>
+                <button onClick={() => handleDelete(project.id)}
+                  className="w-6 h-6 rounded-lg flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity hover:bg-rose-500/20">
+                  <Trash2 className="w-3 h-3 text-rose-400" />
+                </button>
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </div>
   );
 }
 
@@ -2197,237 +1876,214 @@ function ProjectDetail({ navigate }: { navigate: (p: Page) => void }) {
   const auditColors: Record<string, string> = { approval: "text-emerald-400", change: "text-amber-400", export: "text-blue-400", stage: "text-violet-400", quote: "text-blue-400", report: "text-cyan-400" };
 
   return (
-    <PageTransition id="project-detail">
-      <LiquidGlassBg>
-        <div className="px-5 py-6 max-w-[1200px]">
-          <div className="flex items-start justify-between mb-6 gap-4">
-            <div className="min-w-0">
-              <div className="flex items-center gap-2 mb-2">
-                <span className={clsx("text-[10px] font-bold px-2 py-0.5 rounded-full", badge.cls)}>{badge.label}</span>
-                <span className="text-rose-400 text-[10px] font-bold px-2 py-0.5 rounded-full bg-rose-500/12">HIGH RISK</span>
-              </div>
-              <h1 className="text-white font-bold text-2xl tracking-tight mb-1">{p.name}</h1>
-              <p className="text-[#8b949e] text-[13px] flex items-center gap-1.5">
-                <Building2 className="w-3.5 h-3.5" /> {p.client} · <MapPin className="w-3.5 h-3.5 ml-1" /> {p.location}
-              </p>
-            </div>
-            <div className="flex items-center gap-2 flex-shrink-0">
-              {[
-                { label: "Design", icon: Layers, color: "text-violet-400", action: () => navigate("design-canvas") },
-                { label: "Install", icon: CheckSquare, color: "text-emerald-400", action: () => navigate("install-tracker") },
-                { label: "Share", icon: Share2, color: "text-blue-400", action: undefined },
-                { label: "Reports", icon: FileText, color: "text-cyan-400", action: undefined },
-              ].map(({ label, icon: Icon, color, action }) => (
-                <motion.button
-                  key={label}
-                  onClick={action}
-                  className="flex items-center gap-1.5 h-9 px-4 rounded-xl text-white text-[12px] font-semibold transition-all hover:bg-white/[0.10]"
-                  style={G.btn}
-                  whileHover={{ scale: 1.03 }}
-                  whileTap={{ scale: 0.97 }}
-                >
-                  <Icon className={clsx("w-3.5 h-3.5", color)} /> {label}
-                </motion.button>
-              ))}
-            </div>
+    <div className="px-5 py-6 max-w-[1200px]">
+      <div className="flex items-start justify-between mb-6 gap-4">
+        <div className="min-w-0">
+          <div className="flex items-center gap-2 mb-2">
+            <span className={clsx("text-[10px] font-bold px-2 py-0.5 rounded-full", badge.cls)}>{badge.label}</span>
+            <span className="text-rose-400 text-[10px] font-bold px-2 py-0.5 rounded-full bg-rose-500/12">HIGH RISK</span>
           </div>
-
-          <div className="grid grid-cols-5 gap-3 mb-6">
-            {[
-              { label: "Contract Value", value: fmt(p.value, true), icon: DollarSign, color: "#3b82f6" },
-              { label: "Cameras", value: String(p.cameras), icon: Camera, color: "#8b5cf6" },
-              { label: "Access Devices", value: String(p.devices), icon: Fingerprint, color: "#06b6d4" },
-              { label: "Due Date", value: fmtDate(p.dueDate), icon: Calendar, color: "#f59e0b" },
-              { label: "Install Progress", value: "0%", icon: Activity, color: "#10b981" },
-            ].map((s) => (
-              <motion.div
-                key={s.label}
-                className="rounded-2xl p-4"
-                style={G.card}
-                whileHover={{ y: -2, scale: 1.01 }}
-              >
-                <div className="flex items-center justify-between mb-3">
-                  <span className="text-[#8b949e] text-[10px] font-bold uppercase tracking-[0.09em]">{s.label}</span>
-                  <div className="w-7 h-7 rounded-xl flex items-center justify-center"
-                    style={{ background: `${s.color}18`, border: `1px solid ${s.color}30` }}>
-                    <s.icon className="w-3.5 h-3.5" style={{ color: s.color }} />
-                  </div>
-                </div>
-                <p className="text-white text-xl font-bold tracking-tight">{s.value}</p>
-              </motion.div>
-            ))}
-          </div>
-
-          <div className="flex items-center gap-0.5 mb-5" style={{ borderBottom: "1px solid rgba(255,255,255,0.07)" }}>
-            {tabs.map((tab) => (
-              <button key={tab} onClick={() => setActiveTab(tab)}
-                className={clsx("h-10 px-4 text-[13px] font-semibold border-b-2 transition-all -mb-px relative",
-                  activeTab === tab ? "border-blue-500 text-white" : "border-transparent text-[#8b949e] hover:text-white")}>
-                {activeTab === tab && (
-                  <motion.div layoutId="projTab" className="absolute inset-x-0 bottom-[-2px] h-[2px] bg-blue-500 rounded-full" transition={{ type: "spring", stiffness: 500, damping: 30 }} />
-                )}
-                {tabLabels[tab]}
-              </button>
-            ))}
-          </div>
-
-          {activeTab === "overview" && (
-            <div className="grid grid-cols-3 gap-4">
-              <div className="col-span-2 space-y-4">
-                <div className="rounded-2xl p-5" style={G.card}>
-                  <h3 className="text-white text-[14px] font-bold mb-3">Project Scope</h3>
-                  <p className="text-[#8b949e] text-[13px] leading-relaxed">{p.summary ?? "Full-coverage surveillance deployment across the main casino floor, VIP suites, cage operations, and surrounding perimeter."}</p>
-                </div>
-                <div className="rounded-2xl p-5" style={G.card}>
-                  <h3 className="text-white text-[14px] font-bold mb-4">Project Team</h3>
-                  <div className="space-y-3">
-                    {[{ name: p.assignee.name, role: "Account Manager", initials: p.assignee.initials, color: p.assignee.color },
-                      ...(p.collaborators ?? []).map(c => ({ name: c.name, role: c.role, initials: c.initials, color: c.color }))
-                    ].map((m) => (
-                      <div key={m.name} className="flex items-center gap-3">
-                        <div className="w-8 h-8 rounded-xl flex items-center justify-center text-[11px] font-bold text-white flex-shrink-0"
-                          style={{ background: m.color, boxShadow: `0 0 12px ${m.color}44` }}>{m.initials}</div>
-                        <div><p className="text-white text-[13px] font-semibold">{m.name}</p><p className="text-[#8b949e] text-[11px]">{m.role}</p></div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              </div>
-              <div className="space-y-4">
-                <div className="rounded-2xl p-5" style={G.card}>
-                  <h3 className="text-white text-[14px] font-bold mb-4">Timeline</h3>
-                  <div className="space-y-3">
-                    {[
-                      { phase: "Assessment", date: "Jun 12", done: true },
-                      { phase: "Design", date: "Jun 30", done: true },
-                      { phase: "Proposal Sent", date: "Jul 8", done: true },
-                      { phase: "Negotiation", date: "Jul 18", done: false, current: true },
-                      { phase: "Installation", date: "Aug 15", done: false },
-                      { phase: "Sign-off", date: "Sep 1", done: false },
-                    ].map((item) => (
-                      <div key={item.phase} className="flex items-center gap-3">
-                        <div className={clsx("w-5 h-5 rounded-full flex items-center justify-center flex-shrink-0",
-                          item.done ? "bg-emerald-500/20" : item.current ? "bg-blue-500/20 ring-2 ring-blue-500/40" : "bg-white/[0.04]")}>
-                          {item.done ? <CheckCircle2 className="w-3 h-3 text-emerald-400" /> : item.current ? <Clock className="w-3 h-3 text-blue-400" /> : <div className="w-1.5 h-1.5 rounded-full bg-white/20" />}
-                        </div>
-                        <div className="flex-1 flex items-center justify-between">
-                          <span className={clsx("text-[12px] font-semibold", item.done ? "text-[#8b949e]" : item.current ? "text-white" : "text-[#484f58]")}>{item.phase}</span>
-                          <span className="text-[#484f58] text-[11px]">{item.date}</span>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-                <div className="rounded-2xl p-5" style={G.card}>
-                  <h3 className="text-white text-[14px] font-bold mb-3">Quick Links</h3>
-                  <div className="space-y-1.5">
-                    {[
-                      { label: "Floor Plan Rev C", icon: Layers, color: "text-violet-400" },
-                      { label: "Quote v3 — $1.24M", icon: DollarSign, color: "text-blue-400" },
-                      { label: "Assessment Report", icon: FileText, color: "text-cyan-400" },
-                      { label: "As-Built Draft", icon: Download, color: "text-emerald-400" },
-                    ].map((link) => (
-                      <button key={link.label} className="w-full flex items-center gap-2.5 h-8 px-3 rounded-xl hover:bg-white/[0.05] transition-colors text-left">
-                        <link.icon className={clsx("w-3.5 h-3.5 flex-shrink-0", link.color)} />
-                        <span className="text-[#8b949e] text-[12px] font-medium hover:text-white transition-colors">{link.label}</span>
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              </div>
-            </div>
-          )}
-
-          {activeTab === "quotes" && (
-            <div className="space-y-3">
-              {[
-                { id: "Q-2026-044-v3", date: "Jul 15, 2026", value: 1240000, status: "Pending Approval", margin: "31.4%" },
-                { id: "Q-2026-044-v2", date: "Jul 8, 2026", value: 1185000, status: "Superseded", margin: "29.8%" },
-                { id: "Q-2026-044-v1", date: "Jul 1, 2026", value: 1096000, status: "Superseded", margin: "27.2%" },
-              ].map((q) => (
-                <motion.div
-                  key={q.id}
-                  className="flex items-center justify-between rounded-2xl p-4 transition-all group"
-                  style={G.card}
-                  whileHover={{ y: -1, scale: 1.005 }}
-                >
-                  <div className="flex items-center gap-4">
-                    <div className="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0" style={{ background: "rgba(59,130,246,0.15)", border: "1px solid rgba(59,130,246,0.25)" }}>
-                      <DollarSign className="w-4 h-4 text-blue-400" />
-                    </div>
-                    <div>
-                      <p className="text-white text-[13px] font-semibold">{q.id}</p>
-                      <p className="text-[#484f58] text-[11px]">{q.date} · Margin {q.margin}</p>
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-4">
-                    <span className={clsx("text-[10px] font-bold px-2 py-0.5 rounded-full", q.status === "Pending Approval" ? "bg-amber-500/12 text-amber-400" : "bg-white/[0.05] text-[#484f58]")}>{q.status}</span>
-                    <p className="text-white font-bold text-[15px]">{fmt(q.value, true)}</p>
-                    <button onClick={() => navigate("quote-builder")}
-                      className="h-8 px-3 rounded-xl text-[#8b949e] text-[12px] font-semibold hover:text-white transition-all opacity-0 group-hover:opacity-100"
-                      style={G.btn}>Open</button>
-                  </div>
-                </motion.div>
-              ))}
-            </div>
-          )}
-
-          {activeTab === "change-orders" && (
-            <div className="space-y-3">
-              {[
-                { id: "CO-004", title: "12 Additional PTZ Cameras — VIP Expansion", value: 58800, status: "Pending", date: "Jul 15" },
-                { id: "CO-003", title: "Upgraded NVR Appliances (4× Dell R450)", value: 14200, status: "Approved", date: "Jul 10" },
-                { id: "CO-002", title: "Extended Cable Runs — East Wing", value: 8900, status: "Approved", date: "Jul 5" },
-                { id: "CO-001", title: "Additional Biometric Readers — High Security Zones", value: 22400, status: "Approved", date: "Jun 28" },
-              ].map((co) => (
-                <div key={co.id} className="flex items-center justify-between rounded-2xl p-4" style={G.card}>
-                  <div className="flex items-center gap-4">
-                    <div className="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0" style={{ background: "rgba(245,158,11,0.15)", border: "1px solid rgba(245,158,11,0.25)" }}>
-                      <AlertTriangle className="w-4 h-4 text-amber-400" />
-                    </div>
-                    <div>
-                      <div className="flex items-center gap-2 mb-0.5">
-                        <p className="text-white text-[13px] font-semibold">{co.id}</p>
-                        <span className={clsx("text-[10px] font-bold px-1.5 py-0.5 rounded-full", co.status === "Pending" ? "bg-amber-500/12 text-amber-400" : "bg-emerald-500/12 text-emerald-400")}>{co.status}</span>
-                      </div>
-                      <p className="text-[#8b949e] text-[12px]">{co.title}</p>
-                    </div>
-                  </div>
-                  <div className="text-right">
-                    <p className="text-white font-bold text-[15px]">+{fmt(co.value, true)}</p>
-                    <p className="text-[#484f58] text-[11px]">{co.date}</p>
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
-
-          {activeTab === "audit-log" && (
-            <div className="rounded-2xl overflow-hidden" style={G.card}>
-              {AUDIT_LOG.map((entry) => {
-                const Icon = auditIcons[entry.type] ?? FileText;
-                return (
-                  <div key={entry.id} className="flex items-center gap-4 px-5 py-4 hover:bg-white/[0.02] transition-colors"
-                    style={{ borderBottom: "1px solid rgba(255,255,255,0.04)" }}>
-                    <div className="w-8 h-8 rounded-xl flex items-center justify-center flex-shrink-0" style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.08)" }}>
-                      <Icon className={clsx("w-3.5 h-3.5", auditColors[entry.type])} />
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <p className="text-white text-[13px] font-semibold">{entry.action}</p>
-                      <p className="text-[#484f58] text-[11px]">{entry.user}</p>
-                    </div>
-                    <span className="text-[#484f58] text-[11px] flex-shrink-0">{entry.time}</span>
-                  </div>
-                );
-              })}
-            </div>
-          )}
+          <h1 className="text-white font-bold text-2xl tracking-tight mb-1">{p.name}</h1>
+          <p className="text-[#8b949e] text-[13px] flex items-center gap-1.5">
+            <Building2 className="w-3.5 h-3.5" /> {p.client} · <MapPin className="w-3.5 h-3.5 ml-1" /> {p.location}
+          </p>
         </div>
-      </LiquidGlassBg>
-    </PageTransition>
+        <div className="flex items-center gap-2 flex-shrink-0">
+          {[
+            { label: "Design", icon: Layers, color: "text-violet-400", action: () => navigate("design-canvas") },
+            { label: "Install", icon: CheckSquare, color: "text-emerald-400", action: () => navigate("install-tracker") },
+            { label: "Share", icon: Share2, color: "text-blue-400", action: undefined },
+            { label: "Reports", icon: FileText, color: "text-cyan-400", action: undefined },
+          ].map(({ label, icon: Icon, color, action }) => (
+            <button key={label} onClick={action}
+              className="flex items-center gap-1.5 h-9 px-4 rounded-xl text-white text-[12px] font-semibold transition-all hover:bg-white/[0.10]"
+              style={G.btn}>
+              <Icon className={clsx("w-3.5 h-3.5", color)} /> {label}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      <div className="grid grid-cols-5 gap-3 mb-6">
+        {[
+          { label: "Contract Value", value: fmt(p.value, true), icon: DollarSign, color: "#3b82f6" },
+          { label: "Cameras", value: String(p.cameras), icon: Camera, color: "#8b5cf6" },
+          { label: "Access Devices", value: String(p.devices), icon: Fingerprint, color: "#06b6d4" },
+          { label: "Due Date", value: fmtDate(p.dueDate), icon: Calendar, color: "#f59e0b" },
+          { label: "Install Progress", value: "0%", icon: Activity, color: "#10b981" },
+        ].map((s) => (
+          <div key={s.label} className="rounded-2xl p-4" style={G.card}>
+            <div className="flex items-center justify-between mb-3">
+              <span className="text-[#8b949e] text-[10px] font-bold uppercase tracking-[0.09em]">{s.label}</span>
+              <div className="w-7 h-7 rounded-xl flex items-center justify-center"
+                style={{ background: `${s.color}18`, border: `1px solid ${s.color}30` }}>
+                <s.icon className="w-3.5 h-3.5" style={{ color: s.color }} />
+              </div>
+            </div>
+            <p className="text-white text-xl font-bold tracking-tight">{s.value}</p>
+          </div>
+        ))}
+      </div>
+
+      <div className="flex items-center gap-0.5 mb-5" style={{ borderBottom: "1px solid rgba(255,255,255,0.07)" }}>
+        {tabs.map((tab) => (
+          <button key={tab} onClick={() => setActiveTab(tab)}
+            className={clsx("h-10 px-4 text-[13px] font-semibold border-b-2 transition-all -mb-px",
+              activeTab === tab ? "border-blue-500 text-white" : "border-transparent text-[#8b949e] hover:text-white")}>
+            {tabLabels[tab]}
+          </button>
+        ))}
+      </div>
+
+      {activeTab === "overview" && (
+        <div className="grid grid-cols-3 gap-4">
+          <div className="col-span-2 space-y-4">
+            <div className="rounded-2xl p-5" style={G.card}>
+              <h3 className="text-white text-[14px] font-bold mb-3">Project Scope</h3>
+              <p className="text-[#8b949e] text-[13px] leading-relaxed">{p.summary ?? "Full-coverage surveillance deployment across the main casino floor, VIP suites, cage operations, and surrounding perimeter."}</p>
+            </div>
+            <div className="rounded-2xl p-5" style={G.card}>
+              <h3 className="text-white text-[14px] font-bold mb-4">Project Team</h3>
+              <div className="space-y-3">
+                {[{ name: p.assignee.name, role: "Account Manager", initials: p.assignee.initials, color: p.assignee.color },
+                  ...(p.collaborators ?? []).map(c => ({ name: c.name, role: c.role, initials: c.initials, color: c.color }))
+                ].map((m) => (
+                  <div key={m.name} className="flex items-center gap-3">
+                    <div className="w-8 h-8 rounded-xl flex items-center justify-center text-[11px] font-bold text-white flex-shrink-0"
+                      style={{ background: m.color, boxShadow: `0 0 12px ${m.color}44` }}>{m.initials}</div>
+                    <div><p className="text-white text-[13px] font-semibold">{m.name}</p><p className="text-[#8b949e] text-[11px]">{m.role}</p></div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+          <div className="space-y-4">
+            <div className="rounded-2xl p-5" style={G.card}>
+              <h3 className="text-white text-[14px] font-bold mb-4">Timeline</h3>
+              <div className="space-y-3">
+                {[
+                  { phase: "Assessment", date: "Jun 12", done: true },
+                  { phase: "Design", date: "Jun 30", done: true },
+                  { phase: "Proposal Sent", date: "Jul 8", done: true },
+                  { phase: "Negotiation", date: "Jul 18", done: false, current: true },
+                  { phase: "Installation", date: "Aug 15", done: false },
+                  { phase: "Sign-off", date: "Sep 1", done: false },
+                ].map((item) => (
+                  <div key={item.phase} className="flex items-center gap-3">
+                    <div className={clsx("w-5 h-5 rounded-full flex items-center justify-center flex-shrink-0",
+                      item.done ? "bg-emerald-500/20" : item.current ? "bg-blue-500/20 ring-2 ring-blue-500/40" : "bg-white/[0.04]")}>
+                      {item.done ? <CheckCircle2 className="w-3 h-3 text-emerald-400" /> : item.current ? <Clock className="w-3 h-3 text-blue-400" /> : <div className="w-1.5 h-1.5 rounded-full bg-white/20" />}
+                    </div>
+                    <div className="flex-1 flex items-center justify-between">
+                      <span className={clsx("text-[12px] font-semibold", item.done ? "text-[#8b949e]" : item.current ? "text-white" : "text-[#484f58]")}>{item.phase}</span>
+                      <span className="text-[#484f58] text-[11px]">{item.date}</span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+            <div className="rounded-2xl p-5" style={G.card}>
+              <h3 className="text-white text-[14px] font-bold mb-3">Quick Links</h3>
+              <div className="space-y-1.5">
+                {[
+                  { label: "Floor Plan Rev C", icon: Layers, color: "text-violet-400" },
+                  { label: "Quote v3 — $1.24M", icon: DollarSign, color: "text-blue-400" },
+                  { label: "Assessment Report", icon: FileText, color: "text-cyan-400" },
+                  { label: "As-Built Draft", icon: Download, color: "text-emerald-400" },
+                ].map((link) => (
+                  <button key={link.label} className="w-full flex items-center gap-2.5 h-8 px-3 rounded-xl hover:bg-white/[0.05] transition-colors text-left">
+                    <link.icon className={clsx("w-3.5 h-3.5 flex-shrink-0", link.color)} />
+                    <span className="text-[#8b949e] text-[12px] font-medium hover:text-white transition-colors">{link.label}</span>
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {activeTab === "quotes" && (
+        <div className="space-y-3">
+          {[
+            { id: "Q-2026-044-v3", date: "Jul 15, 2026", value: 1240000, status: "Pending Approval", margin: "31.4%" },
+            { id: "Q-2026-044-v2", date: "Jul 8, 2026", value: 1185000, status: "Superseded", margin: "29.8%" },
+            { id: "Q-2026-044-v1", date: "Jul 1, 2026", value: 1096000, status: "Superseded", margin: "27.2%" },
+          ].map((q) => (
+            <div key={q.id} className="flex items-center justify-between rounded-2xl p-4 transition-all group hover:-translate-y-0.5" style={G.card}>
+              <div className="flex items-center gap-4">
+                <div className="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0" style={{ background: "rgba(59,130,246,0.15)", border: "1px solid rgba(59,130,246,0.25)" }}>
+                  <DollarSign className="w-4 h-4 text-blue-400" />
+                </div>
+                <div>
+                  <p className="text-white text-[13px] font-semibold">{q.id}</p>
+                  <p className="text-[#484f58] text-[11px]">{q.date} · Margin {q.margin}</p>
+                </div>
+              </div>
+              <div className="flex items-center gap-4">
+                <span className={clsx("text-[10px] font-bold px-2 py-0.5 rounded-full", q.status === "Pending Approval" ? "bg-amber-500/12 text-amber-400" : "bg-white/[0.05] text-[#484f58]")}>{q.status}</span>
+                <p className="text-white font-bold text-[15px]">{fmt(q.value, true)}</p>
+                <button onClick={() => navigate("quote-builder")}
+                  className="h-8 px-3 rounded-xl text-[#8b949e] text-[12px] font-semibold hover:text-white transition-all opacity-0 group-hover:opacity-100"
+                  style={G.btn}>Open</button>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {activeTab === "change-orders" && (
+        <div className="space-y-3">
+          {[
+            { id: "CO-004", title: "12 Additional PTZ Cameras — VIP Expansion", value: 58800, status: "Pending", date: "Jul 15" },
+            { id: "CO-003", title: "Upgraded NVR Appliances (4× Dell R450)", value: 14200, status: "Approved", date: "Jul 10" },
+            { id: "CO-002", title: "Extended Cable Runs — East Wing", value: 8900, status: "Approved", date: "Jul 5" },
+            { id: "CO-001", title: "Additional Biometric Readers — High Security Zones", value: 22400, status: "Approved", date: "Jun 28" },
+          ].map((co) => (
+            <div key={co.id} className="flex items-center justify-between rounded-2xl p-4" style={G.card}>
+              <div className="flex items-center gap-4">
+                <div className="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0" style={{ background: "rgba(245,158,11,0.15)", border: "1px solid rgba(245,158,11,0.25)" }}>
+                  <AlertTriangle className="w-4 h-4 text-amber-400" />
+                </div>
+                <div>
+                  <div className="flex items-center gap-2 mb-0.5">
+                    <p className="text-white text-[13px] font-semibold">{co.id}</p>
+                    <span className={clsx("text-[10px] font-bold px-1.5 py-0.5 rounded-full", co.status === "Pending" ? "bg-amber-500/12 text-amber-400" : "bg-emerald-500/12 text-emerald-400")}>{co.status}</span>
+                  </div>
+                  <p className="text-[#8b949e] text-[12px]">{co.title}</p>
+                </div>
+              </div>
+              <div className="text-right">
+                <p className="text-white font-bold text-[15px]">+{fmt(co.value, true)}</p>
+                <p className="text-[#484f58] text-[11px]">{co.date}</p>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {activeTab === "audit-log" && (
+        <div className="rounded-2xl overflow-hidden" style={G.card}>
+          {AUDIT_LOG.map((entry) => {
+            const Icon = auditIcons[entry.type] ?? FileText;
+            return (
+              <div key={entry.id} className="flex items-center gap-4 px-5 py-4 hover:bg-white/[0.02] transition-colors"
+                style={{ borderBottom: "1px solid rgba(255,255,255,0.04)" }}>
+                <div className="w-8 h-8 rounded-xl flex items-center justify-center flex-shrink-0" style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.08)" }}>
+                  <Icon className={clsx("w-3.5 h-3.5", auditColors[entry.type])} />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-white text-[13px] font-semibold">{entry.action}</p>
+                  <p className="text-[#484f58] text-[11px]">{entry.user}</p>
+                </div>
+                <span className="text-[#484f58] text-[11px] flex-shrink-0">{entry.time}</span>
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </div>
   );
 }
-
 // ─── Design Canvas ────────────────────────────────────────────────────────────
 
 const CANVAS_CAMERAS = [
@@ -2491,7 +2147,6 @@ function DesignCanvas({ navigate }: { navigate: (p: Page) => void }) {
 
   return (
     <div className="fixed inset-0 flex flex-col" style={{ background: "#070c1a" }}>
-      {/* Canvas topbar */}
       <header className="h-12 flex items-center gap-4 px-4 flex-shrink-0 z-40"
         style={{ ...panelStyle, borderBottom: "1px solid rgba(255,255,255,0.08)", boxShadow: "0 1px 0 rgba(255,255,255,0.04), 0 4px 24px rgba(0,0,0,0.5)" }}>
         <button onClick={() => navigate("project-detail")} className="flex items-center gap-1.5 text-[#8b949e] hover:text-white text-[12px] font-semibold transition-colors flex-shrink-0">
@@ -2535,13 +2190,8 @@ function DesignCanvas({ navigate }: { navigate: (p: Page) => void }) {
       </header>
 
       <div className="flex-1 relative overflow-hidden">
-        {/* Device tray */}
-        <motion.div
-          className="absolute left-0 top-0 bottom-0 w-64 z-30 flex flex-col"
-          style={{ ...panelStyle, borderRight: "1px solid rgba(255,255,255,0.08)" }}
-          animate={{ x: showDeviceTray ? 0 : -256 }}
-          transition={{ type: "spring", stiffness: 300, damping: 30 }}
-        >
+        <div className={clsx("absolute left-0 top-0 bottom-0 w-64 z-30 flex flex-col transition-transform duration-200", showDeviceTray ? "translate-x-0" : "-translate-x-full")}
+          style={{ ...panelStyle, borderRight: "1px solid rgba(255,255,255,0.08)" }}>
           <div className="px-4 py-3 flex items-center justify-between" style={{ borderBottom: "1px solid rgba(255,255,255,0.07)" }}>
             <p className="text-white text-[12px] font-bold">Device Library</p>
             <button onClick={() => setShowDeviceTray(false)} className="w-6 h-6 rounded-lg hover:bg-white/[0.08] flex items-center justify-center">
@@ -2581,9 +2231,8 @@ function DesignCanvas({ navigate }: { navigate: (p: Page) => void }) {
               </div>
             ))}
           </div>
-        </motion.div>
+        </div>
 
-        {/* SVG Canvas */}
         <div className="absolute inset-0 flex items-center justify-center overflow-hidden cursor-crosshair">
           <svg viewBox="0 0 990 610" className="w-full h-full max-w-none" style={{ maxHeight: "calc(100vh - 140px)" }}>
             <rect width="990" height="610" fill="#070c1a" />
@@ -2647,7 +2296,6 @@ function DesignCanvas({ navigate }: { navigate: (p: Page) => void }) {
           </svg>
         </div>
 
-        {/* Properties panel */}
         {showProperties && selected && (
           <div className="absolute right-0 top-0 bottom-0 w-72 z-30 flex flex-col"
             style={{ ...panelStyle, borderLeft: "1px solid rgba(255,255,255,0.08)" }}>
@@ -2720,37 +2368,27 @@ function DesignCanvas({ navigate }: { navigate: (p: Page) => void }) {
           </div>
         )}
 
-        {/* Floating tool palette */}
         <div className="absolute bottom-5 left-1/2 -translate-x-1/2 z-40 flex items-center gap-1 px-3 py-2 rounded-2xl"
           style={{ background: "rgba(7,12,26,0.85)", backdropFilter: "blur(40px) saturate(180%)", WebkitBackdropFilter: "blur(40px) saturate(180%)", border: "1px solid rgba(255,255,255,0.13)", boxShadow: "0 8px 40px rgba(0,0,0,0.7), inset 0 1px 0 rgba(255,255,255,0.10)" }}>
           {CANVAS_TOOLS.map((tool, i) => (
             <div key={tool.id} className="flex items-center">
               {i === 2 && <div className="w-px h-6 mx-1" style={{ background: "rgba(255,255,255,0.10)" }} />}
               {i === 9 && <div className="w-px h-6 mx-1" style={{ background: "rgba(255,255,255,0.10)" }} />}
-              <motion.button
-                onClick={() => setActiveTool(tool.id)}
-                title={tool.label}
+              <button onClick={() => setActiveTool(tool.id)} title={tool.label}
                 className={clsx("w-9 h-9 rounded-xl flex items-center justify-center transition-all duration-150",
                   activeTool === tool.id ? "text-white" : "text-[#8b949e] hover:bg-white/[0.07] hover:text-white")}
-                style={activeTool === tool.id ? { background: "#3b82f6", boxShadow: "0 4px 16px rgba(59,130,246,0.45), inset 0 1px 0 rgba(255,255,255,0.2)" } : undefined}
-                whileHover={{ scale: 1.08 }}
-                whileTap={{ scale: 0.92 }}
-              >
+                style={activeTool === tool.id ? { background: "#3b82f6", boxShadow: "0 4px 16px rgba(59,130,246,0.45), inset 0 1px 0 rgba(255,255,255,0.2)" } : undefined}>
                 <tool.icon className="w-4 h-4" />
-              </motion.button>
+              </button>
             </div>
           ))}
           <div className="w-px h-6 mx-1" style={{ background: "rgba(255,255,255,0.10)" }} />
-          <motion.button
-            onClick={() => setShowProperties(!showProperties)}
+          <button onClick={() => setShowProperties(!showProperties)}
             className={clsx("w-9 h-9 rounded-xl flex items-center justify-center transition-all",
               showProperties ? "text-white" : "text-[#484f58] hover:text-white hover:bg-white/[0.05]")}
-            style={showProperties ? { background: "rgba(255,255,255,0.10)", border: "1px solid rgba(255,255,255,0.12)" } : undefined}
-            whileHover={{ scale: 1.08 }}
-            whileTap={{ scale: 0.92 }}
-          >
+            style={showProperties ? { background: "rgba(255,255,255,0.10)", border: "1px solid rgba(255,255,255,0.12)" } : undefined}>
             <ChevronRight className="w-4 h-4" />
-          </motion.button>
+          </button>
         </div>
       </div>
     </div>
@@ -2839,223 +2477,177 @@ function QuoteBuilder({ navigate, quoteItems, setQuoteItems }: { navigate: (p: P
   };
 
   return (
-    <PageTransition id="quote-builder">
-      <div className="flex h-[calc(100vh-56px)] overflow-hidden">
-        <AnimatePresence>
-          {showProjectSelect && (
-            <SelectProjectModal
-              onClose={() => setShowProjectSelect(false)}
-              onSelect={(id) => setSelectedProjectId(id)}
-              currentId={selectedProjectId}
-            />
-          )}
-        </AnimatePresence>
+    <div className="flex h-[calc(100vh-56px)] overflow-hidden">
+      {showProjectSelect && (
+        <SelectProjectModal
+          onClose={() => setShowProjectSelect(false)}
+          onSelect={(id) => setSelectedProjectId(id)}
+          currentId={selectedProjectId}
+        />
+      )}
 
-        {/* Left — device library */}
-        <div className="w-64 flex-shrink-0 flex flex-col" style={{ ...sidebarStyle, borderRight: "1px solid rgba(255,255,255,0.07)" }}>
-          <div className="px-3 pt-3 pb-2" style={{ borderBottom: "1px solid rgba(255,255,255,0.06)" }}>
-            <p className="text-white text-[12px] font-bold mb-2">Device Library</p>
-            <div className="relative mb-2">
-              <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3 h-3 text-[#484f58]" />
-              <input value={libSearch} onChange={(e) => setLibSearch(e.target.value)} placeholder="Search devices…"
-                className="w-full h-7 rounded-xl pl-7 pr-2.5 text-[11px] text-[#e6edf3] placeholder:text-[#484f58] focus:outline-none" style={G.input} />
-            </div>
-            <div className="flex gap-1 flex-wrap">
-              {catalogCategories.map((c) => (
-                <button key={c} onClick={() => setLibCategory(c)}
-                  className="text-[9px] font-bold px-2 py-0.5 rounded-full transition-all"
-                  style={libCategory === c ? { background: "#3b82f620", color: "#60a5fa", border: "1px solid #3b82f640" } : { color: "#484f58", border: "1px solid rgba(255,255,255,0.06)" }}>
-                  {c === "all" ? "All" : c}
+      <div className="w-64 flex-shrink-0 flex flex-col" style={{ ...sidebarStyle, borderRight: "1px solid rgba(255,255,255,0.07)" }}>
+        <div className="px-3 pt-3 pb-2" style={{ borderBottom: "1px solid rgba(255,255,255,0.06)" }}>
+          <p className="text-white text-[12px] font-bold mb-2">Device Library</p>
+          <div className="relative mb-2">
+            <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3 h-3 text-[#484f58]" />
+            <input value={libSearch} onChange={(e) => setLibSearch(e.target.value)} placeholder="Search devices…"
+              className="w-full h-7 rounded-xl pl-7 pr-2.5 text-[11px] text-[#e6edf3] placeholder:text-[#484f58] focus:outline-none" style={G.input} />
+          </div>
+          <div className="flex gap-1 flex-wrap">
+            {catalogCategories.map((c) => (
+              <button key={c} onClick={() => setLibCategory(c)}
+                className="text-[9px] font-bold px-2 py-0.5 rounded-full transition-all"
+                style={libCategory === c ? { background: "#3b82f620", color: "#60a5fa", border: "1px solid #3b82f640" } : { color: "#484f58", border: "1px solid rgba(255,255,255,0.06)" }}>
+                {c === "all" ? "All" : c}
+              </button>
+            ))}
+          </div>
+        </div>
+        <div className="flex-1 overflow-y-auto py-2" style={{ scrollbarWidth: "none" }}>
+          {filteredLib.length === 0 && (
+            <p className="text-[#484f58] text-[11px] text-center py-4">No match for "{libSearch}"</p>
+          )}
+          {filteredLib.map((group) => (
+            <div key={group.category} className="mb-2">
+              <p className="text-[#484f58] text-[9px] font-bold uppercase tracking-widest mb-1 px-3">{group.category}</p>
+              {group.devices.map((device) => (
+                <button key={device.id} onClick={() => addFromLib(device)}
+                  className="w-full text-left px-3 py-2 hover:bg-white/[0.05] transition-colors flex items-center gap-2 group">
+                  <div className="w-7 h-7 rounded-lg overflow-hidden flex-shrink-0" style={{ background: "rgba(255,255,255,0.06)" }}>
+                    {device.imageUrl
+                      ? <img src={device.imageUrl} alt={device.model} className="w-full h-full object-cover opacity-70 group-hover:opacity-100 transition-opacity" />
+                      : <Package className="w-3.5 h-3.5 text-[#484f58] m-auto mt-1.5" />}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-[#8b949e] text-[11px] font-semibold group-hover:text-white transition-colors truncate">{device.model}</p>
+                    <p className="text-[#484f58] text-[9px] truncate">{device.manufacturer}</p>
+                  </div>
+                  <span className="text-[10px] font-bold text-[#3b82f6] flex-shrink-0">{device.price ? fmt(device.price, true) : "—"}</span>
                 </button>
               ))}
             </div>
-          </div>
-          <div className="flex-1 overflow-y-auto py-2" style={{ scrollbarWidth: "none" }}>
-            {filteredLib.length === 0 && (
-              <p className="text-[#484f58] text-[11px] text-center py-4">No match for "{libSearch}"</p>
-            )}
-            {filteredLib.map((group) => (
-              <div key={group.category} className="mb-2">
-                <p className="text-[#484f58] text-[9px] font-bold uppercase tracking-widest mb-1 px-3">{group.category}</p>
-                {group.devices.map((device) => (
-                  <motion.button
-                    key={device.id}
-                    onClick={() => addFromLib(device)}
-                    className="w-full text-left px-3 py-2 hover:bg-white/[0.05] transition-colors flex items-center gap-2 group"
-                    whileHover={{ x: 2 }}
-                  >
-                    <div className="w-7 h-7 rounded-lg overflow-hidden flex-shrink-0" style={{ background: "rgba(255,255,255,0.06)" }}>
-                      {device.imageUrl
-                        ? <img src={device.imageUrl} alt={device.model} className="w-full h-full object-cover opacity-70 group-hover:opacity-100 transition-opacity" />
-                        : <Package className="w-3.5 h-3.5 text-[#484f58] m-auto mt-1.5" />}
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <p className="text-[#8b949e] text-[11px] font-semibold group-hover:text-white transition-colors truncate">{device.model}</p>
-                      <p className="text-[#484f58] text-[9px] truncate">{device.manufacturer}</p>
-                    </div>
-                    <span className="text-[10px] font-bold text-[#3b82f6] flex-shrink-0">{device.price ? fmt(device.price, true) : "—"}</span>
-                  </motion.button>
-                ))}
-              </div>
-            ))}
-          </div>
+          ))}
         </div>
+      </div>
 
-        {/* Center — line items */}
-        <div className="flex-1 flex flex-col overflow-hidden">
-          <div className="px-5 py-4 flex items-center justify-between flex-shrink-0" style={{ borderBottom: "1px solid rgba(255,255,255,0.07)" }}>
-            <div>
-              <div className="flex items-center gap-2 mb-1">
-                <h2 className="text-white font-bold text-[15px]">Q-2026-044-v3</h2>
-                <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-500/12 text-amber-400">Pending Approval</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <motion.button
-                  onClick={() => setShowProjectSelect(true)}
-                  className="flex items-center gap-1.5 text-[#8b949e] hover:text-white text-[12px] font-semibold transition-colors"
-                  style={{ ...G.btn, padding: "4px 10px", borderRadius: "8px" }}
-                  whileHover={{ scale: 1.03 }}
-                  whileTap={{ scale: 0.97 }}
-                >
-                  <Building2 className="w-3 h-3" />
-                  {selectedProject ? selectedProject.name : "Select project"}
-                  <ChevronDown className="w-3 h-3" />
-                </motion.button>
-                {selectedProject && (
-                  <span className="text-[#484f58] text-[11px]">{selectedProject.client}</span>
-                )}
-              </div>
+      <div className="flex-1 flex flex-col overflow-hidden">
+        <div className="px-5 py-4 flex items-center justify-between flex-shrink-0" style={{ borderBottom: "1px solid rgba(255,255,255,0.07)" }}>
+          <div>
+            <div className="flex items-center gap-2 mb-1">
+              <h2 className="text-white font-bold text-[15px]">Q-2026-044-v3</h2>
+              <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-500/12 text-amber-400">Pending Approval</span>
             </div>
             <div className="flex items-center gap-2">
-              <motion.button
-                onClick={() => { downloadPDF(`Q-2026-044-v3_${selectedProject?.client?.replace(/[^a-z0-9]/gi,"_") ?? "quote"}.pdf`, items); }}
-                className="flex items-center gap-1.5 h-8 px-3 rounded-xl text-[#8b949e] text-[12px] font-semibold hover:text-white transition-all"
-                style={G.btn}
-                whileHover={{ scale: 1.03 }}
-                whileTap={{ scale: 0.97 }}
-              >
-                <FileText className="w-3.5 h-3.5" /> Export PDF
-              </motion.button>
-              <motion.button
-                onClick={() => toast.success("Quote sent for approval — Marcus Webb notified")}
-                className="flex items-center gap-1.5 h-8 px-3 rounded-xl text-[#8b949e] text-[12px] font-semibold hover:text-white transition-all"
-                style={G.btn}
-                whileHover={{ scale: 1.03 }}
-                whileTap={{ scale: 0.97 }}
-              >
-                <Share2 className="w-3.5 h-3.5" /> Send for Approval
-              </motion.button>
-              <motion.button
-                onClick={() => toast.success("Quote Q-2026-044-v3 approved")}
-                className="flex items-center gap-1.5 h-8 px-4 rounded-xl text-white text-[12px] font-bold"
-                style={{ background: "#3b82f6", boxShadow: "0 4px 16px rgba(59,130,246,0.35), inset 0 1px 0 rgba(255,255,255,0.2)" }}
-                whileHover={{ scale: 1.03 }}
-                whileTap={{ scale: 0.97 }}
-              >
-                <CheckCircle2 className="w-3.5 h-3.5" /> Approve Quote
-              </motion.button>
-            </div>
-          </div>
-
-          {/* Table header */}
-          <div className="grid gap-3 px-5 py-2.5 flex-shrink-0" style={{ gridTemplateColumns: "2fr 110px 130px 130px 32px", borderBottom: "1px solid rgba(255,255,255,0.06)", background: "rgba(255,255,255,0.02)" }}>
-            {["Line Item", "SKU", "Qty", "Line Total", ""].map((h) => (
-              <span key={h} className="text-[#484f58] text-[10px] font-bold uppercase tracking-widest">{h}</span>
-            ))}
-          </div>
-
-          <div className="flex-1 overflow-y-auto" style={{ scrollbarWidth: "thin", scrollbarColor: "rgba(255,255,255,0.08) transparent" }}>
-            {items.map((item, idx) => {
-              const lineTotal = item.qty * item.unitPrice;
-              const isSelected = selectedIds.has(item.id);
-              return (
-                <motion.div
-                  key={item.id}
-                  onClick={() => setSelectedIds((prev) => { const next = new Set(prev); if (next.has(item.id)) next.delete(item.id); else next.add(item.id); return next; })}
-                  className={clsx("grid gap-3 px-5 py-3.5 items-center cursor-pointer transition-colors group",
-                    isSelected ? "bg-blue-500/[0.07]" : "hover:bg-white/[0.02]",
-                    idx % 2 === 1 && "bg-white/[0.01]")}
-                  style={{ gridTemplateColumns: "2fr 110px 130px 130px 32px", borderBottom: "1px solid rgba(255,255,255,0.04)" }}
-                  whileHover={{ backgroundColor: "rgba(255,255,255,0.03)" }}
-                >
-                  <div className="min-w-0">
-                    <p className="text-white text-[12px] font-semibold truncate">{item.name}</p>
-                    <p className="text-[#484f58] text-[10px] tabular-nums">Unit: {fmt(item.unitPrice)}</p>
-                  </div>
-                  <span className="text-[#484f58] text-[11px] font-mono truncate">{item.sku}</span>
-                  <div className="flex items-center gap-1">
-                    <motion.button
-                      onClick={(e) => { e.stopPropagation(); updateItem(item.id, "qty", Math.max(1, item.qty - 1)); }}
-                      className="w-5 h-5 rounded-lg hover:bg-white/[0.10] flex items-center justify-center text-[#8b949e] transition-colors"
-                      style={{ background: "rgba(255,255,255,0.05)" }}
-                      whileTap={{ scale: 0.9 }}
-                    >
-                      <ChevronDown className="w-2.5 h-2.5" />
-                    </motion.button>
-                    <span className="text-white text-[12px] font-semibold w-10 text-center tabular-nums">{item.qty}</span>
-                    <motion.button
-                      onClick={(e) => { e.stopPropagation(); updateItem(item.id, "qty", item.qty + 1); }}
-                      className="w-5 h-5 rounded-lg hover:bg-white/[0.10] flex items-center justify-center text-[#8b949e] transition-colors"
-                      style={{ background: "rgba(255,255,255,0.05)" }}
-                      whileTap={{ scale: 0.9 }}
-                    >
-                      <ChevronUp className="w-2.5 h-2.5" />
-                    </motion.button>
-                  </div>
-                  <span className="text-white text-[13px] font-bold tabular-nums">{fmt(lineTotal)}</span>
-                  <motion.button
-                    onClick={(e) => { e.stopPropagation(); setItems((prev) => prev.filter((i) => i.id !== item.id)); }}
-                    className="w-6 h-6 rounded-lg hover:bg-rose-500/15 flex items-center justify-center transition-colors opacity-0 group-hover:opacity-100"
-                    whileHover={{ scale: 1.1 }}
-                    whileTap={{ scale: 0.9 }}
-                  >
-                    <X className="w-3 h-3 text-rose-400" />
-                  </motion.button>
-                </motion.div>
-              );
-            })}
-            <div className="px-5 py-3">
-              <button className="flex items-center gap-2 text-[#484f58] hover:text-blue-400 text-[12px] font-semibold transition-colors">
-                <Plus className="w-3.5 h-3.5" /> Add line item
+              <button
+                onClick={() => setShowProjectSelect(true)}
+                className="flex items-center gap-1.5 text-[#8b949e] hover:text-white text-[12px] font-semibold transition-colors"
+                style={{ ...G.btn, padding: "4px 10px", borderRadius: "8px" }}>
+                <Building2 className="w-3 h-3" />
+                {selectedProject ? selectedProject.name : "Select project"}
+                <ChevronDown className="w-3 h-3" />
               </button>
+              {selectedProject && (
+                <span className="text-[#484f58] text-[11px]">{selectedProject.client}</span>
+              )}
             </div>
+          </div>
+          <div className="flex items-center gap-2">
+            <button onClick={() => { downloadPDF(`Q-2026-044-v3_${selectedProject?.client?.replace(/[^a-z0-9]/gi,"_") ?? "quote"}.pdf`, items); }}
+              className="flex items-center gap-1.5 h-8 px-3 rounded-xl text-[#8b949e] text-[12px] font-semibold hover:text-white transition-all" style={G.btn}>
+              <FileText className="w-3.5 h-3.5" /> Export PDF
+            </button>
+            <button onClick={() => toast.success("Quote sent for approval — Marcus Webb notified")}
+              className="flex items-center gap-1.5 h-8 px-3 rounded-xl text-[#8b949e] text-[12px] font-semibold hover:text-white transition-all" style={G.btn}>
+              <Share2 className="w-3.5 h-3.5" /> Send for Approval
+            </button>
+            <button onClick={() => toast.success("Quote Q-2026-044-v3 approved")}
+              className="flex items-center gap-1.5 h-8 px-4 rounded-xl text-white text-[12px] font-bold"
+              style={{ background: "#3b82f6", boxShadow: "0 4px 16px rgba(59,130,246,0.35), inset 0 1px 0 rgba(255,255,255,0.2)" }}>
+              <CheckCircle2 className="w-3.5 h-3.5" /> Approve Quote
+            </button>
           </div>
         </div>
 
-        {/* Right — pricing summary */}
-        <div className="w-64 flex-shrink-0 flex flex-col" style={{ ...sidebarStyle, borderLeft: "1px solid rgba(255,255,255,0.07)" }}>
-          <div className="px-4 py-3" style={{ borderBottom: "1px solid rgba(255,255,255,0.06)" }}>
-            <p className="text-white text-[12px] font-bold">Pricing Summary</p>
+        <div className="grid gap-3 px-5 py-2.5 flex-shrink-0" style={{ gridTemplateColumns: "2fr 110px 130px 130px 32px", borderBottom: "1px solid rgba(255,255,255,0.06)", background: "rgba(255,255,255,0.02)" }}>
+          {["Line Item", "SKU", "Qty", "Line Total", ""].map((h) => (
+            <span key={h} className="text-[#484f58] text-[10px] font-bold uppercase tracking-widest">{h}</span>
+          ))}
+        </div>
+
+        <div className="flex-1 overflow-y-auto" style={{ scrollbarWidth: "thin", scrollbarColor: "rgba(255,255,255,0.08) transparent" }}>
+          {items.map((item, idx) => {
+            const lineTotal = item.qty * item.unitPrice;
+            const isSelected = selectedIds.has(item.id);
+            return (
+              <div key={item.id}
+                onClick={() => setSelectedIds((prev) => { const next = new Set(prev); if (next.has(item.id)) next.delete(item.id); else next.add(item.id); return next; })}
+                className={clsx("grid gap-3 px-5 py-3.5 items-center cursor-pointer transition-colors group",
+                  isSelected ? "bg-blue-500/[0.07]" : "hover:bg-white/[0.02]",
+                  idx % 2 === 1 && "bg-white/[0.01]")}
+                style={{ gridTemplateColumns: "2fr 110px 130px 130px 32px", borderBottom: "1px solid rgba(255,255,255,0.04)" }}>
+                <div className="min-w-0">
+                  <p className="text-white text-[12px] font-semibold truncate">{item.name}</p>
+                  <p className="text-[#484f58] text-[10px] tabular-nums">Unit: {fmt(item.unitPrice)}</p>
+                </div>
+                <span className="text-[#484f58] text-[11px] font-mono truncate">{item.sku}</span>
+                <div className="flex items-center gap-1">
+                  <button onClick={(e) => { e.stopPropagation(); updateItem(item.id, "qty", Math.max(1, item.qty - 1)); }} className="w-5 h-5 rounded-lg hover:bg-white/[0.10] flex items-center justify-center text-[#8b949e] transition-colors" style={{ background: "rgba(255,255,255,0.05)" }}>
+                    <ChevronDown className="w-2.5 h-2.5" />
+                  </button>
+                  <span className="text-white text-[12px] font-semibold w-10 text-center tabular-nums">{item.qty}</span>
+                  <button onClick={(e) => { e.stopPropagation(); updateItem(item.id, "qty", item.qty + 1); }} className="w-5 h-5 rounded-lg hover:bg-white/[0.10] flex items-center justify-center text-[#8b949e] transition-colors" style={{ background: "rgba(255,255,255,0.05)" }}>
+                    <ChevronUp className="w-2.5 h-2.5" />
+                  </button>
+                </div>
+                <span className="text-white text-[13px] font-bold tabular-nums">{fmt(lineTotal)}</span>
+                <button onClick={(e) => { e.stopPropagation(); setItems((prev) => prev.filter((i) => i.id !== item.id)); }}
+                  className="w-6 h-6 rounded-lg hover:bg-rose-500/15 flex items-center justify-center transition-colors opacity-0 group-hover:opacity-100">
+                  <X className="w-3 h-3 text-rose-400" />
+                </button>
+              </div>
+            );
+          })}
+          <div className="px-5 py-3">
+            <button className="flex items-center gap-2 text-[#484f58] hover:text-blue-400 text-[12px] font-semibold transition-colors">
+              <Plus className="w-3.5 h-3.5" /> Add line item
+            </button>
           </div>
-          <div className="flex-1 p-4 space-y-3">
-            <div className="rounded-2xl p-4" style={G.card}>
-              <p className="text-[#484f58] text-[10px] font-bold uppercase tracking-widest mb-1">Subtotal (ex. GCT)</p>
-              <p className="text-white text-[1.4rem] font-bold tracking-tight tabular-nums">{fmt(totals.subtotal)}</p>
+        </div>
+      </div>
+
+      <div className="w-64 flex-shrink-0 flex flex-col" style={{ ...sidebarStyle, borderLeft: "1px solid rgba(255,255,255,0.07)" }}>
+        <div className="px-4 py-3" style={{ borderBottom: "1px solid rgba(255,255,255,0.06)" }}>
+          <p className="text-white text-[12px] font-bold">Pricing Summary</p>
+        </div>
+        <div className="flex-1 p-4 space-y-3">
+          <div className="rounded-2xl p-4" style={G.card}>
+            <p className="text-[#484f58] text-[10px] font-bold uppercase tracking-widest mb-1">Subtotal (ex. GCT)</p>
+            <p className="text-white text-[1.4rem] font-bold tracking-tight tabular-nums">{fmt(totals.subtotal)}</p>
+          </div>
+          <div className="rounded-2xl p-4 space-y-2.5" style={G.card}>
+            <div className="flex items-center justify-between">
+              <span className="text-[#8b949e] text-[11px]">{`GCT (${(TAX_RATE * 100).toFixed(1)}%)`}</span>
+              <span className="text-[#8b949e] text-[12px] font-bold tabular-nums">+{fmt(totals.tax)}</span>
             </div>
-            <div className="rounded-2xl p-4 space-y-2.5" style={G.card}>
-              <div className="flex items-center justify-between">
-                <span className="text-[#8b949e] text-[11px]">{`GCT (${(TAX_RATE * 100).toFixed(1)}%)`}</span>
-                <span className="text-[#8b949e] text-[12px] font-bold tabular-nums">+{fmt(totals.tax)}</span>
-              </div>
-              <div className="pt-2.5 flex items-center justify-between" style={{ borderTop: "1px solid rgba(255,255,255,0.07)" }}>
-                <span className="text-white text-[12px] font-bold">Grand Total</span>
-                <span className="text-white text-[14px] font-bold tabular-nums">{fmt(totals.grand)}</span>
-              </div>
+            <div className="pt-2.5 flex items-center justify-between" style={{ borderTop: "1px solid rgba(255,255,255,0.07)" }}>
+              <span className="text-white text-[12px] font-bold">Grand Total</span>
+              <span className="text-white text-[14px] font-bold tabular-nums">{fmt(totals.grand)}</span>
             </div>
-            <div className="rounded-2xl p-3" style={G.card}>
-              <div className="grid grid-cols-2 gap-2">
-                {[{ label: "Line Items", value: String(items.length) }, { label: "Total Units", value: String(items.reduce((s, i) => s + i.qty, 0)) }].map((s) => (
-                  <div key={s.label}>
-                    <p className="text-[#484f58] text-[10px] font-bold mb-0.5">{s.label}</p>
-                    <p className="text-white text-[14px] font-bold">{s.value}</p>
-                  </div>
-                ))}
-              </div>
+          </div>
+          <div className="rounded-2xl p-3" style={G.card}>
+            <div className="grid grid-cols-2 gap-2">
+              {[{ label: "Line Items", value: String(items.length) }, { label: "Total Units", value: String(items.reduce((s, i) => s + i.qty, 0)) }].map((s) => (
+                <div key={s.label}>
+                  <p className="text-[#484f58] text-[10px] font-bold mb-0.5">{s.label}</p>
+                  <p className="text-white text-[14px] font-bold">{s.value}</p>
+                </div>
+              ))}
             </div>
           </div>
         </div>
       </div>
-    </PageTransition>
+    </div>
   );
 }
 
@@ -3071,37 +2663,26 @@ const IMG = {
 };
 
 const CATALOG_DEVICES: CatalogDevice[] = [
-  // Axis Cameras
   { id: "c1", model: "P3245-V", manufacturer: "Axis", category: "camera", resolution: "1920×1080 (2MP)", lens: "3–10mm P-Iris varifocal", sensor: "1/2.8\" progressive CMOS", nightVision: "IR 15m", weatherRating: "IP66 / IK10", powerInput: "PoE IEEE 802.3af (max 6.4W)", frameRate: "25/30fps", compression: "H.264, H.265, MJPEG", fov: "H: 102–28°  V: 56–16°", operatingTemp: "−30 °C to 50 °C", price: 485, sku: "AXI-P3245V", imageUrl: IMG.dome },
   { id: "c2", model: "P5655-E", manufacturer: "Axis", category: "camera", resolution: "1920×1080 (2MP)", lens: "4.3–129mm 30× optical autofocus", sensor: "1/2.8\" progressive CMOS", nightVision: "IR 250m", weatherRating: "IP66 / IK10", powerInput: "High PoE 802.3at (max 30W)", frameRate: "25/30fps", compression: "H.264, H.265, MJPEG", fov: "H: 62.9–2.2°", operatingTemp: "−40 °C to 65 °C", price: 2890, sku: "AXI-P5655E", imageUrl: IMG.ptz },
   { id: "c3", model: "M3046-V", manufacturer: "Axis", category: "camera", resolution: "2688×1520 (4MP)", lens: "2.4mm fixed", sensor: "1/3\" progressive CMOS", nightVision: "N/A (indoor)", weatherRating: "IK08", powerInput: "PoE IEEE 802.3af (max 4.7W)", frameRate: "25/30fps", compression: "H.264, H.265, MJPEG", fov: "H: 106°  V: 57°", operatingTemp: "0 °C to 45 °C", price: 385, sku: "AXI-M3046V", imageUrl: IMG.dome },
   { id: "c4", model: "P1465-LE", manufacturer: "Axis", category: "camera", resolution: "1920×1080 (2MP)", lens: "2.8mm fixed", sensor: "1/2.9\" progressive CMOS", nightVision: "IR 25m", weatherRating: "IP66 / IK10", powerInput: "PoE IEEE 802.3af (max 7.5W)", frameRate: "25/30fps", compression: "H.264, H.265, MJPEG", fov: "H: 102°  V: 55°", operatingTemp: "−40 °C to 55 °C", price: 520, sku: "AXI-P1465LE", imageUrl: IMG.bullet },
   { id: "c5", model: "Q6075-E", manufacturer: "Axis", category: "camera", resolution: "1920×1080 (2MP)", lens: "5.7–205mm 36× optical autofocus", sensor: "1/2.8\" progressive CMOS", nightVision: "IR 400m", weatherRating: "IP66 / IK10", powerInput: "High PoE 802.3at (max 55W)", frameRate: "25/30fps", compression: "H.264, H.265, MJPEG", fov: "H: 63.4–1.8°", operatingTemp: "−50 °C to 65 °C", price: 4200, sku: "AXI-Q6075E", imageUrl: IMG.ptz },
-
-  // Pelco Cameras
   { id: "c6", model: "Sarix IBE332-1IR", manufacturer: "Pelco", category: "camera", resolution: "3840×2160 (8MP)", lens: "2.8–12mm varifocal", sensor: "1/2.5\" progressive CMOS", nightVision: "IR 50m", weatherRating: "IP66 / IK10", powerInput: "PoE+ 802.3at (max 25.5W)", frameRate: "15fps @ 4K / 30fps @ 1080p", compression: "H.264, H.265, MJPEG", fov: "H: 117–33°", operatingTemp: "−40 °C to 50 °C", price: 795, sku: "PEL-IBE332", imageUrl: IMG.outdoor },
   { id: "c7", model: "Spectra Enhanced 7", manufacturer: "Pelco", category: "camera", resolution: "1920×1080 (2MP)", lens: "5.9–177mm 30× optical autofocus", sensor: "1/2.8\" progressive CMOS", nightVision: "IR 200m", weatherRating: "IP66 / IK10", powerInput: "24VAC / High PoE 802.3at", frameRate: "25/30fps", compression: "H.264, H.265", fov: "H: 62.3–2.1°", operatingTemp: "−40 °C to 65 °C", price: 3200, sku: "PEL-SE7", imageUrl: IMG.ptz },
   { id: "c8", model: "Optera IMM 12027", manufacturer: "Pelco", category: "camera", resolution: "12MP panoramic (4 × 3MP)", lens: "Four 2.8mm fixed sensors", sensor: "1/2.9\" CMOS (×4)", nightVision: "N/A", weatherRating: "IP66 / IK10", powerInput: "PoE+ 802.3at (max 25W)", frameRate: "12fps per sensor", compression: "H.264, MJPEG", fov: "360° horizontal", operatingTemp: "−40 °C to 50 °C", price: 2400, sku: "PEL-IMM12027", imageUrl: IMG.dome },
   { id: "c9", model: "ExSite Enhanced 2", manufacturer: "Pelco", category: "camera", resolution: "1920×1080 (2MP)", lens: "6.5–260mm 40× optical autofocus", sensor: "1/2.8\" progressive CMOS", nightVision: "IR 350m", weatherRating: "IP68 / IK10", powerInput: "24VAC", frameRate: "25/30fps", compression: "H.264, H.265", fov: "H: 53.5–1.4°", operatingTemp: "−50 °C to 60 °C", price: 5800, sku: "PEL-EXE2", imageUrl: IMG.ptz },
-
-  // Avigilon Cameras
   { id: "c10", model: "H5A Dome", manufacturer: "Avigilon", category: "camera", resolution: "3840×2160 (8MP)", lens: "4.9–8mm varifocal", sensor: "1/2.5\" progressive CMOS", nightVision: "IR 30m", weatherRating: "IK10", powerInput: "PoE+ 802.3at (max 25.5W)", frameRate: "20fps @ 8MP / 30fps @ 4MP", compression: "H.264, H.265", fov: "H: 108–65°", operatingTemp: "−10 °C to 50 °C", price: 950, sku: "AVI-H5A-DO", imageUrl: IMG.dome },
   { id: "c11", model: "H5A Bullet", manufacturer: "Avigilon", category: "camera", resolution: "3840×2160 (8MP)", lens: "4.9–8mm varifocal", sensor: "1/2.5\" progressive CMOS", nightVision: "IR 50m", weatherRating: "IP67 / IK10", powerInput: "PoE+ 802.3at (max 25.5W)", frameRate: "20fps @ 8MP / 30fps @ 4MP", compression: "H.264, H.265", fov: "H: 108–65°", operatingTemp: "−40 °C to 50 °C", price: 985, sku: "AVI-H5A-BO", imageUrl: IMG.bullet },
   { id: "c12", model: "H5SL PTZ", manufacturer: "Avigilon", category: "camera", resolution: "1920×1080 (2MP)", lens: "4.7–94mm 20× optical autofocus", sensor: "1/2.8\" progressive CMOS", nightVision: "IR 150m", weatherRating: "IP66 / IK10", powerInput: "High PoE 802.3at (max 55W)", frameRate: "30fps", compression: "H.264, H.265", fov: "H: 60.1–3.1°", operatingTemp: "−40 °C to 60 °C", price: 3600, sku: "AVI-H5SL-PTZ", imageUrl: IMG.ptz },
   { id: "c13", model: "H6A Fisheye", manufacturer: "Avigilon", category: "camera", resolution: "7680×4320 (32MP)", lens: "1.05mm fisheye", sensor: "1/1.8\" progressive CMOS", nightVision: "N/A", weatherRating: "IK10", powerInput: "PoE+ 802.3at (max 25.5W)", frameRate: "15fps @ 32MP / 30fps @ 8MP", compression: "H.264, H.265", fov: "360° panoramic", operatingTemp: "0 °C to 40 °C", price: 1850, sku: "AVI-H6A-FE", imageUrl: IMG.dome },
-
-  // Genetec
   { id: "n1", model: "Security Center 5.11", manufacturer: "Genetec", category: "analytics", sku: "GSC-511-E", price: 22500, channels: "300 cameras", imageUrl: IMG.rack },
   { id: "n2", model: "Synergis Cloud Link", manufacturer: "Genetec", category: "access-control", sku: "GSC-SCL", price: 1850, readers: "32 doors", imageUrl: IMG.rack },
   { id: "n3", model: "AutoVu ALPR 6.0", manufacturer: "Genetec", category: "analytics", sku: "GSC-ALPR", price: 8500, channels: "License plate recognition", imageUrl: IMG.outdoor },
-
-  // Access Control & Biometrics
   { id: "a1", model: "BioLite N2", manufacturer: "Suprema", category: "access-control", authentication: "Fingerprint + RFID", weatherRating: "IP65", powerInput: "12VDC / PoE", price: 890, sku: "SUP-BION2", imageUrl: IMG.wall },
   { id: "a2", model: "BioStation 3", manufacturer: "Suprema", category: "access-control", authentication: "Face + Fingerprint + Card", weatherRating: "IP65", powerInput: "12VDC / PoE", price: 1450, sku: "SUP-BS3", imageUrl: IMG.wall },
   { id: "a3", model: "Edge EVO Solo", manufacturer: "HID", category: "access-control", authentication: "Multi-tech RFID", weatherRating: "IP65 / IK08", powerInput: "12VDC", price: 1240, sku: "HID-EVOS", imageUrl: IMG.wall },
   { id: "a4", model: "Signo 20", manufacturer: "HID", category: "access-control", authentication: "Biometric keypad", weatherRating: "IP67 / IK09", powerInput: "12-24VDC / PoE", price: 980, sku: "HID-SIGNO20", imageUrl: IMG.wall },
-
-  // NVR & Storage
   { id: "s1", model: "Camera Station S2212", manufacturer: "Axis", category: "nvr", storage: "12-bay rack", channels: "64 cameras", powerInput: "Redundant PSU", price: 6800, sku: "ACS-S2212", imageUrl: IMG.rack },
   { id: "s2", model: "VideoXpert Pro", manufacturer: "Pelco", category: "nvr", storage: "16-bay rack", channels: "128 cameras", powerInput: "Redundant PSU", price: 8900, sku: "PEL-VXPRO", imageUrl: IMG.rack },
   { id: "s3", model: "ACC 7 Server", manufacturer: "Avigilon", category: "nvr", storage: "Custom build", channels: "256 cameras", powerInput: "Redundant PSU", price: 12000, sku: "AVI-ACC7", imageUrl: IMG.rack },
@@ -3140,22 +2721,13 @@ function DeviceSpecModal({ device, onClose }: { device: CatalogDevice; onClose: 
 
   return (
     <div className="fixed inset-0 z-[300] flex items-center justify-center p-4" onClick={onClose}>
-      <motion.div
-        className="absolute inset-0"
-        style={{ background: "rgba(0,0,0,0.7)", backdropFilter: "blur(10px)", WebkitBackdropFilter: "blur(10px)" }}
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-      />
-      <motion.div
-        initial={{ opacity: 0, scale: 0.93, y: 18 }}
-        animate={{ opacity: 1, scale: 1, y: 0 }}
+      <div className="absolute inset-0" style={{ background: "rgba(0,0,0,0.7)", backdropFilter: "blur(10px)", WebkitBackdropFilter: "blur(10px)" }} />
+      <motion.div initial={{ opacity: 0, scale: 0.93, y: 18 }} animate={{ opacity: 1, scale: 1, y: 0 }}
         transition={{ type: "spring", damping: 26, stiffness: 340 }}
         onClick={(e) => e.stopPropagation()}
         className="relative z-10 w-full max-w-[780px] rounded-3xl overflow-hidden flex"
         style={{ background: "rgba(7,12,26,0.95)", backdropFilter: "blur(52px) saturate(200%)", WebkitBackdropFilter: "blur(52px) saturate(200%)", border: "1px solid rgba(255,255,255,0.13)", boxShadow: "0 40px 100px rgba(0,0,0,0.95), inset 0 1px 0 rgba(255,255,255,0.12)", maxHeight: "88vh" }}>
         <div className="absolute inset-x-0 top-0 h-[2px] rounded-t-3xl" style={{ background: `linear-gradient(90deg, ${cc.text}cc, ${cc.text}22)` }} />
-
-        {/* Left — image */}
         <div className="w-56 flex-shrink-0 relative" style={{ background: "rgba(255,255,255,0.03)" }}>
           {device.imageUrl
             ? <img src={device.imageUrl} alt={device.model} className="w-full h-full object-cover opacity-80" style={{ minHeight: "320px" }} />
@@ -3167,8 +2739,6 @@ function DeviceSpecModal({ device, onClose }: { device: CatalogDevice; onClose: 
             </span>
           </div>
         </div>
-
-        {/* Right — info */}
         <div className="flex-1 flex flex-col overflow-hidden">
           <div className="px-6 pt-6 pb-4 flex items-start justify-between flex-shrink-0" style={{ borderBottom: "1px solid rgba(255,255,255,0.07)" }}>
             <div>
@@ -3178,18 +2748,11 @@ function DeviceSpecModal({ device, onClose }: { device: CatalogDevice; onClose: 
                 <p className="text-[1rem] font-bold mt-1 tabular-nums" style={{ color: cc.text }}>{fmt(device.price)} <span className="text-[#484f58] text-[11px] font-normal">/ unit (excl. GCT)</span></p>
               )}
             </div>
-            <motion.button
-              onClick={onClose}
-              className="w-8 h-8 rounded-xl flex items-center justify-center hover:bg-white/[0.08] transition-colors flex-shrink-0"
-              style={{ border: "1px solid rgba(255,255,255,0.10)" }}
-              whileHover={{ scale: 1.1, rotate: 90 }}
-              whileTap={{ scale: 0.9 }}
-            >
+            <button onClick={onClose} className="w-8 h-8 rounded-xl flex items-center justify-center hover:bg-white/[0.08] transition-colors flex-shrink-0"
+              style={{ border: "1px solid rgba(255,255,255,0.10)" }}>
               <X className="w-4 h-4 text-[#8b949e]" />
-            </motion.button>
+            </button>
           </div>
-
-          {/* Specs grid */}
           <div className="flex-1 overflow-y-auto px-6 py-4" style={{ scrollbarWidth: "none" }}>
             <div className="grid grid-cols-2 gap-3">
               {specs.map((s) => (
@@ -3200,27 +2763,17 @@ function DeviceSpecModal({ device, onClose }: { device: CatalogDevice; onClose: 
               ))}
             </div>
           </div>
-
-          {/* Actions */}
           <div className="px-6 py-4 flex items-center gap-3 flex-shrink-0" style={{ borderTop: "1px solid rgba(255,255,255,0.07)" }}>
-            <motion.button
-              onClick={() => { addToQuote(device); onClose(); }}
+            <button onClick={() => { addToQuote(device); onClose(); }}
               className="flex items-center gap-2 h-9 px-5 rounded-xl text-white text-[12px] font-bold"
-              style={{ background: "#3b82f6", boxShadow: "0 4px 16px rgba(59,130,246,0.35), inset 0 1px 0 rgba(255,255,255,0.2)" }}
-              whileHover={{ scale: 1.03 }}
-              whileTap={{ scale: 0.97 }}
-            >
+              style={{ background: "#3b82f6", boxShadow: "0 4px 16px rgba(59,130,246,0.35), inset 0 1px 0 rgba(255,255,255,0.2)" }}>
               <Plus className="w-3.5 h-3.5" /> Add to Quote
-            </motion.button>
-            <motion.button
-              onClick={() => toast.success(`Spec sheet for ${device.model} would open here`)}
+            </button>
+            <button onClick={() => toast.success(`Spec sheet for ${device.model} would open here`)}
               className="flex items-center gap-2 h-9 px-4 rounded-xl text-[#8b949e] text-[12px] font-semibold hover:text-white transition-all"
-              style={G.btn}
-              whileHover={{ scale: 1.03 }}
-              whileTap={{ scale: 0.97 }}
-            >
+              style={G.btn}>
               <ExternalLink className="w-3.5 h-3.5" /> Spec Sheet
-            </motion.button>
+            </button>
           </div>
         </div>
       </motion.div>
@@ -3260,176 +2813,152 @@ function DeviceLibrary({ navigate: _navigate }: { navigate: (p: Page) => void })
   const inputCls = "h-9 rounded-xl px-3 text-[#e6edf3] text-[12px] placeholder:text-[#484f58] focus:outline-none focus:ring-1 focus:ring-blue-500/50 transition-all";
 
   return (
-    <PageTransition id="device-library">
-      <LiquidGlassBg>
-        <div className="px-5 py-6">
-          <AnimatePresence>
-            {selectedDevice && <DeviceSpecModal device={selectedDevice} onClose={() => setSelectedDevice(null)} />}
-          </AnimatePresence>
+    <div className="px-5 py-6">
+      {selectedDevice && <DeviceSpecModal device={selectedDevice} onClose={() => setSelectedDevice(null)} />}
 
-          <div className="flex items-center justify-between mb-6">
-            <div>
-              <h1 className="text-white font-bold text-xl tracking-tight">Device Library</h1>
-              <p className="text-[#8b949e] text-[13px] mt-0.5">{filtered.length} products · Axis · Avigilon · Pelco · Genetec · Suprema · HID</p>
-            </div>
-            <div className="flex items-center gap-2">
-              {/* View toggle */}
-              <div className="flex items-center h-8 rounded-xl overflow-hidden" style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.10)" }}>
-                <button onClick={() => setViewMode("grid")} className="h-full px-2.5 flex items-center justify-center transition-all"
-                  style={viewMode === "grid" ? { background: "#3b82f620", color: "#60a5fa" } : { color: "#484f58" }}>
-                  <Grid3x3 className="w-3.5 h-3.5" />
-                </button>
-                <button onClick={() => setViewMode("table")} className="h-full px-2.5 flex items-center justify-center transition-all"
-                  style={viewMode === "table" ? { background: "#3b82f620", color: "#60a5fa" } : { color: "#484f58" }}>
-                  <List className="w-3.5 h-3.5" />
-                </button>
-              </div>
-              <button onClick={() => { toast.success("Device catalog exported"); downloadCSV("device-library.csv", [["Model","Manufacturer","Category","SKU","Price (USD)","Resolution","Lens","Sensor","Night Vision","Weather","Power","Frame Rate","Compression","FOV","Operating Temp"], ...filtered.map((d) => [d.model, d.manufacturer, d.category, d.sku ?? "", d.price ? String(d.price) : "", d.resolution ?? "", d.lens ?? "", d.sensor ?? "", d.nightVision ?? "", d.weatherRating ?? "", d.powerInput ?? "", d.frameRate ?? "", d.compression ?? "", d.fov ?? "", d.operatingTemp ?? ""])]); }}
-                className="flex items-center gap-1.5 h-9 px-4 rounded-xl text-[#8b949e] text-[12px] font-semibold hover:text-white transition-all" style={G.btn}>
-                <Download className="w-3.5 h-3.5" /> Export CSV
-              </button>
-            </div>
-          </div>
-
-          {/* Filters */}
-          <div className="mb-5 flex items-center gap-3 flex-wrap">
-            <div className="relative flex-1 min-w-[200px] max-w-sm">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[#484f58]" />
-              <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search model, SKU…" className={`${inputCls} pl-9 w-full`} style={G.input} />
-            </div>
-            <div className="flex gap-2">
-              {categories.map((c) => (
-                <button key={c.id} onClick={() => setCategoryFilter(c.id)}
-                  className="h-9 px-3.5 rounded-xl text-[12px] font-semibold transition-all"
-                  style={categoryFilter === c.id
-                    ? { background: "rgba(59,130,246,0.15)", border: "1px solid rgba(59,130,246,0.35)", color: "#60a5fa" }
-                    : { ...G.btn, color: "#8b949e" }}>
-                  {c.label}
-                </button>
-              ))}
-            </div>
-            <div className="relative">
-              <select value={manufacturerFilter} onChange={(e) => setManufacturerFilter(e.target.value)}
-                className={`${inputCls} appearance-none cursor-pointer pr-7 min-w-[150px]`} style={G.input}>
-                <option value="all" style={{ background: "#0d1117" }}>All Brands</option>
-                {manufacturers.map((m) => <option key={m} value={m} style={{ background: "#0d1117" }}>{m}</option>)}
-              </select>
-              <ChevronDown className="absolute right-2.5 top-1/2 -translate-y-1/2 w-3 h-3 text-[#484f58] pointer-events-none" />
-            </div>
-          </div>
-
-          {/* Grid view */}
-          {viewMode === "grid" && (
-            <div className="grid gap-4" style={{ gridTemplateColumns: "repeat(auto-fill, minmax(220px, 1fr))" }}>
-              {filtered.map((device) => {
-                const cc = CAT_COLOR[device.category] ?? CAT_COLOR.other;
-                return (
-                  <motion.div
-                    key={device.id}
-                    onClick={() => setSelectedDevice(device)}
-                    className="rounded-2xl overflow-hidden cursor-pointer group"
-                    style={{ ...G.card, boxShadow: "0 4px 24px rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,255,255,0.09)" }}
-                    whileHover={{ y: -3, scale: 1.01 }}
-                  >
-                    {/* Image */}
-                    <div className="relative h-36 overflow-hidden" style={{ background: "rgba(255,255,255,0.03)" }}>
-                      {device.imageUrl
-                        ? <img src={device.imageUrl} alt={device.model} className="w-full h-full object-cover opacity-70 group-hover:opacity-90 group-hover:scale-105 transition-all duration-500" />
-                        : <div className="w-full h-full flex items-center justify-center"><Camera className="w-12 h-12 text-[#484f58]" /></div>}
-                      <div className="absolute inset-0" style={{ background: "linear-gradient(to top, rgba(7,12,26,0.7) 0%, transparent 60%)" }} />
-                      <div className="absolute top-2.5 left-2.5">
-                        <span className="inline-block px-2 py-0.5 rounded-lg text-[9px] font-bold uppercase tracking-wider backdrop-blur-sm" style={{ background: cc.bg, color: cc.text, border: `1px solid ${cc.text}30` }}>{cc.label}</span>
-                      </div>
-                      <div className="absolute top-2.5 right-2.5">
-                        <motion.button
-                          onClick={(e) => { e.stopPropagation(); addToQuote(device); }}
-                          className="w-7 h-7 rounded-xl flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all"
-                          style={{ background: "rgba(59,130,246,0.9)", boxShadow: "0 4px 12px rgba(59,130,246,0.4)" }}
-                          whileHover={{ scale: 1.15 }}
-                          whileTap={{ scale: 0.9 }}
-                        >
-                          <Plus className="w-3.5 h-3.5 text-white" />
-                        </motion.button>
-                      </div>
-                    </div>
-                    {/* Info */}
-                    <div className="p-3.5">
-                      <p className="text-[#8b949e] text-[10px] font-semibold">{device.manufacturer}</p>
-                      <p className="text-white text-[13px] font-bold mt-0.5 truncate">{device.model}</p>
-                      {device.resolution && <p className="text-[#484f58] text-[10px] mt-1 truncate">{device.resolution}</p>}
-                      {device.authentication && <p className="text-[#484f58] text-[10px] mt-1 truncate">{device.authentication}</p>}
-                      {device.channels && !device.resolution && <p className="text-[#484f58] text-[10px] mt-1 truncate">{device.channels}</p>}
-                      <div className="flex items-center justify-between mt-3 pt-2.5" style={{ borderTop: "1px solid rgba(255,255,255,0.06)" }}>
-                        <span className="text-[#484f58] text-[9px] font-mono">{device.sku}</span>
-                        <span className="font-bold text-[12px] tabular-nums" style={{ color: cc.text }}>{device.price ? fmt(device.price) : "—"}</span>
-                      </div>
-                    </div>
-                  </motion.div>
-                );
-              })}
-            </div>
-          )}
-
-          {/* Table view */}
-          {viewMode === "table" && (
-            <div className="rounded-2xl overflow-hidden" style={G.card}>
-              <div className="overflow-x-auto">
-                <table className="w-full" style={{ minWidth: "1100px" }}>
-                  <thead>
-                    <tr style={{ background: "rgba(255,255,255,0.03)", borderBottom: "1px solid rgba(255,255,255,0.08)" }}>
-                      {["", "Model", "Manufacturer", "Category", "Resolution", "Sensor", "Night Vision", "Weather", "Power", "Frame Rate", "SKU", "Price"].map((h) => (
-                        <th key={h} className={`${h === "Price" ? "text-right" : "text-left"} px-4 py-3 text-[#484f58] text-[10px] font-bold uppercase tracking-widest`}>{h}</th>
-                      ))}
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {filtered.map((device, i) => {
-                      const cc = CAT_COLOR[device.category] ?? CAT_COLOR.other;
-                      return (
-                        <tr key={device.id} onClick={() => setSelectedDevice(device)} className="cursor-pointer hover:bg-white/[0.02] transition-colors group"
-                          style={{ borderBottom: i < filtered.length - 1 ? "1px solid rgba(255,255,255,0.04)" : "none" }}>
-                          <td className="px-4 py-2.5">
-                            <div className="w-9 h-9 rounded-xl overflow-hidden flex-shrink-0" style={{ background: "rgba(255,255,255,0.04)" }}>
-                              {device.imageUrl ? <img src={device.imageUrl} alt={device.model} className="w-full h-full object-cover opacity-70 group-hover:opacity-100 transition-opacity" /> : <Camera className="w-4 h-4 text-[#484f58] m-auto mt-2.5" />}
-                            </div>
-                          </td>
-                          <td className="px-4 py-2.5 text-white text-[12px] font-semibold">{device.model}</td>
-                          <td className="px-4 py-2.5 text-[#8b949e] text-[11px]">{device.manufacturer}</td>
-                          <td className="px-4 py-2.5">
-                            <span className="inline-block px-2 py-0.5 rounded-lg text-[10px] font-bold uppercase tracking-wider" style={{ background: cc.bg, color: cc.text }}>{cc.label}</span>
-                          </td>
-                          <td className="px-4 py-2.5 text-[#8b949e] text-[11px]">{device.resolution || device.channels || "—"}</td>
-                          <td className="px-4 py-2.5 text-[#8b949e] text-[11px]">{device.sensor || device.authentication || "—"}</td>
-                          <td className="px-4 py-2.5 text-[#8b949e] text-[11px]">{device.nightVision || "—"}</td>
-                          <td className="px-4 py-2.5 text-[#8b949e] text-[11px]">{device.weatherRating || "—"}</td>
-                          <td className="px-4 py-2.5 text-[#8b949e] text-[11px]">{device.powerInput || device.storage || "—"}</td>
-                          <td className="px-4 py-2.5 text-[#8b949e] text-[11px]">{device.frameRate || "—"}</td>
-                          <td className="px-4 py-2.5 text-[#484f58] text-[10px] font-mono">{device.sku}</td>
-                          <td className="px-4 py-2.5 text-right">
-                            <div className="flex items-center justify-end gap-2">
-                              <span className="text-white text-[12px] font-bold tabular-nums">{device.price ? fmt(device.price) : "—"}</span>
-                              <motion.button
-                                onClick={(e) => { e.stopPropagation(); addToQuote(device); }}
-                                className="w-6 h-6 rounded-lg flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all"
-                                style={{ background: "#3b82f6" }}
-                                whileHover={{ scale: 1.1 }}
-                                whileTap={{ scale: 0.9 }}
-                              >
-                                <Plus className="w-3 h-3 text-white" />
-                              </motion.button>
-                            </div>
-                          </td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-              </div>
-            </div>
-          )}
+      <div className="flex items-center justify-between mb-6">
+        <div>
+          <h1 className="text-white font-bold text-xl tracking-tight">Device Library</h1>
+          <p className="text-[#8b949e] text-[13px] mt-0.5">{filtered.length} products · Axis · Avigilon · Pelco · Genetec · Suprema · HID</p>
         </div>
-      </LiquidGlassBg>
-    </PageTransition>
+        <div className="flex items-center gap-2">
+          <div className="flex items-center h-8 rounded-xl overflow-hidden" style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.10)" }}>
+            <button onClick={() => setViewMode("grid")} className="h-full px-2.5 flex items-center justify-center transition-all"
+              style={viewMode === "grid" ? { background: "#3b82f620", color: "#60a5fa" } : { color: "#484f58" }}>
+              <Grid3x3 className="w-3.5 h-3.5" />
+            </button>
+            <button onClick={() => setViewMode("table")} className="h-full px-2.5 flex items-center justify-center transition-all"
+              style={viewMode === "table" ? { background: "#3b82f620", color: "#60a5fa" } : { color: "#484f58" }}>
+              <List className="w-3.5 h-3.5" />
+            </button>
+          </div>
+          <button onClick={() => { toast.success("Device catalog exported"); downloadCSV("device-library.csv", [["Model","Manufacturer","Category","SKU","Price (USD)","Resolution","Lens","Sensor","Night Vision","Weather","Power","Frame Rate","Compression","FOV","Operating Temp"], ...filtered.map((d) => [d.model, d.manufacturer, d.category, d.sku ?? "", d.price ? String(d.price) : "", d.resolution ?? "", d.lens ?? "", d.sensor ?? "", d.nightVision ?? "", d.weatherRating ?? "", d.powerInput ?? "", d.frameRate ?? "", d.compression ?? "", d.fov ?? "", d.operatingTemp ?? ""])]); }}
+            className="flex items-center gap-1.5 h-9 px-4 rounded-xl text-[#8b949e] text-[12px] font-semibold hover:text-white transition-all" style={G.btn}>
+            <Download className="w-3.5 h-3.5" /> Export CSV
+          </button>
+        </div>
+      </div>
+
+      <div className="mb-5 flex items-center gap-3 flex-wrap">
+        <div className="relative flex-1 min-w-[200px] max-w-sm">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[#484f58]" />
+          <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search model, SKU…" className={`${inputCls} pl-9 w-full`} style={G.input} />
+        </div>
+        <div className="flex gap-2">
+          {categories.map((c) => (
+            <button key={c.id} onClick={() => setCategoryFilter(c.id)}
+              className="h-9 px-3.5 rounded-xl text-[12px] font-semibold transition-all"
+              style={categoryFilter === c.id
+                ? { background: "rgba(59,130,246,0.15)", border: "1px solid rgba(59,130,246,0.35)", color: "#60a5fa" }
+                : { ...G.btn, color: "#8b949e" }}>
+              {c.label}
+            </button>
+          ))}
+        </div>
+        <div className="relative">
+          <select value={manufacturerFilter} onChange={(e) => setManufacturerFilter(e.target.value)}
+            className={`${inputCls} appearance-none cursor-pointer pr-7 min-w-[150px]`} style={G.input}>
+            <option value="all" style={{ background: "#0d1117" }}>All Brands</option>
+            {manufacturers.map((m) => <option key={m} value={m} style={{ background: "#0d1117" }}>{m}</option>)}
+          </select>
+          <ChevronDown className="absolute right-2.5 top-1/2 -translate-y-1/2 w-3 h-3 text-[#484f58] pointer-events-none" />
+        </div>
+      </div>
+
+      {viewMode === "grid" && (
+        <div className="grid gap-4" style={{ gridTemplateColumns: "repeat(auto-fill, minmax(220px, 1fr))" }}>
+          {filtered.map((device) => {
+            const cc = CAT_COLOR[device.category] ?? CAT_COLOR.other;
+            return (
+              <div key={device.id} onClick={() => setSelectedDevice(device)}
+                className="rounded-2xl overflow-hidden cursor-pointer group transition-all hover:-translate-y-1"
+                style={{ ...G.card, boxShadow: "0 4px 24px rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,255,255,0.09)" }}>
+                <div className="relative h-36 overflow-hidden" style={{ background: "rgba(255,255,255,0.03)" }}>
+                  {device.imageUrl
+                    ? <img src={device.imageUrl} alt={device.model} className="w-full h-full object-cover opacity-70 group-hover:opacity-90 group-hover:scale-105 transition-all duration-500" />
+                    : <div className="w-full h-full flex items-center justify-center"><Camera className="w-12 h-12 text-[#484f58]" /></div>}
+                  <div className="absolute inset-0" style={{ background: "linear-gradient(to top, rgba(7,12,26,0.7) 0%, transparent 60%)" }} />
+                  <div className="absolute top-2.5 left-2.5">
+                    <span className="inline-block px-2 py-0.5 rounded-lg text-[9px] font-bold uppercase tracking-wider backdrop-blur-sm" style={{ background: cc.bg, color: cc.text, border: `1px solid ${cc.text}30` }}>{cc.label}</span>
+                  </div>
+                  <div className="absolute top-2.5 right-2.5">
+                    <button onClick={(e) => { e.stopPropagation(); addToQuote(device); }}
+                      className="w-7 h-7 rounded-xl flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all hover:scale-110"
+                      style={{ background: "rgba(59,130,246,0.9)", boxShadow: "0 4px 12px rgba(59,130,246,0.4)" }}>
+                      <Plus className="w-3.5 h-3.5 text-white" />
+                    </button>
+                  </div>
+                </div>
+                <div className="p-3.5">
+                  <p className="text-[#8b949e] text-[10px] font-semibold">{device.manufacturer}</p>
+                  <p className="text-white text-[13px] font-bold mt-0.5 truncate">{device.model}</p>
+                  {device.resolution && <p className="text-[#484f58] text-[10px] mt-1 truncate">{device.resolution}</p>}
+                  {device.authentication && <p className="text-[#484f58] text-[10px] mt-1 truncate">{device.authentication}</p>}
+                  {device.channels && !device.resolution && <p className="text-[#484f58] text-[10px] mt-1 truncate">{device.channels}</p>}
+                  <div className="flex items-center justify-between mt-3 pt-2.5" style={{ borderTop: "1px solid rgba(255,255,255,0.06)" }}>
+                    <span className="text-[#484f58] text-[9px] font-mono">{device.sku}</span>
+                    <span className="font-bold text-[12px] tabular-nums" style={{ color: cc.text }}>{device.price ? fmt(device.price) : "—"}</span>
+                  </div>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+
+      {viewMode === "table" && (
+        <div className="rounded-2xl overflow-hidden" style={G.card}>
+          <div className="overflow-x-auto">
+            <table className="w-full" style={{ minWidth: "1100px" }}>
+              <thead>
+                <tr style={{ background: "rgba(255,255,255,0.03)", borderBottom: "1px solid rgba(255,255,255,0.08)" }}>
+                  {["", "Model", "Manufacturer", "Category", "Resolution", "Sensor", "Night Vision", "Weather", "Power", "Frame Rate", "SKU", "Price"].map((h) => (
+                    <th key={h} className={`${h === "Price" ? "text-right" : "text-left"} px-4 py-3 text-[#484f58] text-[10px] font-bold uppercase tracking-widest`}>{h}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {filtered.map((device, i) => {
+                  const cc = CAT_COLOR[device.category] ?? CAT_COLOR.other;
+                  return (
+                    <tr key={device.id} onClick={() => setSelectedDevice(device)} className="cursor-pointer hover:bg-white/[0.02] transition-colors group"
+                      style={{ borderBottom: i < filtered.length - 1 ? "1px solid rgba(255,255,255,0.04)" : "none" }}>
+                      <td className="px-4 py-2.5">
+                        <div className="w-9 h-9 rounded-xl overflow-hidden flex-shrink-0" style={{ background: "rgba(255,255,255,0.04)" }}>
+                          {device.imageUrl ? <img src={device.imageUrl} alt={device.model} className="w-full h-full object-cover opacity-70 group-hover:opacity-100 transition-opacity" /> : <Camera className="w-4 h-4 text-[#484f58] m-auto mt-2.5" />}
+                        </div>
+                      </td>
+                      <td className="px-4 py-2.5 text-white text-[12px] font-semibold">{device.model}</td>
+                      <td className="px-4 py-2.5 text-[#8b949e] text-[11px]">{device.manufacturer}</td>
+                      <td className="px-4 py-2.5">
+                        <span className="inline-block px-2 py-0.5 rounded-lg text-[10px] font-bold uppercase tracking-wider" style={{ background: cc.bg, color: cc.text }}>{cc.label}</span>
+                      </td>
+                      <td className="px-4 py-2.5 text-[#8b949e] text-[11px]">{device.resolution || device.channels || "—"}</td>
+                      <td className="px-4 py-2.5 text-[#8b949e] text-[11px]">{device.sensor || device.authentication || "—"}</td>
+                      <td className="px-4 py-2.5 text-[#8b949e] text-[11px]">{device.nightVision || "—"}</td>
+                      <td className="px-4 py-2.5 text-[#8b949e] text-[11px]">{device.weatherRating || "—"}</td>
+                      <td className="px-4 py-2.5 text-[#8b949e] text-[11px]">{device.powerInput || device.storage || "—"}</td>
+                      <td className="px-4 py-2.5 text-[#8b949e] text-[11px]">{device.frameRate || "—"}</td>
+                      <td className="px-4 py-2.5 text-[#484f58] text-[10px] font-mono">{device.sku}</td>
+                      <td className="px-4 py-2.5 text-right">
+                        <div className="flex items-center justify-end gap-2">
+                          <span className="text-white text-[12px] font-bold tabular-nums">{device.price ? fmt(device.price) : "—"}</span>
+                          <button onClick={(e) => { e.stopPropagation(); addToQuote(device); }}
+                            className="w-6 h-6 rounded-lg flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all"
+                            style={{ background: "#3b82f6" }}>
+                            <Plus className="w-3 h-3 text-white" />
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+    </div>
   );
 }
 
@@ -3485,239 +3014,205 @@ function InstallTracker({ navigate: _navigate }: { navigate: (p: Page) => void }
   const typeIcons: Record<string, React.ElementType> = { camera: Camera, access: Key, nvr: Cpu };
 
   return (
-    <PageTransition id="install-tracker">
-      <LiquidGlassBg>
-        <div className="px-5 py-6 max-w-[1100px]">
-          <div className="flex items-center justify-between mb-6">
-            <div>
-              <h1 className="text-white font-bold text-xl tracking-tight">Install Tracker</h1>
-              <p className="text-[#8b949e] text-[13px] mt-0.5">Data Center — Full Security Stack · Stratum Cloud Services</p>
+    <div className="px-5 py-6 max-w-[1100px]">
+      <div className="flex items-center justify-between mb-6">
+        <div>
+          <h1 className="text-white font-bold text-xl tracking-tight">Install Tracker</h1>
+          <p className="text-[#8b949e] text-[13px] mt-0.5">Data Center — Full Security Stack · Stratum Cloud Services</p>
+        </div>
+        <div className="flex items-center gap-2">
+          <button onClick={handleExport} className="flex items-center gap-1.5 h-8 px-3 rounded-xl text-[#8b949e] text-[12px] font-semibold hover:text-white transition-all" style={G.btn}>
+            <Download className="w-3.5 h-3.5" /> Export Report
+          </button>
+          <button onClick={() => setShowAddDevice(true)} className="flex items-center gap-1.5 h-8 px-4 rounded-xl text-white text-[12px] font-bold"
+            style={{ background: "#3b82f6", boxShadow: "0 4px 16px rgba(59,130,246,0.35), inset 0 1px 0 rgba(255,255,255,0.2)" }}>
+            <Plus className="w-3.5 h-3.5" /> Add Device
+          </button>
+        </div>
+      </div>
+      {showAddDevice && (
+        <div className="fixed inset-0 z-[200] flex items-center justify-center p-4" onClick={() => setShowAddDevice(false)}>
+          <div className="absolute inset-0" style={{ background: "rgba(0,0,0,0.65)", backdropFilter: "blur(8px)", WebkitBackdropFilter: "blur(8px)" }} />
+          <motion.div initial={{ opacity: 0, scale: 0.94, y: 14 }} animate={{ opacity: 1, scale: 1, y: 0 }}
+            transition={{ type: "spring", damping: 26, stiffness: 360 }}
+            onClick={(e) => e.stopPropagation()}
+            className="relative z-10 w-full max-w-[440px] rounded-3xl overflow-hidden"
+            style={{ background: "rgba(7,12,26,0.92)", backdropFilter: "blur(52px)", WebkitBackdropFilter: "blur(52px)", border: "1px solid rgba(255,255,255,0.13)", boxShadow: "0 32px 80px rgba(0,0,0,0.9), inset 0 1px 0 rgba(255,255,255,0.11)" }}>
+            <div className="absolute inset-x-0 top-0 h-[2px] rounded-t-3xl" style={{ background: "linear-gradient(90deg, #3b82f6dd, #3b82f633)" }} />
+            <div className="flex items-center justify-between px-6 pt-6 pb-5" style={{ borderBottom: "1px solid rgba(255,255,255,0.07)" }}>
+              <div><h2 className="text-white text-[1rem] font-bold">Add Device</h2><p className="text-[#8b949e] text-[12px] mt-0.5">Add a new device to the install list</p></div>
+              <button onClick={() => setShowAddDevice(false)} className="w-7 h-7 rounded-xl flex items-center justify-center hover:bg-white/[0.08]" style={{ border: "1px solid rgba(255,255,255,0.10)" }}><X className="w-4 h-4 text-[#8b949e]" /></button>
             </div>
-            <div className="flex items-center gap-2">
-              <button onClick={handleExport} className="flex items-center gap-1.5 h-8 px-3 rounded-xl text-[#8b949e] text-[12px] font-semibold hover:text-white transition-all" style={G.btn}>
-                <Download className="w-3.5 h-3.5" /> Export Report
-              </button>
-              <motion.button
-                onClick={() => setShowAddDevice(true)}
-                className="flex items-center gap-1.5 h-8 px-4 rounded-xl text-white text-[12px] font-bold"
-                style={{ background: "#3b82f6", boxShadow: "0 4px 16px rgba(59,130,246,0.35), inset 0 1px 0 rgba(255,255,255,0.2)" }}
-                whileHover={{ scale: 1.03 }}
-                whileTap={{ scale: 0.97 }}
-              >
-                <Plus className="w-3.5 h-3.5" /> Add Device
-              </motion.button>
-            </div>
-          </div>
-          <AnimatePresence>
-            {showAddDevice && (
-              <div className="fixed inset-0 z-[200] flex items-center justify-center p-4" onClick={() => setShowAddDevice(false)}>
-                <motion.div
-                  className="absolute inset-0"
-                  style={{ background: "rgba(0,0,0,0.65)", backdropFilter: "blur(8px)", WebkitBackdropFilter: "blur(8px)" }}
-                  initial={{ opacity: 0 }}
-                  animate={{ opacity: 1 }}
-                />
-                <motion.div
-                  initial={{ opacity: 0, scale: 0.94, y: 14 }}
-                  animate={{ opacity: 1, scale: 1, y: 0 }}
-                  transition={{ type: "spring", damping: 26, stiffness: 360 }}
-                  onClick={(e) => e.stopPropagation()}
-                  className="relative z-10 w-full max-w-[440px] rounded-3xl overflow-hidden"
-                  style={{ background: "rgba(7,12,26,0.92)", backdropFilter: "blur(52px)", WebkitBackdropFilter: "blur(52px)", border: "1px solid rgba(255,255,255,0.13)", boxShadow: "0 32px 80px rgba(0,0,0,0.9), inset 0 1px 0 rgba(255,255,255,0.11)" }}>
-                  <div className="absolute inset-x-0 top-0 h-[2px] rounded-t-3xl" style={{ background: "linear-gradient(90deg, #3b82f6dd, #3b82f633)" }} />
-                  <div className="flex items-center justify-between px-6 pt-6 pb-5" style={{ borderBottom: "1px solid rgba(255,255,255,0.07)" }}>
-                    <div><h2 className="text-white text-[1rem] font-bold">Add Device</h2><p className="text-[#8b949e] text-[12px] mt-0.5">Add a new device to the install list</p></div>
-                    <motion.button
-                      onClick={() => setShowAddDevice(false)}
-                      className="w-7 h-7 rounded-xl flex items-center justify-center hover:bg-white/[0.08]"
-                      style={{ border: "1px solid rgba(255,255,255,0.10)" }}
-                      whileHover={{ scale: 1.1, rotate: 90 }}
-                      whileTap={{ scale: 0.9 }}
-                    >
-                      <X className="w-4 h-4 text-[#8b949e]" />
-                    </motion.button>
-                  </div>
-                  <form onSubmit={handleAddDevice} className="px-6 py-5 space-y-4">
-                    <div>
-                      <label className="block text-[#8b949e] text-[10px] font-bold uppercase tracking-widest mb-1.5">Device Name *</label>
-                      <input value={newDeviceName} onChange={(e) => setNewDeviceName(e.target.value)} placeholder="e.g. Axis P3245-V Dome Camera"
-                        className="w-full h-9 rounded-xl px-3 text-[#e6edf3] text-[12px] placeholder:text-[#484f58] focus:outline-none focus:ring-1 focus:ring-blue-500/50"
-                        style={G.input} />
-                    </div>
-                    <div className="grid grid-cols-2 gap-3">
-                      <div>
-                        <label className="block text-[#8b949e] text-[10px] font-bold uppercase tracking-widest mb-1.5">Type</label>
-                        <div className="relative">
-                          <select value={newDeviceType} onChange={(e) => setNewDeviceType(e.target.value as "camera" | "access" | "nvr")}
-                            className="w-full h-9 rounded-xl px-3 text-[#e6edf3] text-[12px] focus:outline-none appearance-none cursor-pointer pr-7"
-                            style={G.input}>
-                            <option value="camera" style={{ background: "#0d1117" }}>Camera</option>
-                            <option value="access" style={{ background: "#0d1117" }}>Access Control</option>
-                            <option value="nvr" style={{ background: "#0d1117" }}>NVR / Server</option>
-                          </select>
-                          <ChevronDown className="absolute right-2.5 top-1/2 -translate-y-1/2 w-3 h-3 text-[#484f58] pointer-events-none" />
-                        </div>
-                      </div>
-                      <div>
-                        <label className="block text-[#8b949e] text-[10px] font-bold uppercase tracking-widest mb-1.5">Zone</label>
-                        <div className="relative">
-                          <select value={newDeviceZone} onChange={(e) => setNewDeviceZone(e.target.value)}
-                            className="w-full h-9 rounded-xl px-3 text-[#e6edf3] text-[12px] focus:outline-none appearance-none cursor-pointer pr-7"
-                            style={G.input}>
-                            {zones.map((z) => <option key={z.id} value={z.id} style={{ background: "#0d1117" }}>{z.name}</option>)}
-                          </select>
-                          <ChevronDown className="absolute right-2.5 top-1/2 -translate-y-1/2 w-3 h-3 text-[#484f58] pointer-events-none" />
-                        </div>
-                      </div>
-                    </div>
-                    <div>
-                      <label className="block text-[#8b949e] text-[10px] font-bold uppercase tracking-widest mb-1.5">Install Location</label>
-                      <input value={newDeviceLocation} onChange={(e) => setNewDeviceLocation(e.target.value)} placeholder="e.g. Ceiling NW Corner — Row 4"
-                        className="w-full h-9 rounded-xl px-3 text-[#e6edf3] text-[12px] placeholder:text-[#484f58] focus:outline-none focus:ring-1 focus:ring-blue-500/50"
-                        style={G.input} />
-                    </div>
-                    <div>
-                      <label className="block text-[#8b949e] text-[10px] font-bold uppercase tracking-widest mb-1.5">Assigned Technician</label>
-                      <div className="relative">
-                        <select value={newDeviceAssignee} onChange={(e) => setNewDeviceAssignee(e.target.value)}
-                          className="w-full h-9 rounded-xl px-3 text-[#e6edf3] text-[12px] focus:outline-none appearance-none cursor-pointer pr-7"
-                          style={G.input}>
-                          {["T. Morales", "K. Singh", "J. Park"].map((a) => <option key={a} value={a} style={{ background: "#0d1117" }}>{a}</option>)}
-                        </select>
-                        <ChevronDown className="absolute right-2.5 top-1/2 -translate-y-1/2 w-3 h-3 text-[#484f58] pointer-events-none" />
-                      </div>
-                    </div>
-                    <div className="flex gap-3 pt-1">
-                      <motion.button type="button" onClick={() => setShowAddDevice(false)} className="flex-1 h-10 rounded-xl text-[#8b949e] text-[13px] font-semibold hover:text-white transition-all" style={G.btn} whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}>Cancel</motion.button>
-                      <motion.button type="submit" disabled={!newDeviceName.trim()} className="flex-1 h-10 rounded-xl text-white text-[13px] font-bold disabled:opacity-40" style={{ background: "#3b82f6", boxShadow: "0 4px 20px rgba(59,130,246,0.4), inset 0 1px 0 rgba(255,255,255,0.2)" }} whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}>Add Device</motion.button>
-                    </div>
-                  </form>
-                </motion.div>
-              </div>
-            )}
-          </AnimatePresence>
-
-          {/* Overall progress */}
-          <div className="rounded-2xl p-5 mb-5" style={G.card}>
-            <div className="flex items-center justify-between mb-4">
+            <form onSubmit={handleAddDevice} className="px-6 py-5 space-y-4">
               <div>
-                <p className="text-[#8b949e] text-[11px] font-bold uppercase tracking-widest mb-1">Overall Completion</p>
-                <p className="text-white text-[2rem] font-bold tracking-tight leading-none">{pct}%</p>
+                <label className="block text-[#8b949e] text-[10px] font-bold uppercase tracking-widest mb-1.5">Device Name *</label>
+                <input value={newDeviceName} onChange={(e) => setNewDeviceName(e.target.value)} placeholder="e.g. Axis P3245-V Dome Camera"
+                  className="w-full h-9 rounded-xl px-3 text-[#e6edf3] text-[12px] placeholder:text-[#484f58] focus:outline-none focus:ring-1 focus:ring-blue-500/50"
+                  style={G.input} />
               </div>
-              <div className="grid grid-cols-4 gap-4 text-right">
-                {[
-                  { label: "Complete", count: complete, color: "text-emerald-400" },
-                  { label: "In Progress", count: inProg, color: "text-blue-400" },
-                  { label: "Failed", count: failed, color: "text-rose-400" },
-                  { label: "Pending", count: total - complete - inProg - failed, color: "text-[#484f58]" },
-                ].map((s) => (
-                  <div key={s.label}>
-                    <p className={clsx("text-[1.3rem] font-bold leading-none", s.color)}>{s.count}</p>
-                    <p className="text-[#484f58] text-[10px] font-semibold mt-0.5">{s.label}</p>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-[#8b949e] text-[10px] font-bold uppercase tracking-widest mb-1.5">Type</label>
+                  <div className="relative">
+                    <select value={newDeviceType} onChange={(e) => setNewDeviceType(e.target.value as "camera" | "access" | "nvr")}
+                      className="w-full h-9 rounded-xl px-3 text-[#e6edf3] text-[12px] focus:outline-none appearance-none cursor-pointer pr-7"
+                      style={G.input}>
+                      <option value="camera" style={{ background: "#0d1117" }}>Camera</option>
+                      <option value="access" style={{ background: "#0d1117" }}>Access Control</option>
+                      <option value="nvr" style={{ background: "#0d1117" }}>NVR / Server</option>
+                    </select>
+                    <ChevronDown className="absolute right-2.5 top-1/2 -translate-y-1/2 w-3 h-3 text-[#484f58] pointer-events-none" />
                   </div>
-                ))}
-              </div>
-            </div>
-            <div className="relative w-full h-3 rounded-full overflow-hidden" style={{ background: "rgba(255,255,255,0.07)", boxShadow: "inset 0 1px 2px rgba(0,0,0,0.4)" }}>
-              <motion.div className="absolute left-0 top-0 h-full bg-gradient-to-r from-blue-600 to-emerald-500 rounded-full" initial={{ width: 0 }} animate={{ width: `${pct}%` }} transition={{ duration: 0.8, ease: "easeOut" }} />
-              <div className="absolute top-0 h-full rounded-full" style={{ background: "rgba(59,130,246,0.4)", left: `${pct}%`, width: `${Math.round((inProg / total) * 100)}%` }} />
-              <div className="absolute top-0 h-full rounded-full" style={{ background: "rgba(244,63,94,0.4)", left: `${Math.round(((complete + inProg) / total) * 100)}%`, width: `${Math.round((failed / total) * 100)}%` }} />
-            </div>
-            <div className="flex items-center gap-4 mt-2">
-              <span className="text-[#8b949e] text-[11px]">{complete} of {total} devices installed</span>
-              {failed > 0 && <span className="text-rose-400 text-[11px] font-semibold flex items-center gap-1"><AlertTriangle className="w-3 h-3" />{failed} defect{failed > 1 ? "s" : ""} require attention</span>}
-            </div>
-          </div>
-
-          <div className="space-y-3">
-            {zones.map((zone) => {
-              const zComplete = zone.devices.filter((d) => d.status === "complete").length;
-              const zPct = Math.round((zComplete / zone.devices.length) * 100);
-              const isExpanded = expandedZone === zone.id;
-              return (
-                <div key={zone.id} className="rounded-2xl overflow-hidden" style={G.card}>
-                  <button onClick={() => setExpandedZone(isExpanded ? null : zone.id)}
-                    className="w-full flex items-center gap-4 px-5 py-4 hover:bg-white/[0.02] transition-colors">
-                    <div className="flex-1 flex items-center gap-4 min-w-0">
-                      <div className={clsx("w-8 h-8 rounded-xl flex items-center justify-center flex-shrink-0",
-                        zPct === 100 ? "bg-emerald-500/15" : zPct > 0 ? "bg-blue-500/15" : "bg-white/[0.04]")}
-                        style={{ border: `1px solid ${zPct === 100 ? "rgba(16,185,129,0.25)" : zPct > 0 ? "rgba(59,130,246,0.25)" : "rgba(255,255,255,0.07)"}` }}>
-                        {zPct === 100 ? <CheckCircle2 className="w-4 h-4 text-emerald-400" /> : zPct > 0 ? <Clock className="w-4 h-4 text-blue-400" /> : <AlertCircle className="w-4 h-4 text-[#484f58]" />}
-                      </div>
-                      <div className="min-w-0">
-                        <p className="text-white text-[13px] font-bold text-left">{zone.name}</p>
-                        <p className="text-[#484f58] text-[11px] text-left">{zone.devices.length} devices · {zComplete} complete</p>
-                      </div>
-                    </div>
-                    <div className="flex items-center gap-4 flex-shrink-0">
-                      <div className="w-24 h-1.5 rounded-full overflow-hidden" style={{ background: "rgba(255,255,255,0.07)", boxShadow: "inset 0 1px 1px rgba(0,0,0,0.3)" }}>
-                        <div className={clsx("h-full rounded-full transition-all", zPct === 100 ? "bg-emerald-500" : "bg-blue-500")} style={{ width: `${zPct}%` }} />
-                      </div>
-                      <span className={clsx("text-[12px] font-bold w-10 text-right", zPct === 100 ? "text-emerald-400" : "text-white")}>{zPct}%</span>
-                      <motion.div animate={{ rotate: isExpanded ? 180 : 0 }} transition={{ duration: 0.2 }}>
-                        <ChevronDown className="w-4 h-4 text-[#484f58]" />
-                      </motion.div>
-                    </div>
-                  </button>
-                  <AnimatePresence>
-                    {isExpanded && (
-                      <motion.div
-                        initial={{ height: 0, opacity: 0 }}
-                        animate={{ height: "auto", opacity: 1 }}
-                        exit={{ height: 0, opacity: 0 }}
-                        transition={{ duration: 0.25, ease: "easeInOut" }}
-                        style={{ overflow: "hidden", borderTop: "1px solid rgba(255,255,255,0.06)" }}
-                      >
-                        <div className="grid gap-4 px-5 py-2.5" style={{ gridTemplateColumns: "36px 2fr 1.5fr 120px 1fr", background: "rgba(255,255,255,0.02)" }}>
-                          {["", "Device", "Location", "Assignee", "Status"].map((h) => (
-                            <span key={h} className="text-[#484f58] text-[10px] font-bold uppercase tracking-widest">{h}</span>
-                          ))}
-                        </div>
-                        {zone.devices.map((device, i) => {
-                          const meta = STATUS_META[device.status];
-                          const TypeIcon = typeIcons[device.type] ?? Camera;
-                          return (
-                            <div key={device.id}
-                              className={clsx("grid gap-4 px-5 py-3.5 items-center hover:bg-white/[0.015] transition-colors", i % 2 === 1 && "bg-white/[0.01]")}
-                              style={{ gridTemplateColumns: "36px 2fr 1.5fr 120px 1fr", borderTop: "1px solid rgba(255,255,255,0.04)" }}>
-                              <div className="w-7 h-7 rounded-xl flex items-center justify-center" style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.07)" }}>
-                                <TypeIcon className="w-3.5 h-3.5 text-[#484f58]" />
-                              </div>
-                              <div className="min-w-0">
-                                <p className="text-white text-[12px] font-semibold truncate">{device.name}</p>
-                                {device.notes && <p className="text-rose-400 text-[10px] flex items-center gap-1 mt-0.5 truncate"><AlertTriangle className="w-2.5 h-2.5 flex-shrink-0" /> {device.notes}</p>}
-                              </div>
-                              <p className="text-[#8b949e] text-[11px] truncate">{device.location}</p>
-                              <div className="flex items-center gap-1.5">
-                                <div className="w-5 h-5 rounded-full flex items-center justify-center text-[8px] font-bold text-white flex-shrink-0"
-                                  style={{ background: "rgba(59,130,246,0.4)" }}>
-                                  {device.assignee.split(" ").map((n) => n[0]).join("")}
-                                </div>
-                                <span className="text-[#8b949e] text-[11px] truncate">{device.assignee}</span>
-                              </div>
-                              <div className="relative">
-                                <select value={device.status} onChange={(e) => updateStatus(zone.id, device.id, e.target.value as InstallStatus)}
-                                  className={clsx("w-full h-7 rounded-xl border px-2 text-[11px] font-bold appearance-none cursor-pointer transition-all focus:outline-none pr-6", meta.bg, meta.color, "border-transparent hover:border-white/[0.10]")}
-                                  style={{ backgroundColor: "transparent" }}>
-                                  {Object.entries(STATUS_META).map(([val, m]) => (
-                                    <option key={val} value={val} style={{ backgroundColor: "#0d1117", color: "#e6edf3" }}>{m.label}</option>
-                                  ))}
-                                </select>
-                                <ChevronDown className="absolute right-1.5 top-1/2 -translate-y-1/2 w-3 h-3 text-[#484f58] pointer-events-none" />
-                              </div>
-                            </div>
-                          );
-                        })}
-                      </motion.div>
-                    )}
-                  </AnimatePresence>
                 </div>
-              );
-            })}
+                <div>
+                  <label className="block text-[#8b949e] text-[10px] font-bold uppercase tracking-widest mb-1.5">Zone</label>
+                  <div className="relative">
+                    <select value={newDeviceZone} onChange={(e) => setNewDeviceZone(e.target.value)}
+                      className="w-full h-9 rounded-xl px-3 text-[#e6edf3] text-[12px] focus:outline-none appearance-none cursor-pointer pr-7"
+                      style={G.input}>
+                      {zones.map((z) => <option key={z.id} value={z.id} style={{ background: "#0d1117" }}>{z.name}</option>)}
+                    </select>
+                    <ChevronDown className="absolute right-2.5 top-1/2 -translate-y-1/2 w-3 h-3 text-[#484f58] pointer-events-none" />
+                  </div>
+                </div>
+              </div>
+              <div>
+                <label className="block text-[#8b949e] text-[10px] font-bold uppercase tracking-widest mb-1.5">Install Location</label>
+                <input value={newDeviceLocation} onChange={(e) => setNewDeviceLocation(e.target.value)} placeholder="e.g. Ceiling NW Corner — Row 4"
+                  className="w-full h-9 rounded-xl px-3 text-[#e6edf3] text-[12px] placeholder:text-[#484f58] focus:outline-none focus:ring-1 focus:ring-blue-500/50"
+                  style={G.input} />
+              </div>
+              <div>
+                <label className="block text-[#8b949e] text-[10px] font-bold uppercase tracking-widest mb-1.5">Assigned Technician</label>
+                <div className="relative">
+                  <select value={newDeviceAssignee} onChange={(e) => setNewDeviceAssignee(e.target.value)}
+                    className="w-full h-9 rounded-xl px-3 text-[#e6edf3] text-[12px] focus:outline-none appearance-none cursor-pointer pr-7"
+                    style={G.input}>
+                    {["T. Morales", "K. Singh", "J. Park"].map((a) => <option key={a} value={a} style={{ background: "#0d1117" }}>{a}</option>)}
+                  </select>
+                  <ChevronDown className="absolute right-2.5 top-1/2 -translate-y-1/2 w-3 h-3 text-[#484f58] pointer-events-none" />
+                </div>
+              </div>
+              <div className="flex gap-3 pt-1">
+                <button type="button" onClick={() => setShowAddDevice(false)}
+                  className="flex-1 h-10 rounded-xl text-[#8b949e] text-[13px] font-semibold hover:text-white transition-all" style={G.btn}>Cancel</button>
+                <button type="submit" disabled={!newDeviceName.trim()}
+                  className="flex-1 h-10 rounded-xl text-white text-[13px] font-bold disabled:opacity-40"
+                  style={{ background: "#3b82f6", boxShadow: "0 4px 20px rgba(59,130,246,0.4), inset 0 1px 0 rgba(255,255,255,0.2)" }}>Add Device</button>
+              </div>
+            </form>
+          </motion.div>
+        </div>
+      )}
+
+      <div className="rounded-2xl p-5 mb-5" style={G.card}>
+        <div className="flex items-center justify-between mb-4">
+          <div>
+            <p className="text-[#8b949e] text-[11px] font-bold uppercase tracking-widest mb-1">Overall Completion</p>
+            <p className="text-white text-[2rem] font-bold tracking-tight leading-none">{pct}%</p>
+          </div>
+          <div className="grid grid-cols-4 gap-4 text-right">
+            {[
+              { label: "Complete", count: complete, color: "text-emerald-400" },
+              { label: "In Progress", count: inProg, color: "text-blue-400" },
+              { label: "Failed", count: failed, color: "text-rose-400" },
+              { label: "Pending", count: total - complete - inProg - failed, color: "text-[#484f58]" },
+            ].map((s) => (
+              <div key={s.label}>
+                <p className={clsx("text-[1.3rem] font-bold leading-none", s.color)}>{s.count}</p>
+                <p className="text-[#484f58] text-[10px] font-semibold mt-0.5">{s.label}</p>
+              </div>
+            ))}
           </div>
         </div>
-      </LiquidGlassBg>
-    </PageTransition>
+        <div className="relative w-full h-3 rounded-full overflow-hidden" style={{ background: "rgba(255,255,255,0.07)", boxShadow: "inset 0 1px 2px rgba(0,0,0,0.4)" }}>
+          <div className="absolute left-0 top-0 h-full bg-gradient-to-r from-blue-600 to-emerald-500 rounded-full transition-all duration-500" style={{ width: `${pct}%` }} />
+          <div className="absolute top-0 h-full rounded-full" style={{ background: "rgba(59,130,246,0.4)", left: `${pct}%`, width: `${Math.round((inProg / total) * 100)}%` }} />
+          <div className="absolute top-0 h-full rounded-full" style={{ background: "rgba(244,63,94,0.4)", left: `${Math.round(((complete + inProg) / total) * 100)}%`, width: `${Math.round((failed / total) * 100)}%` }} />
+        </div>
+        <div className="flex items-center gap-4 mt-2">
+          <span className="text-[#8b949e] text-[11px]">{complete} of {total} devices installed</span>
+          {failed > 0 && <span className="text-rose-400 text-[11px] font-semibold flex items-center gap-1"><AlertTriangle className="w-3 h-3" />{failed} defect{failed > 1 ? "s" : ""} require attention</span>}
+        </div>
+      </div>
+
+      <div className="space-y-3">
+        {zones.map((zone) => {
+          const zComplete = zone.devices.filter((d) => d.status === "complete").length;
+          const zPct = Math.round((zComplete / zone.devices.length) * 100);
+          const isExpanded = expandedZone === zone.id;
+          return (
+            <div key={zone.id} className="rounded-2xl overflow-hidden" style={G.card}>
+              <button onClick={() => setExpandedZone(isExpanded ? null : zone.id)}
+                className="w-full flex items-center gap-4 px-5 py-4 hover:bg-white/[0.02] transition-colors">
+                <div className="flex-1 flex items-center gap-4 min-w-0">
+                  <div className={clsx("w-8 h-8 rounded-xl flex items-center justify-center flex-shrink-0",
+                    zPct === 100 ? "bg-emerald-500/15" : zPct > 0 ? "bg-blue-500/15" : "bg-white/[0.04]")}
+                    style={{ border: `1px solid ${zPct === 100 ? "rgba(16,185,129,0.25)" : zPct > 0 ? "rgba(59,130,246,0.25)" : "rgba(255,255,255,0.07)"}` }}>
+                    {zPct === 100 ? <CheckCircle2 className="w-4 h-4 text-emerald-400" /> : zPct > 0 ? <Clock className="w-4 h-4 text-blue-400" /> : <AlertCircle className="w-4 h-4 text-[#484f58]" />}
+                  </div>
+                  <div className="min-w-0">
+                    <p className="text-white text-[13px] font-bold text-left">{zone.name}</p>
+                    <p className="text-[#484f58] text-[11px] text-left">{zone.devices.length} devices · {zComplete} complete</p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-4 flex-shrink-0">
+                  <div className="w-24 h-1.5 rounded-full overflow-hidden" style={{ background: "rgba(255,255,255,0.07)", boxShadow: "inset 0 1px 1px rgba(0,0,0,0.3)" }}>
+                    <div className={clsx("h-full rounded-full transition-all", zPct === 100 ? "bg-emerald-500" : "bg-blue-500")} style={{ width: `${zPct}%` }} />
+                  </div>
+                  <span className={clsx("text-[12px] font-bold w-10 text-right", zPct === 100 ? "text-emerald-400" : "text-white")}>{zPct}%</span>
+                  {isExpanded ? <ChevronUp className="w-4 h-4 text-[#484f58]" /> : <ChevronDown className="w-4 h-4 text-[#484f58]" />}
+                </div>
+              </button>
+              {isExpanded && (
+                <div style={{ borderTop: "1px solid rgba(255,255,255,0.06)" }}>
+                  <div className="grid gap-4 px-5 py-2.5" style={{ gridTemplateColumns: "36px 2fr 1.5fr 120px 1fr", background: "rgba(255,255,255,0.02)" }}>
+                    {["", "Device", "Location", "Assignee", "Status"].map((h) => (
+                      <span key={h} className="text-[#484f58] text-[10px] font-bold uppercase tracking-widest">{h}</span>
+                    ))}
+                  </div>
+                  {zone.devices.map((device, i) => {
+                    const meta = STATUS_META[device.status];
+                    const TypeIcon = typeIcons[device.type] ?? Camera;
+                    return (
+                      <div key={device.id}
+                        className={clsx("grid gap-4 px-5 py-3.5 items-center hover:bg-white/[0.015] transition-colors", i % 2 === 1 && "bg-white/[0.01]")}
+                        style={{ gridTemplateColumns: "36px 2fr 1.5fr 120px 1fr", borderTop: "1px solid rgba(255,255,255,0.04)" }}>
+                        <div className="w-7 h-7 rounded-xl flex items-center justify-center" style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.07)" }}>
+                          <TypeIcon className="w-3.5 h-3.5 text-[#484f58]" />
+                        </div>
+                        <div className="min-w-0">
+                          <p className="text-white text-[12px] font-semibold truncate">{device.name}</p>
+                          {device.notes && <p className="text-rose-400 text-[10px] flex items-center gap-1 mt-0.5 truncate"><AlertTriangle className="w-2.5 h-2.5 flex-shrink-0" /> {device.notes}</p>}
+                        </div>
+                        <p className="text-[#8b949e] text-[11px] truncate">{device.location}</p>
+                        <div className="flex items-center gap-1.5">
+                          <div className="w-5 h-5 rounded-full flex items-center justify-center text-[8px] font-bold text-white flex-shrink-0"
+                            style={{ background: "rgba(59,130,246,0.4)" }}>
+                            {device.assignee.split(" ").map((n) => n[0]).join("")}
+                          </div>
+                          <span className="text-[#8b949e] text-[11px] truncate">{device.assignee}</span>
+                        </div>
+                        <div className="relative">
+                          <select value={device.status} onChange={(e) => updateStatus(zone.id, device.id, e.target.value as InstallStatus)}
+                            className={clsx("w-full h-7 rounded-xl border px-2 text-[11px] font-bold appearance-none cursor-pointer transition-all focus:outline-none pr-6", meta.bg, meta.color, "border-transparent hover:border-white/[0.10]")}
+                            style={{ backgroundColor: "transparent" }}>
+                            {Object.entries(STATUS_META).map(([val, m]) => (
+                              <option key={val} value={val} style={{ backgroundColor: "#0d1117", color: "#e6edf3" }}>{m.label}</option>
+                            ))}
+                          </select>
+                          <ChevronDown className="absolute right-1.5 top-1/2 -translate-y-1/2 w-3 h-3 text-[#484f58] pointer-events-none" />
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          );
+        })}
+      </div>
+    </div>
   );
 }
 
@@ -3739,14 +3234,11 @@ function LoginPage({ onLogin }: { onLogin: () => void }) {
 
   return (
     <div className="h-screen flex overflow-hidden">
-      {/* Left panel — brand */}
       <div className="hidden lg:flex w-[48%] flex-shrink-0 flex-col relative overflow-hidden" style={{ background: "#070c1a" }}>
         <div className="absolute inset-0" style={{ backgroundImage: "radial-gradient(ellipse 80% 60% at 10% 10%, rgba(30,64,175,0.45) 0%, transparent 65%), radial-gradient(ellipse 60% 55% at 90% 90%, rgba(88,28,135,0.35) 0%, transparent 65%), radial-gradient(ellipse 50% 40% at 55% 50%, rgba(7,12,26,0.9) 0%, transparent 100%)" }} />
-        {/* Subtle grid */}
         <div className="absolute inset-0 opacity-[0.018]" style={{ backgroundImage: "repeating-linear-gradient(0deg,#fff 0,#fff 1px,transparent 1px,transparent 48px),repeating-linear-gradient(90deg,#fff 0,#fff 1px,transparent 1px,transparent 48px)" }} />
 
         <div className="relative z-10 flex flex-col h-full p-12">
-          {/* Logo */}
           <div className="mb-auto">
             <img src={logoImg} alt="E-Tech Systems" className="h-10 object-contain object-left" style={{ filter: "brightness(1.1)" }} />
           </div>
@@ -3765,12 +3257,8 @@ function LoginPage({ onLogin }: { onLogin: () => void }) {
                 { icon: Camera, title: "System Design Studio", desc: "Place cameras, Map cable routes, build floorplan", color: "#3b82f6" },
                 { icon: BarChart3, title: "Quote Builder & Asset Library", desc: "Auto-generate quotes, proposals, access to full partner asset library", color: "#8b5cf6" },
               ].map(({ icon: Icon, title, desc, color }) => (
-                <motion.div
-                  key={title}
-                  className="flex items-start gap-4 p-4 rounded-2xl"
-                  style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.09)", backdropFilter: "blur(12px)", WebkitBackdropFilter: "blur(12px)", boxShadow: "inset 0 1px 0 rgba(255,255,255,0.07)" }}
-                  whileHover={{ y: -2, scale: 1.01 }}
-                >
+                <div key={title} className="flex items-start gap-4 p-4 rounded-2xl transition-all hover:-translate-y-0.5"
+                  style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.09)", backdropFilter: "blur(12px)", WebkitBackdropFilter: "blur(12px)", boxShadow: "inset 0 1px 0 rgba(255,255,255,0.07)" }}>
                   <div className="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0"
                     style={{ background: `${color}20`, border: `1px solid ${color}35`, boxShadow: `0 0 16px ${color}25` }}>
                     <Icon className="w-4 h-4" style={{ color }} />
@@ -3779,7 +3267,7 @@ function LoginPage({ onLogin }: { onLogin: () => void }) {
                     <p className="text-white text-[13px] font-bold mb-0.5">{title}</p>
                     <p className="text-[#8b949e] text-[12px] leading-relaxed">{desc}</p>
                   </div>
-                </motion.div>
+                </div>
               ))}
             </div>
           </div>
@@ -3788,9 +3276,7 @@ function LoginPage({ onLogin }: { onLogin: () => void }) {
         </div>
       </div>
 
-      {/* Right panel — form */}
       <div className="flex-1 flex items-center justify-center p-8 relative" style={{ background: "rgba(255,255,255,0.03)", backdropFilter: "blur(40px)", WebkitBackdropFilter: "blur(40px)" }}>
-        {/* Background gradient for right side */}
         <div className="absolute inset-0 pointer-events-none" style={{ backgroundImage: "radial-gradient(ellipse 60% 50% at 80% 20%, rgba(59,130,246,0.08) 0%, transparent 60%), radial-gradient(ellipse 50% 40% at 20% 80%, rgba(139,92,246,0.06) 0%, transparent 60%)" }} />
 
         <motion.div
@@ -3799,36 +3285,25 @@ function LoginPage({ onLogin }: { onLogin: () => void }) {
           transition={{ duration: 0.3, ease: "easeOut" }}
           className="relative z-10 w-full max-w-[380px]"
         >
-          {/* Mobile logo */}
           <div className="lg:hidden mb-10">
             <img src={logoImg} alt="E-Tech Systems" className="h-9 object-contain object-left" style={{ filter: "brightness(1.1)" }} />
           </div>
 
-          {/* Form card */}
-          <motion.div
-            className="rounded-3xl p-8"
-            style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.12)", backdropFilter: "blur(40px) saturate(160%)", WebkitBackdropFilter: "blur(40px) saturate(160%)", boxShadow: "0 24px 64px rgba(0,0,0,0.6), inset 0 1px 0 rgba(255,255,255,0.10)" }}
-            initial={{ opacity: 0, y: 12 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.1, duration: 0.35 }}
-          >
+          <div className="rounded-3xl p-8"
+            style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.12)", backdropFilter: "blur(40px) saturate(160%)", WebkitBackdropFilter: "blur(40px) saturate(160%)", boxShadow: "0 24px 64px rgba(0,0,0,0.6), inset 0 1px 0 rgba(255,255,255,0.10)" }}>
+
             <h2 className="text-white text-[1.5rem] font-bold mb-1 tracking-tight">Welcome back</h2>
             <p className="text-[#8b949e] text-[13px] mb-7">Sign in to your workspace</p>
 
-            {/* SSO button */}
-            <motion.button
-              onClick={submit}
+            <button onClick={submit}
               className="w-full flex items-center justify-center gap-3 h-11 rounded-2xl text-white text-[13px] font-bold transition-all duration-150 mb-6 hover:bg-white/[0.12] active:scale-[0.99]"
-              style={{ background: "rgba(255,255,255,0.08)", border: "1px solid rgba(255,255,255,0.14)", boxShadow: "inset 0 1px 0 rgba(255,255,255,0.09)" }}
-              whileHover={{ scale: 1.02 }}
-              whileTap={{ scale: 0.98 }}
-            >
+              style={{ background: "rgba(255,255,255,0.08)", border: "1px solid rgba(255,255,255,0.14)", boxShadow: "inset 0 1px 0 rgba(255,255,255,0.09)" }}>
               <svg width="17" height="17" viewBox="0 0 21 21" fill="none" aria-hidden="true">
                 <rect width="10" height="10" fill="#f25022" /><rect x="11" width="10" height="10" fill="#7fba00" />
                 <rect y="11" width="10" height="10" fill="#00a4ef" /><rect x="11" y="11" width="10" height="10" fill="#ffb900" />
               </svg>
               Continue with Microsoft
-            </motion.button>
+            </button>
 
             <div className="flex items-center gap-3 mb-6">
               <div className="flex-1 h-px" style={{ background: "rgba(255,255,255,0.08)" }} />
@@ -3857,24 +3332,19 @@ function LoginPage({ onLogin }: { onLogin: () => void }) {
                   </button>
                 </div>
               </div>
-              <motion.button
-                type="submit"
-                disabled={loading}
+              <button type="submit" disabled={loading}
                 className="w-full h-11 rounded-2xl text-white font-bold text-[13px] transition-all duration-150 active:scale-[0.99] flex items-center justify-center gap-2 disabled:opacity-60 mt-1"
-                style={{ background: "linear-gradient(135deg, #3b82f6, #2563eb)", boxShadow: "0 4px 20px rgba(59,130,246,0.45), inset 0 1px 0 rgba(255,255,255,0.2)" }}
-                whileHover={{ scale: 1.02 }}
-                whileTap={{ scale: 0.98 }}
-              >
+                style={{ background: "linear-gradient(135deg, #3b82f6, #2563eb)", boxShadow: "0 4px 20px rgba(59,130,246,0.45), inset 0 1px 0 rgba(255,255,255,0.2)" }}>
                 {loading && <Loader2 className="w-4 h-4 animate-spin" />}
                 {loading ? "Signing in…" : "Sign in"}
-              </motion.button>
+              </button>
             </form>
 
             <p className="text-center text-[#484f58] text-[12px] mt-6">
               Need access?{" "}
               <button className="text-blue-400 hover:text-blue-300 transition-colors font-semibold">Contact your administrator</button>
             </p>
-          </motion.div>
+          </div>
         </motion.div>
       </div>
     </div>
@@ -3929,14 +3399,12 @@ export default function App() {
           <Toaster position="bottom-right" theme="dark" toastOptions={{ style: { background: "rgba(7,12,26,0.95)", border: "1px solid rgba(255,255,255,0.12)", color: "#e6edf3", backdropFilter: "blur(20px)" } }} />
           <AppTopbar page={page} navigate={setPage} breadcrumb={breadcrumb} />
           <div className="pt-14">
-            <AnimatePresence mode="wait">
-              {page === "dashboard" && <Dashboard navigate={setPage} />}
-              {page === "design-studio" && <DesignStudio navigate={setPage} />}
-              {page === "project-detail" && <ProjectDetail navigate={setPage} />}
-              {page === "quote-builder" && <QuoteBuilder navigate={setPage} quoteItems={quoteItems} setQuoteItems={setQuoteItems} />}
-              {page === "install-tracker" && <InstallTracker navigate={setPage} />}
-              {page === "device-library" && <DeviceLibrary navigate={setPage} />}
-            </AnimatePresence>
+            {page === "dashboard" && <Dashboard navigate={setPage} />}
+            {page === "design-studio" && <DesignStudio navigate={setPage} />}
+            {page === "project-detail" && <ProjectDetail navigate={setPage} />}
+            {page === "quote-builder" && <QuoteBuilder navigate={setPage} quoteItems={quoteItems} setQuoteItems={setQuoteItems} />}
+            {page === "install-tracker" && <InstallTracker navigate={setPage} />}
+            {page === "device-library" && <DeviceLibrary navigate={setPage} />}
           </div>
         </div>
       </QuoteContext.Provider>
