@@ -14,7 +14,7 @@ import {
   Phone, Mail, MessageSquare, StickyNote, Users,
 } from "lucide-react";
 import { clsx } from "clsx";
-import logoImg from "./assets/logo.svg";
+import logoImg from "./assets/2026-06-14_21.13.34_e-techsystemsja.com_2f51395e09e8-removebg-preview (1).png";
 
 // ─── CSV export helper ────────────────────────────────────────────────────────
 function downloadCSV(filename: string, rows: string[][]) {
@@ -24,6 +24,12 @@ function downloadCSV(filename: string, rows: string[][]) {
   const a = document.createElement("a");
   a.href = url; a.download = filename; a.click();
   URL.revokeObjectURL(url);
+}
+
+// ─── PDF export helper (simulated) ────────────────────────────────────────────
+function downloadPDF(filename: string, _items: QuoteItem[]) {
+  toast.success(`${filename} exported as PDF`);
+  // In production, this would call a real PDF generation library or API
 }
 
 // ─── Glass utility ────────────────────────────────────────────────────────────
@@ -1126,7 +1132,7 @@ function KanbanColumn({ column, projects, totalValue, dragging, isOver, onDragSt
         </div>
         <p className="text-[#484f58] text-[11px] font-semibold ml-4">{fmt(totalValue, true)}</p>
       </div>
-      <div className="flex-1 p-2 space-y-2 overflow-y-auto" style={{ maxHeight: "calc(100vh - 296px)", scrollbarWidth: "none" }}>
+      <div className="flex-1 p-2 space-y-2 overflow-y-auto overscroll-none" style={{ maxHeight: "calc(100vh - 296px)", scrollbarWidth: "none", overscrollBehavior: "none" }}>
         {projects.map((p) => (
           <KanbanCard key={p.id} project={p} column={column} dragging={dragging} onDragStart={onDragStart} onDragEnd={onDragEnd} onClick={() => onCardClick(p)} onDelete={onDelete} />
         ))}
@@ -1339,6 +1345,101 @@ function NewProjectModal({ onClose, onAdd }: { onClose: () => void; onAdd: (p: P
   );
 }
 
+// ─── Upload Floor Plan Modal ──────────────────────────────────────────────────
+
+function UploadFloorPlanModal({ onClose }: { onClose: () => void }) {
+  const [dragOver, setDragOver] = useState(false);
+  const [file, setFile] = useState<File | null>(null);
+
+  const handleDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    setDragOver(false);
+    if (e.dataTransfer.files.length > 0) setFile(e.dataTransfer.files[0]);
+  };
+
+  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files.length > 0) setFile(e.target.files[0]);
+  };
+
+  const handleUpload = () => {
+    if (file) {
+      toast.success(`${file.name} uploaded — opening design canvas`);
+      onClose();
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 z-[200] flex items-center justify-center p-4" onClick={onClose}>
+      <div className="absolute inset-0" style={{ background: "rgba(0,0,0,0.65)", backdropFilter: "blur(8px)", WebkitBackdropFilter: "blur(8px)" }} />
+      <motion.div
+        initial={{ opacity: 0, scale: 0.94, y: 16 }}
+        animate={{ opacity: 1, scale: 1, y: 0 }}
+        transition={{ type: "spring", damping: 26, stiffness: 360 }}
+        onClick={(e) => e.stopPropagation()}
+        className="relative z-10 w-full max-w-[480px] rounded-3xl overflow-hidden"
+        style={{ background: "rgba(7,12,26,0.92)", backdropFilter: "blur(52px) saturate(200%)", WebkitBackdropFilter: "blur(52px) saturate(200%)", border: "1px solid rgba(255,255,255,0.13)", boxShadow: "0 32px 80px rgba(0,0,0,0.9), inset 0 1px 0 rgba(255,255,255,0.12)" }}>
+        <div className="absolute inset-x-0 top-0 h-[2px] rounded-t-3xl" style={{ background: "linear-gradient(90deg, #8b5cf6dd, #8b5cf633)" }} />
+
+        <div className="flex items-center justify-between px-6 pt-6 pb-5" style={{ borderBottom: "1px solid rgba(255,255,255,0.07)" }}>
+          <div>
+            <h2 className="text-white text-[1rem] font-bold">Upload Floor Plan</h2>
+            <p className="text-[#8b949e] text-[12px] mt-0.5">Upload a floor plan or mockup to start designing</p>
+          </div>
+          <button onClick={onClose} className="w-8 h-8 rounded-xl flex items-center justify-center hover:bg-white/[0.08]"
+            style={{ border: "1px solid rgba(255,255,255,0.10)" }}>
+            <X className="w-4 h-4 text-[#8b949e]" />
+          </button>
+        </div>
+
+        <div className="p-6">
+          <div
+            onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
+            onDragLeave={() => setDragOver(false)}
+            onDrop={handleDrop}
+            className={clsx("border-2 border-dashed rounded-2xl p-10 text-center transition-all cursor-pointer",
+              dragOver ? "border-violet-400 bg-violet-500/[0.06]" : file ? "border-emerald-500/40 bg-emerald-500/[0.03]" : "border-white/[0.10] hover:border-white/[0.20]")}
+            onClick={() => document.getElementById("floorplan-upload")?.click()}>
+            <input id="floorplan-upload" type="file" accept="image/*,.pdf,.dwg,.dxf" className="hidden" onChange={handleFileSelect} />
+            {file ? (
+              <div className="space-y-2">
+                <div className="w-12 h-12 rounded-xl mx-auto flex items-center justify-center" style={{ background: "rgba(16,185,129,0.15)", border: "1px solid rgba(16,185,129,0.25)" }}>
+                  <CheckCircle2 className="w-6 h-6 text-emerald-400" />
+                </div>
+                <p className="text-white text-[13px] font-semibold">{file.name}</p>
+                <p className="text-[#484f58] text-[11px]">{(file.size / 1024).toFixed(0)} KB · Ready to upload</p>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                <div className="w-14 h-14 rounded-2xl mx-auto flex items-center justify-center" style={{ background: "rgba(139,92,246,0.12)", border: "1px solid rgba(139,92,246,0.22)" }}>
+                  <Upload className="w-6 h-6 text-violet-400" />
+                </div>
+                <div>
+                  <p className="text-white text-[13px] font-semibold">Drag & drop your floor plan</p>
+                  <p className="text-[#484f58] text-[11px] mt-1">or click to browse files</p>
+                </div>
+                <p className="text-[#484f58] text-[10px]">Supports JPG, PNG, PDF, DWG, DXF</p>
+              </div>
+            )}
+          </div>
+
+          <div className="flex gap-3 mt-5">
+            <button onClick={onClose}
+              className="flex-1 h-10 rounded-xl text-[#8b949e] text-[13px] font-semibold hover:text-white transition-all"
+              style={G.btn}>
+              Cancel
+            </button>
+            <button onClick={handleUpload} disabled={!file}
+              className="flex-1 h-10 rounded-xl text-white text-[13px] font-bold transition-all disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+              style={{ background: "#8b5cf6", boxShadow: file ? "0 4px 20px rgba(139,92,246,0.4), inset 0 1px 0 rgba(255,255,255,0.2)" : "none" }}>
+              <Upload className="w-3.5 h-3.5" /> Upload & Open Canvas
+            </button>
+          </div>
+        </div>
+      </motion.div>
+    </div>
+  );
+}
+
 // ─── Dashboard ────────────────────────────────────────────────────────────────
 
 function Dashboard({ navigate }: { navigate: (p: Page) => void }) {
@@ -1348,6 +1449,7 @@ function Dashboard({ navigate }: { navigate: (p: Page) => void }) {
   const [dragOverCol, setDragOverCol] = useState<Stage | null>(null);
   const [selectedDeal, setSelectedDeal] = useState<Project | null>(null);
   const [showNewProject, setShowNewProject] = useState(false);
+  const [progressAnim, setProgressAnim] = useState<{ id: string; stage: Stage } | null>(null);
 
   const active = projects.filter((p) => !["win", "lose"].includes(p.stage));
   const pipeline = active.reduce((s, p) => s + p.value, 0);
@@ -1361,7 +1463,14 @@ function Dashboard({ navigate }: { navigate: (p: Page) => void }) {
   const handleDragStart = (e: React.DragEvent<HTMLDivElement>, id: string) => { setDragging(id); e.dataTransfer.effectAllowed = "move"; };
   const handleDragEnd = () => { setDragging(null); setDragOverCol(null); };
   const handleDrop = (colId: Stage) => {
-    if (dragging) setProjects((prev) => prev.map((p) => p.id === dragging ? { ...p, stage: colId } : p));
+    if (dragging) {
+      const project = projects.find((p) => p.id === dragging);
+      if (project && project.stage !== colId && colId !== "lose") {
+        setProgressAnim({ id: dragging, stage: colId });
+        setTimeout(() => setProgressAnim(null), 1500);
+      }
+      setProjects((prev) => prev.map((p) => p.id === dragging ? { ...p, stage: colId } : p));
+    }
     setDragging(null); setDragOverCol(null);
   };
 
@@ -1375,6 +1484,17 @@ function Dashboard({ navigate }: { navigate: (p: Page) => void }) {
       )}
       {showNewProject && (
         <NewProjectModal onClose={() => setShowNewProject(false)} onAdd={(p) => setProjects((prev) => [p, ...prev])} />
+      )}
+      {progressAnim && (
+        <motion.div
+          initial={{ opacity: 0, scale: 0.8, y: 20 }}
+          animate={{ opacity: 1, scale: 1, y: 0 }}
+          exit={{ opacity: 0, scale: 0.8, y: -20 }}
+          className="fixed bottom-6 left-1/2 -translate-x-1/2 z-[250] px-5 py-3 rounded-2xl flex items-center gap-3"
+          style={{ background: "rgba(16,185,129,0.95)", backdropFilter: "blur(20px)", boxShadow: "0 8px 32px rgba(16,185,129,0.4)" }}>
+          <CheckCircle2 className="w-5 h-5 text-white" />
+          <span className="text-white text-[13px] font-bold">Project advanced to {COLUMNS.find((c) => c.id === progressAnim.stage)?.label}</span>
+        </motion.div>
       )}
 
       <div className="px-5 pt-6 pb-5" style={{ borderBottom: "1px solid rgba(255,255,255,0.06)" }}>
@@ -1415,7 +1535,7 @@ function Dashboard({ navigate }: { navigate: (p: Page) => void }) {
         </div>
       </div>
 
-      <div className="overflow-x-auto px-5 py-5" style={{ scrollbarWidth: "thin", scrollbarColor: "rgba(255,255,255,0.08) transparent" }}>
+      <div className="overflow-x-auto px-5 py-5" style={{ scrollbarWidth: "thin", scrollbarColor: "rgba(255,255,255,0.08) transparent", overscrollBehavior: "none" }}>
         <div className="flex gap-3 min-w-max pb-3">
           {COLUMNS.map((col) => {
             const colProjects = projects.filter((p) => p.stage === col.id);
@@ -1524,7 +1644,19 @@ function DesignStudio({ navigate }: { navigate: (p: Page) => void }) {
   const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
   const [filter, setFilter] = useState<"all" | Stage>("all");
   const [projects, setProjects] = useState<Project[]>(PROJECTS);
-  const filtered = filter === "all" ? projects : projects.filter((p) => p.stage === filter);
+  const [search, setSearch] = useState("");
+  const [showUploadModal, setShowUploadModal] = useState(false);
+
+  const filtered = useMemo(() => {
+    let result = projects;
+    if (filter !== "all") result = result.filter((p) => p.stage === filter);
+    if (search.trim()) {
+      const q = search.toLowerCase();
+      result = result.filter((p) => p.name.toLowerCase().includes(q) || p.client.toLowerCase().includes(q) || p.location.toLowerCase().includes(q));
+    }
+    return result;
+  }, [projects, filter, search]);
+
   const stageFilters: { id: "all" | Stage; label: string }[] = [
     { id: "all", label: "All" }, { id: "design", label: "In Design" }, { id: "proposal", label: "Proposal" }, { id: "win", label: "Won" },
   ];
@@ -1532,10 +1664,11 @@ function DesignStudio({ navigate }: { navigate: (p: Page) => void }) {
 
   return (
     <div className="px-5 py-6">
+      {showUploadModal && <UploadFloorPlanModal onClose={() => setShowUploadModal(false)} />}
       <div className="flex items-center justify-between mb-6">
         <div>
           <h1 className="text-white font-bold text-xl tracking-tight">Design Studio</h1>
-          <p className="text-[#8b949e] text-[13px] mt-0.5">{projects.length} projects · floor plan management</p>
+          <p className="text-[#8b949e] text-[13px] mt-0.5">System Design Studio · {projects.length} projects</p>
         </div>
         <div className="flex items-center gap-2">
           <div className="flex items-center rounded-xl p-0.5 gap-0.5" style={G.btn}>
@@ -1548,7 +1681,7 @@ function DesignStudio({ navigate }: { navigate: (p: Page) => void }) {
               </button>
             ))}
           </div>
-          <button onClick={() => navigate("design-canvas")}
+          <button onClick={() => setShowUploadModal(true)}
             className="flex items-center gap-1.5 h-8 px-4 rounded-xl text-white text-[12px] font-bold"
             style={{ background: "#3b82f6", boxShadow: "0 4px 16px rgba(59,130,246,0.35), inset 0 1px 0 rgba(255,255,255,0.2)" }}>
             <Plus className="w-3.5 h-3.5" /> New Design
@@ -1556,7 +1689,7 @@ function DesignStudio({ navigate }: { navigate: (p: Page) => void }) {
         </div>
       </div>
 
-      <div className="flex items-center gap-1.5 mb-5">
+      <div className="flex items-center gap-2 mb-5 flex-wrap">
         {stageFilters.map((f) => (
           <button key={f.id} onClick={() => setFilter(f.id)}
             className={clsx("h-7 px-3 rounded-full text-[12px] font-semibold transition-all",
@@ -1565,6 +1698,15 @@ function DesignStudio({ navigate }: { navigate: (p: Page) => void }) {
             {f.label}
           </button>
         ))}
+        <div className="relative ml-1">
+          <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3 h-3 text-[#484f58]" />
+          <input
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="Search projects…"
+            className="h-7 rounded-xl pl-7 pr-3 text-[12px] text-[#e6edf3] placeholder:text-[#484f58] focus:outline-none focus:ring-1 focus:ring-blue-500/50 w-44 transition-all"
+            style={G.input} />
+        </div>
         <span className="text-[#484f58] text-[12px] ml-1">{filtered.length} projects</span>
       </div>
 
@@ -1703,11 +1845,6 @@ function ProjectDetail({ navigate }: { navigate: (p: Page) => void }) {
               <Icon className={clsx("w-3.5 h-3.5", color)} /> {label}
             </button>
           ))}
-          <button onClick={() => navigate("quote-builder")}
-            className="flex items-center gap-1.5 h-9 px-4 rounded-xl text-white text-[12px] font-bold"
-            style={{ background: "#3b82f6", boxShadow: "0 4px 16px rgba(59,130,246,0.35), inset 0 1px 0 rgba(255,255,255,0.2)" }}>
-            <Plus className="w-3.5 h-3.5" /> New Quote
-          </button>
         </div>
       </div>
 
@@ -2219,6 +2356,9 @@ function QuoteBuilder({ navigate, quoteItems, setQuoteItems }: { navigate: (p: P
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [libSearch, setLibSearch] = useState("");
   const [libCategory, setLibCategory] = useState<string>("all");
+  const [selectedProjectId, setSelectedProjectId] = useState<string>("p13");
+
+  const selectedProject = PROJECTS.find((p) => p.id === selectedProjectId);
 
   const updateItem = (id: string, field: keyof QuoteItem, value: number) => {
     setItems((prev) => prev.map((item) => item.id === id ? { ...item, [field]: value } : item));
@@ -2341,12 +2481,26 @@ function QuoteBuilder({ navigate, quoteItems, setQuoteItems }: { navigate: (p: P
               <h2 className="text-white font-bold text-[15px]">Q-2026-044-v3</h2>
               <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-500/12 text-amber-400">Pending Approval</span>
             </div>
-            <p className="text-[#8b949e] text-[12px]">Bank Branch Network — NVR Rollout · Crestline Federal Bank</p>
+            <div className="flex items-center gap-2">
+              <div className="relative">
+                <select value={selectedProjectId} onChange={(e) => setSelectedProjectId(e.target.value)}
+                  className="text-[#8b949e] text-[12px] font-semibold bg-transparent border-none focus:outline-none cursor-pointer appearance-none pr-5 hover:text-white transition-colors"
+                  style={{ background: "transparent" }}>
+                  {PROJECTS.map((p) => (
+                    <option key={p.id} value={p.id} style={{ background: "#0d1117", color: "#e6edf3" }}>{p.name}</option>
+                  ))}
+                </select>
+                <ChevronDown className="absolute right-0 top-1/2 -translate-y-1/2 w-3 h-3 text-[#484f58] pointer-events-none" />
+              </div>
+              {selectedProject && (
+                <span className="text-[#484f58] text-[11px]">· {selectedProject.client}</span>
+              )}
+            </div>
           </div>
           <div className="flex items-center gap-2">
-            <button onClick={() => { downloadCSV("Q-2026-044-v3.csv", [["SKU","Description","Qty","Unit Price","Line Total"], ...items.map(i => [i.sku, i.name, String(i.qty), String(i.unitPrice), String(i.qty * i.unitPrice)])]); toast.success("Quote exported as CSV"); }}
+            <button onClick={() => { downloadPDF(`Q-2026-044-v3_${selectedProject?.client?.replace(/[^a-z0-9]/gi,"_") ?? "quote"}.pdf`, items); }}
               className="flex items-center gap-1.5 h-8 px-3 rounded-xl text-[#8b949e] text-[12px] font-semibold hover:text-white transition-all" style={G.btn}>
-              <Download className="w-3.5 h-3.5" /> Export CSV
+              <FileText className="w-3.5 h-3.5" /> Export PDF
             </button>
             <button onClick={() => toast.success("Quote sent for approval — Marcus Webb notified")}
               className="flex items-center gap-1.5 h-8 px-3 rounded-xl text-[#8b949e] text-[12px] font-semibold hover:text-white transition-all" style={G.btn}>
