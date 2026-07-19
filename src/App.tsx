@@ -2722,7 +2722,7 @@ function DeviceSpecModal({ device, onClose }: { device: CatalogDevice; onClose: 
         className="relative z-10 w-full max-w-[780px] max-h-[90vh] overflow-y-auto rounded-3xl overflow-hidden flex flex-col md:flex-row"
         style={{ background: "rgba(7,12,26,0.95)", backdropFilter: "blur(52px) saturate(200%)", WebkitBackdropFilter: "blur(52px) saturate(200%)", border: "1px solid rgba(255,255,255,0.13)", boxShadow: "0 40px 100px rgba(0,0,0,0.95), inset 0 1px 0 rgba(255,255,255,0.12)" }}>
         <div className="absolute inset-x-0 top-0 h-[2px] rounded-t-3xl" style={{ background: `linear-gradient(90deg, ${cc.text}cc, ${cc.text}22)` }} />
-        <div className="w-full md:w-56 flex-shrink-0 relative" style={{ background: "rgba(255,255,255,0.03)", minHeight: "200px", maxHeight: "300px", md: { minHeight: "320px", maxHeight: "none" } }}>
+        <div className="w-full md:w-56 flex-shrink-0 relative h-[200px] md:h-auto" style={{ background: "rgba(255,255,255,0.03)" }}>
           {device.imageUrl
             ? <img src={device.imageUrl} alt={device.model} className="w-full h-full object-cover opacity-80" />
             : <div className="w-full h-full flex items-center justify-center" style={{ minHeight: "200px" }}><Camera className="w-16 h-16 text-[#484f58]" /></div>}
