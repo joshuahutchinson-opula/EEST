@@ -691,7 +691,35 @@ function LoginPage({ onLogin }: { onLogin: () => void }) {
 export default function App() {
   const [page, setPage] = useState<Page>("login"); const [currency, setCurrency] = useState<"USD" | "JMD">("USD"); const [currentQuote, setCurrentQuote] = useState<Quote | null>(null);
   const currencyCtx: CurrencyCtx = useMemo(() => ({ currency, setCurrency, fmt: makeFmt(currency) }), [currency]);
-  const addToQuote = (device: CatalogDevice) => { if (!device.price || !currentQuote) return; setCurrentQuote((prev) => { if (!prev) return prev; const firstCat = prev.categories[0]; if (!firstCat) return prev; const newItem: QuoteLineItem = { id: crypto.randomUUID?.() || `li${Date.now()}`, itemNumber: String(firstCat.lineItems.length + 1).padStart(2, "0"), description: `${device.manufacturer} ${device.model}`, unitCost: device.price, quantity: 1, markupPercent: 0.35, sellPrice: device.price * 1.35, costTotal: device.price, sellTotal: device.price * 1.35, profit: device.price * 0.35, jmdConversion: device.price * 1.35 * JMD_RATE }; return { ...prev, categories: prev.categories.map((c, i) => i === 0 ? { ...c, lineItems: [...c.lineItems, newItem] } : c) }; }); toast.success(`${device.model} added to quote`); };
+const addToQuote = (device: CatalogDevice) => {
+  const price = device.price;
+  if (!price || !currentQuote) return;
+  setCurrentQuote((prev) => {
+    if (!prev) return prev;
+    const firstCat = prev.categories[0];
+    if (!firstCat) return prev;
+    const sellPrice = price * 1.35;
+    const costTotal = price * 1;
+    const sellTotal = sellPrice * 1;
+    const profit = sellTotal - costTotal;
+    const jmdConversion = sellTotal * JMD_RATE;
+    const newItem: QuoteLineItem = {
+      id: crypto.randomUUID?.() || `li${Date.now()}`,
+      itemNumber: String(firstCat.lineItems.length + 1).padStart(2, "0"),
+      description: `${device.manufacturer} ${device.model}`,
+      unitCost: price,
+      quantity: 1,
+      markupPercent: 0.35,
+      sellPrice,
+      costTotal,
+      sellTotal,
+      profit,
+      jmdConversion,
+    };
+    return { ...prev, categories: prev.categories.map((c, i) => i === 0 ? { ...c, lineItems: [...c.lineItems, newItem] } : c) };
+  });
+  toast.success(`${device.model} added to quote`);
+};
   const quoteCtx: QuoteCtx = { currentQuote, setCurrentQuote, addToQuote };
   if (page === "login") return <CurrencyContext.Provider value={currencyCtx}><LoginPage onLogin={() => setPage("dashboard")} /></CurrencyContext.Provider>;
   if (page === "design-canvas") return <CurrencyContext.Provider value={currencyCtx}><DesignCanvas navigate={setPage} /></CurrencyContext.Provider>;
