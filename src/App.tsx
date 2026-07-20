@@ -17,12 +17,8 @@ import {
 import { clsx } from "clsx";
 import logoImg from "./assets/2026-06-14_21.13.34_e-techsystemsja.com_2f51395e09e8-removebg-preview (1).png";
 
-// ─── Environment Config ──────────────────────────────────────────────────────
-
 const API_BASE = import.meta.env.VITE_API_URL || "/api";
 const GCT_RATE = 0.15;
-
-// ─── Helpers ─────────────────────────────────────────────────────────────────
 
 function downloadCSV(filename: string, rows: string[][]) {
   const csv = rows.map(r => r.map(c => `"${String(c ?? "").replace(/"/g, '""')}"`).join(",")).join("\n");
@@ -49,217 +45,48 @@ function fovPath(cx: number, cy: number, rotDeg: number, fovDeg: number, r: numb
   return `M${cx},${cy} L${x1.toFixed(1)},${y1.toFixed(1)} A${r},${r} 0 0,1 ${x2.toFixed(1)},${y2.toFixed(1)} Z`;
 }
 
-// ─── Glass Styles ────────────────────────────────────────────────────────────
-
 const G = {
-  card: {
-    background: "rgba(255,255,255,0.055)",
-    backdropFilter: "blur(24px) saturate(160%)",
-    WebkitBackdropFilter: "blur(24px) saturate(160%)",
-    border: "1px solid rgba(255,255,255,0.11)",
-    boxShadow: "0 4px 24px rgba(0,0,0,0.45), inset 0 1px 0 rgba(255,255,255,0.09)",
-  } as React.CSSProperties,
-  panel: {
-    background: "rgba(7,12,26,0.72)",
-    backdropFilter: "blur(40px) saturate(180%)",
-    WebkitBackdropFilter: "blur(40px) saturate(180%)",
-    border: "1px solid rgba(255,255,255,0.10)",
-    boxShadow: "0 8px 40px rgba(0,0,0,0.6), inset 0 1px 0 rgba(255,255,255,0.08)",
-  } as React.CSSProperties,
-  subtle: {
-    background: "rgba(255,255,255,0.03)",
-    backdropFilter: "blur(20px)",
-    WebkitBackdropFilter: "blur(20px)",
-    border: "1px solid rgba(255,255,255,0.07)",
-    boxShadow: "inset 0 1px 0 rgba(255,255,255,0.05)",
-  } as React.CSSProperties,
-  input: {
-    background: "rgba(255,255,255,0.06)",
-    backdropFilter: "blur(12px)",
-    WebkitBackdropFilter: "blur(12px)",
-    border: "1px solid rgba(255,255,255,0.10)",
-    boxShadow: "inset 0 1px 0 rgba(255,255,255,0.05), inset 0 -1px 0 rgba(0,0,0,0.2)",
-  } as React.CSSProperties,
-  btn: {
-    background: "rgba(255,255,255,0.07)",
-    backdropFilter: "blur(12px)",
-    WebkitBackdropFilter: "blur(12px)",
-    border: "1px solid rgba(255,255,255,0.13)",
-    boxShadow: "inset 0 1px 0 rgba(255,255,255,0.08)",
-  } as React.CSSProperties,
-  liquidGlass: {
-    background: "rgba(255,255,255,0.06)",
-    backdropFilter: "blur(28px) saturate(180%)",
-    WebkitBackdropFilter: "blur(28px) saturate(180%)",
-    border: "1px solid rgba(255,255,255,0.14)",
-    boxShadow: "0 8px 32px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.10)",
-    borderRadius: "16px",
-  } as React.CSSProperties,
+  card: { background: "rgba(255,255,255,0.055)", backdropFilter: "blur(24px) saturate(160%)", WebkitBackdropFilter: "blur(24px) saturate(160%)", border: "1px solid rgba(255,255,255,0.11)", boxShadow: "0 4px 24px rgba(0,0,0,0.45), inset 0 1px 0 rgba(255,255,255,0.09)" } as React.CSSProperties,
+  panel: { background: "rgba(7,12,26,0.72)", backdropFilter: "blur(40px) saturate(180%)", WebkitBackdropFilter: "blur(40px) saturate(180%)", border: "1px solid rgba(255,255,255,0.10)", boxShadow: "0 8px 40px rgba(0,0,0,0.6), inset 0 1px 0 rgba(255,255,255,0.08)" } as React.CSSProperties,
+  subtle: { background: "rgba(255,255,255,0.03)", backdropFilter: "blur(20px)", WebkitBackdropFilter: "blur(20px)", border: "1px solid rgba(255,255,255,0.07)", boxShadow: "inset 0 1px 0 rgba(255,255,255,0.05)" } as React.CSSProperties,
+  input: { background: "rgba(255,255,255,0.06)", backdropFilter: "blur(12px)", WebkitBackdropFilter: "blur(12px)", border: "1px solid rgba(255,255,255,0.10)", boxShadow: "inset 0 1px 0 rgba(255,255,255,0.05), inset 0 -1px 0 rgba(0,0,0,0.2)" } as React.CSSProperties,
+  btn: { background: "rgba(255,255,255,0.07)", backdropFilter: "blur(12px)", WebkitBackdropFilter: "blur(12px)", border: "1px solid rgba(255,255,255,0.13)", boxShadow: "inset 0 1px 0 rgba(255,255,255,0.08)" } as React.CSSProperties,
+  liquidGlass: { background: "rgba(255,255,255,0.06)", backdropFilter: "blur(28px) saturate(180%)", WebkitBackdropFilter: "blur(28px) saturate(180%)", border: "1px solid rgba(255,255,255,0.14)", boxShadow: "0 8px 32px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.10)", borderRadius: "16px" } as React.CSSProperties,
 };
 
 const JMD_RATE = 157.4;
 
-// ─── Currency Context ────────────────────────────────────────────────────────
-
-interface CurrencyCtx {
-  currency: "USD" | "JMD";
-  setCurrency: (c: "USD" | "JMD") => void;
-  fmt: (usdAmt: number, compact?: boolean) => string;
-}
-
-const CurrencyContext = createContext<CurrencyCtx>({
-  currency: "USD",
-  setCurrency: () => {},
-  fmt: (n) => `$${n.toLocaleString("en-US", { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`,
-});
+interface CurrencyCtx { currency: "USD" | "JMD"; setCurrency: (c: "USD" | "JMD") => void; fmt: (usdAmt: number, compact?: boolean) => string; }
+const CurrencyContext = createContext<CurrencyCtx>({ currency: "USD", setCurrency: () => {}, fmt: (n) => `$${n.toLocaleString("en-US", { minimumFractionDigits: 0, maximumFractionDigits: 0 })}` });
 const useCurrency = () => useContext(CurrencyContext);
 
 function makeFmt(currency: "USD" | "JMD") {
   return (usdAmt: number, compact = false): string => {
     const amt = currency === "JMD" ? usdAmt * JMD_RATE : usdAmt;
     const sym = currency === "JMD" ? "J$" : "$";
-    if (compact) {
-      if (amt >= 1_000_000) return `${sym}${(amt / 1_000_000).toFixed(2)}M`;
-      if (amt >= 1_000) return `${sym}${(amt / 1_000).toFixed(0)}K`;
-      return `${sym}${amt.toFixed(0)}`;
-    }
+    if (compact) { if (amt >= 1_000_000) return `${sym}${(amt / 1_000_000).toFixed(2)}M`; if (amt >= 1_000) return `${sym}${(amt / 1_000).toFixed(0)}K`; return `${sym}${amt.toFixed(0)}`; }
     return `${sym}${amt.toLocaleString("en-US", { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`;
   };
 }
 
-// ─── Types ───────────────────────────────────────────────────────────────────
-
-type Page =
-  | "login"
-  | "dashboard"
-  | "design-studio"
-  | "project-detail"
-  | "design-canvas"
-  | "workbook"
-  | "install-tracker"
-  | "device-store";
-
-type Stage =
-  | "assessment-scheduled"
-  | "assessment-completed"
-  | "design"
-  | "proposal"
-  | "negotiation"
-  | "win"
-  | "lose";
-
+type Page = "login" | "dashboard" | "design-studio" | "project-detail" | "design-canvas" | "workbook" | "install-tracker" | "device-store";
+type Stage = "assessment-scheduled" | "assessment-completed" | "design" | "proposal" | "negotiation" | "win" | "lose";
 type QuoteType = "Video Surveillance" | "Access Control" | "Both";
 
-interface Project {
-  id: string;
-  name: string;
-  client: string;
-  value: number;
-  stage: Stage;
-  risk: "low" | "medium" | "high";
-  assignee: { name: string; initials: string; color: string };
-  dueDate: string;
-  cameras: number;
-  devices: number;
-  location: string;
-  contact?: { name: string; title: string; email: string; phone: string };
-  summary?: string;
-  notes?: string;
-  collaborators?: { name: string; initials: string; color: string; role: string }[];
-  createdAt?: string;
-  updatedAt?: string;
-}
-
-interface QuoteLineItem {
-  id: string;
-  itemNumber: string;
-  description: string;
-  unitCost: number;
-  quantity: number;
-  markupPercent: number;
-  sellPrice: number;
-  costTotal: number;
-  sellTotal: number;
-  profit: number;
-  jmdConversion: number;
-}
-
-interface QuoteCategory {
-  id: string;
-  name: string;
-  type: QuoteType;
-  lineItems: QuoteLineItem[];
-  contingency?: QuoteLineItem;
-}
-
-interface Quote {
-  id: string;
-  clientName: string;
-  refNumber: string;
-  date: string;
-  status: "draft" | "sent" | "approved" | "rejected";
-  quoteType: QuoteType;
-  categories: QuoteCategory[];
-  exchangeRate: number;
-  createdAt?: string;
-  updatedAt?: string;
-}
-
-interface QuoteCtx {
-  currentQuote: Quote | null;
-  setCurrentQuote: (q: Quote | null) => void;
-  addToQuote: (device: CatalogDevice) => void;
-}
+interface Project { id: string; name: string; client: string; value: number; stage: Stage; risk: "low" | "medium" | "high"; assignee: { name: string; initials: string; color: string }; dueDate: string; cameras: number; devices: number; location: string; contact?: { name: string; title: string; email: string; phone: string }; summary?: string; notes?: string; collaborators?: { name: string; initials: string; color: string; role: string }[]; createdAt?: string; updatedAt?: string; }
+interface QuoteLineItem { id: string; itemNumber: string; description: string; unitCost: number; quantity: number; markupPercent: number; sellPrice: number; costTotal: number; sellTotal: number; profit: number; jmdConversion: number; }
+interface QuoteCategory { id: string; name: string; type: QuoteType; lineItems: QuoteLineItem[]; contingency?: QuoteLineItem; }
+interface Quote { id: string; clientName: string; refNumber: string; date: string; status: "draft" | "sent" | "approved" | "rejected"; quoteType: QuoteType; categories: QuoteCategory[]; exchangeRate: number; createdAt?: string; updatedAt?: string; }
+interface QuoteCtx { currentQuote: Quote | null; setCurrentQuote: (q: Quote | null) => void; addToQuote: (device: CatalogDevice) => void; }
 const QuoteContext = createContext<QuoteCtx>({ currentQuote: null, setCurrentQuote: () => {}, addToQuote: () => {} });
 const useQuote = () => useContext(QuoteContext);
 
 type InstallStatus = "pending" | "in-progress" | "complete" | "failed";
-
-interface InstallDevice {
-  id: string;
-  name: string;
-  type: "camera" | "access" | "nvr" | "door" | "panel" | "power" | "server";
-  location: string;
-  status: InstallStatus;
-  assignee: string;
-  notes?: string;
-}
-
-interface InstallZone {
-  id: string;
-  name: string;
-  devices: InstallDevice[];
-}
+interface InstallDevice { id: string; name: string; type: "camera" | "access" | "nvr" | "door" | "panel" | "power" | "server"; location: string; status: InstallStatus; assignee: string; notes?: string; }
+interface InstallZone { id: string; name: string; devices: InstallDevice[]; }
 
 type DeviceTag = "LPR" | "Night Vision" | "Thermal" | "PTZ" | "Panoramic" | "WDR" | "Lightfinder" | "IR" | "4K" | "8MP" | "Indoor" | "Outdoor";
-
-interface CatalogDevice {
-  id: string;
-  model: string;
-  manufacturer: string;
-  category: "camera" | "access-control" | "nvr" | "analytics" | "other";
-  resolution?: string;
-  lens?: string;
-  sensor?: string;
-  nightVision?: string;
-  weatherRating?: string;
-  powerInput?: string;
-  storage?: string;
-  channels?: string;
-  readers?: string;
-  authentication?: string;
-  price?: number;
-  sku?: string;
-  discontinued?: boolean;
-  imageUrl?: string;
-  frameRate?: string;
-  compression?: string;
-  fov?: string;
-  operatingTemp?: string;
-  msrp?: number;
-  tags?: DeviceTag[];
-}
-
+interface CatalogDevice { id: string; model: string; manufacturer: string; category: "camera" | "access-control" | "nvr" | "analytics" | "other"; resolution?: string; lens?: string; sensor?: string; nightVision?: string; weatherRating?: string; powerInput?: string; storage?: string; channels?: string; readers?: string; authentication?: string; price?: number; sku?: string; discontinued?: boolean; imageUrl?: string; frameRate?: string; compression?: string; fov?: string; operatingTemp?: string; msrp?: number; tags?: DeviceTag[]; }
 interface Column { id: Stage; label: string; color: string; }
 
 const COLUMNS: Column[] = [
@@ -287,8 +114,6 @@ const TAG_STYLES: Record<DeviceTag, { bg: string; text: string; border: string }
   "Outdoor": { bg: "rgba(71,85,105,0.15)", text: "#64748b", border: "rgba(71,85,105,0.30)" },
 };
 
-// ─── API Service Layer ───────────────────────────────────────────────────────
-
 async function apiFetch<T>(path: string, options?: RequestInit): Promise<T> {
   const token = localStorage.getItem("auth_token");
   const headers: Record<string, string> = { "Content-Type": "application/json" };
@@ -299,57 +124,22 @@ async function apiFetch<T>(path: string, options?: RequestInit): Promise<T> {
 }
 
 const API = {
-  projects: {
-    list: () => apiFetch<Project[]>("/projects"),
-    get: (id: string) => apiFetch<Project>(`/projects/${id}`),
-    create: (data: Partial<Project>) => apiFetch<Project>("/projects", { method: "POST", body: JSON.stringify(data) }),
-    update: (id: string, data: Partial<Project>) => apiFetch<Project>(`/projects/${id}`, { method: "PATCH", body: JSON.stringify(data) }),
-    delete: (id: string) => apiFetch<void>(`/projects/${id}`, { method: "DELETE" }),
-  },
-  quotes: {
-    list: () => apiFetch<Quote[]>("/quotes"),
-    get: (id: string) => apiFetch<Quote>(`/quotes/${id}`),
-    create: (data: Partial<Quote>) => apiFetch<Quote>("/quotes", { method: "POST", body: JSON.stringify(data) }),
-    update: (id: string, data: Partial<Quote>) => apiFetch<Quote>(`/quotes/${id}`, { method: "PATCH", body: JSON.stringify(data) }),
-    delete: (id: string) => apiFetch<void>(`/quotes/${id}`, { method: "DELETE" }),
-  },
-  devices: {
-    list: () => apiFetch<CatalogDevice[]>("/devices"),
-    get: (id: string) => apiFetch<CatalogDevice>(`/devices/${id}`),
-  },
-  install: {
-    zones: () => apiFetch<InstallZone[]>("/install/zones"),
-    updateStatus: (zoneId: string, deviceId: string, status: InstallStatus) =>
-      apiFetch<void>(`/install/zones/${zoneId}/devices/${deviceId}`, { method: "PATCH", body: JSON.stringify({ status }) }),
-  },
-  canvas: {
-    get: (projectId: string) => apiFetch<any>(`/canvas/${projectId}`),
-    save: (projectId: string, data: any) => apiFetch<void>(`/canvas/${projectId}`, { method: "PUT", body: JSON.stringify(data) }),
-  },
+  projects: { list: () => apiFetch<Project[]>("/projects"), get: (id: string) => apiFetch<Project>(`/projects/${id}`), create: (data: Partial<Project>) => apiFetch<Project>("/projects", { method: "POST", body: JSON.stringify(data) }), update: (id: string, data: Partial<Project>) => apiFetch<Project>(`/projects/${id}`, { method: "PATCH", body: JSON.stringify(data) }), delete: (id: string) => apiFetch<void>(`/projects/${id}`, { method: "DELETE" }) },
+  quotes: { list: () => apiFetch<Quote[]>("/quotes"), get: (id: string) => apiFetch<Quote>(`/quotes/${id}`), create: (data: Partial<Quote>) => apiFetch<Quote>("/quotes", { method: "POST", body: JSON.stringify(data) }), update: (id: string, data: Partial<Quote>) => apiFetch<Quote>(`/quotes/${id}`, { method: "PATCH", body: JSON.stringify(data) }), delete: (id: string) => apiFetch<void>(`/quotes/${id}`, { method: "DELETE" }) },
+  devices: { list: () => apiFetch<CatalogDevice[]>("/devices"), get: (id: string) => apiFetch<CatalogDevice>(`/devices/${id}`) },
+  install: { zones: () => apiFetch<InstallZone[]>("/install/zones"), updateStatus: (zoneId: string, deviceId: string, status: InstallStatus) => apiFetch<void>(`/install/zones/${zoneId}/devices/${deviceId}`, { method: "PATCH", body: JSON.stringify({ status }) }) },
+  canvas: { get: (projectId: string) => apiFetch<any>(`/canvas/${projectId}`), save: (projectId: string, data: any) => apiFetch<void>(`/canvas/${projectId}`, { method: "PUT", body: JSON.stringify(data) }) },
 };
 
-// ─── Skeleton Loader ─────────────────────────────────────────────────────────
-
-function Skeleton({ className }: { className?: string }) {
-  return (
-    <div className={clsx("animate-pulse rounded-2xl", className)} style={{ background: "rgba(255,255,255,0.04)" }} />
-  );
-}
+function Skeleton({ className }: { className?: string }) { return <div className={clsx("animate-pulse rounded-2xl", className)} style={{ background: "rgba(255,255,255,0.04)" }} />; }
 
 function EmptyState({ icon: Icon, title, description, action }: { icon: React.ElementType; title: string; description: string; action?: { label: string; onClick: () => void } }) {
   return (
     <div className="flex flex-col items-center justify-center py-16 px-4 text-center">
-      <div className="w-16 h-16 rounded-2xl flex items-center justify-center mb-4" style={{ background: "rgba(59,130,246,0.10)", border: "1px solid rgba(59,130,246,0.18)" }}>
-        <Icon className="w-8 h-8 text-blue-400" />
-      </div>
+      <div className="w-16 h-16 rounded-2xl flex items-center justify-center mb-4" style={{ background: "rgba(59,130,246,0.10)", border: "1px solid rgba(59,130,246,0.18)" }}><Icon className="w-8 h-8 text-blue-400" /></div>
       <h3 className="text-white text-[15px] font-bold mb-1.5">{title}</h3>
       <p className="text-[#8b949e] text-[13px] max-w-sm mb-5">{description}</p>
-      {action && (
-        <button onClick={action.onClick} className="h-9 px-5 rounded-xl text-white text-[13px] font-bold cursor-pointer active:scale-[0.97] transition-transform min-h-[44px]"
-          style={{ background: "#3b82f6", boxShadow: "0 4px 16px rgba(59,130,246,0.35)" }}>
-          {action.label}
-        </button>
-      )}
+      {action && <button onClick={action.onClick} className="h-9 px-5 rounded-xl text-white text-[13px] font-bold cursor-pointer active:scale-[0.97] transition-transform min-h-[44px]" style={{ background: "#3b82f6", boxShadow: "0 4px 16px rgba(59,130,246,0.35)" }}>{action.label}</button>}
     </div>
   );
 }
@@ -357,37 +147,22 @@ function EmptyState({ icon: Icon, title, description, action }: { icon: React.El
 function ErrorState({ message, onRetry }: { message: string; onRetry: () => void }) {
   return (
     <div className="flex flex-col items-center justify-center py-16 px-4 text-center">
-      <div className="w-16 h-16 rounded-2xl flex items-center justify-center mb-4" style={{ background: "rgba(244,63,94,0.10)", border: "1px solid rgba(244,63,94,0.18)" }}>
-        <AlertCircle className="w-8 h-8 text-rose-400" />
-      </div>
+      <div className="w-16 h-16 rounded-2xl flex items-center justify-center mb-4" style={{ background: "rgba(244,63,94,0.10)", border: "1px solid rgba(244,63,94,0.18)" }}><AlertCircle className="w-8 h-8 text-rose-400" /></div>
       <h3 className="text-white text-[15px] font-bold mb-1.5">Something went wrong</h3>
       <p className="text-[#8b949e] text-[13px] max-w-sm mb-5">{message}</p>
-      <button onClick={onRetry} className="h-9 px-5 rounded-xl text-white text-[13px] font-bold cursor-pointer active:scale-[0.97] transition-transform min-h-[44px]"
-        style={{ background: "#3b82f6", boxShadow: "0 4px 16px rgba(59,130,246,0.35)" }}>
-        <RotateCcw className="w-3.5 h-3.5 inline mr-1.5" /> Retry
-      </button>
+      <button onClick={onRetry} className="h-9 px-5 rounded-xl text-white text-[13px] font-bold cursor-pointer active:scale-[0.97] transition-transform min-h-[44px]" style={{ background: "#3b82f6", boxShadow: "0 4px 16px rgba(59,130,246,0.35)" }}><RotateCcw className="w-3.5 h-3.5 inline mr-1.5" /> Retry</button>
     </div>
   );
 }
-
-// ─── Currency Toggle ─────────────────────────────────────────────────────────
 
 function CurrencyToggle() {
   const { currency, setCurrency } = useCurrency();
   return (
     <div className="flex items-center h-8 rounded-xl overflow-hidden" style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.10)" }}>
-      {(["USD", "JMD"] as const).map((c) => (
-        <button key={c} onClick={() => setCurrency(c)}
-          className="h-full px-2.5 text-[11px] font-bold transition-all cursor-pointer active:scale-[0.97] transition-transform"
-          style={currency === c ? { background: "#3b82f6", color: "#fff", boxShadow: "inset 0 1px 0 rgba(255,255,255,0.18)" } : { color: "#8b949e" }}>
-          {c}
-        </button>
-      ))}
+      {(["USD", "JMD"] as const).map((c) => (<button key={c} onClick={() => setCurrency(c)} className="h-full px-2.5 text-[11px] font-bold transition-all cursor-pointer active:scale-[0.97] transition-transform" style={currency === c ? { background: "#3b82f6", color: "#fff", boxShadow: "inset 0 1px 0 rgba(255,255,255,0.18)" } : { color: "#8b949e" }}>{c}</button>))}
     </div>
   );
 }
-
-// ─── Nav & Search ────────────────────────────────────────────────────────────
 
 const NAV_ITEMS = [
   { id: "dashboard" as Page, label: "Pipeline" },
@@ -398,62 +173,22 @@ const NAV_ITEMS = [
 ];
 
 function SearchPalette({ onClose, navigate }: { onClose: () => void; navigate: (p: Page) => void }) {
-  const [query, setQuery] = useState("");
-  const q = query.toLowerCase().trim();
-
-  const PAGE_LINKS: { label: string; sub: string; page: Page; icon: React.ElementType }[] = [
-    { label: "Pipeline", sub: "Project kanban board", page: "dashboard", icon: TrendingUp },
-    { label: "Projects", sub: "System Design Studio", page: "design-studio", icon: Layers },
-    { label: "Workbook", sub: "Quoting & proposals", page: "workbook", icon: DollarSign },
-    { label: "Install Tracker", sub: "Track device installation", page: "install-tracker", icon: CheckSquare },
-    { label: "Device Store", sub: "Product catalog", page: "device-store", icon: Store },
-  ];
-
-  const pageHits = q.length > 0
-    ? PAGE_LINKS.filter((l) => l.label.toLowerCase().includes(q) || l.sub.toLowerCase().includes(q))
-    : PAGE_LINKS;
-
+  const [query, setQuery] = useState(""); const q = query.toLowerCase().trim();
+  const PAGE_LINKS = [{ label: "Pipeline", sub: "Project kanban board", page: "dashboard" as Page, icon: TrendingUp },{ label: "Projects", sub: "System Design Studio", page: "design-studio" as Page, icon: Layers },{ label: "Workbook", sub: "Quoting & proposals", page: "workbook" as Page, icon: DollarSign },{ label: "Install Tracker", sub: "Track device installation", page: "install-tracker" as Page, icon: CheckSquare },{ label: "Device Store", sub: "Product catalog", page: "device-store" as Page, icon: Store }];
+  const pageHits = q.length > 0 ? PAGE_LINKS.filter((l) => l.label.toLowerCase().includes(q) || l.sub.toLowerCase().includes(q)) : PAGE_LINKS;
   return (
     <div className="fixed inset-0 z-[300] flex items-start justify-center pt-[12vh]" onClick={onClose}>
       <div className="absolute inset-0" style={{ background: "rgba(0,0,0,0.55)", backdropFilter: "blur(8px)" }} />
-      <motion.div initial={{ opacity: 0, scale: 0.96, y: -12 }} animate={{ opacity: 1, scale: 1, y: 0 }} transition={{ type: "spring", damping: 28, stiffness: 400 }}
-        onClick={(e) => e.stopPropagation()}
-        className="relative z-10 w-full max-w-[560px] rounded-2xl overflow-hidden mx-4"
-        style={{ background: "rgba(7,12,26,0.92)", backdropFilter: "blur(48px) saturate(200%)", border: "1px solid rgba(255,255,255,0.13)", boxShadow: "0 24px 64px rgba(0,0,0,0.85)" }}>
-        <div className="flex items-center gap-3 px-4 py-3.5" style={{ borderBottom: "1px solid rgba(255,255,255,0.08)" }}>
-          <Search className="w-4 h-4 text-[#8b949e] flex-shrink-0" />
-          <input autoFocus value={query} onChange={(e) => setQuery(e.target.value)} onKeyDown={(e) => e.key === "Escape" && onClose()}
-            placeholder="Search pages…" className="flex-1 bg-transparent text-white text-[14px] placeholder:text-[#484f58] focus:outline-none" />
-          {query && <button onClick={() => setQuery("")} className="w-5 h-5 rounded flex items-center justify-center text-[#484f58] hover:text-white"><X className="w-3.5 h-3.5" /></button>}
-          <kbd className="text-[10px] px-1.5 py-0.5 rounded font-mono text-[#484f58]" style={{ background: "rgba(255,255,255,0.06)" }}>Esc</kbd>
-        </div>
-        <div className="max-h-[400px] overflow-y-auto" style={{ scrollbarWidth: "none" }}>
-          <div className="px-3 pt-3 pb-1">
-            <p className="text-[#484f58] text-[10px] font-bold uppercase tracking-widest mb-1 px-1">Pages</p>
-            {pageHits.map(({ label, sub, page, icon: Icon }) => (
-              <button key={page} onClick={() => { navigate(page); onClose(); }}
-                className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-white/[0.06] transition-colors text-left group cursor-pointer active:scale-[0.97] transition-transform">
-                <div className="w-7 h-7 rounded-lg flex items-center justify-center flex-shrink-0" style={{ background: "rgba(59,130,246,0.15)", border: "1px solid rgba(59,130,246,0.22)" }}>
-                  <Icon className="w-3.5 h-3.5 text-blue-400" />
-                </div>
-                <div className="flex-1 min-w-0"><p className="text-white text-[13px] font-semibold">{label}</p><p className="text-[#484f58] text-[11px]">{sub}</p></div>
-              </button>
-            ))}
-          </div>
-          {q.length > 0 && pageHits.length === 0 && (
-            <div className="py-10 text-center"><p className="text-[#484f58] text-[13px]">No results for "<span className="text-[#8b949e]">{query}</span>"</p></div>
-          )}
-        </div>
+      <motion.div initial={{ opacity: 0, scale: 0.96, y: -12 }} animate={{ opacity: 1, scale: 1, y: 0 }} transition={{ type: "spring", damping: 28, stiffness: 400 }} onClick={(e) => e.stopPropagation()} className="relative z-10 w-full max-w-[560px] rounded-2xl overflow-hidden mx-4" style={{ background: "rgba(7,12,26,0.92)", backdropFilter: "blur(48px) saturate(200%)", border: "1px solid rgba(255,255,255,0.13)", boxShadow: "0 24px 64px rgba(0,0,0,0.85)" }}>
+        <div className="flex items-center gap-3 px-4 py-3.5" style={{ borderBottom: "1px solid rgba(255,255,255,0.08)" }}><Search className="w-4 h-4 text-[#8b949e] flex-shrink-0" /><input autoFocus value={query} onChange={(e) => setQuery(e.target.value)} onKeyDown={(e) => e.key === "Escape" && onClose()} placeholder="Search pages…" className="flex-1 bg-transparent text-white text-[14px] placeholder:text-[#484f58] focus:outline-none" />{query && <button onClick={() => setQuery("")} className="w-5 h-5 rounded flex items-center justify-center text-[#484f58] hover:text-white"><X className="w-3.5 h-3.5" /></button>}<kbd className="text-[10px] px-1.5 py-0.5 rounded font-mono text-[#484f58]" style={{ background: "rgba(255,255,255,0.06)" }}>Esc</kbd></div>
+        <div className="max-h-[400px] overflow-y-auto" style={{ scrollbarWidth: "none" }}><div className="px-3 pt-3 pb-1"><p className="text-[#484f58] text-[10px] font-bold uppercase tracking-widest mb-1 px-1">Pages</p>{pageHits.map(({ label, sub, page, icon: Icon }) => (<button key={page} onClick={() => { navigate(page); onClose(); }} className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-white/[0.06] transition-colors text-left group cursor-pointer active:scale-[0.97] transition-transform"><div className="w-7 h-7 rounded-lg flex items-center justify-center flex-shrink-0" style={{ background: "rgba(59,130,246,0.15)", border: "1px solid rgba(59,130,246,0.22)" }}><Icon className="w-3.5 h-3.5 text-blue-400" /></div><div className="flex-1 min-w-0"><p className="text-white text-[13px] font-semibold">{label}</p><p className="text-[#484f58] text-[11px]">{sub}</p></div></button>))}</div>{q.length > 0 && pageHits.length === 0 && <div className="py-10 text-center"><p className="text-[#484f58] text-[13px]">No results for "<span className="text-[#8b949e]">{query}</span>"</p></div>}</div>
       </motion.div>
     </div>
   );
 }
-
 function AppTopbar({ page, navigate, breadcrumb }: { page: Page; navigate: (p: Page) => void; breadcrumb?: { label: string; parent: Page } }) {
   const activeTab = NAV_ITEMS.find((n) => n.id === page)?.id ?? null;
   const [showSearch, setShowSearch] = useState(false);
-  const [showNotifications, setShowNotifications] = useState(false);
-  const [showSettings, setShowSettings] = useState(false);
   return (
     <header className="fixed top-0 inset-x-0 z-50 h-14 flex items-center gap-3 md:gap-5 px-3 md:px-5"
       style={{ background: "rgba(7,12,26,0.65)", backdropFilter: "blur(40px) saturate(180%)", borderBottom: "1px solid rgba(255,255,255,0.08)", boxShadow: "0 1px 0 rgba(255,255,255,0.04), 0 8px 32px rgba(0,0,0,0.5)" }}>
@@ -463,21 +198,13 @@ function AppTopbar({ page, navigate, breadcrumb }: { page: Page; navigate: (p: P
       <div className="w-px h-4 flex-shrink-0 hidden md:block" style={{ background: "rgba(255,255,255,0.12)" }} />
       {breadcrumb ? (
         <div className="flex items-center gap-2">
-          <button onClick={() => navigate(breadcrumb.parent)} className="flex items-center gap-1.5 text-[#8b949e] hover:text-white text-[12px] font-semibold transition-colors cursor-pointer active:scale-[0.97] transition-transform">
-            <ArrowLeft className="w-3.5 h-3.5" />{breadcrumb.label}
-          </button>
-          <ChevronRight className="w-3.5 h-3.5 text-[#484f58]" />
-          <span className="text-white text-[12px] font-semibold">Project Detail</span>
+          <button onClick={() => navigate(breadcrumb.parent)} className="flex items-center gap-1.5 text-[#8b949e] hover:text-white text-[12px] font-semibold transition-colors cursor-pointer active:scale-[0.97] transition-transform"><ArrowLeft className="w-3.5 h-3.5" />{breadcrumb.label}</button>
+          <ChevronRight className="w-3.5 h-3.5 text-[#484f58]" /><span className="text-white text-[12px] font-semibold">Project Detail</span>
         </div>
       ) : (
         <nav className="flex items-center gap-0.5 overflow-x-auto" style={{ scrollbarWidth: "none" }}>
           {NAV_ITEMS.map((item) => (
-            <button key={item.id} onClick={() => navigate(item.id)}
-              className={clsx("h-8 px-2.5 md:px-3.5 rounded-xl text-[11px] md:text-[13px] font-semibold transition-all duration-150 whitespace-nowrap cursor-pointer active:scale-[0.97] transition-transform",
-                activeTab === item.id ? "text-white" : "text-[#8b949e] hover:text-white")}
-              style={activeTab === item.id ? { background: "rgba(255,255,255,0.10)", border: "1px solid rgba(255,255,255,0.13)", boxShadow: "inset 0 1px 0 rgba(255,255,255,0.08)" } : undefined}>
-              {item.label}
-            </button>
+            <button key={item.id} onClick={() => navigate(item.id)} className={clsx("h-8 px-2.5 md:px-3.5 rounded-xl text-[11px] md:text-[13px] font-semibold transition-all duration-150 whitespace-nowrap cursor-pointer active:scale-[0.97] transition-transform", activeTab === item.id ? "text-white" : "text-[#8b949e] hover:text-white")} style={activeTab === item.id ? { background: "rgba(255,255,255,0.10)", border: "1px solid rgba(255,255,255,0.13)", boxShadow: "inset 0 1px 0 rgba(255,255,255,0.08)" } : undefined}>{item.label}</button>
           ))}
         </nav>
       )}
@@ -485,280 +212,42 @@ function AppTopbar({ page, navigate, breadcrumb }: { page: Page; navigate: (p: P
       {showSearch && <SearchPalette onClose={() => setShowSearch(false)} navigate={navigate} />}
       <div className="flex items-center gap-1 md:gap-1.5">
         <div className="hidden md:block"><CurrencyToggle /></div>
-        <button onClick={() => setShowSearch(true)} className="flex items-center gap-2 h-8 px-2 md:px-3 rounded-xl text-[#8b949e] text-[12px] hover:text-white transition-all cursor-pointer active:scale-[0.97] transition-transform min-h-[44px] md:min-h-0" style={G.btn}>
-          <Search className="w-3.5 h-3.5" /><span className="hidden md:inline">Search…</span>
-        </button>
-        <button onClick={() => { setShowNotifications(!showNotifications); setShowSettings(false); }}
-          className="relative w-8 h-8 rounded-xl hover:bg-white/[0.06] flex items-center justify-center transition-colors cursor-pointer active:scale-[0.97] transition-transform min-w-[44px] min-h-[44px] md:min-w-0 md:min-h-0">
-          <Bell className={clsx("w-4 h-4 transition-colors", showNotifications ? "text-white" : "text-[#8b949e]")} />
-          <span className="absolute top-1.5 right-1.5 w-[5px] h-[5px] rounded-full bg-blue-500" style={{ boxShadow: "0 0 6px #3b82f6" }} />
-        </button>
-        <button onClick={() => { setShowSettings(!showSettings); setShowNotifications(false); }}
-          className="w-8 h-8 rounded-xl hover:bg-white/[0.06] flex items-center justify-center transition-colors cursor-pointer active:scale-[0.97] transition-transform min-w-[44px] min-h-[44px] md:min-w-0 md:min-h-0">
-          <Settings className={clsx("w-4 h-4 transition-colors", showSettings ? "text-white" : "text-[#8b949e]")} />
-        </button>
-        <button onClick={() => navigate("login")} className="flex items-center gap-2 h-8 pl-1.5 pr-2.5 rounded-xl hover:bg-white/[0.06] transition-colors ml-1 cursor-pointer active:scale-[0.97] transition-transform min-h-[44px] md:min-h-0">
-          <div className="w-6 h-6 rounded-full flex items-center justify-center text-white text-[9px] font-bold flex-shrink-0" style={{ background: "linear-gradient(135deg, #3b82f6, #8b5cf6)", boxShadow: "0 0 12px rgba(139,92,246,0.5)" }}>MW</div>
-          <span className="text-white text-[12px] font-semibold hidden md:inline">Marcus</span>
-        </button>
+        <button onClick={() => setShowSearch(true)} className="flex items-center gap-2 h-8 px-2 md:px-3 rounded-xl text-[#8b949e] text-[12px] hover:text-white transition-all cursor-pointer active:scale-[0.97] transition-transform min-h-[44px] md:min-h-0" style={G.btn}><Search className="w-3.5 h-3.5" /><span className="hidden md:inline">Search…</span></button>
+        <button onClick={() => navigate("login")} className="flex items-center gap-2 h-8 pl-1.5 pr-2.5 rounded-xl hover:bg-white/[0.06] transition-colors ml-1 cursor-pointer active:scale-[0.97] transition-transform min-h-[44px] md:min-h-0"><div className="w-6 h-6 rounded-full flex items-center justify-center text-white text-[9px] font-bold flex-shrink-0" style={{ background: "linear-gradient(135deg, #3b82f6, #8b5cf6)", boxShadow: "0 0 12px rgba(139,92,246,0.5)" }}>MW</div><span className="text-white text-[12px] font-semibold hidden md:inline">Marcus</span></button>
       </div>
     </header>
   );
 }
-// ─── Deal Modal ───────────────────────────────────────────────────────────────
 
-function DealModal({ project, column, onClose, navigate }: { project: Project; column: Column; onClose: () => void; navigate: (p: Page) => void }) {
-  const [tab, setTab] = useState<"overview" | "contact" | "notes">("overview");
-  const { fmt } = useCurrency();
-
+function KanbanCard({ project, column, dragging, onDragStart, onDragEnd, onClick, onDelete }: { project: Project; column: Column; dragging: string | null; onDragStart: (e: React.DragEvent<HTMLDivElement>, id: string) => void; onDragEnd: () => void; onClick: () => void; onDelete: (id: string) => void; }) {
+  const { fmt } = useCurrency(); const isDragging = dragging === project.id; const [menuOpen, setMenuOpen] = useState(false);
   return (
-    <div className="fixed inset-0 z-[200] flex items-center justify-center p-4" onClick={onClose}>
-      <div className="absolute inset-0" style={{ background: "rgba(0,0,0,0.65)", backdropFilter: "blur(8px)" }} />
-      <motion.div
-        initial={{ opacity: 0, scale: 0.93, y: 20 }}
-        animate={{ opacity: 1, scale: 1, y: 0 }}
-        transition={{ type: "spring", damping: 26, stiffness: 360 }}
-        onClick={(e) => e.stopPropagation()}
-        className="relative z-10 w-full max-w-[540px] max-h-[90vh] overflow-y-auto rounded-3xl"
-        style={{ background: "rgba(7,12,26,0.78)", backdropFilter: "blur(52px) saturate(200%)", border: "1px solid rgba(255,255,255,0.13)", boxShadow: "0 32px 80px rgba(0,0,0,0.9), inset 0 1px 0 rgba(255,255,255,0.12)" }}>
-        <div className="absolute inset-x-0 top-0 h-[2px] rounded-t-3xl" style={{ background: `linear-gradient(90deg, ${column.color}dd, ${column.color}33)` }} />
-        <div className="absolute inset-x-0 top-0 h-36 pointer-events-none" style={{ background: `radial-gradient(ellipse 80% 100% at 50% 0%, ${column.color}1a, transparent)` }} />
-        <div className="relative px-5 md:px-7 pt-5 md:pt-7 pb-5">
-          <div className="flex items-start justify-between gap-4">
-            <div className="flex-1 min-w-0">
-              <div className="flex flex-wrap items-center gap-1.5 mb-2.5">
-                <span className="inline-flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-[0.14em] px-2.5 py-1 rounded-full"
-                  style={{ background: `${column.color}22`, color: column.color, border: `1px solid ${column.color}44` }}>
-                  <span className="w-1.5 h-1.5 rounded-full" style={{ background: column.color, boxShadow: `0 0 6px ${column.color}` }} />{column.label}
-                </span>
-                <span className={clsx("text-[10px] font-bold uppercase tracking-wide px-2 py-0.5 rounded-full",
-                  project.risk === "high" ? "bg-rose-500/20 text-rose-400 border border-rose-500/30" :
-                  project.risk === "medium" ? "bg-amber-500/20 text-amber-400 border border-amber-500/30" :
-                  "bg-emerald-500/20 text-emerald-400 border border-emerald-500/30")}>
-                  {project.risk} risk
-                </span>
-              </div>
-              <h2 className="text-white text-[1rem] md:text-[1.1rem] font-bold leading-snug tracking-tight">{project.name}</h2>
-              <p className="text-[#8b949e] text-[12px] md:text-[13px] font-semibold mt-1 flex items-center gap-1.5">
-                <Building2 className="w-3.5 h-3.5 flex-shrink-0" />{project.client}
-              </p>
-            </div>
-            <button onClick={onClose} className="w-8 h-8 rounded-xl flex items-center justify-center flex-shrink-0 mt-0.5 hover:bg-white/[0.08] transition-colors cursor-pointer active:scale-[0.97] transition-transform min-w-[44px] min-h-[44px]"
-              style={{ border: "1px solid rgba(255,255,255,0.10)" }}><X className="w-4 h-4 text-[#8b949e]" /></button>
-          </div>
-          <div className="grid grid-cols-2 gap-2 mt-5">
-            {[{ label: "Quote Value", value: fmt(project.value, true), color: "#3b82f6" }, { label: "Devices", value: String(project.devices), color: "#06b6d4" }].map((s) => (
-              <div key={s.label} className="rounded-2xl px-3 py-3 text-center" style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)", boxShadow: "inset 0 1px 0 rgba(255,255,255,0.06)" }}>
-                <p className="text-[10px] font-bold uppercase tracking-widest mb-1" style={{ color: "rgba(139,148,158,0.85)" }}>{s.label}</p>
-                <p className="text-[1.2rem] font-bold tracking-tight leading-none" style={{ color: s.color }}>{s.value}</p>
-              </div>
-            ))}
-          </div>
-        </div>
-        <div className="flex items-center gap-0.5 px-5 md:px-7 mb-0" style={{ borderBottom: "1px solid rgba(255,255,255,0.07)" }}>
-          {(["overview", "contact", "notes"] as const).map((t) => (
-            <button key={t} onClick={() => setTab(t)}
-              className={clsx("h-9 px-3 md:px-3.5 text-[12px] font-semibold capitalize border-b-2 transition-all -mb-px cursor-pointer active:scale-[0.97] transition-transform min-h-[44px]",
-                tab === t ? "border-blue-500 text-white" : "border-transparent text-[#8b949e] hover:text-white")}>
-              {t === "notes" ? "Notes & Summary" : t.charAt(0).toUpperCase() + t.slice(1)}
-            </button>
-          ))}
-        </div>
-        <div className="px-5 md:px-7 py-5 space-y-3 max-h-[340px] overflow-y-auto" style={{ scrollbarWidth: "none" }}>
-          {tab === "overview" && (
-            <>
-              <div className="grid grid-cols-2 gap-2.5">
-                {[{ icon: MapPin, label: "Location", value: project.location }, { icon: Calendar, label: "Due Date", value: fmtDate(project.dueDate) }].map(({ icon: Icon, label, value }) => (
-                  <div key={label} className="rounded-2xl px-4 py-3.5" style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)" }}>
-                    <div className="flex items-center gap-1.5 mb-1"><Icon className="w-3 h-3 text-[#484f58]" /><p className="text-[10px] font-bold uppercase tracking-widest text-[#484f58]">{label}</p></div>
-                    <p className="text-[#e6edf3] text-[12px] font-semibold leading-snug">{value}</p>
-                  </div>
-                ))}
-              </div>
-              <div className="rounded-2xl px-4 py-3.5 flex items-center gap-3" style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)" }}>
-                <div className="w-9 h-9 rounded-xl flex items-center justify-center text-[11px] font-bold text-white flex-shrink-0"
-                  style={{ background: project.assignee.color, boxShadow: `0 0 16px ${project.assignee.color}55` }}>{project.assignee.initials}</div>
-                <div><p className="text-[10px] font-bold uppercase tracking-widest text-[#484f58] mb-0.5">Account Owner</p><p className="text-white text-[13px] font-semibold">{project.assignee.name}</p></div>
-              </div>
-              {project.collaborators && project.collaborators.length > 0 && (
-                <div className="rounded-2xl px-4 py-3.5" style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)" }}>
-                  <p className="text-[10px] font-bold uppercase tracking-widest text-[#484f58] mb-3 flex items-center gap-1.5"><Users className="w-3 h-3" /> Team ({project.collaborators.length + 1})</p>
-                  <div className="space-y-2">
-                    {[{ name: project.assignee.name, role: "Account Manager", initials: project.assignee.initials, color: project.assignee.color }, ...project.collaborators].map((m) => (
-                      <div key={m.name} className="flex items-center gap-2.5">
-                        <div className="w-7 h-7 rounded-lg flex items-center justify-center text-[9px] font-bold text-white flex-shrink-0" style={{ background: m.color }}>{m.initials}</div>
-                        <div className="flex-1 min-w-0"><p className="text-white text-[12px] font-semibold">{m.name}</p><p className="text-[#484f58] text-[10px]">{m.role}</p></div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-            </>
-          )}
-          {tab === "contact" && (
-            project.contact ? (
-              <>
-                <div className="rounded-2xl px-4 py-4" style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)" }}>
-                  <div className="flex items-center gap-3 mb-4">
-                    <div className="w-10 h-10 rounded-xl flex items-center justify-center text-white text-[13px] font-bold flex-shrink-0" style={{ background: "linear-gradient(135deg, #3b82f6, #8b5cf6)", boxShadow: "0 4px 16px rgba(59,130,246,0.35)" }}>
-                      {project.contact.name.split(" ").map(n => n[0]).join("").slice(0, 2)}
-                    </div>
-                    <div><p className="text-white text-[14px] font-bold">{project.contact.name}</p><p className="text-[#8b949e] text-[12px]">{project.contact.title}</p></div>
-                  </div>
-                  <div className="space-y-2.5">
-                    <a href={`mailto:${project.contact.email}`} className="flex items-center gap-2.5 group">
-                      <div className="w-7 h-7 rounded-lg flex items-center justify-center flex-shrink-0" style={{ background: "rgba(59,130,246,0.15)", border: "1px solid rgba(59,130,246,0.25)" }}><Mail className="w-3.5 h-3.5 text-blue-400" /></div>
-                      <span className="text-[#8b949e] text-[12px] group-hover:text-blue-400 transition-colors font-medium">{project.contact.email}</span>
-                    </a>
-                    <div className="flex items-center gap-2.5">
-                      <div className="w-7 h-7 rounded-lg flex items-center justify-center flex-shrink-0" style={{ background: "rgba(16,185,129,0.15)", border: "1px solid rgba(16,185,129,0.25)" }}><Phone className="w-3.5 h-3.5 text-emerald-400" /></div>
-                      <span className="text-[#8b949e] text-[12px] font-medium">{project.contact.phone}</span>
-                    </div>
-                  </div>
-                </div>
-                <div className="rounded-2xl px-4 py-3.5" style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)" }}>
-                  <p className="text-[10px] font-bold uppercase tracking-widest text-[#484f58] mb-1">Client Organisation</p><p className="text-white text-[13px] font-semibold">{project.client}</p>
-                </div>
-              </>
-            ) : <p className="text-[#484f58] text-[13px] text-center py-4">No contact info on file.</p>
-          )}
-          {tab === "notes" && (
-            project.summary || project.notes ? (
-              <>
-                {project.summary && (
-                  <div className="rounded-2xl px-4 py-4" style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)" }}>
-                    <p className="text-[10px] font-bold uppercase tracking-widest text-[#484f58] mb-2.5 flex items-center gap-1.5"><MessageSquare className="w-3 h-3" /> Request Summary</p>
-                    <p className="text-[#c9d1d9] text-[12px] leading-relaxed">{project.summary}</p>
-                  </div>
-                )}
-                {project.notes && (
-                  <div className="rounded-2xl px-4 py-4" style={{ background: "rgba(245,158,11,0.06)", border: "1px solid rgba(245,158,11,0.20)" }}>
-                    <p className="text-[10px] font-bold uppercase tracking-widest text-amber-500/70 mb-2.5 flex items-center gap-1.5"><StickyNote className="w-3 h-3" /> Internal Notes</p>
-                    <p className="text-[#c9d1d9] text-[12px] leading-relaxed">{project.notes}</p>
-                  </div>
-                )}
-              </>
-            ) : <p className="text-[#484f58] text-[13px] text-center py-4">No notes on file.</p>
-          )}
-        </div>
-        <div className="px-5 md:px-7 pb-7 flex gap-2.5">
-          <button onClick={() => { navigate("project-detail"); onClose(); }}
-            className="flex-1 h-10 rounded-xl flex items-center justify-center gap-2 text-white text-[13px] font-bold transition-all duration-150 cursor-pointer active:scale-[0.97] transition-transform min-h-[44px]"
-            style={{ background: "#3b82f6", boxShadow: "0 4px 20px rgba(59,130,246,0.4), inset 0 1px 0 rgba(255,255,255,0.2)" }}><ExternalLink className="w-3.5 h-3.5" />Open Project</button>
-          <button onClick={() => { navigate("design-canvas"); onClose(); }}
-            className="flex-1 h-10 rounded-xl flex items-center justify-center gap-2 text-[#e6edf3] text-[13px] font-bold transition-all cursor-pointer active:scale-[0.97] transition-transform min-h-[44px]" style={G.btn}><Layers className="w-3.5 h-3.5 text-violet-400" />Design</button>
-          <button onClick={() => { navigate("workbook"); onClose(); }}
-            className="flex-1 h-10 rounded-xl flex items-center justify-center gap-2 text-[#e6edf3] text-[13px] font-bold transition-all cursor-pointer active:scale-[0.97] transition-transform min-h-[44px]" style={G.btn}><DollarSign className="w-3.5 h-3.5 text-blue-400" />Quote</button>
-        </div>
-      </motion.div>
-    </div>
-  );
-}
-
-// ─── Kanban Card ──────────────────────────────────────────────────────────────
-
-function KanbanCard({ project, column, dragging, onDragStart, onDragEnd, onClick, onDelete }: {
-  project: Project; column: Column; dragging: string | null;
-  onDragStart: (e: React.DragEvent<HTMLDivElement>, id: string) => void;
-  onDragEnd: () => void; onClick: () => void; onDelete: (id: string) => void;
-}) {
-  const { fmt } = useCurrency();
-  const isDragging = dragging === project.id;
-  const [menuOpen, setMenuOpen] = useState(false);
-  return (
-    <div
-      draggable onDragStart={(e) => { e.stopPropagation(); onDragStart(e, project.id); }} onDragEnd={onDragEnd}
-      onClick={onClick}
-      onTouchStart={(e) => { const t = e as any; t._ts = Date.now(); }}
-      onTouchEnd={(e) => { const t = e as any; if (Date.now() - (t._ts || 0) > 500) { onClick(); } }}
-      className={clsx("group relative rounded-2xl cursor-pointer select-none transition-all duration-200", isDragging ? "opacity-25 scale-[0.96]" : "md:hover:-translate-y-1")}
-      style={{
-        background: "rgba(255,255,255,0.055)", backdropFilter: "blur(24px)", WebkitBackdropFilter: "blur(24px)",
-        border: isDragging ? "1px solid rgba(255,255,255,0.05)" : "1px solid rgba(255,255,255,0.11)",
-        borderLeft: `3px solid ${column.color}`,
-        boxShadow: isDragging ? "none" : "0 2px 16px rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,255,255,0.09)",
-      }}>
+    <div draggable onDragStart={(e) => { e.stopPropagation(); onDragStart(e, project.id); }} onDragEnd={onDragEnd} onClick={onClick} className={clsx("group relative rounded-2xl cursor-pointer select-none transition-all duration-200", isDragging ? "opacity-25 scale-[0.96]" : "md:hover:-translate-y-1")} style={{ background: "rgba(255,255,255,0.055)", backdropFilter: "blur(24px)", border: isDragging ? "1px solid rgba(255,255,255,0.05)" : "1px solid rgba(255,255,255,0.11)", borderLeft: `3px solid ${column.color}`, boxShadow: isDragging ? "none" : "0 2px 16px rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,255,255,0.09)" }}>
       <div className="p-3 md:p-4 md:pl-5">
-        <div className="flex items-start justify-between gap-2 mb-2">
-          <h3 className="text-white text-[12px] md:text-[13px] font-semibold leading-snug flex-1 min-w-0">{project.name}</h3>
-          <div className="relative flex-shrink-0">
-            <button onClick={(e) => { e.stopPropagation(); setMenuOpen(!menuOpen); }}
-              className="opacity-0 group-hover:opacity-100 transition-opacity w-8 h-8 rounded-lg hover:bg-white/10 flex items-center justify-center mt-0.5 cursor-pointer active:scale-[0.97] transition-transform min-w-[44px] min-h-[44px] md:min-w-0 md:min-h-0">
-              <MoreHorizontal className="w-3.5 h-3.5 text-[#8b949e]" />
-            </button>
-            {menuOpen && (
-              <>
-                <div className="fixed inset-0 z-10" onClick={(e) => { e.stopPropagation(); setMenuOpen(false); }} />
-                <div className="absolute right-0 top-7 z-20 w-40 rounded-xl overflow-hidden py-1"
-                  style={{ background: "rgba(7,12,26,0.97)", border: "1px solid rgba(255,255,255,0.12)", boxShadow: "0 8px 32px rgba(0,0,0,0.8)", backdropFilter: "blur(20px)" }}>
-                  <button onClick={(e) => { e.stopPropagation(); onDelete(project.id); setMenuOpen(false); toast.success("Project deleted"); }}
-                    className="w-full flex items-center gap-2.5 px-3 py-2.5 text-rose-400 text-[12px] font-semibold hover:bg-rose-500/10 transition-colors text-left cursor-pointer active:scale-[0.97] transition-transform min-h-[44px]"><Trash2 className="w-3.5 h-3.5" /> Delete project</button>
-                </div>
-              </>
-            )}
+        <div className="flex items-start justify-between gap-2 mb-2"><h3 className="text-white text-[12px] md:text-[13px] font-semibold leading-snug flex-1 min-w-0">{project.name}</h3>
+          <div className="relative flex-shrink-0"><button onClick={(e) => { e.stopPropagation(); setMenuOpen(!menuOpen); }} className="opacity-0 group-hover:opacity-100 transition-opacity w-8 h-8 rounded-lg hover:bg-white/10 flex items-center justify-center mt-0.5 cursor-pointer active:scale-[0.97] transition-transform min-w-[44px] min-h-[44px] md:min-w-0 md:min-h-0"><MoreHorizontal className="w-3.5 h-3.5 text-[#8b949e]" /></button>
+            {menuOpen && <><div className="fixed inset-0 z-10" onClick={(e) => { e.stopPropagation(); setMenuOpen(false); }} /><div className="absolute right-0 top-7 z-20 w-40 rounded-xl overflow-hidden py-1" style={{ background: "rgba(7,12,26,0.97)", border: "1px solid rgba(255,255,255,0.12)", boxShadow: "0 8px 32px rgba(0,0,0,0.8)", backdropFilter: "blur(20px)" }}><button onClick={(e) => { e.stopPropagation(); onDelete(project.id); setMenuOpen(false); toast.success("Project deleted"); }} className="w-full flex items-center gap-2.5 px-3 py-2.5 text-rose-400 text-[12px] font-semibold hover:bg-rose-500/10 transition-colors text-left cursor-pointer active:scale-[0.97] transition-transform min-h-[44px]"><Trash2 className="w-3.5 h-3.5" /> Delete project</button></div></>}
           </div>
         </div>
         <div className="flex items-center gap-1.5 mb-1"><Building2 className="w-3 h-3 text-[#8b949e] flex-shrink-0" /><span className="text-[#8b949e] text-[10px] md:text-[11px] font-semibold truncate">{project.client}</span></div>
         <div className="flex items-center gap-1.5 mb-3"><MapPin className="w-3 h-3 text-[#484f58] flex-shrink-0" /><span className="text-[#484f58] text-[10px] md:text-[11px] truncate">{project.location}</span></div>
-        <div className="flex items-center gap-2 mb-2.5">
-          <span className="text-white font-bold text-[14px] md:text-[15px] tracking-tight">{fmt(project.value, true)}</span>
-          <span className={clsx("text-[9px] md:text-[10px] font-bold px-1.5 py-0.5 rounded-full uppercase tracking-wide",
-            project.risk === "high" ? "bg-rose-500/20 text-rose-400 border border-rose-500/25" : project.risk === "medium" ? "bg-amber-500/20 text-amber-400 border border-amber-500/25" : "bg-emerald-500/20 text-emerald-400 border border-emerald-500/25")}>{project.risk}</span>
-        </div>
-        <div className="flex items-center gap-3 mb-3">
-          <span className="flex items-center gap-1 text-[#484f58] text-[10px] md:text-[11px]"><Camera className="w-3 h-3" />{project.cameras} cams</span>
-          <span className="flex items-center gap-1 text-[#484f58] text-[10px] md:text-[11px]"><Fingerprint className="w-3 h-3" />{project.devices} devices</span>
-        </div>
-        <div className="flex items-center justify-between pt-2.5" style={{ borderTop: "1px solid rgba(255,255,255,0.06)" }}>
-          <div className="flex items-center gap-1.5">
-            <div className="w-5 h-5 rounded-full flex items-center justify-center text-[9px] font-bold text-white flex-shrink-0" style={{ background: project.assignee.color, boxShadow: `0 0 8px ${project.assignee.color}60` }}>{project.assignee.initials}</div>
-            <span className="text-[#8b949e] text-[10px] md:text-[11px] font-medium">{project.assignee.name.split(" ")[0]}</span>
-          </div>
-          <span className="flex items-center gap-1 text-[#484f58] text-[10px] md:text-[11px]"><Calendar className="w-3 h-3" />{fmtDate(project.dueDate)}</span>
-        </div>
+        <div className="flex items-center gap-2 mb-2.5"><span className="text-white font-bold text-[14px] md:text-[15px] tracking-tight">{fmt(project.value, true)}</span><span className={clsx("text-[9px] md:text-[10px] font-bold px-1.5 py-0.5 rounded-full uppercase tracking-wide", project.risk === "high" ? "bg-rose-500/20 text-rose-400 border border-rose-500/25" : project.risk === "medium" ? "bg-amber-500/20 text-amber-400 border border-amber-500/25" : "bg-emerald-500/20 text-emerald-400 border border-emerald-500/25")}>{project.risk}</span></div>
+        <div className="flex items-center gap-3 mb-3"><span className="flex items-center gap-1 text-[#484f58] text-[10px] md:text-[11px]"><Camera className="w-3 h-3" />{project.cameras} cams</span><span className="flex items-center gap-1 text-[#484f58] text-[10px] md:text-[11px]"><Fingerprint className="w-3 h-3" />{project.devices} devices</span></div>
+        <div className="flex items-center justify-between pt-2.5" style={{ borderTop: "1px solid rgba(255,255,255,0.06)" }}><div className="flex items-center gap-1.5"><div className="w-5 h-5 rounded-full flex items-center justify-center text-[9px] font-bold text-white flex-shrink-0" style={{ background: project.assignee.color, boxShadow: `0 0 8px ${project.assignee.color}60` }}>{project.assignee.initials}</div><span className="text-[#8b949e] text-[10px] md:text-[11px] font-medium">{project.assignee.name.split(" ")[0]}</span></div><span className="flex items-center gap-1 text-[#484f58] text-[10px] md:text-[11px]"><Calendar className="w-3 h-3" />{fmtDate(project.dueDate)}</span></div>
       </div>
     </div>
   );
 }
 
-// ─── Kanban Column ────────────────────────────────────────────────────────────
-
-function KanbanColumn({ column, projects, totalValue, dragging, isOver, onDragStart, onDragEnd, onDragOver, onDragLeave, onDrop, onCardClick, onDelete }: {
-  column: Column; projects: Project[]; totalValue: number; dragging: string | null; isOver: boolean;
-  onDragStart: (e: React.DragEvent<HTMLDivElement>, id: string) => void;
-  onDragEnd: () => void; onDragOver: (e: React.DragEvent<HTMLDivElement>) => void;
-  onDragLeave: () => void; onDrop: () => void; onCardClick: (p: Project) => void; onDelete: (id: string) => void;
-}) {
+function KanbanColumn({ column, projects, totalValue, dragging, isOver, onDragStart, onDragEnd, onDragOver, onDragLeave, onDrop, onCardClick, onDelete }: { column: Column; projects: Project[]; totalValue: number; dragging: string | null; isOver: boolean; onDragStart: (e: React.DragEvent<HTMLDivElement>, id: string) => void; onDragEnd: () => void; onDragOver: (e: React.DragEvent<HTMLDivElement>) => void; onDragLeave: () => void; onDrop: () => void; onCardClick: (p: Project) => void; onDelete: (id: string) => void; }) {
   const { fmt } = useCurrency();
   return (
-    <div onDragOver={onDragOver} onDragLeave={onDragLeave} onDrop={onDrop}
-      className="w-[260px] md:w-[272px] flex-shrink-0 flex flex-col rounded-2xl transition-all duration-200"
-      style={isOver ? { background: "rgba(59,130,246,0.08)", backdropFilter: "blur(24px)", border: "1px solid rgba(59,130,246,0.35)", boxShadow: "0 0 0 1px rgba(59,130,246,0.15) inset" } : { background: "rgba(255,255,255,0.032)", backdropFilter: "blur(24px)", border: "1px solid rgba(255,255,255,0.07)", boxShadow: "0 2px 20px rgba(0,0,0,0.3), inset 0 1px 0 rgba(255,255,255,0.05)" }}>
-      <div className="px-3.5 pt-3.5 pb-3 flex-shrink-0" style={{ borderBottom: "1px solid rgba(255,255,255,0.06)" }}>
-        <div className="flex items-center justify-between mb-1">
-          <div className="flex items-center gap-2 min-w-0">
-            <div className="w-2 h-2 rounded-full flex-shrink-0" style={{ background: column.color, boxShadow: `0 0 10px ${column.color}88` }} />
-            <span className="text-white text-[11px] md:text-[12px] font-bold truncate leading-tight">{column.label}</span>
-          </div>
-          <div className="flex items-center gap-1 flex-shrink-0 ml-2">
-            <span className="text-[#8b949e] text-[10px] md:text-[11px] px-1.5 py-0.5 rounded-full font-bold" style={{ background: "rgba(255,255,255,0.08)", border: "1px solid rgba(255,255,255,0.10)" }}>{projects.length}</span>
-            <button className="w-5 h-5 rounded-lg hover:bg-white/[0.08] flex items-center justify-center transition-colors cursor-pointer active:scale-[0.97] transition-transform"><Plus className="w-3 h-3 text-[#484f58]" /></button>
-          </div>
-        </div>
-        <p className="text-[#484f58] text-[10px] md:text-[11px] font-semibold ml-4">{fmt(totalValue, true)}</p>
-      </div>
-      <div className="flex-1 p-2 space-y-2 overflow-y-auto" style={{ scrollbarWidth: "none", scrollBehavior: "smooth", WebkitOverflowScrolling: "touch", minHeight: "120px", maxHeight: "calc(100vh - 250px)" }}>
-        {projects.map((p) => (
-          <KanbanCard key={p.id} project={p} column={column} dragging={dragging} onDragStart={onDragStart} onDragEnd={onDragEnd} onClick={() => onCardClick(p)} onDelete={onDelete} />
-        ))}
-        {isOver && <div className="h-14 rounded-xl border-2 border-dashed border-blue-500/35 bg-blue-500/[0.04] flex items-center justify-center"><p className="text-blue-400/60 text-[11px] font-semibold">Drop here</p></div>}
-        {projects.length === 0 && !isOver && <div className="h-14 rounded-xl border border-dashed border-white/[0.04] flex items-center justify-center"><p className="text-[#484f58] text-[11px]">No projects</p></div>}
-      </div>
+    <div onDragOver={onDragOver} onDragLeave={onDragLeave} onDrop={onDrop} className="w-[260px] md:w-[272px] flex-shrink-0 flex flex-col rounded-2xl transition-all duration-200" style={isOver ? { background: "rgba(59,130,246,0.08)", backdropFilter: "blur(24px)", border: "1px solid rgba(59,130,246,0.35)", boxShadow: "0 0 0 1px rgba(59,130,246,0.15) inset" } : { background: "rgba(255,255,255,0.032)", backdropFilter: "blur(24px)", border: "1px solid rgba(255,255,255,0.07)", boxShadow: "0 2px 20px rgba(0,0,0,0.3), inset 0 1px 0 rgba(255,255,255,0.05)" }}>
+      <div className="px-3.5 pt-3.5 pb-3 flex-shrink-0" style={{ borderBottom: "1px solid rgba(255,255,255,0.06)" }}><div className="flex items-center justify-between mb-1"><div className="flex items-center gap-2 min-w-0"><div className="w-2 h-2 rounded-full flex-shrink-0" style={{ background: column.color, boxShadow: `0 0 10px ${column.color}88` }} /><span className="text-white text-[11px] md:text-[12px] font-bold truncate leading-tight">{column.label}</span></div><div className="flex items-center gap-1 flex-shrink-0 ml-2"><span className="text-[#8b949e] text-[10px] md:text-[11px] px-1.5 py-0.5 rounded-full font-bold" style={{ background: "rgba(255,255,255,0.08)", border: "1px solid rgba(255,255,255,0.10)" }}>{projects.length}</span><button className="w-5 h-5 rounded-lg hover:bg-white/[0.08] flex items-center justify-center transition-colors cursor-pointer active:scale-[0.97] transition-transform"><Plus className="w-3 h-3 text-[#484f58]" /></button></div></div><p className="text-[#484f58] text-[10px] md:text-[11px] font-semibold ml-4">{fmt(totalValue, true)}</p></div>
+      <div className="flex-1 p-2 space-y-2 overflow-y-auto" style={{ scrollbarWidth: "none", scrollBehavior: "smooth", WebkitOverflowScrolling: "touch", minHeight: "120px", maxHeight: "calc(100vh - 250px)" }}>{projects.map((p) => (<KanbanCard key={p.id} project={p} column={column} dragging={dragging} onDragStart={onDragStart} onDragEnd={onDragEnd} onClick={() => onCardClick(p)} onDelete={onDelete} />))}{isOver && <div className="h-14 rounded-xl border-2 border-dashed border-blue-500/35 bg-blue-500/[0.04] flex items-center justify-center"><p className="text-blue-400/60 text-[11px] font-semibold">Drop here</p></div>}{projects.length === 0 && !isOver && <div className="h-14 rounded-xl border border-dashed border-white/[0.04] flex items-center justify-center"><p className="text-[#484f58] text-[11px]">No projects</p></div>}</div>
     </div>
   );
 }
-
-// ─── Dashboard ────────────────────────────────────────────────────────────────
 
 function Dashboard({ navigate }: { navigate: (p: Page) => void }) {
   const { fmt } = useCurrency();
@@ -771,17 +260,7 @@ function Dashboard({ navigate }: { navigate: (p: Page) => void }) {
   const [showNewProject, setShowNewProject] = useState(false);
   const [progressAnim, setProgressAnim] = useState<{ id: string; stage: Stage } | null>(null);
 
-  const fetchProjects = useCallback(async () => {
-    setLoading(true); setError(null);
-    try {
-      const data = await API.projects.list();
-      setProjects(data);
-    } catch (err: any) {
-      setError(err.message || "Failed to load projects");
-      setProjects([]);
-    } finally { setLoading(false); }
-  }, []);
-
+  const fetchProjects = useCallback(async () => { setLoading(true); setError(null); try { const data = await API.projects.list(); setProjects(data); } catch (err: any) { setError(err.message || "Failed to load projects"); setProjects([]); } finally { setLoading(false); } }, []);
   useEffect(() => { fetchProjects(); }, [fetchProjects]);
 
   const active = projects.filter((p) => !["win", "lose"].includes(p.stage));
@@ -795,102 +274,34 @@ function Dashboard({ navigate }: { navigate: (p: Page) => void }) {
 
   const handleDragStart = (e: React.DragEvent<HTMLDivElement>, id: string) => { setDragging(id); e.dataTransfer.effectAllowed = "move"; };
   const handleDragEnd = () => { setDragging(null); setDragOverCol(null); };
-  const handleDrop = async (colId: Stage) => {
-    if (dragging) {
-      const project = projects.find((p) => p.id === dragging);
-      if (project && project.stage !== colId && colId !== "lose") {
-        setProgressAnim({ id: dragging, stage: colId });
-        setTimeout(() => setProgressAnim(null), 1500);
-      }
-      setProjects((prev) => prev.map((p) => p.id === dragging ? { ...p, stage: colId } : p));
-      try { await API.projects.update(dragging, { stage: colId }); } catch { toast.error("Failed to update project stage"); }
-    }
-    setDragging(null); setDragOverCol(null);
-  };
-
-  const handleDelete = async (id: string) => {
-    setProjects((prev) => prev.filter((p) => p.id !== id));
-    try { await API.projects.delete(id); toast.success("Project deleted"); } catch { toast.error("Failed to delete project"); fetchProjects(); }
-  };
+  const handleDrop = async (colId: Stage) => { if (dragging) { const project = projects.find((p) => p.id === dragging); if (project && project.stage !== colId && colId !== "lose") { setProgressAnim({ id: dragging, stage: colId }); setTimeout(() => setProgressAnim(null), 1500); } setProjects((prev) => prev.map((p) => p.id === dragging ? { ...p, stage: colId } : p)); try { await API.projects.update(dragging, { stage: colId }); } catch { toast.error("Failed to update project stage"); } } setDragging(null); setDragOverCol(null); };
+  const handleDelete = async (id: string) => { setProjects((prev) => prev.filter((p) => p.id !== id)); try { await API.projects.delete(id); toast.success("Project deleted"); } catch { toast.error("Failed to delete project"); fetchProjects(); } };
 
   const selectedColumn = selectedDeal ? COLUMNS.find((c) => c.id === selectedDeal.stage)! : null;
   const STAT_COLORS = ["#3b82f6", "#10b981", "#f97316", "#8b5cf6"];
 
-  if (loading) return (
-    <div className="px-3 md:px-5 py-4 md:py-6 space-y-4">
-      <Skeleton className="h-10 w-48" />
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-2 md:gap-3">
-        {[1,2,3,4].map(i => <Skeleton key={i} className="h-24 rounded-2xl" />)}
-      </div>
-      <div className="flex gap-2 md:gap-3"><Skeleton className="h-64 w-[260px] rounded-2xl" /><Skeleton className="h-64 w-[260px] rounded-2xl" /><Skeleton className="h-64 w-[260px] rounded-2xl" /></div>
-    </div>
-  );
-
+  if (loading) return <div className="px-3 md:px-5 py-4 md:py-6 space-y-4"><Skeleton className="h-10 w-48" /><div className="grid grid-cols-2 md:grid-cols-4 gap-2 md:gap-3">{[1,2,3,4].map(i => <Skeleton key={i} className="h-24 rounded-2xl" />)}</div><div className="flex gap-2 md:gap-3"><Skeleton className="h-64 w-[260px] rounded-2xl" /><Skeleton className="h-64 w-[260px] rounded-2xl" /><Skeleton className="h-64 w-[260px] rounded-2xl" /></div></div>;
   if (error) return <ErrorState message={error} onRetry={fetchProjects} />;
 
   return (
     <div>
       {selectedDeal && selectedColumn && <DealModal project={selectedDeal} column={selectedColumn} onClose={() => setSelectedDeal(null)} navigate={navigate} />}
       {showNewProject && <NewProjectModal onClose={() => setShowNewProject(false)} onAdd={async (p) => { setProjects((prev) => [p, ...prev]); try { await API.projects.create(p); } catch { fetchProjects(); } }} />}
-      {progressAnim && (
-        <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -20 }}
-          className="fixed bottom-6 left-1/2 -translate-x-1/2 z-[250] px-5 py-3 rounded-2xl flex items-center gap-3"
-          style={{ background: "rgba(16,185,129,0.95)", backdropFilter: "blur(20px)", boxShadow: "0 8px 32px rgba(16,185,129,0.4)" }}>
-          <CheckCircle2 className="w-5 h-5 text-white" /><span className="text-white text-[13px] font-bold">Project advanced to {COLUMNS.find((c) => c.id === progressAnim.stage)?.label}</span>
-        </motion.div>
-      )}
+      {progressAnim && <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -20 }} className="fixed bottom-6 left-1/2 -translate-x-1/2 z-[250] px-5 py-3 rounded-2xl flex items-center gap-3" style={{ background: "rgba(16,185,129,0.95)", backdropFilter: "blur(20px)", boxShadow: "0 8px 32px rgba(16,185,129,0.4)" }}><CheckCircle2 className="w-5 h-5 text-white" /><span className="text-white text-[13px] font-bold">Project advanced to {COLUMNS.find((c) => c.id === progressAnim.stage)?.label}</span></motion.div>}
       <div className="px-3 md:px-5 pt-4 md:pt-6 pb-4 md:pb-5 flex-shrink-0" style={{ borderBottom: "1px solid rgba(255,255,255,0.06)" }}>
-        <div className="flex items-center justify-between mb-4 md:mb-5">
-          <div><h1 className="text-white font-bold text-lg md:text-xl tracking-tight">Project Pipeline</h1><p className="text-[#8b949e] text-[11px] md:text-[13px] mt-0.5">{projects.length} projects</p></div>
-          <button onClick={() => setShowNewProject(true)} className="flex items-center gap-1.5 h-8 px-3 md:px-4 rounded-xl text-white text-[11px] md:text-[12px] font-bold transition-colors cursor-pointer active:scale-[0.97] transition-transform min-h-[44px]"
-            style={{ background: "#3b82f6", boxShadow: "0 4px 16px rgba(59,130,246,0.35), inset 0 1px 0 rgba(255,255,255,0.2)" }}><Plus className="w-3.5 h-3.5" /> New Project</button>
-        </div>
+        <div className="flex items-center justify-between mb-4 md:mb-5"><div><h1 className="text-white font-bold text-lg md:text-xl tracking-tight">Project Pipeline</h1><p className="text-[#8b949e] text-[11px] md:text-[13px] mt-0.5">{projects.length} projects</p></div><button onClick={() => setShowNewProject(true)} className="flex items-center gap-1.5 h-8 px-3 md:px-4 rounded-xl text-white text-[11px] md:text-[12px] font-bold transition-colors cursor-pointer active:scale-[0.97] transition-transform min-h-[44px]" style={{ background: "#3b82f6", boxShadow: "0 4px 16px rgba(59,130,246,0.35), inset 0 1px 0 rgba(255,255,255,0.2)" }}><Plus className="w-3.5 h-3.5" /> New Project</button></div>
         <div className="grid grid-cols-2 md:grid-cols-4 gap-2 md:gap-3">
-          {[{ label: "Active Pipeline", value: pipeline, icon: TrendingUp, change: "", pos: true, compact: true },
-            { label: "Win Rate", value: winRate, icon: Star, change: "", pos: true, isPct: true, compact: false },
-            { label: "In Negotiation", value: negoValue, icon: BarChart3, change: "", pos: null, compact: true },
-            { label: "Avg Deal Size", value: avgDeal, icon: DollarSign, change: "", pos: false, compact: false },
-          ].map((stat, i) => (
-            <div key={stat.label} className="rounded-2xl p-3 md:p-4 transition-all duration-200 md:hover:-translate-y-0.5" style={G.card}>
-              <div className="flex items-center justify-between mb-2 md:mb-3">
-                <span className="text-[#8b949e] text-[10px] md:text-[12px] font-extrabold uppercase tracking-[0.08em] md:tracking-[0.12em]">{stat.label}</span>
-                <div className="w-7 h-7 md:w-8 md:h-8 rounded-xl flex items-center justify-center" style={{ background: `${STAT_COLORS[i]}18`, border: `1px solid ${STAT_COLORS[i]}30` }}><stat.icon className="w-3 h-3 md:w-3.5 md:h-3.5" style={{ color: STAT_COLORS[i] }} /></div>
-              </div>
-              <p className="text-white text-[1.4rem] md:text-[2rem] font-extrabold tracking-tight leading-none mb-1 md:mb-1.5">{stat.isPct ? `${stat.value}%` : fmt(stat.value as number, stat.compact)}</p>
-              <div className="flex items-center justify-between">
-                <p className="text-[#484f58] text-[10px] md:text-[11px]">{stat.isPct ? `${won.length} of ${closed.length} closed` : stat.label === "Active Pipeline" ? `${active.length} active` : stat.label === "In Negotiation" ? `${negotiation.length} projects` : "Active projects"}</p>
-              </div>
-            </div>
+          {[{ label: "Active Pipeline", value: pipeline, icon: TrendingUp, change: "", pos: true, compact: true },{ label: "Win Rate", value: winRate, icon: Star, change: "", pos: true, isPct: true, compact: false },{ label: "In Negotiation", value: negoValue, icon: BarChart3, change: "", pos: null, compact: true },{ label: "Avg Deal Size", value: avgDeal, icon: DollarSign, change: "", pos: false, compact: false }].map((stat, i) => (
+            <div key={stat.label} className="rounded-2xl p-3 md:p-4 transition-all duration-200 md:hover:-translate-y-0.5" style={G.card}><div className="flex items-center justify-between mb-2 md:mb-3"><span className="text-[#8b949e] text-[10px] md:text-[12px] font-extrabold uppercase tracking-[0.08em] md:tracking-[0.12em]">{stat.label}</span><div className="w-7 h-7 md:w-8 md:h-8 rounded-xl flex items-center justify-center" style={{ background: `${STAT_COLORS[i]}18`, border: `1px solid ${STAT_COLORS[i]}30` }}><stat.icon className="w-3 h-3 md:w-3.5 md:h-3.5" style={{ color: STAT_COLORS[i] }} /></div></div><p className="text-white text-[1.4rem] md:text-[2rem] font-extrabold tracking-tight leading-none mb-1 md:mb-1.5">{stat.isPct ? `${stat.value}%` : fmt(stat.value as number, stat.compact)}</p><div className="flex items-center justify-between"><p className="text-[#484f58] text-[10px] md:text-[11px]">{stat.isPct ? `${won.length} of ${closed.length} closed` : stat.label === "Active Pipeline" ? `${active.length} active` : stat.label === "In Negotiation" ? `${negotiation.length} projects` : "Active projects"}</p></div></div>
           ))}
         </div>
       </div>
-      {projects.length === 0 ? (
-        <EmptyState icon={Layers} title="No projects yet" description="Create your first project to start building your pipeline." action={{ label: "New Project", onClick: () => setShowNewProject(true) }} />
-      ) : (
-        <div className="overflow-x-auto px-3 md:px-5 py-4 md:py-5" style={{ scrollbarWidth: "thin", scrollbarColor: "rgba(255,255,255,0.08) transparent", scrollBehavior: "smooth", WebkitOverflowScrolling: "touch" }}>
-          <div className="flex gap-2 md:gap-3 min-w-max pb-3">
-            {COLUMNS.map((col) => {
-              const colProjects = projects.filter((p) => p.stage === col.id);
-              return (
-                <KanbanColumn key={col.id} column={col} projects={colProjects}
-                  totalValue={colProjects.reduce((s, p) => s + p.value, 0)}
-                  dragging={dragging} isOver={dragOverCol === col.id}
-                  onDragStart={handleDragStart} onDragEnd={handleDragEnd}
-                  onDragOver={(e) => { e.preventDefault(); setDragOverCol(col.id); }}
-                  onDragLeave={() => setDragOverCol(null)}
-                  onDrop={() => handleDrop(col.id)}
-                  onCardClick={(p) => setSelectedDeal(p)}
-                  onDelete={handleDelete} />
-              );
-            })}
-          </div>
-        </div>
+      {projects.length === 0 ? <EmptyState icon={Layers} title="No projects yet" description="Create your first project to start building your pipeline." action={{ label: "New Project", onClick: () => setShowNewProject(true) }} /> : (
+        <div className="overflow-x-auto px-3 md:px-5 py-4 md:py-5" style={{ scrollbarWidth: "thin", scrollbarColor: "rgba(255,255,255,0.08) transparent", scrollBehavior: "smooth", WebkitOverflowScrolling: "touch" }}><div className="flex gap-2 md:gap-3 min-w-max pb-3">{COLUMNS.map((col) => { const colProjects = projects.filter((p) => p.stage === col.id); return <KanbanColumn key={col.id} column={col} projects={colProjects} totalValue={colProjects.reduce((s, p) => s + p.value, 0)} dragging={dragging} isOver={dragOverCol === col.id} onDragStart={handleDragStart} onDragEnd={handleDragEnd} onDragOver={(e) => { e.preventDefault(); setDragOverCol(col.id); }} onDragLeave={() => setDragOverCol(null)} onDrop={() => handleDrop(col.id)} onCardClick={(p) => setSelectedDeal(p)} onDelete={handleDelete} />; })}</div></div>
       )}
     </div>
   );
 }
-// ─── New Project Modal ────────────────────────────────────────────────────────
-
 const ASSIGNEES = [
   { name: "Donovan", initials: "DV", color: "#8b5cf6" },
   { name: "Roger", initials: "RG", color: "#06b6d4" },
@@ -901,206 +312,59 @@ const ASSIGNEES = [
 ];
 
 function NewProjectModal({ onClose, onAdd }: { onClose: () => void; onAdd: (p: Project) => void }) {
-  const [name, setName] = useState("");
-  const [client, setClient] = useState("");
-  const [location, setLocation] = useState("");
-  const [value, setValue] = useState("");
-  const [stage, setStage] = useState<Stage>("assessment-scheduled");
-  const [risk, setRisk] = useState<"low" | "medium" | "high">("low");
-  const [assigneeIdx, setAssigneeIdx] = useState(0);
-  const [dueDate, setDueDate] = useState("");
-  const [summary, setSummary] = useState("");
-  const [contactName, setContactName] = useState("");
-  const [contactTitle, setContactTitle] = useState("");
-  const [contactEmail, setContactEmail] = useState("");
-  const [contactPhone, setContactPhone] = useState("");
-  const [submitting, setSubmitting] = useState(false);
-
+  const [name, setName] = useState(""); const [client, setClient] = useState(""); const [location, setLocation] = useState(""); const [value, setValue] = useState(""); const [stage, setStage] = useState<Stage>("assessment-scheduled"); const [risk, setRisk] = useState<"low" | "medium" | "high">("low"); const [assigneeIdx, setAssigneeIdx] = useState(0); const [dueDate, setDueDate] = useState(""); const [summary, setSummary] = useState(""); const [contactName, setContactName] = useState(""); const [contactTitle, setContactTitle] = useState(""); const [contactEmail, setContactEmail] = useState(""); const [contactPhone, setContactPhone] = useState(""); const [submitting, setSubmitting] = useState(false);
   const canSubmit = name.trim() && client.trim();
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!canSubmit || submitting) return;
-    setSubmitting(true);
-    const assignee = ASSIGNEES[assigneeIdx];
-    const newProject: Project = {
-      id: crypto.randomUUID?.() || `p${Date.now()}`,
-      name: name.trim(), client: client.trim(), location: location.trim() || "TBD",
-      value: Math.round(parseFloat(value.replace(/[^0-9.]/g, "")) * (value.includes("M") ? 1_000_000 : value.includes("K") ? 1000 : 1)) || 0,
-      cameras: 0, devices: 0, stage, risk, assignee,
-      dueDate: dueDate || new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10),
-      summary: summary.trim() || undefined,
-      contact: contactName.trim() ? { name: contactName.trim(), title: contactTitle.trim(), email: contactEmail.trim(), phone: contactPhone.trim() } : undefined,
-    };
-    onAdd(newProject);
-    setSubmitting(false);
-    onClose();
-  };
-
+  const handleSubmit = async (e: React.FormEvent) => { e.preventDefault(); if (!canSubmit || submitting) return; setSubmitting(true); const assignee = ASSIGNEES[assigneeIdx]; const newProject: Project = { id: crypto.randomUUID?.() || `p${Date.now()}`, name: name.trim(), client: client.trim(), location: location.trim() || "TBD", value: Math.round(parseFloat(value.replace(/[^0-9.]/g, "")) * (value.includes("M") ? 1_000_000 : value.includes("K") ? 1000 : 1)) || 0, cameras: 0, devices: 0, stage, risk, assignee, dueDate: dueDate || new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10), summary: summary.trim() || undefined, contact: contactName.trim() ? { name: contactName.trim(), title: contactTitle.trim(), email: contactEmail.trim(), phone: contactPhone.trim() } : undefined }; onAdd(newProject); setSubmitting(false); onClose(); };
   const inputCls = "w-full h-9 rounded-xl px-3 text-[#e6edf3] text-[12px] placeholder:text-[#484f58] focus:outline-none focus:ring-1 focus:ring-blue-500/50 transition-all";
   const labelCls = "block text-[#8b949e] text-[10px] font-bold uppercase tracking-widest mb-1.5";
-
   return (
-    <div className="fixed inset-0 z-[200] flex items-center justify-center p-4" onClick={onClose}>
-      <div className="absolute inset-0" style={{ background: "rgba(0,0,0,0.65)", backdropFilter: "blur(8px)" }} />
-      <motion.div initial={{ opacity: 0, scale: 0.94, y: 16 }} animate={{ opacity: 1, scale: 1, y: 0 }} transition={{ type: "spring", damping: 26, stiffness: 360 }}
-        onClick={(e) => e.stopPropagation()}
-        className="relative z-10 w-full max-w-[600px] max-h-[90vh] overflow-y-auto rounded-3xl"
-        style={{ background: "rgba(7,12,26,0.92)", backdropFilter: "blur(52px) saturate(200%)", border: "1px solid rgba(255,255,255,0.13)", boxShadow: "0 32px 80px rgba(0,0,0,0.9), inset 0 1px 0 rgba(255,255,255,0.12)" }}>
-        <div className="absolute inset-x-0 top-0 h-[2px] rounded-t-3xl" style={{ background: "linear-gradient(90deg, #3b82f6dd, #8b5cf633)" }} />
-        <div className="flex items-center justify-between px-5 md:px-7 pt-5 md:pt-7 pb-5" style={{ borderBottom: "1px solid rgba(255,255,255,0.07)" }}>
-          <div><h2 className="text-white text-[1rem] md:text-[1.1rem] font-bold tracking-tight">New Project</h2><p className="text-[#8b949e] text-[12px] mt-0.5">Add a new project to the pipeline</p></div>
-          <button onClick={onClose} className="w-8 h-8 rounded-xl flex items-center justify-center hover:bg-white/[0.08] transition-colors cursor-pointer active:scale-[0.97] transition-transform min-w-[44px] min-h-[44px]" style={{ border: "1px solid rgba(255,255,255,0.10)" }}><X className="w-4 h-4 text-[#8b949e]" /></button>
-        </div>
-        <form onSubmit={handleSubmit}>
-          <div className="px-5 md:px-7 py-5 space-y-4">
-            <div className="grid grid-cols-2 gap-4"><div className="col-span-2"><label className={labelCls}>Project Name *</label><input value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g. HQ — CCTV Upgrade" className={inputCls} style={G.input} /></div></div>
-            <div className="grid grid-cols-2 gap-4"><div><label className={labelCls}>Client *</label><input value={client} onChange={(e) => setClient(e.target.value)} placeholder="Company name" className={inputCls} style={G.input} /></div><div><label className={labelCls}>Location</label><input value={location} onChange={(e) => setLocation(e.target.value)} placeholder="Site address" className={inputCls} style={G.input} /></div></div>
-            <div><label className={labelCls}>Estimated Value (optional)</label><input value={value} onChange={(e) => setValue(e.target.value)} placeholder="e.g. 95000 or 95K" className={inputCls} style={G.input} /></div>
-            <div className="grid grid-cols-3 gap-4">
-              <div><label className={labelCls}>Stage</label><div className="relative"><select value={stage} onChange={(e) => setStage(e.target.value as Stage)} className={`${inputCls} appearance-none cursor-pointer pr-7`} style={G.input}>{COLUMNS.map((c) => <option key={c.id} value={c.id} style={{ background: "#0d1117" }}>{c.label}</option>)}</select><ChevronDown className="absolute right-2.5 top-1/2 -translate-y-1/2 w-3 h-3 text-[#484f58] pointer-events-none" /></div></div>
-              <div><label className={labelCls}>Risk</label><div className="relative"><select value={risk} onChange={(e) => setRisk(e.target.value as "low" | "medium" | "high")} className={`${inputCls} appearance-none cursor-pointer pr-7`} style={G.input}>{["low","medium","high"].map((r) => <option key={r} value={r} style={{ background: "#0d1117" }}>{r.charAt(0).toUpperCase() + r.slice(1)}</option>)}</select><ChevronDown className="absolute right-2.5 top-1/2 -translate-y-1/2 w-3 h-3 text-[#484f58] pointer-events-none" /></div></div>
-              <div><label className={labelCls}>Due Date</label><input type="date" value={dueDate} onChange={(e) => setDueDate(e.target.value)} className={inputCls} style={{ ...G.input, colorScheme: "dark" }} /></div>
-            </div>
-            <div><label className={labelCls}>Account Owner</label><div className="flex flex-wrap gap-2">{ASSIGNEES.map((a, i) => (<button key={a.name} type="button" onClick={() => setAssigneeIdx(i)} className="flex items-center gap-2 h-9 px-3 rounded-xl transition-all cursor-pointer active:scale-[0.97] transition-transform" style={assigneeIdx === i ? { background: `${a.color}22`, border: `1px solid ${a.color}55` } : G.subtle}><div className="w-5 h-5 rounded-full flex items-center justify-center text-[9px] font-bold text-white flex-shrink-0" style={{ background: a.color }}>{a.initials}</div><span className={`text-[11px] font-semibold ${assigneeIdx === i ? "text-white" : "text-[#8b949e]"}`}>{a.name}</span></button>))}</div></div>
-            <div style={{ borderTop: "1px solid rgba(255,255,255,0.07)", paddingTop: "16px" }}><p className="text-[#484f58] text-[10px] font-bold uppercase tracking-widest mb-3">Contact (optional)</p><div className="grid grid-cols-2 gap-3"><div><label className={labelCls}>Name</label><input value={contactName} onChange={(e) => setContactName(e.target.value)} placeholder="Full name" className={inputCls} style={G.input} /></div><div><label className={labelCls}>Title</label><input value={contactTitle} onChange={(e) => setContactTitle(e.target.value)} placeholder="Job title" className={inputCls} style={G.input} /></div><div><label className={labelCls}>Email</label><input type="email" value={contactEmail} onChange={(e) => setContactEmail(e.target.value)} placeholder="email@company.com" className={inputCls} style={G.input} /></div><div><label className={labelCls}>Phone</label><input value={contactPhone} onChange={(e) => setContactPhone(e.target.value)} placeholder="+1 (876) 555-0000" className={inputCls} style={G.input} /></div></div></div>
-            <div><label className={labelCls}>Project Scope</label><textarea value={summary} onChange={(e) => setSummary(e.target.value)} placeholder="Brief description of the project scope…" rows={3} className="w-full rounded-xl px-3 py-2.5 text-[#e6edf3] text-[12px] placeholder:text-[#484f58] focus:outline-none focus:ring-1 focus:ring-blue-500/50 resize-none transition-all" style={G.input} /></div>
-          </div>
-          <div className="px-5 md:px-7 pb-7 pt-4 flex gap-3" style={{ borderTop: "1px solid rgba(255,255,255,0.07)" }}>
-            <button type="button" onClick={onClose} className="flex-1 h-10 rounded-xl text-[#8b949e] text-[13px] font-semibold hover:text-white transition-all cursor-pointer active:scale-[0.97] transition-transform min-h-[44px]" style={G.btn}>Cancel</button>
-            <button type="submit" disabled={!canSubmit || submitting} className="flex-1 h-10 rounded-xl text-white text-[13px] font-bold transition-all disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer active:scale-[0.97] transition-transform min-h-[44px]" style={{ background: "#3b82f6", boxShadow: canSubmit ? "0 4px 20px rgba(59,130,246,0.4), inset 0 1px 0 rgba(255,255,255,0.2)" : "none" }}>{submitting ? "Adding…" : "Add to Pipeline"}</button>
-          </div>
-        </form>
-      </motion.div>
-    </div>
+    <div className="fixed inset-0 z-[200] flex items-center justify-center p-4" onClick={onClose}><div className="absolute inset-0" style={{ background: "rgba(0,0,0,0.65)", backdropFilter: "blur(8px)" }} /><motion.div initial={{ opacity: 0, scale: 0.94, y: 16 }} animate={{ opacity: 1, scale: 1, y: 0 }} transition={{ type: "spring", damping: 26, stiffness: 360 }} onClick={(e) => e.stopPropagation()} className="relative z-10 w-full max-w-[600px] max-h-[90vh] overflow-y-auto rounded-3xl" style={{ background: "rgba(7,12,26,0.92)", backdropFilter: "blur(52px) saturate(200%)", border: "1px solid rgba(255,255,255,0.13)", boxShadow: "0 32px 80px rgba(0,0,0,0.9), inset 0 1px 0 rgba(255,255,255,0.12)" }}>
+      <div className="flex items-center justify-between px-5 md:px-7 pt-5 md:pt-7 pb-5" style={{ borderBottom: "1px solid rgba(255,255,255,0.07)" }}><div><h2 className="text-white text-[1rem] md:text-[1.1rem] font-bold tracking-tight">New Project</h2><p className="text-[#8b949e] text-[12px] mt-0.5">Add a new project to the pipeline</p></div><button onClick={onClose} className="w-8 h-8 rounded-xl flex items-center justify-center hover:bg-white/[0.08] transition-colors cursor-pointer active:scale-[0.97] transition-transform min-w-[44px] min-h-[44px]" style={{ border: "1px solid rgba(255,255,255,0.10)" }}><X className="w-4 h-4 text-[#8b949e]" /></button></div>
+      <form onSubmit={handleSubmit}><div className="px-5 md:px-7 py-5 space-y-4"><div className="grid grid-cols-2 gap-4"><div className="col-span-2"><label className={labelCls}>Project Name *</label><input value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g. HQ — CCTV Upgrade" className={inputCls} style={G.input} /></div></div><div className="grid grid-cols-2 gap-4"><div><label className={labelCls}>Client *</label><input value={client} onChange={(e) => setClient(e.target.value)} placeholder="Company name" className={inputCls} style={G.input} /></div><div><label className={labelCls}>Location</label><input value={location} onChange={(e) => setLocation(e.target.value)} placeholder="Site address" className={inputCls} style={G.input} /></div></div><div><label className={labelCls}>Estimated Value (optional)</label><input value={value} onChange={(e) => setValue(e.target.value)} placeholder="e.g. 95000 or 95K" className={inputCls} style={G.input} /></div><div className="grid grid-cols-3 gap-4"><div><label className={labelCls}>Stage</label><div className="relative"><select value={stage} onChange={(e) => setStage(e.target.value as Stage)} className={`${inputCls} appearance-none cursor-pointer pr-7`} style={G.input}>{COLUMNS.map((c) => <option key={c.id} value={c.id} style={{ background: "#0d1117" }}>{c.label}</option>)}</select><ChevronDown className="absolute right-2.5 top-1/2 -translate-y-1/2 w-3 h-3 text-[#484f58] pointer-events-none" /></div></div><div><label className={labelCls}>Risk</label><div className="relative"><select value={risk} onChange={(e) => setRisk(e.target.value as "low" | "medium" | "high")} className={`${inputCls} appearance-none cursor-pointer pr-7`} style={G.input}>{["low","medium","high"].map((r) => <option key={r} value={r} style={{ background: "#0d1117" }}>{r.charAt(0).toUpperCase() + r.slice(1)}</option>)}</select><ChevronDown className="absolute right-2.5 top-1/2 -translate-y-1/2 w-3 h-3 text-[#484f58] pointer-events-none" /></div></div><div><label className={labelCls}>Due Date</label><input type="date" value={dueDate} onChange={(e) => setDueDate(e.target.value)} className={inputCls} style={{ ...G.input, colorScheme: "dark" }} /></div></div><div><label className={labelCls}>Account Owner</label><div className="flex flex-wrap gap-2">{ASSIGNEES.map((a, i) => (<button key={a.name} type="button" onClick={() => setAssigneeIdx(i)} className="flex items-center gap-2 h-9 px-3 rounded-xl transition-all cursor-pointer active:scale-[0.97] transition-transform" style={assigneeIdx === i ? { background: `${a.color}22`, border: `1px solid ${a.color}55` } : G.subtle}><div className="w-5 h-5 rounded-full flex items-center justify-center text-[9px] font-bold text-white flex-shrink-0" style={{ background: a.color }}>{a.initials}</div><span className={`text-[11px] font-semibold ${assigneeIdx === i ? "text-white" : "text-[#8b949e]"}`}>{a.name}</span></button>))}</div></div><div style={{ borderTop: "1px solid rgba(255,255,255,0.07)", paddingTop: "16px" }}><p className="text-[#484f58] text-[10px] font-bold uppercase tracking-widest mb-3">Contact (optional)</p><div className="grid grid-cols-2 gap-3"><div><label className={labelCls}>Name</label><input value={contactName} onChange={(e) => setContactName(e.target.value)} placeholder="Full name" className={inputCls} style={G.input} /></div><div><label className={labelCls}>Title</label><input value={contactTitle} onChange={(e) => setContactTitle(e.target.value)} placeholder="Job title" className={inputCls} style={G.input} /></div><div><label className={labelCls}>Email</label><input type="email" value={contactEmail} onChange={(e) => setContactEmail(e.target.value)} placeholder="email@company.com" className={inputCls} style={G.input} /></div><div><label className={labelCls}>Phone</label><input value={contactPhone} onChange={(e) => setContactPhone(e.target.value)} placeholder="+1 (876) 555-0000" className={inputCls} style={G.input} /></div></div></div><div><label className={labelCls}>Project Scope</label><textarea value={summary} onChange={(e) => setSummary(e.target.value)} placeholder="Brief description of the project scope…" rows={3} className="w-full rounded-xl px-3 py-2.5 text-[#e6edf3] text-[12px] placeholder:text-[#484f58] focus:outline-none focus:ring-1 focus:ring-blue-500/50 resize-none transition-all" style={G.input} /></div></div><div className="px-5 md:px-7 pb-7 pt-4 flex gap-3" style={{ borderTop: "1px solid rgba(255,255,255,0.07)" }}><button type="button" onClick={onClose} className="flex-1 h-10 rounded-xl text-[#8b949e] text-[13px] font-semibold hover:text-white transition-all cursor-pointer active:scale-[0.97] transition-transform min-h-[44px]" style={G.btn}>Cancel</button><button type="submit" disabled={!canSubmit || submitting} className="flex-1 h-10 rounded-xl text-white text-[13px] font-bold transition-all disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer active:scale-[0.97] transition-transform min-h-[44px]" style={{ background: "#3b82f6", boxShadow: canSubmit ? "0 4px 20px rgba(59,130,246,0.4), inset 0 1px 0 rgba(255,255,255,0.2)" : "none" }}>{submitting ? "Adding…" : "Add to Pipeline"}</button></div></form>
+    </motion.div></div>
   );
 }
 
-// ─── Upload Floor Plan Modal ──────────────────────────────────────────────────
-
-function UploadFloorPlanModal({ onClose }: { onClose: () => void }) {
-  const [dragOver, setDragOver] = useState(false);
-  const [file, setFile] = useState<File | null>(null);
-  const handleDrop = (e: React.DragEvent) => { e.preventDefault(); setDragOver(false); if (e.dataTransfer.files.length > 0) setFile(e.dataTransfer.files[0]); };
-  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => { if (e.target.files && e.target.files.length > 0) setFile(e.target.files[0]); };
+function DealModal({ project, column, onClose, navigate }: { project: Project; column: Column; onClose: () => void; navigate: (p: Page) => void }) {
+  const [tab, setTab] = useState<"overview" | "contact" | "notes">("overview"); const { fmt } = useCurrency();
   return (
-    <div className="fixed inset-0 z-[200] flex items-center justify-center p-4" onClick={onClose}>
-      <div className="absolute inset-0" style={{ background: "rgba(0,0,0,0.65)", backdropFilter: "blur(8px)" }} />
-      <motion.div initial={{ opacity: 0, scale: 0.94, y: 16 }} animate={{ opacity: 1, scale: 1, y: 0 }} transition={{ type: "spring", damping: 26, stiffness: 360 }}
-        onClick={(e) => e.stopPropagation()} className="relative z-10 w-full max-w-[480px] rounded-3xl"
-        style={{ background: "rgba(7,12,26,0.92)", backdropFilter: "blur(52px) saturate(200%)", border: "1px solid rgba(255,255,255,0.13)", boxShadow: "0 32px 80px rgba(0,0,0,0.9), inset 0 1px 0 rgba(255,255,255,0.12)" }}>
-        <div className="absolute inset-x-0 top-0 h-[2px] rounded-t-3xl" style={{ background: "linear-gradient(90deg, #8b5cf6dd, #8b5cf633)" }} />
-        <div className="flex items-center justify-between px-6 pt-6 pb-5" style={{ borderBottom: "1px solid rgba(255,255,255,0.07)" }}>
-          <div><h2 className="text-white text-[1rem] font-bold">Upload Floor Plan</h2><p className="text-[#8b949e] text-[12px] mt-0.5">Upload a floor plan or mockup to start designing</p></div>
-          <button onClick={onClose} className="w-8 h-8 rounded-xl flex items-center justify-center hover:bg-white/[0.08] cursor-pointer active:scale-[0.97] transition-transform min-w-[44px] min-h-[44px]" style={{ border: "1px solid rgba(255,255,255,0.10)" }}><X className="w-4 h-4 text-[#8b949e]" /></button>
-        </div>
-        <div className="p-6">
-          <div onDragOver={(e) => { e.preventDefault(); setDragOver(true); }} onDragLeave={() => setDragOver(false)} onDrop={handleDrop}
-            className={clsx("border-2 border-dashed rounded-2xl p-10 text-center transition-all cursor-pointer", dragOver ? "border-violet-400 bg-violet-500/[0.06]" : file ? "border-emerald-500/40 bg-emerald-500/[0.03]" : "border-white/[0.10] hover:border-white/[0.20]")}
-            onClick={() => document.getElementById("floorplan-upload")?.click()}>
-            <input id="floorplan-upload" type="file" accept="image/*,.pdf,.dwg,.dxf" className="hidden" onChange={handleFileSelect} />
-            {file ? (
-              <div className="space-y-2"><div className="w-12 h-12 rounded-xl mx-auto flex items-center justify-center" style={{ background: "rgba(16,185,129,0.15)", border: "1px solid rgba(16,185,129,0.25)" }}><CheckCircle2 className="w-6 h-6 text-emerald-400" /></div><p className="text-white text-[13px] font-semibold">{file.name}</p><p className="text-[#484f58] text-[11px]">{(file.size / 1024).toFixed(0)} KB · Ready to upload</p></div>
-            ) : (
-              <div className="space-y-3"><div className="w-14 h-14 rounded-2xl mx-auto flex items-center justify-center" style={{ background: "rgba(139,92,246,0.12)", border: "1px solid rgba(139,92,246,0.22)" }}><Upload className="w-6 h-6 text-violet-400" /></div><div><p className="text-white text-[13px] font-semibold">Drag & drop your floor plan</p><p className="text-[#484f58] text-[11px] mt-1">or click to browse files</p></div><p className="text-[#484f58] text-[10px]">Supports JPG, PNG, PDF, DWG, DXF</p></div>
-            )}
-          </div>
-          <div className="flex gap-3 mt-5">
-            <button onClick={onClose} className="flex-1 h-10 rounded-xl text-[#8b949e] text-[13px] font-semibold hover:text-white transition-all cursor-pointer active:scale-[0.97] transition-transform min-h-[44px]" style={G.btn}>Cancel</button>
-            <button onClick={() => { if (file) { toast.success(`${file.name} uploaded`); onClose(); } }} disabled={!file} className="flex-1 h-10 rounded-xl text-white text-[13px] font-bold transition-all disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center gap-2 cursor-pointer active:scale-[0.97] transition-transform min-h-[44px]" style={{ background: "#8b5cf6", boxShadow: file ? "0 4px 20px rgba(139,92,246,0.4), inset 0 1px 0 rgba(255,255,255,0.2)" : "none" }}><Upload className="w-3.5 h-3.5" /> Upload & Open Canvas</button>
-          </div>
-        </div>
-      </motion.div>
-    </div>
+    <div className="fixed inset-0 z-[200] flex items-center justify-center p-4" onClick={onClose}><div className="absolute inset-0" style={{ background: "rgba(0,0,0,0.65)", backdropFilter: "blur(8px)" }} /><motion.div initial={{ opacity: 0, scale: 0.93, y: 20 }} animate={{ opacity: 1, scale: 1, y: 0 }} transition={{ type: "spring", damping: 26, stiffness: 360 }} onClick={(e) => e.stopPropagation()} className="relative z-10 w-full max-w-[540px] max-h-[90vh] overflow-y-auto rounded-3xl" style={{ background: "rgba(7,12,26,0.78)", backdropFilter: "blur(52px) saturate(200%)", border: "1px solid rgba(255,255,255,0.13)", boxShadow: "0 32px 80px rgba(0,0,0,0.9), inset 0 1px 0 rgba(255,255,255,0.12)" }}>
+      <div className="relative px-5 md:px-7 pt-5 md:pt-7 pb-5"><div className="flex items-start justify-between gap-4"><div className="flex-1 min-w-0"><div className="flex flex-wrap items-center gap-1.5 mb-2.5"><span className="inline-flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-[0.14em] px-2.5 py-1 rounded-full" style={{ background: `${column.color}22`, color: column.color, border: `1px solid ${column.color}44` }}><span className="w-1.5 h-1.5 rounded-full" style={{ background: column.color, boxShadow: `0 0 6px ${column.color}` }} />{column.label}</span><span className={clsx("text-[10px] font-bold uppercase tracking-wide px-2 py-0.5 rounded-full", project.risk === "high" ? "bg-rose-500/20 text-rose-400 border border-rose-500/30" : project.risk === "medium" ? "bg-amber-500/20 text-amber-400 border border-amber-500/30" : "bg-emerald-500/20 text-emerald-400 border border-emerald-500/30")}>{project.risk} risk</span></div><h2 className="text-white text-[1rem] md:text-[1.1rem] font-bold leading-snug tracking-tight">{project.name}</h2><p className="text-[#8b949e] text-[12px] md:text-[13px] font-semibold mt-1 flex items-center gap-1.5"><Building2 className="w-3.5 h-3.5 flex-shrink-0" />{project.client}</p></div><button onClick={onClose} className="w-8 h-8 rounded-xl flex items-center justify-center flex-shrink-0 mt-0.5 hover:bg-white/[0.08] transition-colors cursor-pointer active:scale-[0.97] transition-transform min-w-[44px] min-h-[44px]" style={{ border: "1px solid rgba(255,255,255,0.10)" }}><X className="w-4 h-4 text-[#8b949e]" /></button></div><div className="grid grid-cols-2 gap-2 mt-5">{[{ label: "Quote Value", value: fmt(project.value, true), color: "#3b82f6" },{ label: "Devices", value: String(project.devices), color: "#06b6d4" }].map((s) => (<div key={s.label} className="rounded-2xl px-3 py-3 text-center" style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)", boxShadow: "inset 0 1px 0 rgba(255,255,255,0.06)" }}><p className="text-[10px] font-bold uppercase tracking-widest mb-1" style={{ color: "rgba(139,148,158,0.85)" }}>{s.label}</p><p className="text-[1.2rem] font-bold tracking-tight leading-none" style={{ color: s.color }}>{s.value}</p></div>))}</div></div>
+      <div className="flex items-center gap-0.5 px-5 md:px-7 mb-0" style={{ borderBottom: "1px solid rgba(255,255,255,0.07)" }}>{(["overview","contact","notes"] as const).map((t) => (<button key={t} onClick={() => setTab(t)} className={clsx("h-9 px-3 md:px-3.5 text-[12px] font-semibold capitalize border-b-2 transition-all -mb-px cursor-pointer active:scale-[0.97] transition-transform min-h-[44px]", tab === t ? "border-blue-500 text-white" : "border-transparent text-[#8b949e] hover:text-white")}>{t === "notes" ? "Notes & Summary" : t.charAt(0).toUpperCase() + t.slice(1)}</button>))}</div>
+      <div className="px-5 md:px-7 py-5 space-y-3 max-h-[340px] overflow-y-auto" style={{ scrollbarWidth: "none" }}>
+        {tab === "overview" && <><div className="grid grid-cols-2 gap-2.5">{[{ icon: MapPin, label: "Location", value: project.location },{ icon: Calendar, label: "Due Date", value: fmtDate(project.dueDate) }].map(({ icon: Icon, label, value }) => (<div key={label} className="rounded-2xl px-4 py-3.5" style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)" }}><div className="flex items-center gap-1.5 mb-1"><Icon className="w-3 h-3 text-[#484f58]" /><p className="text-[10px] font-bold uppercase tracking-widest text-[#484f58]">{label}</p></div><p className="text-[#e6edf3] text-[12px] font-semibold leading-snug">{value}</p></div>))}</div><div className="rounded-2xl px-4 py-3.5 flex items-center gap-3" style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)" }}><div className="w-9 h-9 rounded-xl flex items-center justify-center text-[11px] font-bold text-white flex-shrink-0" style={{ background: project.assignee.color, boxShadow: `0 0 16px ${project.assignee.color}55` }}>{project.assignee.initials}</div><div><p className="text-[10px] font-bold uppercase tracking-widest text-[#484f58] mb-0.5">Account Owner</p><p className="text-white text-[13px] font-semibold">{project.assignee.name}</p></div></div>{project.collaborators && project.collaborators.length > 0 && <div className="rounded-2xl px-4 py-3.5" style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)" }}><p className="text-[10px] font-bold uppercase tracking-widest text-[#484f58] mb-3 flex items-center gap-1.5"><Users className="w-3 h-3" /> Team ({project.collaborators.length + 1})</p><div className="space-y-2">{[{ name: project.assignee.name, role: "Account Manager", initials: project.assignee.initials, color: project.assignee.color },...project.collaborators].map((m) => (<div key={m.name} className="flex items-center gap-2.5"><div className="w-7 h-7 rounded-lg flex items-center justify-center text-[9px] font-bold text-white flex-shrink-0" style={{ background: m.color }}>{m.initials}</div><div className="flex-1 min-w-0"><p className="text-white text-[12px] font-semibold">{m.name}</p><p className="text-[#484f58] text-[10px]">{m.role}</p></div></div>))}</div></div>}</>}
+        {tab === "contact" && (project.contact ? <><div className="rounded-2xl px-4 py-4" style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)" }}><div className="flex items-center gap-3 mb-4"><div className="w-10 h-10 rounded-xl flex items-center justify-center text-white text-[13px] font-bold flex-shrink-0" style={{ background: "linear-gradient(135deg, #3b82f6, #8b5cf6)", boxShadow: "0 4px 16px rgba(59,130,246,0.35)" }}>{project.contact.name.split(" ").map(n => n[0]).join("").slice(0, 2)}</div><div><p className="text-white text-[14px] font-bold">{project.contact.name}</p><p className="text-[#8b949e] text-[12px]">{project.contact.title}</p></div></div><div className="space-y-2.5"><a href={`mailto:${project.contact.email}`} className="flex items-center gap-2.5 group"><div className="w-7 h-7 rounded-lg flex items-center justify-center flex-shrink-0" style={{ background: "rgba(59,130,246,0.15)", border: "1px solid rgba(59,130,246,0.25)" }}><Mail className="w-3.5 h-3.5 text-blue-400" /></div><span className="text-[#8b949e] text-[12px] group-hover:text-blue-400 transition-colors font-medium">{project.contact.email}</span></a><div className="flex items-center gap-2.5"><div className="w-7 h-7 rounded-lg flex items-center justify-center flex-shrink-0" style={{ background: "rgba(16,185,129,0.15)", border: "1px solid rgba(16,185,129,0.25)" }}><Phone className="w-3.5 h-3.5 text-emerald-400" /></div><span className="text-[#8b949e] text-[12px] font-medium">{project.contact.phone}</span></div></div></div><div className="rounded-2xl px-4 py-3.5" style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)" }}><p className="text-[10px] font-bold uppercase tracking-widest text-[#484f58] mb-1">Client Organisation</p><p className="text-white text-[13px] font-semibold">{project.client}</p></div></> : <p className="text-[#484f58] text-[13px] text-center py-4">No contact info on file.</p>)}
+        {tab === "notes" && (project.summary || project.notes ? <>{project.summary && <div className="rounded-2xl px-4 py-4" style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)" }}><p className="text-[10px] font-bold uppercase tracking-widest text-[#484f58] mb-2.5 flex items-center gap-1.5"><MessageSquare className="w-3 h-3" /> Request Summary</p><p className="text-[#c9d1d9] text-[12px] leading-relaxed">{project.summary}</p></div>}{project.notes && <div className="rounded-2xl px-4 py-4" style={{ background: "rgba(245,158,11,0.06)", border: "1px solid rgba(245,158,11,0.20)" }}><p className="text-[10px] font-bold uppercase tracking-widest text-amber-500/70 mb-2.5 flex items-center gap-1.5"><StickyNote className="w-3 h-3" /> Internal Notes</p><p className="text-[#c9d1d9] text-[12px] leading-relaxed">{project.notes}</p></div>}</> : <p className="text-[#484f58] text-[13px] text-center py-4">No notes on file.</p>)}
+      </div>
+      <div className="px-5 md:px-7 pb-7 flex gap-2.5"><button onClick={() => { navigate("project-detail"); onClose(); }} className="flex-1 h-10 rounded-xl flex items-center justify-center gap-2 text-white text-[13px] font-bold transition-all duration-150 cursor-pointer active:scale-[0.97] transition-transform min-h-[44px]" style={{ background: "#3b82f6", boxShadow: "0 4px 20px rgba(59,130,246,0.4), inset 0 1px 0 rgba(255,255,255,0.2)" }}><ExternalLink className="w-3.5 h-3.5" />Open Project</button><button onClick={() => { navigate("design-canvas"); onClose(); }} className="flex-1 h-10 rounded-xl flex items-center justify-center gap-2 text-[#e6edf3] text-[13px] font-bold transition-all cursor-pointer active:scale-[0.97] transition-transform min-h-[44px]" style={G.btn}><Layers className="w-3.5 h-3.5 text-violet-400" />Design</button><button onClick={() => { navigate("workbook"); onClose(); }} className="flex-1 h-10 rounded-xl flex items-center justify-center gap-2 text-[#e6edf3] text-[13px] font-bold transition-all cursor-pointer active:scale-[0.97] transition-transform min-h-[44px]" style={G.btn}><DollarSign className="w-3.5 h-3.5 text-blue-400" />Quote</button></div>
+    </motion.div></div>
   );
 }
-
-// ─── Select Project Modal ─────────────────────────────────────────────────────
-
-function SelectProjectModal({ onClose, onSelect, currentId, projects }: { onClose: () => void; onSelect: (id: string) => void; currentId: string; projects: Project[] }) {
-  const [search, setSearch] = useState("");
-  const filtered = search.trim() ? projects.filter((p) => p.name.toLowerCase().includes(search.toLowerCase()) || p.client.toLowerCase().includes(search.toLowerCase())) : projects;
-  return (
-    <div className="fixed inset-0 z-[200] flex items-center justify-center p-4" onClick={onClose}>
-      <div className="absolute inset-0" style={{ background: "rgba(0,0,0,0.55)", backdropFilter: "blur(6px)" }} />
-      <motion.div initial={{ opacity: 0, scale: 0.94, y: 14 }} animate={{ opacity: 1, scale: 1, y: 0 }} transition={{ type: "spring", damping: 26, stiffness: 360 }}
-        onClick={(e) => e.stopPropagation()} className="relative z-10 w-full max-w-[500px] max-h-[80vh] overflow-y-auto rounded-3xl"
-        style={{ background: "rgba(7,12,26,0.95)", backdropFilter: "blur(52px) saturate(200%)", border: "1px solid rgba(255,255,255,0.13)", boxShadow: "0 32px 80px rgba(0,0,0,0.9), inset 0 1px 0 rgba(255,255,255,0.12)" }}>
-        <div className="absolute inset-x-0 top-0 h-[2px] rounded-t-3xl" style={{ background: "linear-gradient(90deg, #3b82f6dd, #3b82f633)" }} />
-        <div className="flex items-center justify-between px-6 pt-6 pb-4" style={{ borderBottom: "1px solid rgba(255,255,255,0.07)" }}>
-          <div><h2 className="text-white text-[1rem] font-bold">Select Project</h2><p className="text-[#8b949e] text-[12px] mt-0.5">Choose which project this quote is for</p></div>
-          <button onClick={onClose} className="w-8 h-8 rounded-xl flex items-center justify-center hover:bg-white/[0.08] cursor-pointer active:scale-[0.97] transition-transform min-w-[44px] min-h-[44px]" style={{ border: "1px solid rgba(255,255,255,0.10)" }}><X className="w-4 h-4 text-[#8b949e]" /></button>
-        </div>
-        <div className="px-4 py-3" style={{ borderBottom: "1px solid rgba(255,255,255,0.06)" }}>
-          <div className="relative"><Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-[#484f58]" /><input autoFocus value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search projects…" className="w-full h-9 rounded-xl pl-8 pr-3 text-[13px] text-[#e6edf3] placeholder:text-[#484f58] focus:outline-none" style={G.input} /></div>
-        </div>
-        <div className="max-h-[340px] overflow-y-auto" style={{ scrollbarWidth: "none" }}>
-          {filtered.map((p) => (
-            <button key={p.id} onClick={() => { onSelect(p.id); onClose(); }} className="w-full flex items-center gap-3 px-5 py-3 hover:bg-white/[0.04] transition-colors text-left cursor-pointer active:scale-[0.97] transition-transform min-h-[44px]" style={{ borderBottom: "1px solid rgba(255,255,255,0.04)", background: p.id === currentId ? "rgba(59,130,246,0.06)" : "transparent" }}>
-              <div className="w-8 h-8 rounded-xl flex items-center justify-center text-[10px] font-bold text-white flex-shrink-0" style={{ background: p.assignee.color, boxShadow: `0 0 10px ${p.assignee.color}44` }}>{p.assignee.initials}</div>
-              <div className="flex-1 min-w-0"><p className="text-white text-[13px] font-semibold truncate">{p.name}</p><p className="text-[#8b949e] text-[11px] truncate">{p.client}</p></div>
-              {p.id === currentId && <div className="w-5 h-5 rounded-full bg-blue-500 flex items-center justify-center flex-shrink-0"><CheckCircle2 className="w-3 h-3 text-white" /></div>}
-            </button>
-          ))}
-        </div>
-      </motion.div>
-    </div>
-  );
-}
-
-// ─── Mini Floor Plan ──────────────────────────────────────────────────────────
 
 function MiniFloorPlan({ project }: { project: Project }) {
   const hasDesign = ["design", "proposal", "negotiation", "win"].includes(project.stage);
   const variant = parseInt(project.id.replace(/\D/g, "").slice(-1) || "0") % 3;
-  if (!hasDesign) return (
-    <div className="w-full h-full flex flex-col items-center justify-center rounded-lg border border-dashed" style={{ background: "rgba(255,255,255,0.03)", borderColor: "rgba(255,255,255,0.09)" }}>
-      <Upload className="w-5 h-5 text-[#484f58] mb-1.5" /><p className="text-[#484f58] text-[10px] font-semibold">No floor plan</p>
-    </div>
-  );
-  if (variant === 0) return (
-    <svg viewBox="0 0 200 112" className="w-full h-full" xmlns="http://www.w3.org/2000/svg">
-      <rect width="200" height="112" fill="#070c1a" /><rect x="8" y="8" width="184" height="96" fill="rgba(255,255,255,0.02)" stroke="rgba(255,255,255,0.09)" strokeWidth="1" rx="1" />
-      <rect x="8" y="8" width="60" height="40" fill="rgba(59,130,246,0.05)" stroke="rgba(255,255,255,0.07)" strokeWidth="0.5" /><rect x="8" y="56" width="60" height="48" fill="rgba(255,255,255,0.02)" stroke="rgba(255,255,255,0.07)" strokeWidth="0.5" /><rect x="130" y="8" width="62" height="96" fill="rgba(139,92,246,0.04)" stroke="rgba(255,255,255,0.07)" strokeWidth="0.5" />
-      <text x="38" y="30" textAnchor="middle" fill="rgba(255,255,255,0.12)" fontSize="5" fontFamily="sans-serif">RECEPTION</text><text x="38" y="82" textAnchor="middle" fill="rgba(255,255,255,0.12)" fontSize="5" fontFamily="sans-serif">OFFICE</text><text x="161" y="56" textAnchor="middle" fill="rgba(255,255,255,0.12)" fontSize="5" fontFamily="sans-serif">SERVER</text>
-      <path d={fovPath(18, 18, 135, 80, 28)} fill="rgba(59,130,246,0.18)" /><circle cx="18" cy="18" r="2.5" fill="#3b82f6" /><path d={fovPath(182, 18, 225, 80, 28)} fill="rgba(59,130,246,0.18)" /><circle cx="182" cy="18" r="2.5" fill="#3b82f6" /><path d={fovPath(18, 96, 45, 80, 28)} fill="rgba(59,130,246,0.18)" /><circle cx="18" cy="96" r="2.5" fill="#3b82f6" />
-      <text x="186" y="109" textAnchor="end" fill="rgba(59,130,246,0.4)" fontSize="5" fontFamily="sans-serif">{project.cameras} cams</text>
-    </svg>
-  );
-  if (variant === 1) return (
-    <svg viewBox="0 0 200 112" className="w-full h-full" xmlns="http://www.w3.org/2000/svg">
-      <rect width="200" height="112" fill="#070c1a" /><rect x="8" y="8" width="184" height="96" fill="rgba(255,255,255,0.02)" stroke="rgba(255,255,255,0.09)" strokeWidth="1" rx="1" />
-      <rect x="8" y="8" width="184" height="22" fill="rgba(59,130,246,0.04)" stroke="rgba(255,255,255,0.07)" strokeWidth="0.5" /><rect x="8" y="8" width="60" height="96" fill="rgba(255,255,255,0.015)" stroke="rgba(255,255,255,0.06)" strokeWidth="0.5" />
-      <text x="100" y="21" textAnchor="middle" fill="rgba(255,255,255,0.12)" fontSize="5" fontFamily="sans-serif">LOADING DOCK</text><text x="38" y="68" textAnchor="middle" fill="rgba(255,255,255,0.12)" fontSize="5" fontFamily="sans-serif">STORAGE</text><text x="133" y="72" textAnchor="middle" fill="rgba(255,255,255,0.12)" fontSize="5" fontFamily="sans-serif">WAREHOUSE FLOOR</text>
-      {[30, 80, 130, 180].map((x, i) => (<g key={i}><path d={fovPath(x, 9, 90, 100, 40)} fill="rgba(59,130,246,0.12)" /><circle cx={x} cy={9} r="2.5" fill="#3b82f6" /></g>))}
-      <text x="186" y="109" textAnchor="end" fill="rgba(59,130,246,0.4)" fontSize="5" fontFamily="sans-serif">{project.cameras} cams</text>
-    </svg>
-  );
+  if (!hasDesign) return <div className="w-full h-full flex flex-col items-center justify-center rounded-lg border border-dashed" style={{ background: "rgba(255,255,255,0.03)", borderColor: "rgba(255,255,255,0.09)" }}><Upload className="w-5 h-5 text-[#484f58] mb-1.5" /><p className="text-[#484f58] text-[10px] font-semibold">No floor plan</p></div>;
+  if (variant === 0) return <svg viewBox="0 0 200 112" className="w-full h-full"><rect width="200" height="112" fill="#070c1a" /><rect x="8" y="8" width="184" height="96" fill="rgba(255,255,255,0.02)" stroke="rgba(255,255,255,0.09)" strokeWidth="1" rx="1" /><rect x="8" y="8" width="60" height="40" fill="rgba(59,130,246,0.05)" stroke="rgba(255,255,255,0.07)" strokeWidth="0.5" /><rect x="8" y="56" width="60" height="48" fill="rgba(255,255,255,0.02)" stroke="rgba(255,255,255,0.07)" strokeWidth="0.5" /><rect x="130" y="8" width="62" height="96" fill="rgba(139,92,246,0.04)" stroke="rgba(255,255,255,0.07)" strokeWidth="0.5" /><text x="38" y="30" textAnchor="middle" fill="rgba(255,255,255,0.12)" fontSize="5" fontFamily="sans-serif">RECEPTION</text><text x="38" y="82" textAnchor="middle" fill="rgba(255,255,255,0.12)" fontSize="5" fontFamily="sans-serif">OFFICE</text><text x="161" y="56" textAnchor="middle" fill="rgba(255,255,255,0.12)" fontSize="5" fontFamily="sans-serif">SERVER</text><path d={fovPath(18,18,135,80,28)} fill="rgba(59,130,246,0.18)" /><circle cx="18" cy="18" r="2.5" fill="#3b82f6" /><path d={fovPath(182,18,225,80,28)} fill="rgba(59,130,246,0.18)" /><circle cx="182" cy="18" r="2.5" fill="#3b82f6" /><path d={fovPath(18,96,45,80,28)} fill="rgba(59,130,246,0.18)" /><circle cx="18" cy="96" r="2.5" fill="#3b82f6" /><text x="186" y="109" textAnchor="end" fill="rgba(59,130,246,0.4)" fontSize="5" fontFamily="sans-serif">{project.cameras} cams</text></svg>;
+  if (variant === 1) return <svg viewBox="0 0 200 112" className="w-full h-full"><rect width="200" height="112" fill="#070c1a" /><rect x="8" y="8" width="184" height="96" fill="rgba(255,255,255,0.02)" stroke="rgba(255,255,255,0.09)" strokeWidth="1" rx="1" /><rect x="8" y="8" width="184" height="22" fill="rgba(59,130,246,0.04)" stroke="rgba(255,255,255,0.07)" strokeWidth="0.5" /><rect x="8" y="8" width="60" height="96" fill="rgba(255,255,255,0.015)" stroke="rgba(255,255,255,0.06)" strokeWidth="0.5" /><text x="100" y="21" textAnchor="middle" fill="rgba(255,255,255,0.12)" fontSize="5" fontFamily="sans-serif">LOADING DOCK</text><text x="38" y="68" textAnchor="middle" fill="rgba(255,255,255,0.12)" fontSize="5" fontFamily="sans-serif">STORAGE</text><text x="133" y="72" textAnchor="middle" fill="rgba(255,255,255,0.12)" fontSize="5" fontFamily="sans-serif">WAREHOUSE FLOOR</text>{[30,80,130,180].map((x,i) => <g key={i}><path d={fovPath(x,9,90,100,40)} fill="rgba(59,130,246,0.12)" /><circle cx={x} cy={9} r="2.5" fill="#3b82f6" /></g>)}<text x="186" y="109" textAnchor="end" fill="rgba(59,130,246,0.4)" fontSize="5" fontFamily="sans-serif">{project.cameras} cams</text></svg>;
+  return <svg viewBox="0 0 200 112" className="w-full h-full"><rect width="200" height="112" fill="#070c1a" /><rect x="8" y="8" width="86" height="46" fill="rgba(59,130,246,0.05)" stroke="rgba(255,255,255,0.09)" strokeWidth="1" rx="1" /><rect x="106" y="8" width="86" height="46" fill="rgba(139,92,246,0.04)" stroke="rgba(255,255,255,0.09)" strokeWidth="1" rx="1" /><rect x="8" y="62" width="86" height="42" fill="rgba(16,185,129,0.03)" stroke="rgba(255,255,255,0.09)" strokeWidth="1" rx="1" /><rect x="106" y="62" width="86" height="42" fill="rgba(245,158,11,0.03)" stroke="rgba(255,255,255,0.09)" strokeWidth="1" rx="1" /><text x="51" y="30" textAnchor="middle" fill="rgba(255,255,255,0.12)" fontSize="5" fontFamily="sans-serif">DATA HALL A</text><text x="149" y="30" textAnchor="middle" fill="rgba(255,255,255,0.12)" fontSize="5" fontFamily="sans-serif">DATA HALL B</text><text x="51" y="84" textAnchor="middle" fill="rgba(255,255,255,0.12)" fontSize="5" fontFamily="sans-serif">SERVER ROOM</text><text x="149" y="84" textAnchor="middle" fill="rgba(255,255,255,0.12)" fontSize="5" fontFamily="sans-serif">NOC</text>{[[18,18,135],[78,18,225],[18,98,45],[78,98,315],[118,18,135],[178,18,225],[118,98,45],[178,98,315]].map(([x,y,r],i) => <g key={i}><path d={fovPath(x,y,r,80,24)} fill="rgba(59,130,246,0.15)" /><circle cx={x} cy={y} r="2" fill="#3b82f6" /></g>)}<text x="186" y="109" textAnchor="end" fill="rgba(59,130,246,0.4)" fontSize="5" fontFamily="sans-serif">{project.cameras} cams</text></svg>;
+}
+
+function stageBadge(stage: Stage) { const map: Record<Stage, { label: string; cls: string }> = { "assessment-scheduled": { label: "Assessment", cls: "bg-amber-500/12 text-amber-400" }, "assessment-completed": { label: "Assessed", cls: "bg-cyan-500/12 text-cyan-400" }, design: { label: "In Design", cls: "bg-violet-500/12 text-violet-400" }, proposal: { label: "Proposal", cls: "bg-blue-500/12 text-blue-400" }, negotiation: { label: "Negotiating", cls: "bg-orange-500/12 text-orange-400" }, win: { label: "Won", cls: "bg-emerald-500/12 text-emerald-400" }, lose: { label: "Lost", cls: "bg-rose-500/12 text-rose-400" } }; return map[stage]; }
+
+function UploadFloorPlanModal({ onClose }: { onClose: () => void }) {
+  const [dragOver, setDragOver] = useState(false); const [file, setFile] = useState<File | null>(null);
   return (
-    <svg viewBox="0 0 200 112" className="w-full h-full" xmlns="http://www.w3.org/2000/svg">
-      <rect width="200" height="112" fill="#070c1a" /><rect x="8" y="8" width="86" height="46" fill="rgba(59,130,246,0.05)" stroke="rgba(255,255,255,0.09)" strokeWidth="1" rx="1" /><rect x="106" y="8" width="86" height="46" fill="rgba(139,92,246,0.04)" stroke="rgba(255,255,255,0.09)" strokeWidth="1" rx="1" />
-      <rect x="8" y="62" width="86" height="42" fill="rgba(16,185,129,0.03)" stroke="rgba(255,255,255,0.09)" strokeWidth="1" rx="1" /><rect x="106" y="62" width="86" height="42" fill="rgba(245,158,11,0.03)" stroke="rgba(255,255,255,0.09)" strokeWidth="1" rx="1" />
-      <text x="51" y="30" textAnchor="middle" fill="rgba(255,255,255,0.12)" fontSize="5" fontFamily="sans-serif">DATA HALL A</text><text x="149" y="30" textAnchor="middle" fill="rgba(255,255,255,0.12)" fontSize="5" fontFamily="sans-serif">DATA HALL B</text><text x="51" y="84" textAnchor="middle" fill="rgba(255,255,255,0.12)" fontSize="5" fontFamily="sans-serif">SERVER ROOM</text><text x="149" y="84" textAnchor="middle" fill="rgba(255,255,255,0.12)" fontSize="5" fontFamily="sans-serif">NOC</text>
-      {[[18,18,135],[78,18,225],[18,98,45],[78,98,315],[118,18,135],[178,18,225],[118,98,45],[178,98,315]].map(([x,y,r],i) => (<g key={i}><path d={fovPath(x,y,r,80,24)} fill="rgba(59,130,246,0.15)" /><circle cx={x} cy={y} r="2" fill="#3b82f6" /></g>))}
-      <text x="186" y="109" textAnchor="end" fill="rgba(59,130,246,0.4)" fontSize="5" fontFamily="sans-serif">{project.cameras} cams</text>
-    </svg>
+    <div className="fixed inset-0 z-[200] flex items-center justify-center p-4" onClick={onClose}><div className="absolute inset-0" style={{ background: "rgba(0,0,0,0.65)", backdropFilter: "blur(8px)" }} /><motion.div initial={{ opacity: 0, scale: 0.94, y: 16 }} animate={{ opacity: 1, scale: 1, y: 0 }} transition={{ type: "spring", damping: 26, stiffness: 360 }} onClick={(e) => e.stopPropagation()} className="relative z-10 w-full max-w-[480px] rounded-3xl" style={{ background: "rgba(7,12,26,0.92)", backdropFilter: "blur(52px) saturate(200%)", border: "1px solid rgba(255,255,255,0.13)", boxShadow: "0 32px 80px rgba(0,0,0,0.9), inset 0 1px 0 rgba(255,255,255,0.12)" }}><div className="flex items-center justify-between px-6 pt-6 pb-5" style={{ borderBottom: "1px solid rgba(255,255,255,0.07)" }}><div><h2 className="text-white text-[1rem] font-bold">Upload Floor Plan</h2><p className="text-[#8b949e] text-[12px] mt-0.5">Upload a floor plan or mockup to start designing</p></div><button onClick={onClose} className="w-8 h-8 rounded-xl flex items-center justify-center hover:bg-white/[0.08] cursor-pointer active:scale-[0.97] transition-transform min-w-[44px] min-h-[44px]" style={{ border: "1px solid rgba(255,255,255,0.10)" }}><X className="w-4 h-4 text-[#8b949e]" /></button></div><div className="p-6"><div onDragOver={(e) => { e.preventDefault(); setDragOver(true); }} onDragLeave={() => setDragOver(false)} onDrop={(e) => { e.preventDefault(); setDragOver(false); if (e.dataTransfer.files.length > 0) setFile(e.dataTransfer.files[0]); }} className={clsx("border-2 border-dashed rounded-2xl p-10 text-center transition-all cursor-pointer", dragOver ? "border-violet-400 bg-violet-500/[0.06]" : file ? "border-emerald-500/40 bg-emerald-500/[0.03]" : "border-white/[0.10] hover:border-white/[0.20]")} onClick={() => document.getElementById("floorplan-upload")?.click()}><input id="floorplan-upload" type="file" accept="image/*,.pdf,.dwg,.dxf" className="hidden" onChange={(e) => { if (e.target.files && e.target.files.length > 0) setFile(e.target.files[0]); }} />{file ? <div className="space-y-2"><div className="w-12 h-12 rounded-xl mx-auto flex items-center justify-center" style={{ background: "rgba(16,185,129,0.15)", border: "1px solid rgba(16,185,129,0.25)" }}><CheckCircle2 className="w-6 h-6 text-emerald-400" /></div><p className="text-white text-[13px] font-semibold">{file.name}</p><p className="text-[#484f58] text-[11px]">{(file.size / 1024).toFixed(0)} KB · Ready to upload</p></div> : <div className="space-y-3"><div className="w-14 h-14 rounded-2xl mx-auto flex items-center justify-center" style={{ background: "rgba(139,92,246,0.12)", border: "1px solid rgba(139,92,246,0.22)" }}><Upload className="w-6 h-6 text-violet-400" /></div><div><p className="text-white text-[13px] font-semibold">Drag & drop your floor plan</p><p className="text-[#484f58] text-[11px] mt-1">or click to browse files</p></div><p className="text-[#484f58] text-[10px]">Supports JPG, PNG, PDF, DWG, DXF</p></div>}</div><div className="flex gap-3 mt-5"><button onClick={onClose} className="flex-1 h-10 rounded-xl text-[#8b949e] text-[13px] font-semibold hover:text-white transition-all cursor-pointer active:scale-[0.97] transition-transform min-h-[44px]" style={G.btn}>Cancel</button><button onClick={() => { if (file) { toast.success(`${file.name} uploaded`); onClose(); } }} disabled={!file} className="flex-1 h-10 rounded-xl text-white text-[13px] font-bold transition-all disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center gap-2 cursor-pointer active:scale-[0.97] transition-transform min-h-[44px]" style={{ background: "#8b5cf6", boxShadow: file ? "0 4px 20px rgba(139,92,246,0.4), inset 0 1px 0 rgba(255,255,255,0.2)" : "none" }}><Upload className="w-3.5 h-3.5" /> Upload & Open Canvas</button></div></div></motion.div></div>
   );
 }
 
-function stageBadge(stage: Stage) {
-  const map: Record<Stage, { label: string; cls: string }> = {
-    "assessment-scheduled": { label: "Assessment", cls: "bg-amber-500/12 text-amber-400" },
-    "assessment-completed": { label: "Assessed", cls: "bg-cyan-500/12 text-cyan-400" },
-    design: { label: "In Design", cls: "bg-violet-500/12 text-violet-400" },
-    proposal: { label: "Proposal", cls: "bg-blue-500/12 text-blue-400" },
-    negotiation: { label: "Negotiating", cls: "bg-orange-500/12 text-orange-400" },
-    win: { label: "Won", cls: "bg-emerald-500/12 text-emerald-400" },
-    lose: { label: "Lost", cls: "bg-rose-500/12 text-rose-400" },
-  };
-  return map[stage];
+function SelectProjectModal({ onClose, onSelect, currentId, projects }: { onClose: () => void; onSelect: (id: string) => void; currentId: string; projects: Project[] }) {
+  const [search, setSearch] = useState(""); const filtered = search.trim() ? projects.filter((p) => p.name.toLowerCase().includes(search.toLowerCase()) || p.client.toLowerCase().includes(search.toLowerCase())) : projects;
+  return (
+    <div className="fixed inset-0 z-[200] flex items-center justify-center p-4" onClick={onClose}><div className="absolute inset-0" style={{ background: "rgba(0,0,0,0.55)", backdropFilter: "blur(6px)" }} /><motion.div initial={{ opacity: 0, scale: 0.94, y: 14 }} animate={{ opacity: 1, scale: 1, y: 0 }} transition={{ type: "spring", damping: 26, stiffness: 360 }} onClick={(e) => e.stopPropagation()} className="relative z-10 w-full max-w-[500px] max-h-[80vh] overflow-y-auto rounded-3xl" style={{ background: "rgba(7,12,26,0.95)", backdropFilter: "blur(52px) saturate(200%)", border: "1px solid rgba(255,255,255,0.13)", boxShadow: "0 32px 80px rgba(0,0,0,0.9), inset 0 1px 0 rgba(255,255,255,0.12)" }}><div className="flex items-center justify-between px-6 pt-6 pb-4" style={{ borderBottom: "1px solid rgba(255,255,255,0.07)" }}><div><h2 className="text-white text-[1rem] font-bold">Select Project</h2><p className="text-[#8b949e] text-[12px] mt-0.5">Choose which project this quote is for</p></div><button onClick={onClose} className="w-8 h-8 rounded-xl flex items-center justify-center hover:bg-white/[0.08] cursor-pointer active:scale-[0.97] transition-transform min-w-[44px] min-h-[44px]" style={{ border: "1px solid rgba(255,255,255,0.10)" }}><X className="w-4 h-4 text-[#8b949e]" /></button></div><div className="px-4 py-3" style={{ borderBottom: "1px solid rgba(255,255,255,0.06)" }}><div className="relative"><Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-[#484f58]" /><input autoFocus value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search projects…" className="w-full h-9 rounded-xl pl-8 pr-3 text-[13px] text-[#e6edf3] placeholder:text-[#484f58] focus:outline-none" style={G.input} /></div></div><div className="max-h-[340px] overflow-y-auto" style={{ scrollbarWidth: "none" }}>{filtered.map((p) => (<button key={p.id} onClick={() => { onSelect(p.id); onClose(); }} className="w-full flex items-center gap-3 px-5 py-3 hover:bg-white/[0.04] transition-colors text-left cursor-pointer active:scale-[0.97] transition-transform min-h-[44px]" style={{ borderBottom: "1px solid rgba(255,255,255,0.04)", background: p.id === currentId ? "rgba(59,130,246,0.06)" : "transparent" }}><div className="w-8 h-8 rounded-xl flex items-center justify-center text-[10px] font-bold text-white flex-shrink-0" style={{ background: p.assignee.color, boxShadow: `0 0 10px ${p.assignee.color}44` }}>{p.assignee.initials}</div><div className="flex-1 min-w-0"><p className="text-white text-[13px] font-semibold truncate">{p.name}</p><p className="text-[#8b949e] text-[11px] truncate">{p.client}</p></div>{p.id === currentId && <div className="w-5 h-5 rounded-full bg-blue-500 flex items-center justify-center flex-shrink-0"><CheckCircle2 className="w-3 h-3 text-white" /></div>}</button>))}</div></motion.div></div>
+  );
 }
-// ─── System Design Studio ─────────────────────────────────────────────────────
-
 function DesignStudio({ navigate }: { navigate: (p: Page) => void }) {
   const { fmt } = useCurrency();
   const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
@@ -1112,152 +376,37 @@ function DesignStudio({ navigate }: { navigate: (p: Page) => void }) {
   const [showUploadModal, setShowUploadModal] = useState(false);
   const [studioView, setStudioView] = useState<"projects" | "canvas">("projects");
 
-  const fetchProjects = useCallback(async () => {
-    setLoading(true); setError(null);
-    try { const data = await API.projects.list(); setProjects(data); } catch (err: any) { setError(err.message || "Failed to load projects"); } finally { setLoading(false); }
-  }, []);
-
+  const fetchProjects = useCallback(async () => { setLoading(true); setError(null); try { const data = await API.projects.list(); setProjects(data); } catch (err: any) { setError(err.message || "Failed to load projects"); } finally { setLoading(false); } }, []);
   useEffect(() => { fetchProjects(); }, [fetchProjects]);
 
-  const filtered = useMemo(() => {
-    let result = projects;
-    if (filter !== "all") result = result.filter((p) => p.stage === filter);
-    if (search.trim()) { const q = search.toLowerCase(); result = result.filter((p) => p.name.toLowerCase().includes(q) || p.client.toLowerCase().includes(q) || p.location.toLowerCase().includes(q)); }
-    return result;
-  }, [projects, filter, search]);
+  const filtered = useMemo(() => { let result = projects; if (filter !== "all") result = result.filter((p) => p.stage === filter); if (search.trim()) { const q = search.toLowerCase(); result = result.filter((p) => p.name.toLowerCase().includes(q) || p.client.toLowerCase().includes(q) || p.location.toLowerCase().includes(q)); } return result; }, [projects, filter, search]);
 
-  const stageFilters: { id: "all" | Stage; label: string }[] = [
-    { id: "all", label: "All" }, { id: "design", label: "In Design" }, { id: "proposal", label: "Proposal" }, { id: "win", label: "Won" },
-  ];
+  const stageFilters: { id: "all" | Stage; label: string }[] = [{ id: "all", label: "All" },{ id: "design", label: "In Design" },{ id: "proposal", label: "Proposal" },{ id: "win", label: "Won" }];
+  const handleDelete = async (id: string) => { setProjects((prev) => prev.filter((p) => p.id !== id)); try { await API.projects.delete(id); toast.success("Project removed"); } catch { fetchProjects(); } };
 
-  const handleDelete = async (id: string) => {
-    setProjects((prev) => prev.filter((p) => p.id !== id));
-    try { await API.projects.delete(id); toast.success("Project removed"); } catch { fetchProjects(); }
-  };
-
-  if (loading) return (
-    <div className="px-3 md:px-5 py-4 md:py-6 space-y-4">
-      <Skeleton className="h-10 w-56" />
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 md:gap-4">
-        {[1,2,3,4].map(i => <Skeleton key={i} className="h-48 rounded-2xl" />)}
-      </div>
-    </div>
-  );
-
+  if (loading) return <div className="px-3 md:px-5 py-4 md:py-6 space-y-4"><Skeleton className="h-10 w-56" /><div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 md:gap-4">{[1,2,3,4].map(i => <Skeleton key={i} className="h-48 rounded-2xl" />)}</div></div>;
   if (error) return <ErrorState message={error} onRetry={fetchProjects} />;
 
   return (
     <div className="px-3 md:px-5 py-4 md:py-6">
       {showUploadModal && <UploadFloorPlanModal onClose={() => setShowUploadModal(false)} />}
-      <div className="flex items-center justify-between mb-4 md:mb-6">
-        <div><h1 className="text-white font-bold text-lg md:text-xl tracking-tight">System Design Studio</h1></div>
-        <div className="flex items-center gap-2">
-          <div className="flex items-center rounded-xl p-0.5 gap-0.5" style={G.btn}>
-            <button onClick={() => setStudioView("projects")} className={clsx("h-7 px-3 rounded-lg text-[11px] md:text-[12px] font-semibold transition-all cursor-pointer active:scale-[0.97] transition-transform", studioView === "projects" ? "text-white" : "text-[#484f58] hover:text-[#8b949e]")} style={studioView === "projects" ? { background: "rgba(255,255,255,0.12)", boxShadow: "inset 0 1px 0 rgba(255,255,255,0.10)" } : undefined}>Projects</button>
-            <button onClick={() => setStudioView("canvas")} className={clsx("h-7 px-3 rounded-lg text-[11px] md:text-[12px] font-semibold transition-all cursor-pointer active:scale-[0.97] transition-transform", studioView === "canvas" ? "text-white" : "text-[#484f58] hover:text-[#8b949e]")} style={studioView === "canvas" ? { background: "rgba(255,255,255,0.12)", boxShadow: "inset 0 1px 0 rgba(255,255,255,0.10)" } : undefined}>Canvas</button>
-          </div>
-          {studioView === "projects" && (
-            <>
-              <div className="flex items-center rounded-xl p-0.5 gap-0.5" style={G.btn}>
-                {(["grid", "list"] as const).map((m) => (
-                  <button key={m} onClick={() => setViewMode(m)} className={clsx("w-7 h-7 rounded-lg flex items-center justify-center transition-all cursor-pointer active:scale-[0.97] transition-transform", viewMode === m ? "text-white" : "text-[#484f58] hover:text-[#8b949e]")} style={viewMode === m ? { background: "rgba(255,255,255,0.12)", boxShadow: "inset 0 1px 0 rgba(255,255,255,0.10)" } : undefined}>{m === "grid" ? <Grid3x3 className="w-3.5 h-3.5" /> : <List className="w-3.5 h-3.5" />}</button>
-                ))}
-              </div>
-              <button onClick={() => setShowUploadModal(true)} className="flex items-center gap-1.5 h-8 px-3 md:px-4 rounded-xl text-white text-[11px] md:text-[12px] font-bold cursor-pointer active:scale-[0.97] transition-transform min-h-[44px]" style={{ background: "#3b82f6", boxShadow: "0 4px 16px rgba(59,130,246,0.35), inset 0 1px 0 rgba(255,255,255,0.2)" }}><Plus className="w-3.5 h-3.5" /> New Design</button>
-            </>
-          )}
-        </div>
-      </div>
+      <div className="flex items-center justify-between mb-4 md:mb-6"><div><h1 className="text-white font-bold text-lg md:text-xl tracking-tight">System Design Studio</h1></div><div className="flex items-center gap-2"><div className="flex items-center rounded-xl p-0.5 gap-0.5" style={G.btn}><button onClick={() => setStudioView("projects")} className={clsx("h-7 px-3 rounded-lg text-[11px] md:text-[12px] font-semibold transition-all cursor-pointer active:scale-[0.97] transition-transform", studioView === "projects" ? "text-white" : "text-[#484f58] hover:text-[#8b949e]")} style={studioView === "projects" ? { background: "rgba(255,255,255,0.12)", boxShadow: "inset 0 1px 0 rgba(255,255,255,0.10)" } : undefined}>Projects</button><button onClick={() => setStudioView("canvas")} className={clsx("h-7 px-3 rounded-lg text-[11px] md:text-[12px] font-semibold transition-all cursor-pointer active:scale-[0.97] transition-transform", studioView === "canvas" ? "text-white" : "text-[#484f58] hover:text-[#8b949e]")} style={studioView === "canvas" ? { background: "rgba(255,255,255,0.12)", boxShadow: "inset 0 1px 0 rgba(255,255,255,0.10)" } : undefined}>Canvas</button></div>{studioView === "projects" && <><div className="flex items-center rounded-xl p-0.5 gap-0.5" style={G.btn}>{(["grid","list"] as const).map((m) => (<button key={m} onClick={() => setViewMode(m)} className={clsx("w-7 h-7 rounded-lg flex items-center justify-center transition-all cursor-pointer active:scale-[0.97] transition-transform", viewMode === m ? "text-white" : "text-[#484f58] hover:text-[#8b949e]")} style={viewMode === m ? { background: "rgba(255,255,255,0.12)", boxShadow: "inset 0 1px 0 rgba(255,255,255,0.10)" } : undefined}>{m === "grid" ? <Grid3x3 className="w-3.5 h-3.5" /> : <List className="w-3.5 h-3.5" />}</button>))}</div><button onClick={() => setShowUploadModal(true)} className="flex items-center gap-1.5 h-8 px-3 md:px-4 rounded-xl text-white text-[11px] md:text-[12px] font-bold cursor-pointer active:scale-[0.97] transition-transform min-h-[44px]" style={{ background: "#3b82f6", boxShadow: "0 4px 16px rgba(59,130,246,0.35), inset 0 1px 0 rgba(255,255,255,0.2)" }}><Plus className="w-3.5 h-3.5" /> New Design</button></>}</div></div>
 
       {studioView === "canvas" ? (
-        <div className="rounded-2xl overflow-hidden relative" style={{ ...G.card, minHeight: "50vh" }}>
-          <svg viewBox="0 0 990 610" className="w-full" xmlns="http://www.w3.org/2000/svg" style={{ maxHeight: "70vh" }}>
-            <rect width="990" height="610" fill="#070c1a" />
-            <defs><pattern id="cgds" width="30" height="30" patternUnits="userSpaceOnUse"><path d="M 30 0 L 0 0 0 30" fill="none" stroke="rgba(255,255,255,0.024)" strokeWidth="0.5" /></pattern></defs>
-            <rect width="990" height="610" fill="url(#cgds)" />
-            <rect x="80" y="50" width="830" height="510" fill="rgba(255,255,255,0.015)" stroke="rgba(255,255,255,0.12)" strokeWidth="1.5" rx="2" />
-            <rect x="80" y="50" width="220" height="150" fill="rgba(59,130,246,0.04)" stroke="rgba(255,255,255,0.08)" strokeWidth="1" />
-            <text x="190" y="132" textAnchor="middle" fill="rgba(255,255,255,0.18)" fontSize="9" fontFamily="sans-serif">RECEPTION</text>
-            <rect x="500" y="260" width="410" height="300" fill="rgba(139,92,246,0.03)" stroke="rgba(255,255,255,0.08)" strokeWidth="1" />
-            <text x="705" y="418" textAnchor="middle" fill="rgba(255,255,255,0.15)" fontSize="10" fontFamily="sans-serif">DATA HALL A</text>
-            <rect x="80" y="260" width="360" height="300" fill="rgba(16,185,129,0.02)" stroke="rgba(255,255,255,0.08)" strokeWidth="1" />
-            <text x="260" y="418" textAnchor="middle" fill="rgba(255,255,255,0.15)" fontSize="10" fontFamily="sans-serif">DATA HALL B</text>
-          </svg>
-          <div className="absolute bottom-4 left-4 right-4 flex items-center justify-between pointer-events-none">
-            <div className="px-3 py-1.5 rounded-xl text-[10px] md:text-[11px] font-semibold text-white pointer-events-auto" style={G.liquidGlass}>Recent Canvas</div>
-            <button onClick={() => navigate("design-canvas")} className="px-3 py-1.5 rounded-xl text-[10px] md:text-[11px] font-bold text-white pointer-events-auto cursor-pointer active:scale-[0.97] transition-transform" style={{ background: "#3b82f6" }}>Open Full Canvas</button>
-          </div>
-        </div>
+        <div className="rounded-2xl overflow-hidden relative" style={{ ...G.card, minHeight: "50vh" }}><svg viewBox="0 0 990 610" className="w-full" xmlns="http://www.w3.org/2000/svg" style={{ maxHeight: "70vh" }}><rect width="990" height="610" fill="#070c1a" /><defs><pattern id="cgds" width="30" height="30" patternUnits="userSpaceOnUse"><path d="M 30 0 L 0 0 0 30" fill="none" stroke="rgba(255,255,255,0.024)" strokeWidth="0.5" /></pattern></defs><rect width="990" height="610" fill="url(#cgds)" /><rect x="80" y="50" width="830" height="510" fill="rgba(255,255,255,0.015)" stroke="rgba(255,255,255,0.12)" strokeWidth="1.5" rx="2" /><rect x="80" y="50" width="220" height="150" fill="rgba(59,130,246,0.04)" stroke="rgba(255,255,255,0.08)" strokeWidth="1" /><text x="190" y="132" textAnchor="middle" fill="rgba(255,255,255,0.18)" fontSize="9" fontFamily="sans-serif">RECEPTION</text><rect x="500" y="260" width="410" height="300" fill="rgba(139,92,246,0.03)" stroke="rgba(255,255,255,0.08)" strokeWidth="1" /><text x="705" y="418" textAnchor="middle" fill="rgba(255,255,255,0.15)" fontSize="10" fontFamily="sans-serif">DATA HALL A</text><rect x="80" y="260" width="360" height="300" fill="rgba(16,185,129,0.02)" stroke="rgba(255,255,255,0.08)" strokeWidth="1" /><text x="260" y="418" textAnchor="middle" fill="rgba(255,255,255,0.15)" fontSize="10" fontFamily="sans-serif">DATA HALL B</text></svg><div className="absolute bottom-4 left-4 right-4 flex items-center justify-between pointer-events-none"><div className="px-3 py-1.5 rounded-xl text-[10px] md:text-[11px] font-semibold text-white pointer-events-auto" style={G.liquidGlass}>Recent Canvas</div><button onClick={() => navigate("design-canvas")} className="px-3 py-1.5 rounded-xl text-[10px] md:text-[11px] font-bold text-white pointer-events-auto cursor-pointer active:scale-[0.97] transition-transform" style={{ background: "#3b82f6" }}>Open Full Canvas</button></div></div>
       ) : (
         <>
-          <div className="flex items-center gap-2 mb-4 md:mb-5 flex-wrap">
-            {stageFilters.map((f) => (
-              <button key={f.id} onClick={() => setFilter(f.id)} className={clsx("h-7 px-3 rounded-full text-[11px] md:text-[12px] font-semibold transition-all cursor-pointer active:scale-[0.97] transition-transform", filter === f.id ? "text-white" : "text-[#8b949e] hover:text-white")} style={filter === f.id ? { background: "#3b82f6", boxShadow: "0 2px 12px rgba(59,130,246,0.3)" } : G.subtle}>{f.label}</button>
-            ))}
-            <div className="relative ml-1"><Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3 h-3 text-[#484f58]" /><input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search projects…" className="h-7 rounded-xl pl-7 pr-3 text-[11px] md:text-[12px] text-[#e6edf3] placeholder:text-[#484f58] focus:outline-none focus:ring-1 focus:ring-blue-500/50 w-36 md:w-44 transition-all" style={G.input} /></div>
-            <span className="text-[#484f58] text-[11px] md:text-[12px] ml-1">{filtered.length} projects</span>
-          </div>
-          {filtered.length === 0 ? (
-            <EmptyState icon={Layers} title="No projects found" description={search ? "Try adjusting your search or filters." : "Create a new project to get started."} />
-          ) : viewMode === "grid" ? (
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 md:gap-4">
-              {filtered.map((project) => {
-                const badge = stageBadge(project.stage);
-                const hasDesign = ["design", "proposal", "negotiation", "win"].includes(project.stage);
-                return (
-                  <div key={project.id} className="group rounded-2xl overflow-hidden cursor-pointer transition-all duration-200 md:hover:-translate-y-1 relative" style={{ ...G.card }}>
-                    <div className="relative h-[100px] md:h-[112px] bg-[#070c1a]" onClick={() => navigate("project-detail")}>
-                      <MiniFloorPlan project={project} />
-                      {hasDesign && (
-                        <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2" style={{ background: "rgba(0,0,0,0.5)", backdropFilter: "blur(4px)" }}>
-                          <button onClick={(e) => { e.stopPropagation(); navigate("design-canvas"); }} className="h-7 px-3 rounded-xl text-white text-[11px] font-bold flex items-center gap-1.5 cursor-pointer active:scale-[0.97] transition-transform" style={{ background: "#3b82f6", boxShadow: "0 4px 16px rgba(59,130,246,0.4)" }}><Eye className="w-3 h-3" /> Open</button>
-                        </div>
-                      )}
-                      <div className={clsx("absolute top-2 right-2 text-[10px] font-bold px-2 py-0.5 rounded-full", badge.cls)}>{badge.label}</div>
-                    </div>
-                    <div className="p-3 md:p-4" onClick={() => navigate("project-detail")}>
-                      <h3 className="text-white text-[12px] md:text-[13px] font-semibold leading-snug mb-1 line-clamp-1">{project.name}</h3>
-                      <p className="text-[#8b949e] text-[10px] md:text-[11px] font-medium mb-2 md:mb-3 flex items-center gap-1"><Building2 className="w-3 h-3" /> {project.client}</p>
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-2 md:gap-2.5"><span className="flex items-center gap-1 text-[#484f58] text-[10px] md:text-[11px]"><Camera className="w-3 h-3" />{project.cameras}</span><span className="flex items-center gap-1 text-[#484f58] text-[10px] md:text-[11px]"><Fingerprint className="w-3 h-3" />{project.devices}</span></div>
-                        <div className="flex items-center gap-1.5">
-                          <div className="w-5 h-5 rounded-full flex items-center justify-center text-[9px] font-bold text-white" style={{ background: project.assignee.color, boxShadow: `0 0 8px ${project.assignee.color}55` }}>{project.assignee.initials}</div>
-                          <button onClick={(e) => { e.stopPropagation(); handleDelete(project.id); }} className="w-6 h-6 rounded-lg flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity hover:bg-rose-500/20 cursor-pointer active:scale-[0.97] transition-transform" title="Delete project"><Trash2 className="w-3 h-3 text-rose-400" /></button>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
+          <div className="flex items-center gap-2 mb-4 md:mb-5 flex-wrap">{stageFilters.map((f) => (<button key={f.id} onClick={() => setFilter(f.id)} className={clsx("h-7 px-3 rounded-full text-[11px] md:text-[12px] font-semibold transition-all cursor-pointer active:scale-[0.97] transition-transform", filter === f.id ? "text-white" : "text-[#8b949e] hover:text-white")} style={filter === f.id ? { background: "#3b82f6", boxShadow: "0 2px 12px rgba(59,130,246,0.3)" } : G.subtle}>{f.label}</button>))}<div className="relative ml-1"><Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3 h-3 text-[#484f58]" /><input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search projects…" className="h-7 rounded-xl pl-7 pr-3 text-[11px] md:text-[12px] text-[#e6edf3] placeholder:text-[#484f58] focus:outline-none focus:ring-1 focus:ring-blue-500/50 w-36 md:w-44 transition-all" style={G.input} /></div><span className="text-[#484f58] text-[11px] md:text-[12px] ml-1">{filtered.length} projects</span></div>
+          {filtered.length === 0 ? <EmptyState icon={Layers} title="No projects found" description={search ? "Try adjusting your search or filters." : "Create a new project to get started."} /> : viewMode === "grid" ? (
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 md:gap-4">{filtered.map((project) => { const badge = stageBadge(project.stage); const hasDesign = ["design","proposal","negotiation","win"].includes(project.stage); return (<div key={project.id} className="group rounded-2xl overflow-hidden cursor-pointer transition-all duration-200 md:hover:-translate-y-1 relative" style={{ ...G.card }}><div className="relative h-[100px] md:h-[112px] bg-[#070c1a]" onClick={() => navigate("project-detail")}><MiniFloorPlan project={project} />{hasDesign && <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2" style={{ background: "rgba(0,0,0,0.5)", backdropFilter: "blur(4px)" }}><button onClick={(e) => { e.stopPropagation(); navigate("design-canvas"); }} className="h-7 px-3 rounded-xl text-white text-[11px] font-bold flex items-center gap-1.5 cursor-pointer active:scale-[0.97] transition-transform" style={{ background: "#3b82f6", boxShadow: "0 4px 16px rgba(59,130,246,0.4)" }}><Eye className="w-3 h-3" /> Open</button></div>}<div className={clsx("absolute top-2 right-2 text-[10px] font-bold px-2 py-0.5 rounded-full", badge.cls)}>{badge.label}</div></div><div className="p-3 md:p-4" onClick={() => navigate("project-detail")}><h3 className="text-white text-[12px] md:text-[13px] font-semibold leading-snug mb-1 line-clamp-1">{project.name}</h3><p className="text-[#8b949e] text-[10px] md:text-[11px] font-medium mb-2 md:mb-3 flex items-center gap-1"><Building2 className="w-3 h-3" /> {project.client}</p><div className="flex items-center justify-between"><div className="flex items-center gap-2 md:gap-2.5"><span className="flex items-center gap-1 text-[#484f58] text-[10px] md:text-[11px]"><Camera className="w-3 h-3" />{project.cameras}</span><span className="flex items-center gap-1 text-[#484f58] text-[10px] md:text-[11px]"><Fingerprint className="w-3 h-3" />{project.devices}</span></div><div className="flex items-center gap-1.5"><div className="w-5 h-5 rounded-full flex items-center justify-center text-[9px] font-bold text-white" style={{ background: project.assignee.color, boxShadow: `0 0 8px ${project.assignee.color}55` }}>{project.assignee.initials}</div><button onClick={(e) => { e.stopPropagation(); handleDelete(project.id); }} className="w-6 h-6 rounded-lg flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity hover:bg-rose-500/20 cursor-pointer active:scale-[0.97] transition-transform" title="Delete project"><Trash2 className="w-3 h-3 text-rose-400" /></button></div></div></div></div>); })}</div>
           ) : (
-            <div className="rounded-2xl overflow-hidden" style={G.card}>
-              <div className="overflow-x-auto">
-                <div className="grid gap-3 md:gap-4 px-3 md:px-4 py-2.5" style={{ gridTemplateColumns: "2fr 1fr 80px 80px 100px 80px 32px", minWidth: "700px", borderBottom: "1px solid rgba(255,255,255,0.06)" }}>{["Project","Client","Cameras","Devices","Stage","Value",""].map((h) => (<span key={h} className="text-[#484f58] text-[10px] font-bold uppercase tracking-widest">{h}</span>))}</div>
-                {filtered.map((project) => {
-                  const badge = stageBadge(project.stage);
-                  return (
-                    <div key={project.id} className="grid gap-3 md:gap-4 px-3 md:px-4 py-3.5 items-center transition-all group hover:bg-white/[0.03]" style={{ gridTemplateColumns: "2fr 1fr 80px 80px 100px 80px 32px", minWidth: "700px", borderBottom: "1px solid rgba(255,255,255,0.04)" }}>
-                      <div className="min-w-0 cursor-pointer" onClick={() => navigate("project-detail")}><p className="text-white text-[12px] md:text-[13px] font-semibold truncate group-hover:text-blue-400 transition-colors">{project.name}</p><p className="text-[#484f58] text-[10px] md:text-[11px] truncate">{project.location}</p></div>
-                      <p className="text-[#8b949e] text-[11px] md:text-[12px] truncate font-medium">{project.client}</p>
-                      <p className="text-[#8b949e] text-[11px] md:text-[12px] flex items-center gap-1"><Camera className="w-3 h-3 text-[#484f58]" />{project.cameras}</p>
-                      <p className="text-[#8b949e] text-[11px] md:text-[12px] flex items-center gap-1"><Fingerprint className="w-3 h-3 text-[#484f58]" />{project.devices}</p>
-                      <span className={clsx("text-[10px] font-bold px-2 py-0.5 rounded-full w-fit", badge.cls)}>{badge.label}</span>
-                      <p className="text-white text-[12px] md:text-[13px] font-bold">{fmt(project.value, true)}</p>
-                      <button onClick={() => handleDelete(project.id)} className="w-6 h-6 rounded-lg flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity hover:bg-rose-500/20 cursor-pointer active:scale-[0.97] transition-transform"><Trash2 className="w-3 h-3 text-rose-400" /></button>
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
+            <div className="rounded-2xl overflow-hidden" style={G.card}><div className="overflow-x-auto"><div className="grid gap-3 md:gap-4 px-3 md:px-4 py-2.5" style={{ gridTemplateColumns: "2fr 1fr 80px 80px 100px 80px 32px", minWidth: "700px", borderBottom: "1px solid rgba(255,255,255,0.06)" }}>{["Project","Client","Cameras","Devices","Stage","Value",""].map((h) => (<span key={h} className="text-[#484f58] text-[10px] font-bold uppercase tracking-widest">{h}</span>))}</div>{filtered.map((project) => { const badge = stageBadge(project.stage); return (<div key={project.id} className="grid gap-3 md:gap-4 px-3 md:px-4 py-3.5 items-center transition-all group hover:bg-white/[0.03]" style={{ gridTemplateColumns: "2fr 1fr 80px 80px 100px 80px 32px", minWidth: "700px", borderBottom: "1px solid rgba(255,255,255,0.04)" }}><div className="min-w-0 cursor-pointer" onClick={() => navigate("project-detail")}><p className="text-white text-[12px] md:text-[13px] font-semibold truncate group-hover:text-blue-400 transition-colors">{project.name}</p><p className="text-[#484f58] text-[10px] md:text-[11px] truncate">{project.location}</p></div><p className="text-[#8b949e] text-[11px] md:text-[12px] truncate font-medium">{project.client}</p><p className="text-[#8b949e] text-[11px] md:text-[12px] flex items-center gap-1"><Camera className="w-3 h-3 text-[#484f58]" />{project.cameras}</p><p className="text-[#8b949e] text-[11px] md:text-[12px] flex items-center gap-1"><Fingerprint className="w-3 h-3 text-[#484f58]" />{project.devices}</p><span className={clsx("text-[10px] font-bold px-2 py-0.5 rounded-full w-fit", badge.cls)}>{badge.label}</span><p className="text-white text-[12px] md:text-[13px] font-bold">{fmt(project.value, true)}</p><button onClick={() => handleDelete(project.id)} className="w-6 h-6 rounded-lg flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity hover:bg-rose-500/20 cursor-pointer active:scale-[0.97] transition-transform"><Trash2 className="w-3 h-3 text-rose-400" /></button></div>); })}</div></div>
           )}
         </>
       )}
     </div>
   );
 }
-
-// ─── Project Detail ───────────────────────────────────────────────────────────
 
 function ProjectDetail({ navigate }: { navigate: (p: Page) => void }) {
   const { fmt } = useCurrency();
@@ -1266,85 +415,34 @@ function ProjectDetail({ navigate }: { navigate: (p: Page) => void }) {
   const [error, setError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState("overview");
 
-  const fetchProject = useCallback(async () => {
-    setLoading(true); setError(null);
-    try { const data = await API.projects.list(); if (data.length > 0) setProject(data[0]); else setError("No projects found"); } catch (err: any) { setError(err.message || "Failed to load project"); } finally { setLoading(false); }
-  }, []);
-
+  const fetchProject = useCallback(async () => { setLoading(true); setError(null); try { const data = await API.projects.list(); if (data.length > 0) setProject(data[0]); else setError("No projects found"); } catch (err: any) { setError(err.message || "Failed to load project"); } finally { setLoading(false); } }, []);
   useEffect(() => { fetchProject(); }, [fetchProject]);
 
   if (loading) return <div className="px-3 md:px-5 py-4 md:py-6 space-y-4"><Skeleton className="h-8 w-64" /><div className="grid grid-cols-2 md:grid-cols-5 gap-2 md:gap-3">{[1,2,3,4,5].map(i => <Skeleton key={i} className="h-24 rounded-2xl" />)}</div><Skeleton className="h-64 rounded-2xl" /></div>;
   if (error || !project) return <ErrorState message={error || "Project not found"} onRetry={fetchProject} />;
 
-  const p = project;
-  const badge = stageBadge(p.stage);
-  const tabs = ["overview", "quotes", "change-orders", "audit-log"];
+  const p = project; const badge = stageBadge(p.stage); const tabs = ["overview","quotes","change-orders","audit-log"];
   const tabLabels: Record<string, string> = { overview: "Overview", quotes: "Quotes", "change-orders": "Change Orders", "audit-log": "Audit Log" };
-  const auditIcons: Record<string, React.ElementType> = { approval: CheckCircle2, change: AlertTriangle, export: Download, stage: Activity, quote: DollarSign, report: FileText };
-  const auditColors: Record<string, string> = { approval: "text-emerald-400", change: "text-amber-400", export: "text-blue-400", stage: "text-violet-400", quote: "text-blue-400", report: "text-cyan-400" };
 
   return (
     <div className="px-3 md:px-5 py-4 md:py-6 max-w-[1200px]">
-      <div className="flex flex-col md:flex-row md:items-start justify-between mb-4 md:mb-6 gap-4">
-        <div className="min-w-0">
-          <div className="flex items-center gap-2 mb-2"><span className={clsx("text-[10px] font-bold px-2 py-0.5 rounded-full", badge.cls)}>{badge.label}</span><span className="text-rose-400 text-[10px] font-bold px-2 py-0.5 rounded-full bg-rose-500/12">HIGH RISK</span></div>
-          <h1 className="text-white font-bold text-xl md:text-2xl tracking-tight mb-1">{p.name}</h1>
-          <p className="text-[#8b949e] text-[12px] md:text-[13px] flex items-center gap-1.5"><Building2 className="w-3.5 h-3.5" /> {p.client} · <MapPin className="w-3.5 h-3.5 ml-1" /> {p.location}</p>
-        </div>
-        <div className="flex items-center gap-2 flex-shrink-0 flex-wrap">
-          {[{ label: "Design", icon: Layers, color: "text-violet-400", action: () => navigate("design-canvas") },{ label: "Install", icon: CheckSquare, color: "text-emerald-400", action: () => navigate("install-tracker") },{ label: "Share", icon: Share2, color: "text-blue-400", action: undefined },{ label: "Reports", icon: FileText, color: "text-cyan-400", action: undefined }].map(({ label, icon: Icon, color, action }) => (
-            <button key={label} onClick={action} className="flex items-center gap-1.5 h-9 px-3 md:px-4 rounded-xl text-white text-[11px] md:text-[12px] font-semibold transition-all hover:bg-white/[0.10] cursor-pointer active:scale-[0.97] transition-transform min-h-[44px]" style={G.btn}><Icon className={clsx("w-3.5 h-3.5", color)} /> {label}</button>
-          ))}
-        </div>
-      </div>
-
-      <div className="grid grid-cols-2 md:grid-cols-5 gap-2 md:gap-3 mb-4 md:mb-6">
-        {[{ label: "Contract Value", value: fmt(p.value, true), icon: DollarSign, color: "#3b82f6" },{ label: "Cameras", value: String(p.cameras), icon: Camera, color: "#8b5cf6" },{ label: "Access Devices", value: String(p.devices), icon: Fingerprint, color: "#06b6d4" },{ label: "Due Date", value: fmtDate(p.dueDate), icon: Calendar, color: "#f59e0b" },{ label: "Install Progress", value: "0%", icon: Activity, color: "#10b981" }].map((s) => (
-          <div key={s.label} className="rounded-2xl p-3 md:p-4" style={G.card}><div className="flex items-center justify-between mb-2 md:mb-3"><span className="text-[#8b949e] text-[9px] md:text-[10px] font-bold uppercase tracking-[0.06em] md:tracking-[0.09em]">{s.label}</span><div className="w-6 h-6 md:w-7 md:h-7 rounded-xl flex items-center justify-center" style={{ background: `${s.color}18`, border: `1px solid ${s.color}30` }}><s.icon className="w-3 h-3 md:w-3.5 md:h-3.5" style={{ color: s.color }} /></div></div><p className="text-white text-lg md:text-xl font-bold tracking-tight">{s.value}</p></div>
-        ))}
-      </div>
-
-      <div className="flex items-center gap-0.5 mb-4 md:mb-5 overflow-x-auto" style={{ borderBottom: "1px solid rgba(255,255,255,0.07)", scrollbarWidth: "none" }}>
-        {tabs.map((tab) => (
-          <button key={tab} onClick={() => setActiveTab(tab)} className={clsx("h-10 px-3 md:px-4 text-[12px] md:text-[13px] font-semibold border-b-2 transition-all -mb-px whitespace-nowrap cursor-pointer active:scale-[0.97] transition-transform min-h-[44px]", activeTab === tab ? "border-blue-500 text-white" : "border-transparent text-[#8b949e] hover:text-white")}>{tabLabels[tab]}</button>
-        ))}
-      </div>
-
-      {activeTab === "overview" && (
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <div className="md:col-span-2 space-y-4">
-            <div className="rounded-2xl p-4 md:p-5" style={G.card}><h3 className="text-white text-[13px] md:text-[14px] font-bold mb-3">Project Scope</h3><p className="text-[#8b949e] text-[12px] md:text-[13px] leading-relaxed">{p.summary ?? "No scope defined yet."}</p></div>
-            <div className="rounded-2xl p-4 md:p-5" style={G.card}><h3 className="text-white text-[13px] md:text-[14px] font-bold mb-4">Project Team</h3><div className="space-y-3">{[{ name: p.assignee.name, role: "Account Manager", initials: p.assignee.initials, color: p.assignee.color },...(p.collaborators ?? []).map(c => ({ name: c.name, role: c.role, initials: c.initials, color: c.color }))].map((m) => (<div key={m.name} className="flex items-center gap-3"><div className="w-8 h-8 rounded-xl flex items-center justify-center text-[11px] font-bold text-white flex-shrink-0" style={{ background: m.color, boxShadow: `0 0 12px ${m.color}44` }}>{m.initials}</div><div><p className="text-white text-[12px] md:text-[13px] font-semibold">{m.name}</p><p className="text-[#8b949e] text-[10px] md:text-[11px]">{m.role}</p></div></div>))}</div></div>
-          </div>
-          <div className="space-y-4">
-            <div className="rounded-2xl p-4 md:p-5" style={G.card}><h3 className="text-white text-[13px] md:text-[14px] font-bold mb-4">Timeline</h3><div className="space-y-3">{[{ phase: "Assessment", date: "TBD", done: false },{ phase: "Design", date: "TBD", done: false },{ phase: "Installation", date: "TBD", done: false },{ phase: "Sign-off", date: "TBD", done: false }].map((item) => (<div key={item.phase} className="flex items-center gap-3"><div className={clsx("w-5 h-5 rounded-full flex items-center justify-center flex-shrink-0", item.done ? "bg-emerald-500/20" : "bg-white/[0.04]")}>{item.done ? <CheckCircle2 className="w-3 h-3 text-emerald-400" /> : <div className="w-1.5 h-1.5 rounded-full bg-white/20" />}</div><div className="flex-1 flex items-center justify-between"><span className={clsx("text-[11px] md:text-[12px] font-semibold", item.done ? "text-[#8b949e]" : "text-[#484f58]")}>{item.phase}</span><span className="text-[#484f58] text-[10px] md:text-[11px]">{item.date}</span></div></div>))}</div></div>
-          </div>
-        </div>
-      )}
-
+      <div className="flex flex-col md:flex-row md:items-start justify-between mb-4 md:mb-6 gap-4"><div className="min-w-0"><div className="flex items-center gap-2 mb-2"><span className={clsx("text-[10px] font-bold px-2 py-0.5 rounded-full", badge.cls)}>{badge.label}</span><span className="text-rose-400 text-[10px] font-bold px-2 py-0.5 rounded-full bg-rose-500/12">HIGH RISK</span></div><h1 className="text-white font-bold text-xl md:text-2xl tracking-tight mb-1">{p.name}</h1><p className="text-[#8b949e] text-[12px] md:text-[13px] flex items-center gap-1.5"><Building2 className="w-3.5 h-3.5" /> {p.client} · <MapPin className="w-3.5 h-3.5 ml-1" /> {p.location}</p></div><div className="flex items-center gap-2 flex-shrink-0 flex-wrap">{[{ label: "Design", icon: Layers, color: "text-violet-400", action: () => navigate("design-canvas") },{ label: "Install", icon: CheckSquare, color: "text-emerald-400", action: () => navigate("install-tracker") },{ label: "Share", icon: Share2, color: "text-blue-400", action: undefined },{ label: "Reports", icon: FileText, color: "text-cyan-400", action: undefined }].map(({ label, icon: Icon, color, action }) => (<button key={label} onClick={action} className="flex items-center gap-1.5 h-9 px-3 md:px-4 rounded-xl text-white text-[11px] md:text-[12px] font-semibold transition-all hover:bg-white/[0.10] cursor-pointer active:scale-[0.97] transition-transform min-h-[44px]" style={G.btn}><Icon className={clsx("w-3.5 h-3.5", color)} /> {label}</button>))}</div></div>
+      <div className="grid grid-cols-2 md:grid-cols-5 gap-2 md:gap-3 mb-4 md:mb-6">{[{ label: "Contract Value", value: fmt(p.value, true), icon: DollarSign, color: "#3b82f6" },{ label: "Cameras", value: String(p.cameras), icon: Camera, color: "#8b5cf6" },{ label: "Access Devices", value: String(p.devices), icon: Fingerprint, color: "#06b6d4" },{ label: "Due Date", value: fmtDate(p.dueDate), icon: Calendar, color: "#f59e0b" },{ label: "Install Progress", value: "0%", icon: Activity, color: "#10b981" }].map((s) => (<div key={s.label} className="rounded-2xl p-3 md:p-4" style={G.card}><div className="flex items-center justify-between mb-2 md:mb-3"><span className="text-[#8b949e] text-[9px] md:text-[10px] font-bold uppercase tracking-[0.06em] md:tracking-[0.09em]">{s.label}</span><div className="w-6 h-6 md:w-7 md:h-7 rounded-xl flex items-center justify-center" style={{ background: `${s.color}18`, border: `1px solid ${s.color}30` }}><s.icon className="w-3 h-3 md:w-3.5 md:h-3.5" style={{ color: s.color }} /></div></div><p className="text-white text-lg md:text-xl font-bold tracking-tight">{s.value}</p></div>))}</div>
+      <div className="flex items-center gap-0.5 mb-4 md:mb-5 overflow-x-auto" style={{ borderBottom: "1px solid rgba(255,255,255,0.07)", scrollbarWidth: "none" }}>{tabs.map((tab) => (<button key={tab} onClick={() => setActiveTab(tab)} className={clsx("h-10 px-3 md:px-4 text-[12px] md:text-[13px] font-semibold border-b-2 transition-all -mb-px whitespace-nowrap cursor-pointer active:scale-[0.97] transition-transform min-h-[44px]", activeTab === tab ? "border-blue-500 text-white" : "border-transparent text-[#8b949e] hover:text-white")}>{tabLabels[tab]}</button>))}</div>
+      {activeTab === "overview" && (<div className="grid grid-cols-1 md:grid-cols-3 gap-4"><div className="md:col-span-2 space-y-4"><div className="rounded-2xl p-4 md:p-5" style={G.card}><h3 className="text-white text-[13px] md:text-[14px] font-bold mb-3">Project Scope</h3><p className="text-[#8b949e] text-[12px] md:text-[13px] leading-relaxed">{p.summary ?? "No scope defined yet."}</p></div><div className="rounded-2xl p-4 md:p-5" style={G.card}><h3 className="text-white text-[13px] md:text-[14px] font-bold mb-4">Project Team</h3><div className="space-y-3">{[{ name: p.assignee.name, role: "Account Manager", initials: p.assignee.initials, color: p.assignee.color },...(p.collaborators ?? []).map(c => ({ name: c.name, role: c.role, initials: c.initials, color: c.color }))].map((m) => (<div key={m.name} className="flex items-center gap-3"><div className="w-8 h-8 rounded-xl flex items-center justify-center text-[11px] font-bold text-white flex-shrink-0" style={{ background: m.color, boxShadow: `0 0 12px ${m.color}44` }}>{m.initials}</div><div><p className="text-white text-[12px] md:text-[13px] font-semibold">{m.name}</p><p className="text-[#8b949e] text-[10px] md:text-[11px]">{m.role}</p></div></div>))}</div></div></div><div className="space-y-4"><div className="rounded-2xl p-4 md:p-5" style={G.card}><h3 className="text-white text-[13px] md:text-[14px] font-bold mb-4">Timeline</h3><div className="space-y-3">{[{ phase: "Assessment", date: "TBD", done: false },{ phase: "Design", date: "TBD", done: false },{ phase: "Installation", date: "TBD", done: false },{ phase: "Sign-off", date: "TBD", done: false }].map((item) => (<div key={item.phase} className="flex items-center gap-3"><div className={clsx("w-5 h-5 rounded-full flex items-center justify-center flex-shrink-0", item.done ? "bg-emerald-500/20" : "bg-white/[0.04]")}>{item.done ? <CheckCircle2 className="w-3 h-3 text-emerald-400" /> : <div className="w-1.5 h-1.5 rounded-full bg-white/20" />}</div><div className="flex-1 flex items-center justify-between"><span className={clsx("text-[11px] md:text-[12px] font-semibold", item.done ? "text-[#8b949e]" : "text-[#484f58]")}>{item.phase}</span><span className="text-[#484f58] text-[10px] md:text-[11px]">{item.date}</span></div></div>))}</div></div></div></div>)}
       {activeTab === "quotes" && <EmptyState icon={DollarSign} title="No quotes yet" description="Quotes will appear here once created in the Workbook." action={{ label: "Open Workbook", onClick: () => navigate("workbook") }} />}
       {activeTab === "change-orders" && <EmptyState icon={AlertTriangle} title="No change orders" description="Change orders will appear here." />}
       {activeTab === "audit-log" && <EmptyState icon={FileText} title="No audit entries" description="Activity will be logged here." />}
     </div>
   );
 }
-// ─── Design Canvas ────────────────────────────────────────────────────────────
-
 type CanvasDevice = { id: string; type: "camera" | "door" | "access" | "panel" | "power" | "server" | "cable"; x: number; y: number; rot: number; fov?: number; range?: number; label: string; selected?: boolean; connectedTo?: string[]; };
 
 const CANVAS_TOOLS = [
-  { id: "select", icon: MousePointer, label: "Select" },
-  { id: "move", icon: Move, label: "Pan" },
-  { id: "camera", icon: Camera, label: "Camera" },
-  { id: "ptz", icon: RotateCcw, label: "PTZ Cam" },
-  { id: "door", icon: DoorOpen, label: "Door" },
-  { id: "access", icon: Key, label: "Access Reader" },
-  { id: "panel", icon: PanelRight, label: "Panel" },
-  { id: "power", icon: Zap, label: "Power" },
-  { id: "server", icon: Server, label: "Server" },
-  { id: "cable", icon: Cable, label: "Cable Route" },
-  { id: "label", icon: Pencil, label: "Label" },
-  { id: "trash", icon: Trash2, label: "Delete" },
+  { id: "select", icon: MousePointer, label: "Select" }, { id: "move", icon: Move, label: "Pan" }, { id: "camera", icon: Camera, label: "Camera" },
+  { id: "ptz", icon: RotateCcw, label: "PTZ Cam" }, { id: "door", icon: DoorOpen, label: "Door" }, { id: "access", icon: Key, label: "Access Reader" },
+  { id: "panel", icon: PanelRight, label: "Panel" }, { id: "power", icon: Zap, label: "Power" }, { id: "server", icon: Server, label: "Server" },
+  { id: "cable", icon: Cable, label: "Cable Route" }, { id: "label", icon: Pencil, label: "Label" }, { id: "trash", icon: Trash2, label: "Delete" },
 ];
 
 const CANVAS_DEVICE_LIBRARY = [
@@ -1357,72 +455,23 @@ const CANVAS_DEVICE_LIBRARY = [
 ];
 
 function DesignCanvas({ navigate }: { navigate: (p: Page) => void }) {
-  const [activeTool, setActiveTool] = useState("select");
-  const [showDeviceTray, setShowDeviceTray] = useState(false);
-  const [showProperties, setShowProperties] = useState(true);
-  const [showFov, setShowFov] = useState(true);
-  const [view3D, setView3D] = useState(false);
-  const [devices, setDevices] = useState<CanvasDevice[]>([]);
-  const [selectedId, setSelectedId] = useState<string | null>(null);
-  const [deviceSearch, setDeviceSearch] = useState("");
-  const [canvasScale, setCanvasScale] = useState(1);
-  const [canvasOffset, setCanvasOffset] = useState({ x: 0, y: 0 });
-  const canvasRef = useRef<HTMLDivElement>(null);
-  const touchStartRef = useRef<{ x: number; y: number; dist: number; time: number } | null>(null);
-
+  const [activeTool, setActiveTool] = useState("select"); const [showDeviceTray, setShowDeviceTray] = useState(false); const [showProperties, setShowProperties] = useState(true);
+  const [showFov, setShowFov] = useState(true); const [view3D, setView3D] = useState(false); const [devices, setDevices] = useState<CanvasDevice[]>([]);
+  const [selectedId, setSelectedId] = useState<string | null>(null); const [deviceSearch, setDeviceSearch] = useState("");
+  const [canvasScale, setCanvasScale] = useState(1); const [canvasOffset, setCanvasOffset] = useState({ x: 0, y: 0 });
+  const canvasRef = useRef<HTMLDivElement>(null); const touchStartRef = useRef<{ x: number; y: number; dist: number } | null>(null);
   const selected = devices.find((c) => c.id === selectedId);
 
   const filteredDeviceLib = CANVAS_DEVICE_LIBRARY.map((cat) => ({ ...cat, items: cat.items.filter((item) => item.toLowerCase().includes(deviceSearch.toLowerCase())) })).filter((cat) => cat.items.length > 0);
 
-  const addDevice = (type: CanvasDevice["type"], x: number, y: number) => {
-    const newDevice: CanvasDevice = { id: `dev${Date.now()}`, type, x, y, rot: 0, fov: type === "camera" ? 80 : undefined, range: type === "camera" ? 90 : undefined, label: `${type.toUpperCase()}-${String(devices.length + 1).padStart(2, "0")}`, selected: false };
-    setDevices((prev) => [...prev, newDevice]);
-    setSelectedId(newDevice.id);
-  };
+  const addDevice = (type: CanvasDevice["type"], x: number, y: number) => { const newDevice: CanvasDevice = { id: `dev${Date.now()}`, type, x, y, rot: 0, fov: type === "camera" ? 80 : undefined, range: type === "camera" ? 90 : undefined, label: `${type.toUpperCase()}-${String(devices.length + 1).padStart(2, "0")}`, selected: false }; setDevices((prev) => [...prev, newDevice]); setSelectedId(newDevice.id); };
 
-  const handleCanvasClick = (e: React.MouseEvent) => {
-    if (activeTool === "select" || activeTool === "move") return;
-    const rect = canvasRef.current?.getBoundingClientRect();
-    if (!rect) return;
-    const x = ((e.clientX - rect.left) / rect.width) * 990;
-    const y = ((e.clientY - rect.top) / rect.height) * 610;
-    if (activeTool === "camera" || activeTool === "ptz") addDevice("camera", x, y);
-    else if (activeTool === "door") addDevice("door", x, y);
-    else if (activeTool === "access") addDevice("access", x, y);
-    else if (activeTool === "panel") addDevice("panel", x, y);
-    else if (activeTool === "power") addDevice("power", x, y);
-    else if (activeTool === "server") addDevice("server", x, y);
-  };
+  const handleCanvasClick = (e: React.MouseEvent) => { if (activeTool === "select" || activeTool === "move") return; const rect = canvasRef.current?.getBoundingClientRect(); if (!rect) return; const x = ((e.clientX - rect.left) / rect.width) * 990; const y = ((e.clientY - rect.top) / rect.height) * 610; if (activeTool === "camera" || activeTool === "ptz") addDevice("camera", x, y); else if (activeTool === "door") addDevice("door", x, y); else if (activeTool === "access") addDevice("access", x, y); else if (activeTool === "panel") addDevice("panel", x, y); else if (activeTool === "power") addDevice("power", x, y); else if (activeTool === "server") addDevice("server", x, y); };
 
-  const handleTouchStart = (e: React.TouchEvent) => {
-    if (e.touches.length === 2) {
-      const dx = e.touches[0].clientX - e.touches[1].clientX;
-      const dy = e.touches[0].clientY - e.touches[1].clientY;
-      touchStartRef.current = { x: (e.touches[0].clientX + e.touches[1].clientX) / 2, y: (e.touches[0].clientY + e.touches[1].clientY) / 2, dist: Math.hypot(dx, dy), time: Date.now() };
-    } else if (e.touches.length === 1) {
-      touchStartRef.current = { x: e.touches[0].clientX, y: e.touches[0].clientY, dist: 0, time: Date.now() };
-    }
-  };
+  const handleTouchStart = (e: React.TouchEvent) => { if (e.touches.length === 2) { const dx = e.touches[0].clientX - e.touches[1].clientX; const dy = e.touches[0].clientY - e.touches[1].clientY; touchStartRef.current = { x: (e.touches[0].clientX + e.touches[1].clientX) / 2, y: (e.touches[0].clientY + e.touches[1].clientY) / 2, dist: Math.hypot(dx, dy) }; } };
+  const handleTouchMove = (e: React.TouchEvent) => { if (!touchStartRef.current) return; if (e.touches.length === 2) { const dx = e.touches[0].clientX - e.touches[1].clientX; const dy = e.touches[0].clientY - e.touches[1].clientY; const newDist = Math.hypot(dx, dy); const scale = touchStartRef.current.dist > 0 ? newDist / touchStartRef.current.dist : 1; setCanvasScale((prev) => Math.max(0.5, Math.min(3, prev * scale))); touchStartRef.current = { ...touchStartRef.current, dist: newDist }; } else if (e.touches.length === 1 && activeTool === "move") { setCanvasOffset((prev) => ({ x: prev.x + (e.touches[0].clientX - touchStartRef.current!.x), y: prev.y + (e.touches[0].clientY - touchStartRef.current!.y) })); touchStartRef.current = { x: e.touches[0].clientX, y: e.touches[0].clientY, dist: 0 }; } };
 
-  const handleTouchMove = (e: React.TouchEvent) => {
-    if (!touchStartRef.current) return;
-    if (e.touches.length === 2) {
-      const dx = e.touches[0].clientX - e.touches[1].clientX;
-      const dy = e.touches[0].clientY - e.touches[1].clientY;
-      const newDist = Math.hypot(dx, dy);
-      const scale = touchStartRef.current.dist > 0 ? newDist / touchStartRef.current.dist : 1;
-      setCanvasScale((prev) => Math.max(0.5, Math.min(3, prev * scale)));
-      touchStartRef.current = { ...touchStartRef.current, dist: newDist };
-    } else if (e.touches.length === 1 && activeTool === "move") {
-      setCanvasOffset((prev) => ({ x: prev.x + (e.touches[0].clientX - touchStartRef.current!.x), y: prev.y + (e.touches[0].clientY - touchStartRef.current!.y) }));
-      touchStartRef.current = { x: e.touches[0].clientX, y: e.touches[0].clientY, dist: 0, time: Date.now() };
-    }
-  };
-
-  const getDeviceColor = (type: CanvasDevice["type"]) => {
-    const colors: Record<string, string> = { camera: "#3b82f6", door: "#f59e0b", access: "#10b981", panel: "#f97316", power: "#ef4444", server: "#ec4899", cable: "#8b5cf6" };
-    return colors[type] || "#3b82f6";
-  };
+  const getDeviceColor = (type: CanvasDevice["type"]) => { const colors: Record<string, string> = { camera: "#3b82f6", door: "#f59e0b", access: "#10b981", panel: "#f97316", power: "#ef4444", server: "#ec4899", cable: "#8b5cf6" }; return colors[type] || "#3b82f6"; };
 
   return (
     <div className="fixed inset-0 flex flex-col" style={{ background: "#070c1a" }}>
@@ -1436,25 +485,15 @@ function DesignCanvas({ navigate }: { navigate: (p: Page) => void }) {
         <button onClick={() => setShowDeviceTray(!showDeviceTray)} className={clsx("flex items-center gap-1.5 h-7 px-2 md:px-3 rounded-xl text-[10px] md:text-[11px] font-semibold transition-all cursor-pointer active:scale-[0.97] transition-transform", showDeviceTray ? "text-white" : "text-[#8b949e] hover:text-white")} style={G.btn}><Package className="w-3 h-3" /> <span className="hidden md:inline">Devices</span></button>
         <button className="flex items-center gap-1.5 h-7 px-2 md:px-3 rounded-xl text-[#e6edf3] text-[10px] md:text-[11px] font-semibold hover:bg-white/[0.10] transition-all cursor-pointer active:scale-[0.97] transition-transform" style={G.btn}><Download className="w-3 h-3" /> <span className="hidden md:inline">Export</span></button>
       </header>
-
       <div className="flex-1 relative overflow-hidden">
         <motion.div className="absolute left-0 top-0 bottom-0 w-64 z-30 flex flex-col" style={G.liquidGlass} animate={{ x: showDeviceTray ? 0 : -256 }} transition={{ type: "spring", stiffness: 300, damping: 30 }}>
           <div className="px-4 py-3 flex items-center justify-between" style={{ borderBottom: "1px solid rgba(255,255,255,0.07)" }}><p className="text-white text-[12px] font-bold">Device Library</p><button onClick={() => setShowDeviceTray(false)} className="w-6 h-6 rounded-lg hover:bg-white/[0.08] flex items-center justify-center cursor-pointer active:scale-[0.97] transition-transform min-w-[44px] min-h-[44px]"><X className="w-3.5 h-3.5 text-[#8b949e]" /></button></div>
           <div className="px-3 py-2.5" style={{ borderBottom: "1px solid rgba(255,255,255,0.06)" }}><div className="relative"><Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3 h-3 text-[#484f58]" /><input value={deviceSearch} onChange={(e) => setDeviceSearch(e.target.value)} placeholder="Search devices…" className="w-full h-7 rounded-xl pl-7 pr-2.5 text-[11px] text-[#e6edf3] placeholder:text-[#484f58] focus:outline-none" style={G.input} /></div></div>
-          <div className="flex-1 overflow-y-auto" style={{ scrollbarWidth: "none" }}>
-            {filteredDeviceLib.map((cat) => (
-              <div key={cat.category} className="p-3" style={{ borderBottom: "1px solid rgba(255,255,255,0.04)" }}><p className="text-[#484f58] text-[10px] font-bold uppercase tracking-widest mb-2 flex items-center gap-1.5"><span className="w-1.5 h-1.5 rounded-full" style={{ background: cat.color, boxShadow: `0 0 6px ${cat.color}` }} />{cat.category}</p>
-                <div className="space-y-0.5">{cat.items.map((item) => (<button key={item} className="w-full text-left px-2.5 py-2 rounded-xl hover:bg-white/[0.05] transition-colors flex items-center gap-2.5 group cursor-pointer active:scale-[0.97] transition-transform"><div className="w-6 h-6 rounded-lg flex items-center justify-center flex-shrink-0" style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.07)" }}><Camera className="w-3 h-3 text-[#484f58]" /></div><span className="text-[#8b949e] text-[11px] font-medium group-hover:text-white transition-colors truncate">{item}</span></button>))}</div>
-              </div>
-            ))}
-          </div>
+          <div className="flex-1 overflow-y-auto" style={{ scrollbarWidth: "none" }}>{filteredDeviceLib.map((cat) => (<div key={cat.category} className="p-3" style={{ borderBottom: "1px solid rgba(255,255,255,0.04)" }}><p className="text-[#484f58] text-[10px] font-bold uppercase tracking-widest mb-2 flex items-center gap-1.5"><span className="w-1.5 h-1.5 rounded-full" style={{ background: cat.color, boxShadow: `0 0 6px ${cat.color}` }} />{cat.category}</p><div className="space-y-0.5">{cat.items.map((item) => (<button key={item} className="w-full text-left px-2.5 py-2 rounded-xl hover:bg-white/[0.05] transition-colors flex items-center gap-2.5 group cursor-pointer active:scale-[0.97] transition-transform"><div className="w-6 h-6 rounded-lg flex items-center justify-center flex-shrink-0" style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.07)" }}><Camera className="w-3 h-3 text-[#484f58]" /></div><span className="text-[#8b949e] text-[11px] font-medium group-hover:text-white transition-colors truncate">{item}</span></button>))}</div></div>))}</div>
         </motion.div>
-
-        <div ref={canvasRef} className="absolute inset-0 flex items-center justify-center overflow-hidden" style={{ cursor: activeTool === "move" ? "grab" : activeTool === "select" ? "default" : "crosshair", touchAction: "none" }}
-          onClick={handleCanvasClick} onTouchStart={handleTouchStart} onTouchMove={handleTouchMove} onTouchEnd={() => { touchStartRef.current = null; }}>
+        <div ref={canvasRef} className="absolute inset-0 flex items-center justify-center overflow-hidden" style={{ cursor: activeTool === "move" ? "grab" : activeTool === "select" ? "default" : "crosshair", touchAction: "none" }} onClick={handleCanvasClick} onTouchStart={handleTouchStart} onTouchMove={handleTouchMove} onTouchEnd={() => { touchStartRef.current = null; }}>
           <svg viewBox="0 0 990 610" className="w-full h-full max-w-none" style={{ transform: `scale(${canvasScale}) translate(${canvasOffset.x}px, ${canvasOffset.y}px)`, maxHeight: "calc(100vh - 140px)" }}>
-            <rect width="990" height="610" fill="#070c1a" />
-            <defs><pattern id="cg" width="30" height="30" patternUnits="userSpaceOnUse"><path d="M 30 0 L 0 0 0 30" fill="none" stroke="rgba(255,255,255,0.024)" strokeWidth="0.5" /></pattern><pattern id="cg2" width="150" height="150" patternUnits="userSpaceOnUse"><path d="M 150 0 L 0 0 0 150" fill="none" stroke="rgba(255,255,255,0.05)" strokeWidth="0.5" /></pattern></defs>
+            <rect width="990" height="610" fill="#070c1a" /><defs><pattern id="cg" width="30" height="30" patternUnits="userSpaceOnUse"><path d="M 30 0 L 0 0 0 30" fill="none" stroke="rgba(255,255,255,0.024)" strokeWidth="0.5" /></pattern><pattern id="cg2" width="150" height="150" patternUnits="userSpaceOnUse"><path d="M 150 0 L 0 0 0 150" fill="none" stroke="rgba(255,255,255,0.05)" strokeWidth="0.5" /></pattern></defs>
             <rect width="990" height="610" fill="url(#cg)" /><rect width="990" height="610" fill="url(#cg2)" />
             <rect x="80" y="50" width="830" height="510" fill="rgba(255,255,255,0.015)" stroke="rgba(255,255,255,0.12)" strokeWidth="1.5" rx="2" />
             <rect x="80" y="50" width="220" height="150" fill="rgba(59,130,246,0.04)" stroke="rgba(255,255,255,0.08)" strokeWidth="1" /><text x="190" y="132" textAnchor="middle" fill="rgba(255,255,255,0.18)" fontSize="9" fontFamily="sans-serif">RECEPTION</text>
@@ -1464,10 +503,8 @@ function DesignCanvas({ navigate }: { navigate: (p: Page) => void }) {
             <rect x="80" y="260" width="360" height="300" fill="rgba(16,185,129,0.02)" stroke="rgba(255,255,255,0.08)" strokeWidth="1" /><text x="260" y="418" textAnchor="middle" fill="rgba(255,255,255,0.15)" fontSize="10" fontFamily="sans-serif">DATA HALL B</text>
             <rect x="440" y="450" width="60" height="110" fill="rgba(6,182,212,0.03)" stroke="rgba(255,255,255,0.08)" strokeWidth="1" /><text x="470" y="512" textAnchor="middle" fill="rgba(255,255,255,0.15)" fontSize="7" fontFamily="sans-serif">NOC</text>
             {showFov && devices.filter(d => d.type === "camera").map((cam) => (<path key={`fov-${cam.id}`} d={fovPath(cam.x, cam.y, cam.rot, cam.fov || 80, cam.range || 90)} fill={cam.id === selectedId ? "rgba(59,130,246,0.22)" : "rgba(59,130,246,0.10)"} />))}
-            {devices.map((dev) => {
-              const color = getDeviceColor(dev.type);
-              const isSelected = dev.id === selectedId;
-              if (dev.type === "camera" || dev.type === "ptz") return (<g key={dev.id} onClick={() => setSelectedId(dev.id)} style={{ cursor: "pointer" }}><circle cx={dev.x} cy={dev.y} r={isSelected ? 7 : 5} fill={isSelected ? color : color} stroke={isSelected ? "#fff" : "rgba(255,255,255,0.5)"} strokeWidth={isSelected ? 2 : 1} />{isSelected && <circle cx={dev.x} cy={dev.y} r="12" fill="none" stroke="rgba(59,130,246,0.4)" strokeWidth="1.5" strokeDasharray="3,2" />}</g>);
+            {devices.map((dev) => { const color = getDeviceColor(dev.type); const isSelected = dev.id === selectedId;
+              if (dev.type === "camera") return (<g key={dev.id} onClick={() => setSelectedId(dev.id)} style={{ cursor: "pointer" }}><circle cx={dev.x} cy={dev.y} r={isSelected ? 7 : 5} fill={color} stroke={isSelected ? "#fff" : "rgba(255,255,255,0.5)"} strokeWidth={isSelected ? 2 : 1} />{isSelected && <circle cx={dev.x} cy={dev.y} r="12" fill="none" stroke="rgba(59,130,246,0.4)" strokeWidth="1.5" strokeDasharray="3,2" />}</g>);
               if (dev.type === "door") return (<g key={dev.id} onClick={() => setSelectedId(dev.id)} style={{ cursor: "pointer" }}><rect x={dev.x - 8} y={dev.y - 3} width="16" height="6" fill="rgba(245,158,11,0.2)" stroke={color} strokeWidth={isSelected ? 2 : 1} rx="1" /><line x1={dev.x} y1={dev.y - 3} x2={dev.x} y2={dev.y + 8} stroke={color} strokeWidth="1" /><path d={`M${dev.x - 6},${dev.y + 4} Q${dev.x},${dev.y + 12} ${dev.x + 6},${dev.y + 4}`} fill="none" stroke={color} strokeWidth="1" /></g>);
               if (dev.type === "access") return (<g key={dev.id} onClick={() => setSelectedId(dev.id)} style={{ cursor: "pointer" }}><rect x={dev.x - 5} y={dev.y - 5} width="10" height="10" fill="rgba(16,185,129,0.15)" stroke={color} strokeWidth={isSelected ? 2 : 1.5} rx="1.5" /><text x={dev.x} y={dev.y + 3} textAnchor="middle" fill={color} fontSize="6" fontFamily="monospace">K</text></g>);
               if (dev.type === "panel") return (<g key={dev.id} onClick={() => setSelectedId(dev.id)} style={{ cursor: "pointer" }}><rect x={dev.x - 10} y={dev.y - 7} width="20" height="14" fill="rgba(249,115,22,0.15)" stroke={color} strokeWidth={isSelected ? 2 : 1} rx="1" /><text x={dev.x} y={dev.y + 1} textAnchor="middle" fill={color} fontSize="5" fontFamily="monospace">PNL</text></g>);
@@ -1475,10 +512,9 @@ function DesignCanvas({ navigate }: { navigate: (p: Page) => void }) {
               if (dev.type === "server") return (<g key={dev.id} onClick={() => setSelectedId(dev.id)} style={{ cursor: "pointer" }}><rect x={dev.x - 8} y={dev.y - 8} width="16" height="16" fill="rgba(236,72,153,0.15)" stroke={color} strokeWidth={isSelected ? 2 : 1} rx="1" /><text x={dev.x} y={dev.y + 1} textAnchor="middle" fill={color} fontSize="5" fontFamily="monospace">NVR</text></g>);
               return null;
             })}
-            <g transform="translate(10,580)"><rect x="0" y="0" width="200" height="24" fill="rgba(7,12,26,0.9)" rx="6" stroke="rgba(255,255,255,0.08)" strokeWidth="0.5" /><text x="12" y="16" fill="rgba(255,255,255,0.5)" fontSize="7" fontFamily="sans-serif">{devices.length} devices placed · Scale: {Math.round(canvasScale * 100)}%</text></g>
+            <g transform="translate(10,580)"><rect x="0" y="0" width="200" height="24" fill="rgba(7,12,26,0.9)" rx="6" stroke="rgba(255,255,255,0.08)" strokeWidth="0.5" /><text x="12" y="16" fill="rgba(255,255,255,0.5)" fontSize="7" fontFamily="sans-serif">{devices.length} devices · Scale: {Math.round(canvasScale * 100)}%</text></g>
           </svg>
         </div>
-
         {showProperties && selected && (
           <div className="absolute right-0 top-0 bottom-0 w-72 z-30 flex flex-col" style={G.liquidGlass}>
             <div className="px-4 py-3 flex items-center justify-between" style={{ borderBottom: "1px solid rgba(255,255,255,0.07)" }}><p className="text-white text-[12px] font-bold">Properties</p><button onClick={() => setShowProperties(false)} className="w-6 h-6 rounded-lg hover:bg-white/[0.08] flex items-center justify-center cursor-pointer active:scale-[0.97] transition-transform min-w-[44px] min-h-[44px]"><X className="w-3.5 h-3.5 text-[#8b949e]" /></button></div>
@@ -1489,16 +525,8 @@ function DesignCanvas({ navigate }: { navigate: (p: Page) => void }) {
             </div>
           </div>
         )}
-
         <div className="absolute bottom-5 left-1/2 -translate-x-1/2 z-40 flex items-center gap-1 px-2 md:px-3 py-2 rounded-2xl overflow-x-auto max-w-[95vw]" style={G.liquidGlass}>
-          {CANVAS_TOOLS.map((tool) => (
-            <button key={tool.id} onClick={() => setActiveTool(tool.id)} title={tool.label}
-              className={clsx("w-8 h-8 md:w-9 md:h-9 rounded-xl flex items-center justify-center transition-all duration-150 flex-shrink-0 cursor-pointer active:scale-[0.97] transition-transform min-w-[44px] min-h-[44px] md:min-w-0 md:min-h-0",
-                activeTool === tool.id ? "text-white" : "text-[#8b949e] hover:bg-white/[0.07] hover:text-white")}
-              style={activeTool === tool.id ? { background: "#3b82f6", boxShadow: "0 4px 16px rgba(59,130,246,0.45), inset 0 1px 0 rgba(255,255,255,0.2)" } : undefined}>
-              <tool.icon className="w-3.5 h-3.5 md:w-4 md:h-4" />
-            </button>
-          ))}
+          {CANVAS_TOOLS.map((tool) => (<button key={tool.id} onClick={() => setActiveTool(tool.id)} title={tool.label} className={clsx("w-8 h-8 md:w-9 md:h-9 rounded-xl flex items-center justify-center transition-all duration-150 flex-shrink-0 cursor-pointer active:scale-[0.97] transition-transform min-w-[44px] min-h-[44px] md:min-w-0 md:min-h-0", activeTool === tool.id ? "text-white" : "text-[#8b949e] hover:bg-white/[0.07] hover:text-white")} style={activeTool === tool.id ? { background: "#3b82f6", boxShadow: "0 4px 16px rgba(59,130,246,0.45), inset 0 1px 0 rgba(255,255,255,0.2)" } : undefined}><tool.icon className="w-3.5 h-3.5 md:w-4 md:h-4" /></button>))}
           <div className="w-px h-6 mx-1 flex-shrink-0" style={{ background: "rgba(255,255,255,0.10)" }} />
           <button onClick={() => setShowProperties(!showProperties)} className={clsx("w-8 h-8 md:w-9 md:h-9 rounded-xl flex items-center justify-center transition-all flex-shrink-0 cursor-pointer active:scale-[0.97] transition-transform min-w-[44px] min-h-[44px] md:min-w-0 md:min-h-0", showProperties ? "text-white" : "text-[#484f58] hover:text-white hover:bg-white/[0.05]")} style={showProperties ? { background: "rgba(255,255,255,0.10)", border: "1px solid rgba(255,255,255,0.12)" } : undefined}><ChevronRight className="w-3.5 h-3.5 md:w-4 md:h-4" /></button>
         </div>
@@ -1506,8 +534,6 @@ function DesignCanvas({ navigate }: { navigate: (p: Page) => void }) {
     </div>
   );
 }
-// ─── Workbook ─────────────────────────────────────────────────────────────────
-
 function Workbook({ navigate }: { navigate: (p: Page) => void }) {
   const { fmt } = useCurrency();
   const [projects, setProjects] = useState<Project[]>([]);
@@ -1519,187 +545,48 @@ function Workbook({ navigate }: { navigate: (p: Page) => void }) {
   const [showProjectSelect, setShowProjectSelect] = useState(false);
   const [exchangeRate, setExchangeRate] = useState(JMD_RATE);
 
-  const fetchData = useCallback(async () => {
-    setLoading(true); setError(null);
-    try {
-      const [projData, quoteData] = await Promise.all([API.projects.list(), API.quotes.list()]);
-      setProjects(projData);
-      setQuotes(quoteData);
-      if (projData.length > 0) setSelectedProjectId(projData[0].id);
-      if (quoteData.length > 0) setSelectedQuoteId(quoteData[0].id);
-    } catch (err: any) { setError(err.message || "Failed to load data"); } finally { setLoading(false); }
-  }, []);
-
+  const fetchData = useCallback(async () => { setLoading(true); setError(null); try { const [projData, quoteData] = await Promise.all([API.projects.list(), API.quotes.list()]); setProjects(projData); setQuotes(quoteData); if (projData.length > 0) setSelectedProjectId(projData[0].id); if (quoteData.length > 0) setSelectedQuoteId(quoteData[0].id); } catch (err: any) { setError(err.message || "Failed to load data"); } finally { setLoading(false); } }, []);
   useEffect(() => { fetchData(); }, [fetchData]);
 
   const selectedProject = projects.find((p) => p.id === selectedProjectId);
   const selectedQuote = quotes.find((q) => q.id === selectedQuoteId);
   const quoteCategories = selectedQuote?.categories || [];
 
-  const recalcLineItem = (item: QuoteLineItem): QuoteLineItem => {
-    const sellPrice = item.unitCost * (1 + item.markupPercent);
-    const costTotal = item.unitCost * item.quantity;
-    const sellTotal = sellPrice * item.quantity;
-    const profit = sellTotal - costTotal;
-    const jmdConversion = sellTotal * exchangeRate;
-    return { ...item, sellPrice, costTotal, sellTotal, profit, jmdConversion };
-  };
+  const recalcLineItem = (item: QuoteLineItem): QuoteLineItem => { const sellPrice = item.unitCost * (1 + item.markupPercent); const costTotal = item.unitCost * item.quantity; const sellTotal = sellPrice * item.quantity; const profit = sellTotal - costTotal; const jmdConversion = sellTotal * exchangeRate; return { ...item, sellPrice, costTotal, sellTotal, profit, jmdConversion }; };
 
-  const categorySubtotals = quoteCategories.map((cat) => {
-    const activeItems = cat.lineItems.filter((li) => li.quantity > 0);
-    const subtotal = activeItems.reduce((s, li) => s + li.sellTotal, 0);
-    return { category: cat, subtotal };
-  });
-
+  const categorySubtotals = quoteCategories.map((cat) => { const activeItems = cat.lineItems.filter((li) => li.quantity > 0); const subtotal = activeItems.reduce((s, li) => s + li.sellTotal, 0); return { category: cat, subtotal }; });
   const grandTotalPreTax = categorySubtotals.reduce((s, cs) => s + cs.subtotal, 0);
   const gctAmount = grandTotalPreTax * GCT_RATE;
   const grandTotal = grandTotalPreTax + gctAmount;
 
-  const updateQuoteLineItem = (categoryId: string, itemId: string, updates: Partial<QuoteLineItem>) => {
-    setQuotes((prev) => prev.map((q) => {
-      if (q.id !== selectedQuoteId) return q;
-      return {
-        ...q,
-        categories: q.categories.map((cat) => {
-          if (cat.id !== categoryId) return cat;
-          return { ...cat, lineItems: cat.lineItems.map((li) => li.id === itemId ? recalcLineItem({ ...li, ...updates }) : li) };
-        }),
-      };
-    }));
-  };
+  const updateQuoteLineItem = (categoryId: string, itemId: string, updates: Partial<QuoteLineItem>) => { setQuotes((prev) => prev.map((q) => { if (q.id !== selectedQuoteId) return q; return { ...q, categories: q.categories.map((cat) => { if (cat.id !== categoryId) return cat; return { ...cat, lineItems: cat.lineItems.map((li) => li.id === itemId ? recalcLineItem({ ...li, ...updates }) : li) }; }) }; })); };
 
-  const handleCreateQuote = async () => {
-    if (!selectedProject) return;
-    const newQuote: Quote = {
-      id: crypto.randomUUID?.() || `q${Date.now()}`,
-      clientName: selectedProject.client,
-      refNumber: `Q-${new Date().getFullYear()}-${String(quotes.length + 1).padStart(3, "0")}`,
-      date: new Date().toISOString().slice(0, 10),
-      status: "draft",
-      quoteType: "Both",
-      categories: [
-        { id: crypto.randomUUID?.() || `cat1`, name: "Video Security Equipment", type: "Video Surveillance", lineItems: [] },
-        { id: crypto.randomUUID?.() || `cat2`, name: "Access Control Equipment", type: "Access Control", lineItems: [] },
-        { id: crypto.randomUUID?.() || `cat3`, name: "Professional Services", type: "Both", lineItems: [] },
-      ],
-      exchangeRate,
-    };
-    setQuotes((prev) => [...prev, newQuote]);
-    setSelectedQuoteId(newQuote.id);
-    try { await API.quotes.create(newQuote); toast.success("Quote created"); } catch { toast.error("Failed to save quote"); }
-  };
+  const handleCreateQuote = async () => { if (!selectedProject) return; const newQuote: Quote = { id: crypto.randomUUID?.() || `q${Date.now()}`, clientName: selectedProject.client, refNumber: `Q-${new Date().getFullYear()}-${String(quotes.length + 1).padStart(3, "0")}`, date: new Date().toISOString().slice(0, 10), status: "draft", quoteType: "Both", categories: [{ id: crypto.randomUUID?.() || `cat1`, name: "Video Security Equipment", type: "Video Surveillance", lineItems: [] },{ id: crypto.randomUUID?.() || `cat2`, name: "Access Control Equipment", type: "Access Control", lineItems: [] },{ id: crypto.randomUUID?.() || `cat3`, name: "Professional Services", type: "Both", lineItems: [] }], exchangeRate }; setQuotes((prev) => [...prev, newQuote]); setSelectedQuoteId(newQuote.id); try { await API.quotes.create(newQuote); toast.success("Quote created"); } catch { toast.error("Failed to save quote"); } };
 
-  const handleExportPDF = () => {
-    downloadPDF(`Quote_${selectedQuote?.refNumber || "draft"}.pdf`);
-  };
-
-  if (loading) return (
-    <div className="px-3 md:px-5 py-4 md:py-6 space-y-4">
-      <Skeleton className="h-10 w-48" />
-      <Skeleton className="h-64 rounded-2xl" />
-    </div>
-  );
-
+  if (loading) return <div className="px-3 md:px-5 py-4 md:py-6 space-y-4"><Skeleton className="h-10 w-48" /><Skeleton className="h-64 rounded-2xl" /></div>;
   if (error) return <ErrorState message={error} onRetry={fetchData} />;
 
   return (
     <div className="flex flex-col h-[calc(100vh-56px)] overflow-hidden">
-      {showProjectSelect && (
-        <SelectProjectModal onClose={() => setShowProjectSelect(false)} onSelect={(id) => setSelectedProjectId(id)} currentId={selectedProjectId} projects={projects} />
-      )}
-
+      {showProjectSelect && <SelectProjectModal onClose={() => setShowProjectSelect(false)} onSelect={(id) => setSelectedProjectId(id)} currentId={selectedProjectId} projects={projects} />}
       <div className="px-4 md:px-6 py-4 md:py-5 flex flex-col md:flex-row md:items-center justify-between flex-shrink-0 gap-3" style={{ borderBottom: "1px solid rgba(255,255,255,0.07)" }}>
-        <div>
-          <h1 className="text-white font-bold text-lg md:text-xl tracking-tight">Workbook</h1>
-          <div className="flex items-center gap-2 mt-2 flex-wrap">
-            <button onClick={() => setShowProjectSelect(true)} className="flex items-center gap-1.5 text-[#8b949e] hover:text-white text-[11px] md:text-[12px] font-semibold transition-colors cursor-pointer active:scale-[0.97] transition-transform" style={{ ...G.btn, padding: "4px 10px", borderRadius: "8px" }}>
-              <Building2 className="w-3 h-3" />{selectedProject ? selectedProject.name : "Select project"}<ChevronDown className="w-3 h-3" />
-            </button>
-            {selectedQuote && <span className="text-[10px] md:text-[11px] font-bold px-2 py-0.5 rounded-full bg-amber-500/12 text-amber-400">{selectedQuote.refNumber} · {selectedQuote.status}</span>}
-          </div>
-        </div>
-        <div className="flex items-center gap-2 flex-wrap">
-          <div className="flex items-center gap-2 px-3 py-1 rounded-xl" style={G.subtle}>
-            <span className="text-[#484f58] text-[10px] font-bold uppercase tracking-widest">USD→JMD</span>
-            <input type="number" value={exchangeRate} onChange={(e) => setExchangeRate(parseFloat(e.target.value) || JMD_RATE)} className="w-20 h-7 rounded-lg bg-transparent text-white text-[12px] font-bold text-center focus:outline-none" style={G.input} />
-          </div>
-          <button onClick={handleCreateQuote} className="flex items-center gap-1.5 h-8 px-3 md:px-4 rounded-xl text-white text-[11px] md:text-[12px] font-bold cursor-pointer active:scale-[0.97] transition-transform min-h-[44px]" style={{ background: "#3b82f6", boxShadow: "0 4px 16px rgba(59,130,246,0.35)" }}><Plus className="w-3.5 h-3.5" /> New Quote</button>
-          {selectedQuote && (
-            <>
-              <button onClick={handleExportPDF} className="flex items-center gap-1.5 h-8 px-3 rounded-xl text-[#8b949e] text-[10px] md:text-[11px] font-semibold hover:text-white transition-all cursor-pointer active:scale-[0.97] transition-transform" style={G.btn}><FileText className="w-3.5 h-3.5" /> Export PDF</button>
-            </>
-          )}
-        </div>
+        <div><h1 className="text-white font-bold text-lg md:text-xl tracking-tight">Workbook</h1><div className="flex items-center gap-2 mt-2 flex-wrap"><button onClick={() => setShowProjectSelect(true)} className="flex items-center gap-1.5 text-[#8b949e] hover:text-white text-[11px] md:text-[12px] font-semibold transition-colors cursor-pointer active:scale-[0.97] transition-transform" style={{ ...G.btn, padding: "4px 10px", borderRadius: "8px" }}><Building2 className="w-3 h-3" />{selectedProject ? selectedProject.name : "Select project"}<ChevronDown className="w-3 h-3" /></button>{selectedQuote && <span className="text-[10px] md:text-[11px] font-bold px-2 py-0.5 rounded-full bg-amber-500/12 text-amber-400">{selectedQuote.refNumber} · {selectedQuote.status}</span>}</div></div>
+        <div className="flex items-center gap-2 flex-wrap"><div className="flex items-center gap-2 px-3 py-1 rounded-xl" style={G.subtle}><span className="text-[#484f58] text-[10px] font-bold uppercase tracking-widest">USD→JMD</span><input type="number" value={exchangeRate} onChange={(e) => setExchangeRate(parseFloat(e.target.value) || JMD_RATE)} className="w-20 h-7 rounded-lg bg-transparent text-white text-[12px] font-bold text-center focus:outline-none" style={G.input} /></div><button onClick={handleCreateQuote} className="flex items-center gap-1.5 h-8 px-3 md:px-4 rounded-xl text-white text-[11px] md:text-[12px] font-bold cursor-pointer active:scale-[0.97] transition-transform min-h-[44px]" style={{ background: "#3b82f6", boxShadow: "0 4px 16px rgba(59,130,246,0.35)" }}><Plus className="w-3.5 h-3.5" /> New Quote</button>{selectedQuote && <button onClick={() => downloadPDF(`Quote_${selectedQuote.refNumber || "draft"}.pdf`)} className="flex items-center gap-1.5 h-8 px-3 rounded-xl text-[#8b949e] text-[10px] md:text-[11px] font-semibold hover:text-white transition-all cursor-pointer active:scale-[0.97] transition-transform" style={G.btn}><FileText className="w-3.5 h-3.5" /> Export PDF</button>}</div>
       </div>
-
-      {!selectedQuote ? (
-        <div className="flex-1 flex items-center justify-center">
-          <EmptyState icon={DollarSign} title="No quote selected" description="Create a new quote or select an existing one to get started." action={{ label: "Create Quote", onClick: handleCreateQuote }} />
-        </div>
-      ) : (
+      {!selectedQuote ? <div className="flex-1 flex items-center justify-center"><EmptyState icon={DollarSign} title="No quote selected" description="Create a new quote or select an existing one to get started." action={{ label: "Create Quote", onClick: handleCreateQuote }} /></div> : (
         <div className="flex-1 overflow-y-auto px-3 md:px-5 py-4 md:py-5 space-y-4 md:space-y-6" style={{ scrollbarWidth: "thin", scrollbarColor: "rgba(255,255,255,0.08) transparent" }}>
-          {quoteCategories.length === 0 ? (
-            <EmptyState icon={Package} title="No categories" description="Add categories to your quote to start building line items." />
-          ) : (
-            quoteCategories.map((category) => {
-              const activeItems = category.lineItems.filter((li) => li.quantity > 0);
-              const catSubtotal = activeItems.reduce((s, li) => s + li.sellTotal, 0);
-              return (
-                <div key={category.id} className="rounded-2xl overflow-hidden" style={G.card}>
-                  <div className="px-4 md:px-5 py-3 flex items-center justify-between" style={{ borderBottom: "1px solid rgba(255,255,255,0.06)", background: "rgba(255,255,255,0.02)" }}>
-                    <div className="flex items-center gap-2">
-                      <div className="w-2 h-2 rounded-full" style={{ background: category.type === "Video Surveillance" ? "#3b82f6" : category.type === "Access Control" ? "#10b981" : "#8b5cf6", boxShadow: `0 0 8px ${category.type === "Video Surveillance" ? "#3b82f6" : category.type === "Access Control" ? "#10b981" : "#8b5cf6"}88` }} />
-                      <h3 className="text-white text-[13px] md:text-[14px] font-bold">{category.name}</h3>
-                      <span className="text-[#484f58] text-[10px] font-semibold">({activeItems.length} items)</span>
-                    </div>
-                    <div className="flex items-center gap-3">
-                      <span className="text-[#8b949e] text-[11px] md:text-[12px] font-bold">Subtotal: <span className="text-white">{fmt(catSubtotal)}</span></span>
-                      <button className="flex items-center gap-1 h-7 px-2.5 rounded-lg text-[#484f58] hover:text-white text-[11px] font-semibold transition-colors cursor-pointer active:scale-[0.97] transition-transform" style={G.btn}><Plus className="w-3 h-3" /> Add Item</button>
-                    </div>
-                  </div>
-                  {category.lineItems.length === 0 ? (
-                    <div className="px-4 py-8 text-center"><p className="text-[#484f58] text-[12px]">No line items yet. Click "Add Item" to begin.</p></div>
-                  ) : (
-                    <div className="overflow-x-auto">
-                      <table className="w-full" style={{ minWidth: "800px" }}>
-                        <thead><tr style={{ borderBottom: "1px solid rgba(255,255,255,0.06)" }}>{["#","Description","Unit Cost","Qty","Markup %","Sell Price","Cost Total","Sell Total","Profit","JMD"].map((h) => (<th key={h} className="px-3 md:px-4 py-2.5 text-[#484f58] text-[9px] md:text-[10px] font-bold uppercase tracking-widest text-left">{h}</th>))}</tr></thead>
-                        <tbody>
-                          {category.lineItems.map((item, idx) => {
-                            const recalc = recalcLineItem(item);
-                            return (
-                              <tr key={item.id} className="hover:bg-white/[0.02] transition-colors" style={{ borderBottom: "1px solid rgba(255,255,255,0.03)" }}>
-                                <td className="px-3 md:px-4 py-2.5 text-[#484f58] text-[10px] md:text-[11px] font-mono">{String(idx + 1).padStart(2, "0")}</td>
-                                <td className="px-3 md:px-4 py-2.5"><input value={item.description} onChange={(e) => updateQuoteLineItem(category.id, item.id, { description: e.target.value })} className="bg-transparent text-white text-[11px] md:text-[12px] font-semibold w-full min-w-[120px] focus:outline-none" /></td>
-                                <td className="px-3 md:px-4 py-2.5"><input type="number" value={item.unitCost} onChange={(e) => updateQuoteLineItem(category.id, item.id, { unitCost: parseFloat(e.target.value) || 0 })} className="bg-transparent text-white text-[11px] md:text-[12px] w-20 text-right focus:outline-none" style={G.input} /></td>
-                                <td className="px-3 md:px-4 py-2.5"><input type="number" value={item.quantity} onChange={(e) => updateQuoteLineItem(category.id, item.id, { quantity: parseInt(e.target.value) || 0 })} className="bg-transparent text-white text-[11px] md:text-[12px] w-16 text-center focus:outline-none" style={G.input} /></td>
-                                <td className="px-3 md:px-4 py-2.5"><input type="number" value={Math.round(item.markupPercent * 100)} onChange={(e) => updateQuoteLineItem(category.id, item.id, { markupPercent: (parseFloat(e.target.value) || 0) / 100 })} className="bg-transparent text-white text-[11px] md:text-[12px] w-16 text-center focus:outline-none" style={G.input} /><span className="text-[#484f58] text-[10px]">%</span></td>
-                                <td className="px-3 md:px-4 py-2.5 text-white text-[11px] md:text-[12px] font-bold tabular-nums text-right">{fmt(recalc.sellPrice)}</td>
-                                <td className="px-3 md:px-4 py-2.5 text-[#8b949e] text-[11px] md:text-[12px] tabular-nums text-right">{fmt(recalc.costTotal)}</td>
-                                <td className="px-3 md:px-4 py-2.5 text-white text-[11px] md:text-[12px] font-bold tabular-nums text-right">{fmt(recalc.sellTotal)}</td>
-                                <td className="px-3 md:px-4 py-2.5 text-[10px] md:text-[11px] font-bold tabular-nums text-right" style={{ color: recalc.profit >= 0 ? "#34d399" : "#f87171" }}>{fmt(recalc.profit)}</td>
-                                <td className="px-3 md:px-4 py-2.5 text-[#8b949e] text-[10px] md:text-[11px] tabular-nums text-right">J${recalc.jmdConversion.toLocaleString("en-US", { minimumFractionDigits: 0, maximumFractionDigits: 0 })}</td>
-                              </tr>
-                            );
-                          })}
-                        </tbody>
-                      </table>
-                    </div>
-                  )}
-                </div>
-              );
-            })
-          )}
-
+          {quoteCategories.length === 0 ? <EmptyState icon={Package} title="No categories" description="Add categories to your quote to start building line items." /> : quoteCategories.map((category) => { const activeItems = category.lineItems.filter((li) => li.quantity > 0); const catSubtotal = activeItems.reduce((s, li) => s + li.sellTotal, 0); return (
+            <div key={category.id} className="rounded-2xl overflow-hidden" style={G.card}>
+              <div className="px-4 md:px-5 py-3 flex items-center justify-between" style={{ borderBottom: "1px solid rgba(255,255,255,0.06)", background: "rgba(255,255,255,0.02)" }}><div className="flex items-center gap-2"><div className="w-2 h-2 rounded-full" style={{ background: category.type === "Video Surveillance" ? "#3b82f6" : category.type === "Access Control" ? "#10b981" : "#8b5cf6" }} /><h3 className="text-white text-[13px] md:text-[14px] font-bold">{category.name}</h3><span className="text-[#484f58] text-[10px] font-semibold">({activeItems.length} items)</span></div><div className="flex items-center gap-3"><span className="text-[#8b949e] text-[11px] md:text-[12px] font-bold">Subtotal: <span className="text-white">{fmt(catSubtotal)}</span></span><button className="flex items-center gap-1 h-7 px-2.5 rounded-lg text-[#484f58] hover:text-white text-[11px] font-semibold transition-colors cursor-pointer active:scale-[0.97] transition-transform" style={G.btn}><Plus className="w-3 h-3" /> Add Item</button></div></div>
+              {category.lineItems.length === 0 ? <div className="px-4 py-8 text-center"><p className="text-[#484f58] text-[12px]">No line items yet.</p></div> : (
+                <div className="overflow-x-auto"><table className="w-full" style={{ minWidth: "800px" }}><thead><tr style={{ borderBottom: "1px solid rgba(255,255,255,0.06)" }}>{["#","Description","Unit Cost","Qty","Markup %","Sell Price","Cost Total","Sell Total","Profit","JMD"].map((h) => (<th key={h} className="px-3 md:px-4 py-2.5 text-[#484f58] text-[9px] md:text-[10px] font-bold uppercase tracking-widest text-left">{h}</th>))}</tr></thead><tbody>{category.lineItems.map((item, idx) => { const recalc = recalcLineItem(item); return (<tr key={item.id} className="hover:bg-white/[0.02] transition-colors" style={{ borderBottom: "1px solid rgba(255,255,255,0.03)" }}><td className="px-3 md:px-4 py-2.5 text-[#484f58] text-[10px] md:text-[11px] font-mono">{String(idx + 1).padStart(2, "0")}</td><td className="px-3 md:px-4 py-2.5"><input value={item.description} onChange={(e) => updateQuoteLineItem(category.id, item.id, { description: e.target.value })} className="bg-transparent text-white text-[11px] md:text-[12px] font-semibold w-full min-w-[120px] focus:outline-none" /></td><td className="px-3 md:px-4 py-2.5"><input type="number" value={item.unitCost} onChange={(e) => updateQuoteLineItem(category.id, item.id, { unitCost: parseFloat(e.target.value) || 0 })} className="bg-transparent text-white text-[11px] md:text-[12px] w-20 text-right focus:outline-none" style={G.input} /></td><td className="px-3 md:px-4 py-2.5"><input type="number" value={item.quantity} onChange={(e) => updateQuoteLineItem(category.id, item.id, { quantity: parseInt(e.target.value) || 0 })} className="bg-transparent text-white text-[11px] md:text-[12px] w-16 text-center focus:outline-none" style={G.input} /></td><td className="px-3 md:px-4 py-2.5"><input type="number" value={Math.round(item.markupPercent * 100)} onChange={(e) => updateQuoteLineItem(category.id, item.id, { markupPercent: (parseFloat(e.target.value) || 0) / 100 })} className="bg-transparent text-white text-[11px] md:text-[12px] w-16 text-center focus:outline-none" style={G.input} /><span className="text-[#484f58] text-[10px]">%</span></td><td className="px-3 md:px-4 py-2.5 text-white text-[11px] md:text-[12px] font-bold tabular-nums text-right">{fmt(recalc.sellPrice)}</td><td className="px-3 md:px-4 py-2.5 text-[#8b949e] text-[11px] md:text-[12px] tabular-nums text-right">{fmt(recalc.costTotal)}</td><td className="px-3 md:px-4 py-2.5 text-white text-[11px] md:text-[12px] font-bold tabular-nums text-right">{fmt(recalc.sellTotal)}</td><td className="px-3 md:px-4 py-2.5 text-[10px] md:text-[11px] font-bold tabular-nums text-right" style={{ color: recalc.profit >= 0 ? "#34d399" : "#f87171" }}>{fmt(recalc.profit)}</td><td className="px-3 md:px-4 py-2.5 text-[#8b949e] text-[10px] md:text-[11px] tabular-nums text-right">J${recalc.jmdConversion.toLocaleString("en-US", { minimumFractionDigits: 0, maximumFractionDigits: 0 })}</td></tr>); })}</tbody></table></div>
+              )}
+            </div>
+          ); })}
           {selectedQuote && quoteCategories.length > 0 && (
             <div className="rounded-2xl p-4 md:p-5" style={{ ...G.card, background: "rgba(59,130,246,0.06)", border: "1px solid rgba(59,130,246,0.20)" }}>
               <h3 className="text-white text-[14px] md:text-[15px] font-bold mb-4">Synthesis</h3>
-              <div className="space-y-2">
-                {categorySubtotals.map((cs) => (
-                  <div key={cs.category.id} className="flex items-center justify-between py-1.5" style={{ borderBottom: "1px solid rgba(255,255,255,0.04)" }}>
-                    <div className="flex items-center gap-2"><div className="w-2 h-2 rounded-full" style={{ background: cs.category.type === "Video Surveillance" ? "#3b82f6" : cs.category.type === "Access Control" ? "#10b981" : "#8b5cf6" }} /><span className="text-[#8b949e] text-[12px] md:text-[13px] font-semibold">{cs.category.name}</span></div>
-                    <span className="text-white text-[13px] md:text-[14px] font-bold tabular-nums">{fmt(cs.subtotal)}</span>
-                  </div>
-                ))}
+              <div className="space-y-2">{categorySubtotals.map((cs) => (<div key={cs.category.id} className="flex items-center justify-between py-1.5" style={{ borderBottom: "1px solid rgba(255,255,255,0.04)" }}><div className="flex items-center gap-2"><div className="w-2 h-2 rounded-full" style={{ background: cs.category.type === "Video Surveillance" ? "#3b82f6" : cs.category.type === "Access Control" ? "#10b981" : "#8b5cf6" }} /><span className="text-[#8b949e] text-[12px] md:text-[13px] font-semibold">{cs.category.name}</span></div><span className="text-white text-[13px] md:text-[14px] font-bold tabular-nums">{fmt(cs.subtotal)}</span></div>))}
                 <div className="flex items-center justify-between py-2"><span className="text-[#8b949e] text-[12px] md:text-[13px] font-semibold">Subtotal (Pre-Tax)</span><span className="text-white text-[14px] md:text-[15px] font-bold tabular-nums">{fmt(grandTotalPreTax)}</span></div>
                 <div className="flex items-center justify-between py-2"><span className="text-[#8b949e] text-[12px] md:text-[13px] font-semibold">GCT (15%)</span><span className="text-[#8b949e] text-[13px] md:text-[14px] font-bold tabular-nums">{fmt(gctAmount)}</span></div>
                 <div className="flex items-center justify-between py-2 pt-3" style={{ borderTop: "2px solid rgba(255,255,255,0.12)" }}><span className="text-white text-[14px] md:text-[15px] font-bold">Grand Total</span><span className="text-white text-[1.1rem] md:text-[1.3rem] font-extrabold tabular-nums" style={{ color: "#60a5fa" }}>{fmt(grandTotal)}</span></div>
@@ -1712,251 +599,65 @@ function Workbook({ navigate }: { navigate: (p: Page) => void }) {
     </div>
   );
 }
-// ─── Device Store ─────────────────────────────────────────────────────────────
 
 const CATALOG_DEVICES: CatalogDevice[] = [];
-
-const CAT_COLOR: Record<string, { bg: string; text: string; label: string }> = {
-  camera: { bg: "rgba(59,130,246,0.12)", text: "#60a5fa", label: "Camera" },
-  "access-control": { bg: "rgba(139,92,246,0.12)", text: "#a78bfa", label: "Access" },
-  nvr: { bg: "rgba(16,185,129,0.12)", text: "#34d399", label: "NVR" },
-  analytics: { bg: "rgba(249,115,22,0.12)", text: "#fb923c", label: "VMS" },
-  other: { bg: "rgba(100,100,100,0.12)", text: "#8b949e", label: "Other" },
-};
+const CAT_COLOR: Record<string, { bg: string; text: string; label: string }> = { camera: { bg: "rgba(59,130,246,0.12)", text: "#60a5fa", label: "Camera" }, "access-control": { bg: "rgba(139,92,246,0.12)", text: "#a78bfa", label: "Access" }, nvr: { bg: "rgba(16,185,129,0.12)", text: "#34d399", label: "NVR" }, analytics: { bg: "rgba(249,115,22,0.12)", text: "#fb923c", label: "VMS" }, other: { bg: "rgba(100,100,100,0.12)", text: "#8b949e", label: "Other" } };
 
 function DeviceSpecModal({ device, onClose }: { device: CatalogDevice; onClose: () => void }) {
-  const { addToQuote } = useQuote();
-  const { fmt } = useCurrency();
-  const cc = CAT_COLOR[device.category] ?? CAT_COLOR.other;
-  const specs: { label: string; value?: string }[] = [
-    { label: "SKU", value: device.sku },
-    { label: "Category", value: cc.label },
-    { label: "Resolution", value: device.resolution },
-    { label: "Sensor", value: device.sensor },
-    { label: "Lens", value: device.lens },
-    { label: "Frame Rate", value: device.frameRate },
-    { label: "Compression", value: device.compression },
-    { label: "Field of View", value: device.fov },
-    { label: "Night Vision", value: device.nightVision },
-    { label: "Weather Rating", value: device.weatherRating },
-    { label: "Power Input", value: device.powerInput },
-    { label: "Storage", value: device.storage },
-    { label: "Max Cameras", value: device.channels },
-    { label: "Max Readers", value: device.readers },
-    { label: "Authentication", value: device.authentication },
-    { label: "Operating Temp", value: device.operatingTemp },
-  ].filter((s) => !!s.value);
-
+  const { addToQuote } = useQuote(); const { fmt } = useCurrency(); const cc = CAT_COLOR[device.category] ?? CAT_COLOR.other;
+  const specs: { label: string; value?: string }[] = [{ label: "SKU", value: device.sku },{ label: "Category", value: cc.label },{ label: "Resolution", value: device.resolution },{ label: "Sensor", value: device.sensor },{ label: "Lens", value: device.lens },{ label: "Frame Rate", value: device.frameRate },{ label: "Compression", value: device.compression },{ label: "Field of View", value: device.fov },{ label: "Night Vision", value: device.nightVision },{ label: "Weather Rating", value: device.weatherRating },{ label: "Power Input", value: device.powerInput },{ label: "Storage", value: device.storage },{ label: "Max Cameras", value: device.channels },{ label: "Max Readers", value: device.readers },{ label: "Authentication", value: device.authentication },{ label: "Operating Temp", value: device.operatingTemp }].filter((s) => !!s.value);
   return (
-    <div className="fixed inset-0 z-[300] flex items-center justify-center p-4" onClick={onClose}>
-      <div className="absolute inset-0" style={{ background: "rgba(0,0,0,0.7)", backdropFilter: "blur(10px)" }} />
-      <motion.div initial={{ opacity: 0, scale: 0.93, y: 18 }} animate={{ opacity: 1, scale: 1, y: 0 }} transition={{ type: "spring", damping: 26, stiffness: 340 }}
-        onClick={(e) => e.stopPropagation()}
-        className="relative z-10 w-full max-w-[780px] max-h-[90vh] overflow-y-auto rounded-3xl flex flex-col md:flex-row"
-        style={{ background: "rgba(7,12,26,0.95)", backdropFilter: "blur(52px) saturate(200%)", border: "1px solid rgba(255,255,255,0.13)", boxShadow: "0 40px 100px rgba(0,0,0,0.95), inset 0 1px 0 rgba(255,255,255,0.12)" }}>
-        <div className="absolute inset-x-0 top-0 h-[2px] rounded-t-3xl" style={{ background: `linear-gradient(90deg, ${cc.text}cc, ${cc.text}22)` }} />
-        <div className="w-full md:w-56 flex-shrink-0 relative flex items-center justify-center" style={{ background: "rgba(255,255,255,0.03)", minHeight: "250px" }}>
-          {device.imageUrl ? (
-            <img src={device.imageUrl} alt={device.model} className="w-full h-full object-contain p-4" style={{ maxHeight: "320px" }} />
-          ) : (
-            <div className="w-full h-full flex items-center justify-center" style={{ minHeight: "250px" }}><Camera className="w-16 h-16 text-[#484f58]" /></div>
-          )}
-          <div className="absolute bottom-4 left-4 flex flex-wrap gap-1.5">
-            <span className="inline-block px-2 py-0.5 rounded-lg text-[10px] font-bold uppercase tracking-wider" style={{ background: cc.bg, color: cc.text }}>{cc.label}</span>
-            {device.tags?.map((tag) => {
-              const ts = TAG_STYLES[tag];
-              return ts ? (<span key={tag} className="inline-block px-2 py-0.5 rounded-lg text-[9px] font-bold uppercase tracking-wider" style={{ background: ts.bg, color: ts.text, border: `1px solid ${ts.border}` }}>{tag}</span>) : null;
-            })}
-          </div>
-        </div>
-        <div className="flex-1 flex flex-col overflow-hidden">
-          <div className="px-5 md:px-6 pt-5 md:pt-6 pb-4 flex items-start justify-between flex-shrink-0" style={{ borderBottom: "1px solid rgba(255,255,255,0.07)" }}>
-            <div>
-              <p className="text-[#8b949e] text-[11px] md:text-[12px] font-semibold">{device.manufacturer}</p>
-              <h2 className="text-white text-[1.1rem] md:text-[1.25rem] font-bold tracking-tight mt-0.5">{device.model}</h2>
-              {device.price && (<p className="text-[0.9rem] md:text-[1rem] font-bold mt-1 tabular-nums" style={{ color: cc.text }}>{fmt(device.price)} <span className="text-[#484f58] text-[10px] md:text-[11px] font-normal">/ unit (excl. GCT)</span></p>)}
-            </div>
-            <button onClick={onClose} className="w-8 h-8 rounded-xl flex items-center justify-center hover:bg-white/[0.08] transition-colors flex-shrink-0 cursor-pointer active:scale-[0.97] transition-transform min-w-[44px] min-h-[44px]" style={{ border: "1px solid rgba(255,255,255,0.10)" }}><X className="w-4 h-4 text-[#8b949e]" /></button>
-          </div>
-          <div className="flex-1 overflow-y-auto px-5 md:px-6 py-4" style={{ scrollbarWidth: "none" }}>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-2 md:gap-3">
-              {specs.map((s) => (<div key={s.label} className="rounded-xl p-3" style={G.subtle}><p className="text-[#484f58] text-[9px] font-bold uppercase tracking-widest mb-1">{s.label}</p><p className="text-white text-[11px] md:text-[12px] font-semibold">{s.value}</p></div>))}
-            </div>
-          </div>
-          <div className="px-5 md:px-6 py-4 flex items-center gap-3 flex-shrink-0" style={{ borderTop: "1px solid rgba(255,255,255,0.07)" }}>
-            <button onClick={() => { addToQuote(device); onClose(); }} className="flex items-center gap-2 h-9 px-4 md:px-5 rounded-xl text-white text-[11px] md:text-[12px] font-bold cursor-pointer active:scale-[0.97] transition-transform min-h-[44px]" style={{ background: "#3b82f6", boxShadow: "0 4px 16px rgba(59,130,246,0.35), inset 0 1px 0 rgba(255,255,255,0.2)" }}><Plus className="w-3.5 h-3.5" /> Add to Quote</button>
-            <button onClick={() => toast.success(`Spec sheet for ${device.model} would open here`)} className="flex items-center gap-2 h-9 px-3 md:px-4 rounded-xl text-[#8b949e] text-[11px] md:text-[12px] font-semibold hover:text-white transition-all cursor-pointer active:scale-[0.97] transition-transform" style={G.btn}><ExternalLink className="w-3.5 h-3.5" /> Spec Sheet</button>
-          </div>
-        </div>
-      </motion.div>
-    </div>
+    <div className="fixed inset-0 z-[300] flex items-center justify-center p-4" onClick={onClose}><div className="absolute inset-0" style={{ background: "rgba(0,0,0,0.7)", backdropFilter: "blur(10px)" }} /><motion.div initial={{ opacity: 0, scale: 0.93, y: 18 }} animate={{ opacity: 1, scale: 1, y: 0 }} transition={{ type: "spring", damping: 26, stiffness: 340 }} onClick={(e) => e.stopPropagation()} className="relative z-10 w-full max-w-[780px] max-h-[90vh] overflow-y-auto rounded-3xl flex flex-col md:flex-row" style={{ background: "rgba(7,12,26,0.95)", backdropFilter: "blur(52px) saturate(200%)", border: "1px solid rgba(255,255,255,0.13)", boxShadow: "0 40px 100px rgba(0,0,0,0.95), inset 0 1px 0 rgba(255,255,255,0.12)" }}>
+      <div className="w-full md:w-56 flex-shrink-0 relative flex items-center justify-center" style={{ background: "rgba(255,255,255,0.03)", minHeight: "250px" }}>{device.imageUrl ? <img src={device.imageUrl} alt={device.model} className="w-full h-full object-contain p-4" style={{ maxHeight: "320px" }} /> : <div className="w-full h-full flex items-center justify-center" style={{ minHeight: "250px" }}><Camera className="w-16 h-16 text-[#484f58]" /></div>}<div className="absolute bottom-4 left-4 flex flex-wrap gap-1.5"><span className="inline-block px-2 py-0.5 rounded-lg text-[10px] font-bold uppercase tracking-wider" style={{ background: cc.bg, color: cc.text }}>{cc.label}</span>{device.tags?.map((tag) => { const ts = TAG_STYLES[tag]; return ts ? <span key={tag} className="inline-block px-2 py-0.5 rounded-lg text-[9px] font-bold uppercase tracking-wider" style={{ background: ts.bg, color: ts.text, border: `1px solid ${ts.border}` }}>{tag}</span> : null; })}</div></div>
+      <div className="flex-1 flex flex-col overflow-hidden"><div className="px-5 md:px-6 pt-5 md:pt-6 pb-4 flex items-start justify-between flex-shrink-0" style={{ borderBottom: "1px solid rgba(255,255,255,0.07)" }}><div><p className="text-[#8b949e] text-[11px] md:text-[12px] font-semibold">{device.manufacturer}</p><h2 className="text-white text-[1.1rem] md:text-[1.25rem] font-bold tracking-tight mt-0.5">{device.model}</h2>{device.price && <p className="text-[0.9rem] md:text-[1rem] font-bold mt-1 tabular-nums" style={{ color: cc.text }}>{fmt(device.price)} <span className="text-[#484f58] text-[10px] md:text-[11px] font-normal">/ unit (excl. GCT)</span></p>}</div><button onClick={onClose} className="w-8 h-8 rounded-xl flex items-center justify-center hover:bg-white/[0.08] transition-colors flex-shrink-0 cursor-pointer active:scale-[0.97] transition-transform min-w-[44px] min-h-[44px]" style={{ border: "1px solid rgba(255,255,255,0.10)" }}><X className="w-4 h-4 text-[#8b949e]" /></button></div><div className="flex-1 overflow-y-auto px-5 md:px-6 py-4" style={{ scrollbarWidth: "none" }}><div className="grid grid-cols-1 md:grid-cols-2 gap-2 md:gap-3">{specs.map((s) => (<div key={s.label} className="rounded-xl p-3" style={G.subtle}><p className="text-[#484f58] text-[9px] font-bold uppercase tracking-widest mb-1">{s.label}</p><p className="text-white text-[11px] md:text-[12px] font-semibold">{s.value}</p></div>))}</div></div><div className="px-5 md:px-6 py-4 flex items-center gap-3 flex-shrink-0" style={{ borderTop: "1px solid rgba(255,255,255,0.07)" }}><button onClick={() => { addToQuote(device); onClose(); }} className="flex items-center gap-2 h-9 px-4 md:px-5 rounded-xl text-white text-[11px] md:text-[12px] font-bold cursor-pointer active:scale-[0.97] transition-transform min-h-[44px]" style={{ background: "#3b82f6", boxShadow: "0 4px 16px rgba(59,130,246,0.35), inset 0 1px 0 rgba(255,255,255,0.2)" }}><Plus className="w-3.5 h-3.5" /> Add to Quote</button><button className="flex items-center gap-2 h-9 px-3 md:px-4 rounded-xl text-[#8b949e] text-[11px] md:text-[12px] font-semibold hover:text-white transition-all cursor-pointer active:scale-[0.97] transition-transform" style={G.btn}><ExternalLink className="w-3.5 h-3.5" /> Spec Sheet</button></div></div>
+    </motion.div></div>
   );
 }
 
 function DeviceStore({ navigate: _navigate }: { navigate: (p: Page) => void }) {
-  const [search, setSearch] = useState("");
-  const [categoryFilter, setCategoryFilter] = useState<string>("all");
-  const [viewMode, setViewMode] = useState<"grid" | "table">("grid");
-  const [selectedDevice, setSelectedDevice] = useState<CatalogDevice | null>(null);
-  const [devices, setDevices] = useState<CatalogDevice[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const { addToQuote } = useQuote();
-  const { fmt } = useCurrency();
+  const [search, setSearch] = useState(""); const [categoryFilter, setCategoryFilter] = useState<string>("all"); const [viewMode, setViewMode] = useState<"grid" | "table">("grid");
+  const [selectedDevice, setSelectedDevice] = useState<CatalogDevice | null>(null); const [devices, setDevices] = useState<CatalogDevice[]>([]);
+  const [loading, setLoading] = useState(true); const [error, setError] = useState<string | null>(null);
+  const { addToQuote } = useQuote(); const { fmt } = useCurrency();
 
-  const fetchDevices = useCallback(async () => {
-    setLoading(true); setError(null);
-    try { const data = await API.devices.list(); setDevices(data); } catch (err: any) { setError(err.message || "Failed to load devices"); } finally { setLoading(false); }
-  }, []);
-
+  const fetchDevices = useCallback(async () => { setLoading(true); setError(null); try { const data = await API.devices.list(); setDevices(data); } catch (err: any) { setError(err.message || "Failed to load devices"); } finally { setLoading(false); } }, []);
   useEffect(() => { fetchDevices(); }, [fetchDevices]);
 
   const manufacturers = Array.from(new Set(devices.map((d) => d.manufacturer))).sort();
-  const categories: { id: string; label: string }[] = [
-    { id: "all", label: "All Devices" },
-    { id: "camera", label: "Cameras" },
-    { id: "access-control", label: "Access Control" },
-    { id: "nvr", label: "NVR / Storage" },
-    { id: "analytics", label: "Analytics / VMS" },
-  ];
+  const categories: { id: string; label: string }[] = [{ id: "all", label: "All Devices" },{ id: "camera", label: "Cameras" },{ id: "access-control", label: "Access Control" },{ id: "nvr", label: "NVR / Storage" },{ id: "analytics", label: "Analytics / VMS" }];
+  const filtered = useMemo(() => { let result = devices; if (categoryFilter !== "all") result = result.filter((d) => d.category === categoryFilter); if (search.trim()) { const q = search.toLowerCase(); result = result.filter((d) => d.model.toLowerCase().includes(q) || d.manufacturer.toLowerCase().includes(q) || (d.sku ?? "").toLowerCase().includes(q) || (d.tags ?? []).some(t => t.toLowerCase().includes(q))); } return result; }, [devices, search, categoryFilter]);
 
-  const filtered = useMemo(() => {
-    let result = devices;
-    if (categoryFilter !== "all") result = result.filter((d) => d.category === categoryFilter);
-    if (search.trim()) { const q = search.toLowerCase(); result = result.filter((d) => d.model.toLowerCase().includes(q) || d.manufacturer.toLowerCase().includes(q) || (d.sku ?? "").toLowerCase().includes(q) || (d.tags ?? []).some(t => t.toLowerCase().includes(q))); }
-    return result;
-  }, [devices, search, categoryFilter]);
-
-  if (loading) return (
-    <div className="px-3 md:px-5 py-4 md:py-6 space-y-4">
-      <Skeleton className="h-10 w-48" />
-      <div className="grid gap-3 md:gap-4" style={{ gridTemplateColumns: "repeat(auto-fill, minmax(200px, 1fr))" }}>{[1,2,3,4,5,6].map(i => <Skeleton key={i} className="h-56 rounded-2xl" />)}</div>
-    </div>
-  );
-
+  if (loading) return <div className="px-3 md:px-5 py-4 md:py-6 space-y-4"><Skeleton className="h-10 w-48" /><div className="grid gap-3 md:gap-4" style={{ gridTemplateColumns: "repeat(auto-fill, minmax(200px, 1fr))" }}>{[1,2,3,4,5,6].map(i => <Skeleton key={i} className="h-56 rounded-2xl" />)}</div></div>;
   if (error) return <ErrorState message={error} onRetry={fetchDevices} />;
 
   return (
     <div className="px-3 md:px-5 py-4 md:py-6">
       {selectedDevice && <DeviceSpecModal device={selectedDevice} onClose={() => setSelectedDevice(null)} />}
-      <div className="flex items-center justify-between mb-4 md:mb-6">
-        <div><h1 className="text-white font-bold text-lg md:text-xl tracking-tight">Device Store</h1><p className="text-[#8b949e] text-[11px] md:text-[13px] mt-0.5">{filtered.length} products{manufacturers.length > 0 ? ` · ${manufacturers.join(" · ")}` : ""}</p></div>
-        <div className="flex items-center gap-2">
-          <div className="flex items-center h-8 rounded-xl overflow-hidden" style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.10)" }}>
-            <button onClick={() => setViewMode("grid")} className="h-full px-2.5 flex items-center justify-center transition-all cursor-pointer active:scale-[0.97] transition-transform" style={viewMode === "grid" ? { background: "#3b82f620", color: "#60a5fa" } : { color: "#484f58" }}><Grid3x3 className="w-3.5 h-3.5" /></button>
-            <button onClick={() => setViewMode("table")} className="h-full px-2.5 flex items-center justify-center transition-all cursor-pointer active:scale-[0.97] transition-transform" style={viewMode === "table" ? { background: "#3b82f620", color: "#60a5fa" } : { color: "#484f58" }}><List className="w-3.5 h-3.5" /></button>
-          </div>
-        </div>
-      </div>
-      <div className="mb-4 md:mb-5 flex items-center gap-2 md:gap-3 flex-wrap">
-        <div className="relative flex-1 min-w-[160px] max-w-sm"><Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[#484f58]" /><input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search model, SKU, tags…" className="h-9 rounded-xl pl-9 w-full text-[12px] text-[#e6edf3] placeholder:text-[#484f58] focus:outline-none focus:ring-1 focus:ring-blue-500/50 transition-all" style={G.input} /></div>
-        <div className="flex gap-1.5 md:gap-2 flex-wrap">
-          {categories.map((c) => (<button key={c.id} onClick={() => setCategoryFilter(c.id)} className="h-8 md:h-9 px-2.5 md:px-3.5 rounded-xl text-[11px] md:text-[12px] font-semibold transition-all cursor-pointer active:scale-[0.97] transition-transform whitespace-nowrap" style={categoryFilter === c.id ? { background: "rgba(59,130,246,0.15)", border: "1px solid rgba(59,130,246,0.35)", color: "#60a5fa" } : { ...G.btn, color: "#8b949e" }}>{c.label}</button>))}
-        </div>
-      </div>
-      {devices.length === 0 ? (
-        <EmptyState icon={Store} title="Device store is empty" description="Devices will appear here once loaded from the catalog. Upload a CSV or connect to the product database." />
-      ) : filtered.length === 0 ? (
-        <EmptyState icon={Search} title="No devices match" description="Try adjusting your search or filters." />
-      ) : viewMode === "grid" ? (
-        <div className="grid gap-3 md:gap-4" style={{ gridTemplateColumns: "repeat(auto-fill, minmax(200px, 1fr))" }}>
-          {filtered.map((device) => {
-            const cc = CAT_COLOR[device.category] ?? CAT_COLOR.other;
-            return (
-              <div key={device.id} onClick={() => setSelectedDevice(device)} className="rounded-2xl overflow-hidden cursor-pointer group transition-all md:hover:-translate-y-1" style={{ ...G.card, boxShadow: "0 4px 24px rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,255,255,0.09)" }}>
-                <div className="relative h-32 md:h-36 overflow-hidden" style={{ background: "rgba(255,255,255,0.03)" }}>
-                  {device.imageUrl ? <img src={device.imageUrl} alt={device.model} className="w-full h-full object-contain p-3 opacity-70 group-hover:opacity-90 group-hover:scale-105 transition-all duration-500" /> : <div className="w-full h-full flex items-center justify-center"><Camera className="w-12 h-12 text-[#484f58]" /></div>}
-                  <div className="absolute top-2.5 left-2.5"><span className="inline-block px-2 py-0.5 rounded-lg text-[9px] font-bold uppercase tracking-wider backdrop-blur-sm" style={{ background: cc.bg, color: cc.text, border: `1px solid ${cc.text}30` }}>{cc.label}</span></div>
-                  <div className="absolute top-2.5 right-2.5"><button onClick={(e) => { e.stopPropagation(); addToQuote(device); }} className="w-7 h-7 rounded-xl flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all hover:scale-110 cursor-pointer active:scale-[0.97] transition-transform" style={{ background: "rgba(59,130,246,0.9)", boxShadow: "0 4px 12px rgba(59,130,246,0.4)" }}><Plus className="w-3.5 h-3.5 text-white" /></button></div>
-                </div>
-                <div className="p-3 md:p-3.5">
-                  <p className="text-[#8b949e] text-[9px] md:text-[10px] font-semibold">{device.manufacturer}</p>
-                  <p className="text-white text-[12px] md:text-[13px] font-bold mt-0.5 truncate">{device.model}</p>
-                  {device.resolution && <p className="text-[#484f58] text-[9px] md:text-[10px] mt-1 truncate">{device.resolution}</p>}
-                  {device.tags && device.tags.length > 0 && (<div className="flex flex-wrap gap-1 mt-2">{device.tags.map((tag) => { const ts = TAG_STYLES[tag]; return ts ? (<span key={tag} className="inline-block px-1.5 py-0.5 rounded-md text-[8px] font-bold uppercase tracking-wider" style={{ background: ts.bg, color: ts.text, border: `1px solid ${ts.border}` }}>{tag}</span>) : null; })}</div>)}
-                  <div className="flex items-center justify-between mt-2 md:mt-3 pt-2 md:pt-2.5" style={{ borderTop: "1px solid rgba(255,255,255,0.06)" }}><span className="text-[#484f58] text-[8px] md:text-[9px] font-mono">{device.sku}</span><span className="font-bold text-[11px] md:text-[12px] tabular-nums" style={{ color: cc.text }}>{device.price ? fmt(device.price) : "—"}</span></div>
-                </div>
-              </div>
-            );
-          })}
-        </div>
+      <div className="flex items-center justify-between mb-4 md:mb-6"><div><h1 className="text-white font-bold text-lg md:text-xl tracking-tight">Device Store</h1><p className="text-[#8b949e] text-[11px] md:text-[13px] mt-0.5">{filtered.length} products</p></div><div className="flex items-center gap-2"><div className="flex items-center h-8 rounded-xl overflow-hidden" style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.10)" }}><button onClick={() => setViewMode("grid")} className="h-full px-2.5 flex items-center justify-center transition-all cursor-pointer active:scale-[0.97] transition-transform" style={viewMode === "grid" ? { background: "#3b82f620", color: "#60a5fa" } : { color: "#484f58" }}><Grid3x3 className="w-3.5 h-3.5" /></button><button onClick={() => setViewMode("table")} className="h-full px-2.5 flex items-center justify-center transition-all cursor-pointer active:scale-[0.97] transition-transform" style={viewMode === "table" ? { background: "#3b82f620", color: "#60a5fa" } : { color: "#484f58" }}><List className="w-3.5 h-3.5" /></button></div></div></div>
+      <div className="mb-4 md:mb-5 flex items-center gap-2 md:gap-3 flex-wrap"><div className="relative flex-1 min-w-[160px] max-w-sm"><Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[#484f58]" /><input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search model, SKU, tags…" className="h-9 rounded-xl pl-9 w-full text-[12px] text-[#e6edf3] placeholder:text-[#484f58] focus:outline-none focus:ring-1 focus:ring-blue-500/50 transition-all" style={G.input} /></div><div className="flex gap-1.5 md:gap-2 flex-wrap">{categories.map((c) => (<button key={c.id} onClick={() => setCategoryFilter(c.id)} className="h-8 md:h-9 px-2.5 md:px-3.5 rounded-xl text-[11px] md:text-[12px] font-semibold transition-all cursor-pointer active:scale-[0.97] transition-transform whitespace-nowrap" style={categoryFilter === c.id ? { background: "rgba(59,130,246,0.15)", border: "1px solid rgba(59,130,246,0.35)", color: "#60a5fa" } : { ...G.btn, color: "#8b949e" }}>{c.label}</button>))}</div></div>
+      {devices.length === 0 ? <EmptyState icon={Store} title="Device store is empty" description="Devices will appear here once loaded from the catalog." /> : filtered.length === 0 ? <EmptyState icon={Search} title="No devices match" description="Try adjusting your search or filters." /> : viewMode === "grid" ? (
+        <div className="grid gap-3 md:gap-4" style={{ gridTemplateColumns: "repeat(auto-fill, minmax(200px, 1fr))" }}>{filtered.map((device) => { const cc = CAT_COLOR[device.category] ?? CAT_COLOR.other; return (<div key={device.id} onClick={() => setSelectedDevice(device)} className="rounded-2xl overflow-hidden cursor-pointer group transition-all md:hover:-translate-y-1" style={{ ...G.card, boxShadow: "0 4px 24px rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,255,255,0.09)" }}><div className="relative h-32 md:h-36 overflow-hidden" style={{ background: "rgba(255,255,255,0.03)" }}>{device.imageUrl ? <img src={device.imageUrl} alt={device.model} className="w-full h-full object-contain p-3 opacity-70 group-hover:opacity-90 group-hover:scale-105 transition-all duration-500" /> : <div className="w-full h-full flex items-center justify-center"><Camera className="w-12 h-12 text-[#484f58]" /></div>}<div className="absolute top-2.5 left-2.5"><span className="inline-block px-2 py-0.5 rounded-lg text-[9px] font-bold uppercase tracking-wider backdrop-blur-sm" style={{ background: cc.bg, color: cc.text, border: `1px solid ${cc.text}30` }}>{cc.label}</span></div><div className="absolute top-2.5 right-2.5"><button onClick={(e) => { e.stopPropagation(); addToQuote(device); }} className="w-7 h-7 rounded-xl flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all hover:scale-110 cursor-pointer active:scale-[0.97] transition-transform" style={{ background: "rgba(59,130,246,0.9)", boxShadow: "0 4px 12px rgba(59,130,246,0.4)" }}><Plus className="w-3.5 h-3.5 text-white" /></button></div></div><div className="p-3 md:p-3.5"><p className="text-[#8b949e] text-[9px] md:text-[10px] font-semibold">{device.manufacturer}</p><p className="text-white text-[12px] md:text-[13px] font-bold mt-0.5 truncate">{device.model}</p>{device.resolution && <p className="text-[#484f58] text-[9px] md:text-[10px] mt-1 truncate">{device.resolution}</p>}{device.tags && device.tags.length > 0 && <div className="flex flex-wrap gap-1 mt-2">{device.tags.map((tag) => { const ts = TAG_STYLES[tag]; return ts ? <span key={tag} className="inline-block px-1.5 py-0.5 rounded-md text-[8px] font-bold uppercase tracking-wider" style={{ background: ts.bg, color: ts.text, border: `1px solid ${ts.border}` }}>{tag}</span> : null; })}</div>}<div className="flex items-center justify-between mt-2 md:mt-3 pt-2 md:pt-2.5" style={{ borderTop: "1px solid rgba(255,255,255,0.06)" }}><span className="text-[#484f58] text-[8px] md:text-[9px] font-mono">{device.sku}</span><span className="font-bold text-[11px] md:text-[12px] tabular-nums" style={{ color: cc.text }}>{device.price ? fmt(device.price) : "—"}</span></div></div></div>); })}</div>
       ) : (
-        <div className="rounded-2xl overflow-hidden" style={G.card}>
-          <div className="overflow-x-auto">
-            <table className="w-full" style={{ minWidth: "900px" }}>
-              <thead><tr style={{ background: "rgba(255,255,255,0.03)", borderBottom: "1px solid rgba(255,255,255,0.08)" }}>{["", "Model", "Manufacturer", "Category", "Resolution", "Tags", "SKU", "Price"].map((h) => (<th key={h} className={`${h === "Price" ? "text-right" : "text-left"} px-3 md:px-4 py-3 text-[#484f58] text-[10px] font-bold uppercase tracking-widest`}>{h}</th>))}</tr></thead>
-              <tbody>
-                {filtered.map((device, i) => {
-                  const cc = CAT_COLOR[device.category] ?? CAT_COLOR.other;
-                  return (
-                    <tr key={device.id} onClick={() => setSelectedDevice(device)} className="cursor-pointer hover:bg-white/[0.02] transition-colors group" style={{ borderBottom: i < filtered.length - 1 ? "1px solid rgba(255,255,255,0.04)" : "none" }}>
-                      <td className="px-3 md:px-4 py-2.5"><div className="w-9 h-9 rounded-xl overflow-hidden flex-shrink-0" style={{ background: "rgba(255,255,255,0.04)" }}>{device.imageUrl ? <img src={device.imageUrl} alt={device.model} className="w-full h-full object-contain p-1 opacity-70 group-hover:opacity-100 transition-opacity" /> : <Camera className="w-4 h-4 text-[#484f58] m-auto mt-2.5" />}</div></td>
-                      <td className="px-3 md:px-4 py-2.5 text-white text-[11px] md:text-[12px] font-semibold">{device.model}</td>
-                      <td className="px-3 md:px-4 py-2.5 text-[#8b949e] text-[10px] md:text-[11px]">{device.manufacturer}</td>
-                      <td className="px-3 md:px-4 py-2.5"><span className="inline-block px-2 py-0.5 rounded-lg text-[9px] md:text-[10px] font-bold uppercase tracking-wider" style={{ background: cc.bg, color: cc.text }}>{cc.label}</span></td>
-                      <td className="px-3 md:px-4 py-2.5 text-[#8b949e] text-[10px] md:text-[11px]">{device.resolution || device.channels || "—"}</td>
-                      <td className="px-3 md:px-4 py-2.5"><div className="flex flex-wrap gap-1">{device.tags?.map((tag) => { const ts = TAG_STYLES[tag]; return ts ? (<span key={tag} className="inline-block px-1.5 py-0.5 rounded-md text-[8px] font-bold uppercase tracking-wider" style={{ background: ts.bg, color: ts.text, border: `1px solid ${ts.border}` }}>{tag}</span>) : null; })}</div></td>
-                      <td className="px-3 md:px-4 py-2.5 text-[#484f58] text-[10px] font-mono">{device.sku}</td>
-                      <td className="px-3 md:px-4 py-2.5 text-right"><span className="text-white text-[11px] md:text-[12px] font-bold tabular-nums">{device.price ? fmt(device.price) : "—"}</span></td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
-        </div>
+        <div className="rounded-2xl overflow-hidden" style={G.card}><div className="overflow-x-auto"><table className="w-full" style={{ minWidth: "900px" }}><thead><tr style={{ background: "rgba(255,255,255,0.03)", borderBottom: "1px solid rgba(255,255,255,0.08)" }}>{["","Model","Manufacturer","Category","Resolution","Tags","SKU","Price"].map((h) => (<th key={h} className={`${h === "Price" ? "text-right" : "text-left"} px-3 md:px-4 py-3 text-[#484f58] text-[10px] font-bold uppercase tracking-widest`}>{h}</th>))}</tr></thead><tbody>{filtered.map((device, i) => { const cc = CAT_COLOR[device.category] ?? CAT_COLOR.other; return (<tr key={device.id} onClick={() => setSelectedDevice(device)} className="cursor-pointer hover:bg-white/[0.02] transition-colors group" style={{ borderBottom: i < filtered.length - 1 ? "1px solid rgba(255,255,255,0.04)" : "none" }}><td className="px-3 md:px-4 py-2.5"><div className="w-9 h-9 rounded-xl overflow-hidden flex-shrink-0" style={{ background: "rgba(255,255,255,0.04)" }}>{device.imageUrl ? <img src={device.imageUrl} alt={device.model} className="w-full h-full object-contain p-1 opacity-70 group-hover:opacity-100 transition-opacity" /> : <Camera className="w-4 h-4 text-[#484f58] m-auto mt-2.5" />}</div></td><td className="px-3 md:px-4 py-2.5 text-white text-[11px] md:text-[12px] font-semibold">{device.model}</td><td className="px-3 md:px-4 py-2.5 text-[#8b949e] text-[10px] md:text-[11px]">{device.manufacturer}</td><td className="px-3 md:px-4 py-2.5"><span className="inline-block px-2 py-0.5 rounded-lg text-[9px] md:text-[10px] font-bold uppercase tracking-wider" style={{ background: cc.bg, color: cc.text }}>{cc.label}</span></td><td className="px-3 md:px-4 py-2.5 text-[#8b949e] text-[10px] md:text-[11px]">{device.resolution || device.channels || "—"}</td><td className="px-3 md:px-4 py-2.5"><div className="flex flex-wrap gap-1">{device.tags?.map((tag) => { const ts = TAG_STYLES[tag]; return ts ? <span key={tag} className="inline-block px-1.5 py-0.5 rounded-md text-[8px] font-bold uppercase tracking-wider" style={{ background: ts.bg, color: ts.text, border: `1px solid ${ts.border}` }}>{tag}</span> : null; })}</div></td><td className="px-3 md:px-4 py-2.5 text-[#484f58] text-[10px] font-mono">{device.sku}</td><td className="px-3 md:px-4 py-2.5 text-right"><span className="text-white text-[11px] md:text-[12px] font-bold tabular-nums">{device.price ? fmt(device.price) : "—"}</span></td></tr>); })}</tbody></table></div></div>
       )}
     </div>
   );
 }
-// ─── Install Tracker ──────────────────────────────────────────────────────────
 
-const STATUS_META: Record<InstallStatus, { label: string; color: string; bg: string; icon: React.ElementType }> = {
-  complete: { label: "Complete", color: "text-emerald-400", bg: "bg-emerald-500/12", icon: CheckCircle2 },
-  "in-progress": { label: "In Progress", color: "text-blue-400", bg: "bg-blue-500/12", icon: Clock },
-  failed: { label: "Failed / Defect", color: "text-rose-400", bg: "bg-rose-500/12", icon: AlertTriangle },
-  pending: { label: "Pending", color: "text-[#484f58]", bg: "bg-white/[0.04]", icon: AlertCircle },
-};
+const STATUS_META: Record<InstallStatus, { label: string; color: string; bg: string; icon: React.ElementType }> = { complete: { label: "Complete", color: "text-emerald-400", bg: "bg-emerald-500/12", icon: CheckCircle2 }, "in-progress": { label: "In Progress", color: "text-blue-400", bg: "bg-blue-500/12", icon: Clock }, failed: { label: "Failed / Defect", color: "text-rose-400", bg: "bg-rose-500/12", icon: AlertTriangle }, pending: { label: "Pending", color: "text-[#484f58]", bg: "bg-white/[0.04]", icon: AlertCircle } };
 
 function InstallTracker({ navigate: _navigate }: { navigate: (p: Page) => void }) {
-  const [zones, setZones] = useState<InstallZone[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [expandedZone, setExpandedZone] = useState<string | null>(null);
-  const [showAddDevice, setShowAddDevice] = useState(false);
-  const [newDeviceName, setNewDeviceName] = useState("");
-  const [newDeviceLocation, setNewDeviceLocation] = useState("");
-  const [newDeviceType, setNewDeviceType] = useState<InstallDevice["type"]>("camera");
-  const [newDeviceZone, setNewDeviceZone] = useState("");
-  const [newDeviceAssignee, setNewDeviceAssignee] = useState("");
+  const [zones, setZones] = useState<InstallZone[]>([]); const [loading, setLoading] = useState(true); const [error, setError] = useState<string | null>(null);
+  const [expandedZone, setExpandedZone] = useState<string | null>(null); const [showAddDevice, setShowAddDevice] = useState(false);
+  const [newDeviceName, setNewDeviceName] = useState(""); const [newDeviceLocation, setNewDeviceLocation] = useState(""); const [newDeviceType, setNewDeviceType] = useState<InstallDevice["type"]>("camera"); const [newDeviceZone, setNewDeviceZone] = useState(""); const [newDeviceAssignee, setNewDeviceAssignee] = useState("");
 
-  const fetchZones = useCallback(async () => {
-    setLoading(true); setError(null);
-    try { const data = await API.install.zones(); setZones(data); if (data.length > 0) setExpandedZone(data[0].id); } catch (err: any) { setError(err.message || "Failed to load install data"); } finally { setLoading(false); }
-  }, []);
-
+  const fetchZones = useCallback(async () => { setLoading(true); setError(null); try { const data = await API.install.zones(); setZones(data); if (data.length > 0) setExpandedZone(data[0].id); } catch (err: any) { setError(err.message || "Failed to load install data"); } finally { setLoading(false); } }, []);
   useEffect(() => { fetchZones(); }, [fetchZones]);
 
-  const handleAddDevice = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!newDeviceName.trim() || !newDeviceZone) return;
-    const device: InstallDevice = { id: crypto.randomUUID?.() || `d${Date.now()}`, name: newDeviceName.trim(), type: newDeviceType, location: newDeviceLocation.trim() || "TBD", status: "pending", assignee: newDeviceAssignee || "Unassigned" };
-    setZones((prev) => prev.map((z) => z.id === newDeviceZone ? { ...z, devices: [...z.devices, device] } : z));
-    setShowAddDevice(false); setNewDeviceName(""); setNewDeviceLocation(""); setExpandedZone(newDeviceZone);
-    toast.success("Device added to install list");
-  };
+  const handleAddDevice = async (e: React.FormEvent) => { e.preventDefault(); if (!newDeviceName.trim() || !newDeviceZone) return; const device: InstallDevice = { id: crypto.randomUUID?.() || `d${Date.now()}`, name: newDeviceName.trim(), type: newDeviceType, location: newDeviceLocation.trim() || "TBD", status: "pending", assignee: newDeviceAssignee || "Unassigned" }; setZones((prev) => prev.map((z) => z.id === newDeviceZone ? { ...z, devices: [...z.devices, device] } : z)); setShowAddDevice(false); setNewDeviceName(""); setNewDeviceLocation(""); setExpandedZone(newDeviceZone); toast.success("Device added"); };
+  const updateStatus = async (zoneId: string, deviceId: string, status: InstallStatus) => { setZones((prev) => prev.map((z) => z.id !== zoneId ? z : { ...z, devices: z.devices.map((d) => d.id !== deviceId ? d : { ...d, status }) })); try { await API.install.updateStatus(zoneId, deviceId, status); } catch { toast.error("Failed to update status"); } };
 
-  const updateStatus = async (zoneId: string, deviceId: string, status: InstallStatus) => {
-    setZones((prev) => prev.map((z) => z.id !== zoneId ? z : { ...z, devices: z.devices.map((d) => d.id !== deviceId ? d : { ...d, status }) }));
-    try { await API.install.updateStatus(zoneId, deviceId, status); } catch { toast.error("Failed to update status"); }
-  };
-
-  const allDevices = zones.flatMap((z) => z.devices);
-  const complete = allDevices.filter((d) => d.status === "complete").length;
-  const inProg = allDevices.filter((d) => d.status === "in-progress").length;
-  const failed = allDevices.filter((d) => d.status === "failed").length;
-  const total = allDevices.length;
-  const pct = total > 0 ? Math.round((complete / total) * 100) : 0;
+  const allDevices = zones.flatMap((z) => z.devices); const complete = allDevices.filter((d) => d.status === "complete").length; const inProg = allDevices.filter((d) => d.status === "in-progress").length; const failed = allDevices.filter((d) => d.status === "failed").length; const total = allDevices.length; const pct = total > 0 ? Math.round((complete / total) * 100) : 0;
   const typeIcons: Record<string, React.ElementType> = { camera: Camera, access: Key, nvr: Cpu, door: DoorOpen, panel: PanelRight, power: Zap, server: Server };
 
   if (loading) return <div className="px-3 md:px-5 py-4 md:py-6 space-y-4"><Skeleton className="h-10 w-48" /><Skeleton className="h-32 rounded-2xl" /><Skeleton className="h-48 rounded-2xl" /></div>;
@@ -1964,206 +665,36 @@ function InstallTracker({ navigate: _navigate }: { navigate: (p: Page) => void }
 
   return (
     <div className="px-3 md:px-5 py-4 md:py-6 max-w-[1100px]">
-      <div className="flex flex-col md:flex-row md:items-center justify-between mb-4 md:mb-6 gap-3">
-        <div><h1 className="text-white font-bold text-lg md:text-xl tracking-tight">Install Tracker</h1><p className="text-[#8b949e] text-[11px] md:text-[13px] mt-0.5">{total} devices across {zones.length} zones</p></div>
-        <div className="flex items-center gap-2">
-          <button onClick={() => { downloadCSV("install-report.csv", [["Zone","Device","Type","Location","Assignee","Status"], ...zones.flatMap((z) => z.devices.map((d) => [z.name, d.name, d.type, d.location, d.assignee, d.status]))]); toast.success("Report exported"); }} className="flex items-center gap-1.5 h-8 px-3 rounded-xl text-[#8b949e] text-[11px] md:text-[12px] font-semibold hover:text-white transition-all cursor-pointer active:scale-[0.97] transition-transform" style={G.btn}><Download className="w-3.5 h-3.5" /> Export</button>
-          <button onClick={() => { setShowAddDevice(true); if (zones.length > 0 && !newDeviceZone) setNewDeviceZone(zones[0].id); }} className="flex items-center gap-1.5 h-8 px-3 md:px-4 rounded-xl text-white text-[11px] md:text-[12px] font-bold cursor-pointer active:scale-[0.97] transition-transform min-h-[44px]" style={{ background: "#3b82f6", boxShadow: "0 4px 16px rgba(59,130,246,0.35), inset 0 1px 0 rgba(255,255,255,0.2)" }}><Plus className="w-3.5 h-3.5" /> Add Device</button>
-        </div>
-      </div>
-
+      <div className="flex flex-col md:flex-row md:items-center justify-between mb-4 md:mb-6 gap-3"><div><h1 className="text-white font-bold text-lg md:text-xl tracking-tight">Install Tracker</h1><p className="text-[#8b949e] text-[11px] md:text-[13px] mt-0.5">{total} devices across {zones.length} zones</p></div><div className="flex items-center gap-2"><button onClick={() => { downloadCSV("install-report.csv", [["Zone","Device","Type","Location","Assignee","Status"],...zones.flatMap((z) => z.devices.map((d) => [z.name,d.name,d.type,d.location,d.assignee,d.status]))]); toast.success("Report exported"); }} className="flex items-center gap-1.5 h-8 px-3 rounded-xl text-[#8b949e] text-[11px] md:text-[12px] font-semibold hover:text-white transition-all cursor-pointer active:scale-[0.97] transition-transform" style={G.btn}><Download className="w-3.5 h-3.5" /> Export</button><button onClick={() => { setShowAddDevice(true); if (zones.length > 0 && !newDeviceZone) setNewDeviceZone(zones[0].id); }} className="flex items-center gap-1.5 h-8 px-3 md:px-4 rounded-xl text-white text-[11px] md:text-[12px] font-bold cursor-pointer active:scale-[0.97] transition-transform min-h-[44px]" style={{ background: "#3b82f6", boxShadow: "0 4px 16px rgba(59,130,246,0.35), inset 0 1px 0 rgba(255,255,255,0.2)" }}><Plus className="w-3.5 h-3.5" /> Add Device</button></div></div>
       {showAddDevice && (
-        <div className="fixed inset-0 z-[200] flex items-center justify-center p-4" onClick={() => setShowAddDevice(false)}>
-          <div className="absolute inset-0" style={{ background: "rgba(0,0,0,0.65)", backdropFilter: "blur(8px)" }} />
-          <motion.div initial={{ opacity: 0, scale: 0.94, y: 14 }} animate={{ opacity: 1, scale: 1, y: 0 }} transition={{ type: "spring", damping: 26, stiffness: 360 }} onClick={(e) => e.stopPropagation()} className="relative z-10 w-full max-w-[440px] max-h-[90vh] overflow-y-auto rounded-3xl" style={{ background: "rgba(7,12,26,0.92)", backdropFilter: "blur(52px)", border: "1px solid rgba(255,255,255,0.13)", boxShadow: "0 32px 80px rgba(0,0,0,0.9)" }}>
-            <div className="flex items-center justify-between px-5 md:px-6 pt-5 md:pt-6 pb-5" style={{ borderBottom: "1px solid rgba(255,255,255,0.07)" }}><div><h2 className="text-white text-[1rem] font-bold">Add Device</h2><p className="text-[#8b949e] text-[11px] md:text-[12px] mt-0.5">Add a new device to the install list</p></div><button onClick={() => setShowAddDevice(false)} className="w-7 h-7 rounded-xl flex items-center justify-center hover:bg-white/[0.08] cursor-pointer active:scale-[0.97] transition-transform min-w-[44px] min-h-[44px]" style={{ border: "1px solid rgba(255,255,255,0.10)" }}><X className="w-4 h-4 text-[#8b949e]" /></button></div>
-            <form onSubmit={handleAddDevice} className="px-5 md:px-6 py-5 space-y-4">
-              <div><label className="block text-[#8b949e] text-[10px] font-bold uppercase tracking-widest mb-1.5">Device Name *</label><input value={newDeviceName} onChange={(e) => setNewDeviceName(e.target.value)} placeholder="e.g. Axis P3245-V Dome Camera" className="w-full h-9 rounded-xl px-3 text-[#e6edf3] text-[12px] placeholder:text-[#484f58] focus:outline-none focus:ring-1 focus:ring-blue-500/50" style={G.input} /></div>
-              <div className="grid grid-cols-2 gap-3">
-                <div><label className="block text-[#8b949e] text-[10px] font-bold uppercase tracking-widest mb-1.5">Type</label><div className="relative"><select value={newDeviceType} onChange={(e) => setNewDeviceType(e.target.value as InstallDevice["type"])} className="w-full h-9 rounded-xl px-3 text-[#e6edf3] text-[12px] focus:outline-none appearance-none cursor-pointer pr-7" style={G.input}>{["camera","access","nvr","door","panel","power","server"].map((t) => (<option key={t} value={t} style={{ background: "#0d1117" }}>{t.charAt(0).toUpperCase() + t.slice(1)}</option>))}</select><ChevronDown className="absolute right-2.5 top-1/2 -translate-y-1/2 w-3 h-3 text-[#484f58] pointer-events-none" /></div></div>
-                <div><label className="block text-[#8b949e] text-[10px] font-bold uppercase tracking-widest mb-1.5">Zone</label><div className="relative"><select value={newDeviceZone} onChange={(e) => setNewDeviceZone(e.target.value)} className="w-full h-9 rounded-xl px-3 text-[#e6edf3] text-[12px] focus:outline-none appearance-none cursor-pointer pr-7" style={G.input}>{zones.map((z) => (<option key={z.id} value={z.id} style={{ background: "#0d1117" }}>{z.name}</option>))}</select><ChevronDown className="absolute right-2.5 top-1/2 -translate-y-1/2 w-3 h-3 text-[#484f58] pointer-events-none" /></div></div>
-              </div>
-              <div><label className="block text-[#8b949e] text-[10px] font-bold uppercase tracking-widest mb-1.5">Install Location</label><input value={newDeviceLocation} onChange={(e) => setNewDeviceLocation(e.target.value)} placeholder="e.g. Ceiling NW Corner" className="w-full h-9 rounded-xl px-3 text-[#e6edf3] text-[12px] placeholder:text-[#484f58] focus:outline-none focus:ring-1 focus:ring-blue-500/50" style={G.input} /></div>
-              <div><label className="block text-[#8b949e] text-[10px] font-bold uppercase tracking-widest mb-1.5">Assigned Technician</label><input value={newDeviceAssignee} onChange={(e) => setNewDeviceAssignee(e.target.value)} placeholder="Technician name" className="w-full h-9 rounded-xl px-3 text-[#e6edf3] text-[12px] placeholder:text-[#484f58] focus:outline-none focus:ring-1 focus:ring-blue-500/50" style={G.input} /></div>
-              <div className="flex gap-3 pt-1"><button type="button" onClick={() => setShowAddDevice(false)} className="flex-1 h-10 rounded-xl text-[#8b949e] text-[13px] font-semibold hover:text-white transition-all cursor-pointer active:scale-[0.97] transition-transform min-h-[44px]" style={G.btn}>Cancel</button><button type="submit" disabled={!newDeviceName.trim() || !newDeviceZone} className="flex-1 h-10 rounded-xl text-white text-[13px] font-bold disabled:opacity-40 cursor-pointer active:scale-[0.97] transition-transform min-h-[44px]" style={{ background: "#3b82f6", boxShadow: "0 4px 20px rgba(59,130,246,0.4), inset 0 1px 0 rgba(255,255,255,0.2)" }}>Add Device</button></div>
-            </form>
-          </motion.div>
-        </div>
+        <div className="fixed inset-0 z-[200] flex items-center justify-center p-4" onClick={() => setShowAddDevice(false)}><div className="absolute inset-0" style={{ background: "rgba(0,0,0,0.65)", backdropFilter: "blur(8px)" }} /><motion.div initial={{ opacity: 0, scale: 0.94, y: 14 }} animate={{ opacity: 1, scale: 1, y: 0 }} transition={{ type: "spring", damping: 26, stiffness: 360 }} onClick={(e) => e.stopPropagation()} className="relative z-10 w-full max-w-[440px] max-h-[90vh] overflow-y-auto rounded-3xl" style={{ background: "rgba(7,12,26,0.92)", backdropFilter: "blur(52px)", border: "1px solid rgba(255,255,255,0.13)", boxShadow: "0 32px 80px rgba(0,0,0,0.9)" }}><div className="flex items-center justify-between px-5 md:px-6 pt-5 md:pt-6 pb-5" style={{ borderBottom: "1px solid rgba(255,255,255,0.07)" }}><div><h2 className="text-white text-[1rem] font-bold">Add Device</h2></div><button onClick={() => setShowAddDevice(false)} className="w-7 h-7 rounded-xl flex items-center justify-center hover:bg-white/[0.08] cursor-pointer active:scale-[0.97] transition-transform min-w-[44px] min-h-[44px]" style={{ border: "1px solid rgba(255,255,255,0.10)" }}><X className="w-4 h-4 text-[#8b949e]" /></button></div><form onSubmit={handleAddDevice} className="px-5 md:px-6 py-5 space-y-4"><div><input value={newDeviceName} onChange={(e) => setNewDeviceName(e.target.value)} placeholder="Device name" className="w-full h-9 rounded-xl px-3 text-[#e6edf3] text-[12px] placeholder:text-[#484f58] focus:outline-none" style={G.input} /></div><div className="grid grid-cols-2 gap-3"><div><select value={newDeviceType} onChange={(e) => setNewDeviceType(e.target.value as InstallDevice["type"])} className="w-full h-9 rounded-xl px-3 text-[#e6edf3] text-[12px] focus:outline-none appearance-none cursor-pointer pr-7" style={G.input}>{["camera","access","nvr","door","panel","power","server"].map((t) => (<option key={t} value={t} style={{ background: "#0d1117" }}>{t.charAt(0).toUpperCase() + t.slice(1)}</option>))}</select></div><div><select value={newDeviceZone} onChange={(e) => setNewDeviceZone(e.target.value)} className="w-full h-9 rounded-xl px-3 text-[#e6edf3] text-[12px] focus:outline-none appearance-none cursor-pointer pr-7" style={G.input}>{zones.map((z) => (<option key={z.id} value={z.id} style={{ background: "#0d1117" }}>{z.name}</option>))}</select></div></div><div><input value={newDeviceLocation} onChange={(e) => setNewDeviceLocation(e.target.value)} placeholder="Location" className="w-full h-9 rounded-xl px-3 text-[#e6edf3] text-[12px] placeholder:text-[#484f58] focus:outline-none" style={G.input} /></div><div><input value={newDeviceAssignee} onChange={(e) => setNewDeviceAssignee(e.target.value)} placeholder="Technician" className="w-full h-9 rounded-xl px-3 text-[#e6edf3] text-[12px] placeholder:text-[#484f58] focus:outline-none" style={G.input} /></div><div className="flex gap-3 pt-1"><button type="button" onClick={() => setShowAddDevice(false)} className="flex-1 h-10 rounded-xl text-[#8b949e] text-[13px] font-semibold hover:text-white transition-all cursor-pointer active:scale-[0.97] transition-transform min-h-[44px]" style={G.btn}>Cancel</button><button type="submit" disabled={!newDeviceName.trim() || !newDeviceZone} className="flex-1 h-10 rounded-xl text-white text-[13px] font-bold disabled:opacity-40 cursor-pointer active:scale-[0.97] transition-transform min-h-[44px]" style={{ background: "#3b82f6", boxShadow: "0 4px 20px rgba(59,130,246,0.4)" }}>Add Device</button></div></form></motion.div></div>
       )}
-
-      {zones.length === 0 ? (
-        <EmptyState icon={CheckSquare} title="No install zones" description="Installation zones will appear here once configured." />
-      ) : (
+      {zones.length === 0 ? <EmptyState icon={CheckSquare} title="No install zones" description="Installation zones will appear here once configured." /> : (
         <>
-          <div className="rounded-2xl p-4 md:p-5 mb-4 md:mb-5" style={G.card}>
-            <div className="flex flex-col md:flex-row md:items-center justify-between mb-4 gap-3">
-              <div><p className="text-[#8b949e] text-[10px] md:text-[11px] font-bold uppercase tracking-widest mb-1">Overall Completion</p><p className="text-white text-[1.6rem] md:text-[2rem] font-bold tracking-tight leading-none">{pct}%</p></div>
-              <div className="grid grid-cols-4 gap-3 md:gap-4 text-right">{[{ label: "Complete", count: complete, color: "text-emerald-400" },{ label: "In Progress", count: inProg, color: "text-blue-400" },{ label: "Failed", count: failed, color: "text-rose-400" },{ label: "Pending", count: total - complete - inProg - failed, color: "text-[#484f58]" }].map((s) => (<div key={s.label}><p className={clsx("text-[1.1rem] md:text-[1.3rem] font-bold leading-none", s.color)}>{s.count}</p><p className="text-[#484f58] text-[9px] md:text-[10px] font-semibold mt-0.5">{s.label}</p></div>))}</div>
-            </div>
-            <div className="relative w-full h-3 rounded-full overflow-hidden" style={{ background: "rgba(255,255,255,0.07)", boxShadow: "inset 0 1px 2px rgba(0,0,0,0.4)" }}><div className="absolute left-0 top-0 h-full bg-gradient-to-r from-blue-600 to-emerald-500 rounded-full transition-all duration-500" style={{ width: `${pct}%` }} /></div>
-            <div className="flex items-center gap-4 mt-2"><span className="text-[#8b949e] text-[10px] md:text-[11px]">{complete} of {total} devices installed</span>{failed > 0 && <span className="text-rose-400 text-[10px] md:text-[11px] font-semibold flex items-center gap-1"><AlertTriangle className="w-3 h-3" />{failed} defect{failed > 1 ? "s" : ""}</span>}</div>
-          </div>
-          <div className="space-y-2 md:space-y-3">
-            {zones.map((zone) => {
-              const zComplete = zone.devices.filter((d) => d.status === "complete").length;
-              const zPct = zone.devices.length > 0 ? Math.round((zComplete / zone.devices.length) * 100) : 0;
-              const isExpanded = expandedZone === zone.id;
-              return (
-                <div key={zone.id} className="rounded-2xl overflow-hidden" style={G.card}>
-                  <button onClick={() => setExpandedZone(isExpanded ? null : zone.id)} className="w-full flex items-center gap-3 md:gap-4 px-4 md:px-5 py-3 md:py-4 hover:bg-white/[0.02] transition-colors cursor-pointer active:scale-[0.97] transition-transform min-h-[44px]">
-                    <div className="flex-1 flex items-center gap-3 md:gap-4 min-w-0">
-                      <div className={clsx("w-7 h-7 md:w-8 md:h-8 rounded-xl flex items-center justify-center flex-shrink-0", zPct === 100 ? "bg-emerald-500/15" : zPct > 0 ? "bg-blue-500/15" : "bg-white/[0.04]")} style={{ border: `1px solid ${zPct === 100 ? "rgba(16,185,129,0.25)" : zPct > 0 ? "rgba(59,130,246,0.25)" : "rgba(255,255,255,0.07)"}` }}>{zPct === 100 ? <CheckCircle2 className="w-3.5 h-3.5 md:w-4 md:h-4 text-emerald-400" /> : zPct > 0 ? <Clock className="w-3.5 h-3.5 md:w-4 md:h-4 text-blue-400" /> : <AlertCircle className="w-3.5 h-3.5 md:w-4 md:h-4 text-[#484f58]" />}</div>
-                      <div className="min-w-0"><p className="text-white text-[12px] md:text-[13px] font-bold text-left">{zone.name}</p><p className="text-[#484f58] text-[10px] md:text-[11px] text-left">{zone.devices.length} devices · {zComplete} complete</p></div>
-                    </div>
-                    <div className="flex items-center gap-3 md:gap-4 flex-shrink-0"><div className="w-20 md:w-24 h-1.5 rounded-full overflow-hidden" style={{ background: "rgba(255,255,255,0.07)", boxShadow: "inset 0 1px 1px rgba(0,0,0,0.3)" }}><div className={clsx("h-full rounded-full transition-all", zPct === 100 ? "bg-emerald-500" : "bg-blue-500")} style={{ width: `${zPct}%` }} /></div><span className={clsx("text-[11px] md:text-[12px] font-bold w-10 text-right", zPct === 100 ? "text-emerald-400" : "text-white")}>{zPct}%</span>{isExpanded ? <ChevronUp className="w-4 h-4 text-[#484f58]" /> : <ChevronDown className="w-4 h-4 text-[#484f58]" />}</div>
-                  </button>
-                  {isExpanded && (
-                    <div style={{ borderTop: "1px solid rgba(255,255,255,0.06)" }}>
-                      <div className="hidden md:grid gap-4 px-5 py-2.5" style={{ gridTemplateColumns: "36px 2fr 1.5fr 120px 1fr", background: "rgba(255,255,255,0.02)" }}>{["","Device","Location","Assignee","Status"].map((h) => (<span key={h} className="text-[#484f58] text-[10px] font-bold uppercase tracking-widest">{h}</span>))}</div>
-                      {zone.devices.map((device, i) => {
-                        const meta = STATUS_META[device.status];
-                        const TypeIcon = typeIcons[device.type] ?? Camera;
-                        return (
-                          <div key={device.id} className={clsx("grid gap-2 md:gap-4 px-3 md:px-5 py-3 md:py-3.5 items-center hover:bg-white/[0.015] transition-colors", i % 2 === 1 && "bg-white/[0.01]")} style={{ gridTemplateColumns: "36px 2fr 1.5fr 120px 1fr", borderTop: "1px solid rgba(255,255,255,0.04)" }}>
-                            <div className="w-7 h-7 rounded-xl flex items-center justify-center" style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.07)" }}><TypeIcon className="w-3.5 h-3.5 text-[#484f58]" /></div>
-                            <div className="min-w-0"><p className="text-white text-[11px] md:text-[12px] font-semibold truncate">{device.name}</p>{device.notes && <p className="text-rose-400 text-[9px] md:text-[10px] flex items-center gap-1 mt-0.5 truncate"><AlertTriangle className="w-2.5 h-2.5 flex-shrink-0" /> {device.notes}</p>}</div>
-                            <p className="text-[#8b949e] text-[10px] md:text-[11px] truncate">{device.location}</p>
-                            <div className="flex items-center gap-1.5"><div className="w-5 h-5 rounded-full flex items-center justify-center text-[8px] font-bold text-white flex-shrink-0" style={{ background: "rgba(59,130,246,0.4)" }}>{device.assignee.split(" ").map((n) => n[0]).join("")}</div><span className="text-[#8b949e] text-[10px] md:text-[11px] truncate">{device.assignee}</span></div>
-                            <div className="relative"><select value={device.status} onChange={(e) => updateStatus(zone.id, device.id, e.target.value as InstallStatus)} className={clsx("w-full h-7 rounded-xl border px-2 text-[10px] md:text-[11px] font-bold appearance-none cursor-pointer transition-all focus:outline-none pr-6", meta.bg, meta.color, "border-transparent hover:border-white/[0.10]")} style={{ backgroundColor: "transparent" }}>{Object.entries(STATUS_META).map(([val, m]) => (<option key={val} value={val} style={{ backgroundColor: "#0d1117", color: "#e6edf3" }}>{m.label}</option>))}</select><ChevronDown className="absolute right-1.5 top-1/2 -translate-y-1/2 w-3 h-3 text-[#484f58] pointer-events-none" /></div>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  )}
-                </div>
-              );
-            })}
-          </div>
+          <div className="rounded-2xl p-4 md:p-5 mb-4 md:mb-5" style={G.card}><div className="flex flex-col md:flex-row md:items-center justify-between mb-4 gap-3"><div><p className="text-white text-[1.6rem] md:text-[2rem] font-bold">{pct}%</p></div><div className="grid grid-cols-4 gap-3">{[{ label: "Complete", count: complete, color: "text-emerald-400" },{ label: "In Progress", count: inProg, color: "text-blue-400" },{ label: "Failed", count: failed, color: "text-rose-400" },{ label: "Pending", count: total - complete - inProg - failed, color: "text-[#484f58]" }].map((s) => (<div key={s.label}><p className={clsx("text-[1.1rem] md:text-[1.3rem] font-bold", s.color)}>{s.count}</p><p className="text-[#484f58] text-[9px] md:text-[10px]">{s.label}</p></div>))}</div></div><div className="relative w-full h-3 rounded-full overflow-hidden" style={{ background: "rgba(255,255,255,0.07)" }}><div className="absolute left-0 top-0 h-full bg-gradient-to-r from-blue-600 to-emerald-500 rounded-full" style={{ width: `${pct}%` }} /></div></div>
+          <div className="space-y-2 md:space-y-3">{zones.map((zone) => { const zComplete = zone.devices.filter((d) => d.status === "complete").length; const zPct = zone.devices.length > 0 ? Math.round((zComplete / zone.devices.length) * 100) : 0; const isExpanded = expandedZone === zone.id; return (<div key={zone.id} className="rounded-2xl overflow-hidden" style={G.card}><button onClick={() => setExpandedZone(isExpanded ? null : zone.id)} className="w-full flex items-center gap-3 md:gap-4 px-4 md:px-5 py-3 md:py-4 hover:bg-white/[0.02] transition-colors cursor-pointer active:scale-[0.97] transition-transform min-h-[44px]"><div className="flex-1 flex items-center gap-3 min-w-0"><div className={clsx("w-7 h-7 md:w-8 md:h-8 rounded-xl flex items-center justify-center flex-shrink-0", zPct === 100 ? "bg-emerald-500/15" : zPct > 0 ? "bg-blue-500/15" : "bg-white/[0.04]")}>{zPct === 100 ? <CheckCircle2 className="w-3.5 h-3.5 md:w-4 md:h-4 text-emerald-400" /> : zPct > 0 ? <Clock className="w-3.5 h-3.5 md:w-4 md:h-4 text-blue-400" /> : <AlertCircle className="w-3.5 h-3.5 md:w-4 md:h-4 text-[#484f58]" />}</div><div className="min-w-0"><p className="text-white text-[12px] md:text-[13px] font-bold text-left">{zone.name}</p><p className="text-[#484f58] text-[10px] md:text-[11px]">{zone.devices.length} devices · {zComplete} complete</p></div></div><div className="flex items-center gap-3 md:gap-4 flex-shrink-0"><div className="w-20 md:w-24 h-1.5 rounded-full overflow-hidden" style={{ background: "rgba(255,255,255,0.07)" }}><div className={clsx("h-full rounded-full", zPct === 100 ? "bg-emerald-500" : "bg-blue-500")} style={{ width: `${zPct}%` }} /></div><span className={clsx("text-[11px] md:text-[12px] font-bold w-10 text-right", zPct === 100 ? "text-emerald-400" : "text-white")}>{zPct}%</span>{isExpanded ? <ChevronUp className="w-4 h-4 text-[#484f58]" /> : <ChevronDown className="w-4 h-4 text-[#484f58]" />}</div></button>{isExpanded && (<div style={{ borderTop: "1px solid rgba(255,255,255,0.06)" }}>{zone.devices.map((device, i) => { const meta = STATUS_META[device.status]; const TypeIcon = typeIcons[device.type] ?? Camera; return (<div key={device.id} className={clsx("grid gap-2 md:gap-4 px-3 md:px-5 py-3 md:py-3.5 items-center hover:bg-white/[0.015] transition-colors", i % 2 === 1 && "bg-white/[0.01]")} style={{ gridTemplateColumns: "36px 2fr 1.5fr 120px 1fr", borderTop: "1px solid rgba(255,255,255,0.04)" }}><div className="w-7 h-7 rounded-xl flex items-center justify-center" style={{ background: "rgba(255,255,255,0.04)" }}><TypeIcon className="w-3.5 h-3.5 text-[#484f58]" /></div><div className="min-w-0"><p className="text-white text-[11px] md:text-[12px] font-semibold truncate">{device.name}</p></div><p className="text-[#8b949e] text-[10px] md:text-[11px] truncate">{device.location}</p><div className="flex items-center gap-1.5"><span className="text-[#8b949e] text-[10px] md:text-[11px] truncate">{device.assignee}</span></div><div className="relative"><select value={device.status} onChange={(e) => updateStatus(zone.id, device.id, e.target.value as InstallStatus)} className={clsx("w-full h-7 rounded-xl border px-2 text-[10px] md:text-[11px] font-bold appearance-none cursor-pointer transition-all focus:outline-none pr-6", meta.bg, meta.color, "border-transparent")} style={{ backgroundColor: "transparent" }}>{Object.entries(STATUS_META).map(([val, m]) => (<option key={val} value={val} style={{ backgroundColor: "#0d1117", color: "#e6edf3" }}>{m.label}</option>))}</select></div></div>); })}</div>)}</div>); })}</div>
         </>
       )}
     </div>
   );
 }
 
-// ─── Login Page ───────────────────────────────────────────────────────────────
-
 function LoginPage({ onLogin }: { onLogin: () => void }) {
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-  const [showPw, setShowPw] = useState(false);
-  const [loading, setLoading] = useState(false);
-
+  const [email, setEmail] = useState(""); const [password, setPassword] = useState(""); const [showPw, setShowPw] = useState(false); const [loading, setLoading] = useState(false);
   const submit = (e?: React.FormEvent) => { e?.preventDefault(); setLoading(true); setTimeout(() => { setLoading(false); onLogin(); }, 1100); };
   const inputCls = "w-full h-11 rounded-2xl px-4 text-[#e6edf3] text-[13px] placeholder:text-[#484f58] focus:outline-none transition-all";
-
   return (
-    <div className="h-screen flex overflow-hidden">
-      <div className="hidden lg:flex w-[48%] flex-shrink-0 flex-col relative overflow-hidden" style={{ background: "#070c1a" }}>
-        <div className="absolute inset-0" style={{ backgroundImage: "radial-gradient(ellipse 80% 60% at 10% 10%, rgba(30,64,175,0.45) 0%, transparent 65%), radial-gradient(ellipse 60% 55% at 90% 90%, rgba(88,28,135,0.35) 0%, transparent 65%), radial-gradient(ellipse 50% 40% at 55% 50%, rgba(7,12,26,0.9) 0%, transparent 100%)" }} />
-        <div className="absolute inset-0 opacity-[0.018]" style={{ backgroundImage: "repeating-linear-gradient(0deg,#fff 0,#fff 1px,transparent 1px,transparent 48px),repeating-linear-gradient(90deg,#fff 0,#fff 1px,transparent 1px,transparent 48px)" }} />
-        <div className="relative z-10 flex flex-col h-full p-8 md:p-12">
-          <div className="mb-auto"><img src={logoImg} alt="E-Tech Systems" className="h-8 md:h-10 object-contain object-left" style={{ filter: "brightness(1.1)" }} /></div>
-          <div className="flex flex-col justify-center flex-1 py-8 md:py-12">
-            <span className="text-blue-400 text-[10px] md:text-[11px] font-bold tracking-[0.15em] md:tracking-[0.20em] uppercase mb-4 md:mb-5 block">Security System Design & Integration Platform</span>
-            <h1 className="text-white text-[2rem] md:text-[2.6rem] font-bold leading-[1.12] tracking-tight mb-4 md:mb-6">Full-Lifecycle<br />Security Project<br /><span className="text-transparent" style={{ backgroundImage: "linear-gradient(135deg, #60a5fa, #a78bfa)", WebkitBackgroundClip: "text", backgroundClip: "text" }}>Management.</span></h1>
-            <p className="text-[#8b949e] text-[11px] md:text-[13px] leading-relaxed mb-8 md:mb-10 max-w-[320px] md:max-w-[380px]">From site assessment to systems design to final installation. Design floor plans, build quotes, manage installs, and auto-generate reports in one platform.</p>
-            <div className="space-y-2 md:space-y-3">
-              {[{ icon: Camera, title: "System Design Studio", desc: "Place cameras, Map cable routes, build floorplan", color: "#3b82f6" },{ icon: BarChart3, title: "Workbook & Asset Library", desc: "Auto-generate quotes, proposals, access to full partner asset library", color: "#8b5cf6" }].map(({ icon: Icon, title, desc, color }) => (
-                <div key={title} className="flex items-start gap-3 md:gap-4 p-3 md:p-4 rounded-2xl transition-all md:hover:-translate-y-0.5" style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.09)", backdropFilter: "blur(12px)", boxShadow: "inset 0 1px 0 rgba(255,255,255,0.07)" }}>
-                  <div className="w-8 h-8 md:w-9 md:h-9 rounded-xl flex items-center justify-center flex-shrink-0" style={{ background: `${color}20`, border: `1px solid ${color}35`, boxShadow: `0 0 16px ${color}25` }}><Icon className="w-3.5 h-3.5 md:w-4 md:h-4" style={{ color }} /></div>
-                  <div><p className="text-white text-[12px] md:text-[13px] font-bold mb-0.5">{title}</p><p className="text-[#8b949e] text-[11px] md:text-[12px] leading-relaxed">{desc}</p></div>
-                </div>
-              ))}
-            </div>
-          </div>
-          <p className="text-[#484f58] text-[10px] md:text-[11px]">© 2026 E-Tech Systems · All rights reserved</p>
-        </div>
-      </div>
-      <div className="flex-1 flex items-center justify-center p-6 md:p-8 relative" style={{ background: "rgba(255,255,255,0.03)", backdropFilter: "blur(40px)" }}>
-        <div className="absolute inset-0 pointer-events-none" style={{ backgroundImage: "radial-gradient(ellipse 60% 50% at 80% 20%, rgba(59,130,246,0.08) 0%, transparent 60%), radial-gradient(ellipse 50% 40% at 20% 80%, rgba(139,92,246,0.06) 0%, transparent 60%)" }} />
-        <motion.div initial={{ opacity: 0, y: 18 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.3, ease: "easeOut" }} className="relative z-10 w-full max-w-[380px]">
-          <div className="lg:hidden mb-8"><img src={logoImg} alt="E-Tech Systems" className="h-8 object-contain object-left" style={{ filter: "brightness(1.1)" }} /></div>
-          <div className="rounded-3xl p-6 md:p-8" style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.12)", backdropFilter: "blur(40px) saturate(160%)", boxShadow: "0 24px 64px rgba(0,0,0,0.6), inset 0 1px 0 rgba(255,255,255,0.10)" }}>
-            <h2 className="text-white text-[1.3rem] md:text-[1.5rem] font-bold mb-1 tracking-tight">Welcome back</h2>
-            <p className="text-[#8b949e] text-[12px] md:text-[13px] mb-6 md:mb-7">Sign in to your workspace</p>
-            <button onClick={submit} className="w-full flex items-center justify-center gap-3 h-11 rounded-2xl text-white text-[12px] md:text-[13px] font-bold transition-all duration-150 mb-5 md:mb-6 hover:bg-white/[0.12] active:scale-[0.99] cursor-pointer active:scale-[0.97] transition-transform min-h-[44px]" style={{ background: "rgba(255,255,255,0.08)", border: "1px solid rgba(255,255,255,0.14)", boxShadow: "inset 0 1px 0 rgba(255,255,255,0.09)" }}>
-              <svg width="17" height="17" viewBox="0 0 21 21" fill="none"><rect width="10" height="10" fill="#f25022" /><rect x="11" width="10" height="10" fill="#7fba00" /><rect y="11" width="10" height="10" fill="#00a4ef" /><rect x="11" y="11" width="10" height="10" fill="#ffb900" /></svg>Continue with Microsoft
-            </button>
-            <div className="flex items-center gap-3 mb-5 md:mb-6"><div className="flex-1 h-px" style={{ background: "rgba(255,255,255,0.08)" }} /><span className="text-[#484f58] text-[10px] md:text-[11px] font-semibold">or continue with email</span><div className="flex-1 h-px" style={{ background: "rgba(255,255,255,0.08)" }} /></div>
-            <form onSubmit={submit} className="space-y-3 md:space-y-4">
-              <div><label className="block text-[#e6edf3] text-[10px] md:text-[11px] font-bold mb-1.5 uppercase tracking-[0.07em]">Email</label><input type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="you@company.com" className={inputCls} style={G.input} /></div>
-              <div><div className="flex items-center justify-between mb-1.5"><label className="text-[#e6edf3] text-[10px] md:text-[11px] font-bold uppercase tracking-[0.07em]">Password</label><button type="button" className="text-blue-400 text-[11px] md:text-[12px] font-semibold hover:text-blue-300 transition-colors">Forgot password?</button></div><div className="relative"><input type={showPw ? "text" : "password"} value={password} onChange={(e) => setPassword(e.target.value)} placeholder="••••••••" className={clsx(inputCls, "pr-11")} style={G.input} /><button type="button" onClick={() => setShowPw(!showPw)} className="absolute right-3.5 top-1/2 -translate-y-1/2 text-[#484f58] hover:text-[#8b949e] transition-colors"><Eye className="w-4 h-4" /></button></div></div>
-              <button type="submit" disabled={loading} className="w-full h-11 rounded-2xl text-white font-bold text-[12px] md:text-[13px] transition-all duration-150 active:scale-[0.99] flex items-center justify-center gap-2 disabled:opacity-60 mt-1 cursor-pointer active:scale-[0.97] transition-transform min-h-[44px]" style={{ background: "linear-gradient(135deg, #3b82f6, #2563eb)", boxShadow: "0 4px 20px rgba(59,130,246,0.45), inset 0 1px 0 rgba(255,255,255,0.2)" }}>{loading && <Loader2 className="w-4 h-4 animate-spin" />}{loading ? "Signing in…" : "Sign in"}</button>
-            </form>
-            <p className="text-center text-[#484f58] text-[11px] md:text-[12px] mt-5 md:mt-6">Need access? <button className="text-blue-400 hover:text-blue-300 transition-colors font-semibold">Contact your administrator</button></p>
-          </div>
-        </motion.div>
-      </div>
-    </div>
+    <div className="h-screen flex overflow-hidden"><div className="hidden lg:flex w-[48%] flex-shrink-0 flex-col relative overflow-hidden" style={{ background: "#070c1a" }}><div className="absolute inset-0" style={{ backgroundImage: "radial-gradient(ellipse 80% 60% at 10% 10%, rgba(30,64,175,0.45) 0%, transparent 65%), radial-gradient(ellipse 60% 55% at 90% 90%, rgba(88,28,135,0.35) 0%, transparent 65%), radial-gradient(ellipse 50% 40% at 55% 50%, rgba(7,12,26,0.9) 0%, transparent 100%)" }} /><div className="absolute inset-0 opacity-[0.018]" style={{ backgroundImage: "repeating-linear-gradient(0deg,#fff 0,#fff 1px,transparent 1px,transparent 48px),repeating-linear-gradient(90deg,#fff 0,#fff 1px,transparent 1px,transparent 48px)" }} /><div className="relative z-10 flex flex-col h-full p-8 md:p-12"><div className="mb-auto"><img src={logoImg} alt="E-Tech Systems" className="h-8 md:h-10 object-contain object-left" style={{ filter: "brightness(1.1)" }} /></div><div className="flex flex-col justify-center flex-1 py-8 md:py-12"><span className="text-blue-400 text-[10px] md:text-[11px] font-bold tracking-[0.15em] md:tracking-[0.20em] uppercase mb-4 md:mb-5 block">Security System Design & Integration Platform</span><h1 className="text-white text-[2rem] md:text-[2.6rem] font-bold leading-[1.12] tracking-tight mb-4 md:mb-6">Full-Lifecycle<br />Security Project<br /><span className="text-transparent" style={{ backgroundImage: "linear-gradient(135deg, #60a5fa, #a78bfa)", WebkitBackgroundClip: "text", backgroundClip: "text" }}>Management.</span></h1><p className="text-[#8b949e] text-[11px] md:text-[13px] leading-relaxed mb-8 md:mb-10 max-w-[320px] md:max-w-[380px]">From site assessment to systems design to final installation. Design floor plans, build quotes, manage installs, and auto-generate reports in one platform.</p><div className="space-y-2 md:space-y-3">{[{ icon: Camera, title: "System Design Studio", desc: "Place cameras, Map cable routes, build floorplan", color: "#3b82f6" },{ icon: BarChart3, title: "Workbook & Asset Library", desc: "Auto-generate quotes, proposals, access to full partner asset library", color: "#8b5cf6" }].map(({ icon: Icon, title, desc, color }) => (<div key={title} className="flex items-start gap-3 md:gap-4 p-3 md:p-4 rounded-2xl transition-all md:hover:-translate-y-0.5" style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.09)", backdropFilter: "blur(12px)", boxShadow: "inset 0 1px 0 rgba(255,255,255,0.07)" }}><div className="w-8 h-8 md:w-9 md:h-9 rounded-xl flex items-center justify-center flex-shrink-0" style={{ background: `${color}20`, border: `1px solid ${color}35`, boxShadow: `0 0 16px ${color}25` }}><Icon className="w-3.5 h-3.5 md:w-4 md:h-4" style={{ color }} /></div><div><p className="text-white text-[12px] md:text-[13px] font-bold mb-0.5">{title}</p><p className="text-[#8b949e] text-[11px] md:text-[12px] leading-relaxed">{desc}</p></div></div>))}</div></div><p className="text-[#484f58] text-[10px] md:text-[11px]">© 2026 E-Tech Systems · All rights reserved</p></div></div><div className="flex-1 flex items-center justify-center p-6 md:p-8 relative" style={{ background: "rgba(255,255,255,0.03)", backdropFilter: "blur(40px)" }}><motion.div initial={{ opacity: 0, y: 18 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.3, ease: "easeOut" }} className="relative z-10 w-full max-w-[380px]"><div className="rounded-3xl p-6 md:p-8" style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.12)", backdropFilter: "blur(40px) saturate(160%)", boxShadow: "0 24px 64px rgba(0,0,0,0.6), inset 0 1px 0 rgba(255,255,255,0.10)" }}><h2 className="text-white text-[1.3rem] md:text-[1.5rem] font-bold mb-1 tracking-tight">Welcome back</h2><p className="text-[#8b949e] text-[12px] md:text-[13px] mb-6 md:mb-7">Sign in to your workspace</p><button onClick={submit} className="w-full flex items-center justify-center gap-3 h-11 rounded-2xl text-white text-[12px] md:text-[13px] font-bold transition-all duration-150 mb-5 md:mb-6 hover:bg-white/[0.12] cursor-pointer active:scale-[0.97] transition-transform min-h-[44px]" style={{ background: "rgba(255,255,255,0.08)", border: "1px solid rgba(255,255,255,0.14)", boxShadow: "inset 0 1px 0 rgba(255,255,255,0.09)" }}>Continue with Microsoft</button><div className="flex items-center gap-3 mb-5 md:mb-6"><div className="flex-1 h-px" style={{ background: "rgba(255,255,255,0.08)" }} /><span className="text-[#484f58] text-[10px] md:text-[11px] font-semibold">or continue with email</span><div className="flex-1 h-px" style={{ background: "rgba(255,255,255,0.08)" }} /></div><form onSubmit={submit} className="space-y-3 md:space-y-4"><div><label className="block text-[#e6edf3] text-[10px] md:text-[11px] font-bold mb-1.5 uppercase">Email</label><input type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="you@company.com" className={inputCls} style={G.input} /></div><div><div className="flex items-center justify-between mb-1.5"><label className="text-[#e6edf3] text-[10px] md:text-[11px] font-bold uppercase">Password</label><button type="button" className="text-blue-400 text-[11px] md:text-[12px] font-semibold">Forgot?</button></div><div className="relative"><input type={showPw ? "text" : "password"} value={password} onChange={(e) => setPassword(e.target.value)} placeholder="••••••••" className={clsx(inputCls, "pr-11")} style={G.input} /><button type="button" onClick={() => setShowPw(!showPw)} className="absolute right-3.5 top-1/2 -translate-y-1/2 text-[#484f58] hover:text-[#8b949e]"><Eye className="w-4 h-4" /></button></div></div><button type="submit" disabled={loading} className="w-full h-11 rounded-2xl text-white font-bold text-[12px] md:text-[13px] transition-all flex items-center justify-center gap-2 disabled:opacity-60 mt-1 cursor-pointer active:scale-[0.97] transition-transform min-h-[44px]" style={{ background: "linear-gradient(135deg, #3b82f6, #2563eb)", boxShadow: "0 4px 20px rgba(59,130,246,0.45), inset 0 1px 0 rgba(255,255,255,0.2)" }}>{loading && <Loader2 className="w-4 h-4 animate-spin" />}{loading ? "Signing in…" : "Sign in"}</button></form><p className="text-center text-[#484f58] text-[11px] md:text-[12px] mt-5 md:mt-6">Need access? <button className="text-blue-400 hover:text-blue-300 transition-colors font-semibold">Contact your administrator</button></p></div></motion.div></div></div>
   );
 }
 
-// ─── Root ─────────────────────────────────────────────────────────────────────
-
 export default function App() {
-  const [page, setPage] = useState<Page>("login");
-  const [currency, setCurrency] = useState<"USD" | "JMD">("USD");
-  const [currentQuote, setCurrentQuote] = useState<Quote | null>(null);
-
+  const [page, setPage] = useState<Page>("login"); const [currency, setCurrency] = useState<"USD" | "JMD">("USD"); const [currentQuote, setCurrentQuote] = useState<Quote | null>(null);
   const currencyCtx: CurrencyCtx = useMemo(() => ({ currency, setCurrency, fmt: makeFmt(currency) }), [currency]);
-
-  const addToQuote = (device: CatalogDevice) => {
-    if (!device.price || !currentQuote) return;
-    setCurrentQuote((prev) => {
-      if (!prev) return prev;
-      const firstCat = prev.categories[0];
-      if (!firstCat) return prev;
-      const newItem: QuoteLineItem = {
-        id: crypto.randomUUID?.() || `li${Date.now()}`,
-        itemNumber: String(firstCat.lineItems.length + 1).padStart(2, "0"),
-        description: `${device.manufacturer} ${device.model}`,
-        unitCost: device.price,
-        quantity: 1,
-        markupPercent: 0.35,
-        sellPrice: device.price * 1.35,
-        costTotal: device.price,
-        sellTotal: device.price * 1.35,
-        profit: device.price * 0.35,
-        jmdConversion: device.price * 1.35 * JMD_RATE,
-      };
-      return {
-        ...prev,
-        categories: prev.categories.map((c, i) => i === 0 ? { ...c, lineItems: [...c.lineItems, newItem] } : c),
-      };
-    });
-    toast.success(`${device.model} added to quote`);
-  };
-
+  const addToQuote = (device: CatalogDevice) => { if (!device.price || !currentQuote) return; setCurrentQuote((prev) => { if (!prev) return prev; const firstCat = prev.categories[0]; if (!firstCat) return prev; const newItem: QuoteLineItem = { id: crypto.randomUUID?.() || `li${Date.now()}`, itemNumber: String(firstCat.lineItems.length + 1).padStart(2, "0"), description: `${device.manufacturer} ${device.model}`, unitCost: device.price, quantity: 1, markupPercent: 0.35, sellPrice: device.price * 1.35, costTotal: device.price, sellTotal: device.price * 1.35, profit: device.price * 0.35, jmdConversion: device.price * 1.35 * JMD_RATE }; return { ...prev, categories: prev.categories.map((c, i) => i === 0 ? { ...c, lineItems: [...c.lineItems, newItem] } : c) }; }); toast.success(`${device.model} added to quote`); };
   const quoteCtx: QuoteCtx = { currentQuote, setCurrentQuote, addToQuote };
-
-  if (page === "login") return (<CurrencyContext.Provider value={currencyCtx}><LoginPage onLogin={() => setPage("dashboard")} /></CurrencyContext.Provider>);
-  if (page === "design-canvas") return (<CurrencyContext.Provider value={currencyCtx}><DesignCanvas navigate={setPage} /></CurrencyContext.Provider>);
-
+  if (page === "login") return <CurrencyContext.Provider value={currencyCtx}><LoginPage onLogin={() => setPage("dashboard")} /></CurrencyContext.Provider>;
+  if (page === "design-canvas") return <CurrencyContext.Provider value={currencyCtx}><DesignCanvas navigate={setPage} /></CurrencyContext.Provider>;
   const breadcrumb = page === "project-detail" ? { label: "Projects", parent: "design-studio" as Page } : undefined;
-
-  return (
-    <CurrencyContext.Provider value={currencyCtx}>
-      <QuoteContext.Provider value={quoteCtx}>
-        <div className="min-h-screen bg-background">
-          <Toaster position="bottom-right" theme="dark" toastOptions={{ style: { background: "rgba(7,12,26,0.95)", border: "1px solid rgba(255,255,255,0.12)", color: "#e6edf3", backdropFilter: "blur(20px)" } }} />
-          <AppTopbar page={page} navigate={setPage} breadcrumb={breadcrumb} />
-          <div className="pt-14">
-            <AnimatePresence mode="wait">
-              {page === "dashboard" && <Dashboard key="dashboard" navigate={setPage} />}
-              {page === "design-studio" && <DesignStudio key="design-studio" navigate={setPage} />}
-              {page === "project-detail" && <ProjectDetail key="project-detail" navigate={setPage} />}
-              {page === "workbook" && <Workbook key="workbook" navigate={setPage} />}
-              {page === "install-tracker" && <InstallTracker key="install-tracker" navigate={setPage} />}
-              {page === "device-store" && <DeviceStore key="device-store" navigate={setPage} />}
-            </AnimatePresence>
-          </div>
-        </div>
-      </QuoteContext.Provider>
-    </CurrencyContext.Provider>
-  );
+  return (<CurrencyContext.Provider value={currencyCtx}><QuoteContext.Provider value={quoteCtx}><div className="min-h-screen bg-background"><Toaster position="bottom-right" theme="dark" toastOptions={{ style: { background: "rgba(7,12,26,0.95)", border: "1px solid rgba(255,255,255,0.12)", color: "#e6edf3", backdropFilter: "blur(20px)" } }} /><AppTopbar page={page} navigate={setPage} breadcrumb={breadcrumb} /><div className="pt-14"><AnimatePresence mode="wait">{page === "dashboard" && <Dashboard key="dashboard" navigate={setPage} />}{page === "design-studio" && <DesignStudio key="design-studio" navigate={setPage} />}{page === "project-detail" && <ProjectDetail key="project-detail" navigate={setPage} />}{page === "workbook" && <Workbook key="workbook" navigate={setPage} />}{page === "install-tracker" && <InstallTracker key="install-tracker" navigate={setPage} />}{page === "device-store" && <DeviceStore key="device-store" navigate={setPage} />}</AnimatePresence></div></div></QuoteContext.Provider></CurrencyContext.Provider>);
 }
