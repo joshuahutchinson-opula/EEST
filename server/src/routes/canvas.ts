@@ -1,6 +1,8 @@
 import { Router, Request, Response } from "express";
 import pool from "../db";
+import multer from "multer";
 
+const upload = multer({ storage: multer.memoryStorage() });
 const router = Router();
 
 // GET /api/canvas/:projectId
@@ -35,6 +37,19 @@ router.put("/:projectId", async (req: Request, res: Response) => {
   } catch (err) {
     console.error("PUT /canvas/:projectId error:", err);
     res.status(500).json({ error: "Failed to save canvas" });
+  }
+});
+
+// POST /api/canvas/:projectId/upload
+router.post("/:projectId/upload", upload.single("file"), async (req: Request, res: Response) => {
+  try {
+    if (!req.file) return res.status(400).json({ error: "No file uploaded" });
+    const base64 = req.file.buffer.toString("base64");
+    const url = `data:${req.file.mimetype};base64,${base64}`;
+    res.json({ url });
+  } catch (err) {
+    console.error("POST /canvas/:projectId/upload error:", err);
+    res.status(500).json({ error: "Upload failed" });
   }
 });
 
