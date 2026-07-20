@@ -253,14 +253,13 @@ function Dashboard({ navigate }: { navigate: (p: Page) => void }) {
   const { fmt } = useCurrency();
   const [projects, setProjects] = useState<Project[]>([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
   const [dragging, setDragging] = useState<string | null>(null);
   const [dragOverCol, setDragOverCol] = useState<Stage | null>(null);
   const [selectedDeal, setSelectedDeal] = useState<Project | null>(null);
   const [showNewProject, setShowNewProject] = useState(false);
   const [progressAnim, setProgressAnim] = useState<{ id: string; stage: Stage } | null>(null);
 
-  const fetchProjects = useCallback(async () => { setLoading(true); setError(null); try { const data = await API.projects.list(); setProjects(data); } catch (err: any) { setError(err.message || "Failed to load projects"); setProjects([]); } finally { setLoading(false); } }, []);
+  const fetchProjects = useCallback(async () => { setLoading(true); setError(null); try { const data = await API.projects.list(); setProjects(data); } catch { setProjects([]); } finally { setLoading(false); } }, []);
   useEffect(() => { fetchProjects(); }, [fetchProjects]);
 
   const active = projects.filter((p) => !["win", "lose"].includes(p.stage));
@@ -281,7 +280,6 @@ function Dashboard({ navigate }: { navigate: (p: Page) => void }) {
   const STAT_COLORS = ["#3b82f6", "#10b981", "#f97316", "#8b5cf6"];
 
   if (loading) return <div className="px-3 md:px-5 py-4 md:py-6 space-y-4"><Skeleton className="h-10 w-48" /><div className="grid grid-cols-2 md:grid-cols-4 gap-2 md:gap-3">{[1,2,3,4].map(i => <Skeleton key={i} className="h-24 rounded-2xl" />)}</div><div className="flex gap-2 md:gap-3"><Skeleton className="h-64 w-[260px] rounded-2xl" /><Skeleton className="h-64 w-[260px] rounded-2xl" /><Skeleton className="h-64 w-[260px] rounded-2xl" /></div></div>;
-  if (error) return <ErrorState message={error} onRetry={fetchProjects} />;
 
   return (
     <div>
@@ -371,12 +369,11 @@ function DesignStudio({ navigate }: { navigate: (p: Page) => void }) {
   const [filter, setFilter] = useState<"all" | Stage>("all");
   const [projects, setProjects] = useState<Project[]>([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
   const [search, setSearch] = useState("");
   const [showUploadModal, setShowUploadModal] = useState(false);
   const [studioView, setStudioView] = useState<"projects" | "canvas">("projects");
 
-  const fetchProjects = useCallback(async () => { setLoading(true); setError(null); try { const data = await API.projects.list(); setProjects(data); } catch (err: any) { setError(err.message || "Failed to load projects"); } finally { setLoading(false); } }, []);
+const fetchProjects = useCallback(async () => { setLoading(true); try { const data = await API.projects.list(); setProjects(data); } catch { setProjects([]); } finally { setLoading(false); } }, []);
   useEffect(() => { fetchProjects(); }, [fetchProjects]);
 
   const filtered = useMemo(() => { let result = projects; if (filter !== "all") result = result.filter((p) => p.stage === filter); if (search.trim()) { const q = search.toLowerCase(); result = result.filter((p) => p.name.toLowerCase().includes(q) || p.client.toLowerCase().includes(q) || p.location.toLowerCase().includes(q)); } return result; }, [projects, filter, search]);
@@ -385,7 +382,6 @@ function DesignStudio({ navigate }: { navigate: (p: Page) => void }) {
   const handleDelete = async (id: string) => { setProjects((prev) => prev.filter((p) => p.id !== id)); try { await API.projects.delete(id); toast.success("Project removed"); } catch { fetchProjects(); } };
 
   if (loading) return <div className="px-3 md:px-5 py-4 md:py-6 space-y-4"><Skeleton className="h-10 w-56" /><div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 md:gap-4">{[1,2,3,4].map(i => <Skeleton key={i} className="h-48 rounded-2xl" />)}</div></div>;
-  if (error) return <ErrorState message={error} onRetry={fetchProjects} />;
 
   return (
     <div className="px-3 md:px-5 py-4 md:py-6">
@@ -412,14 +408,13 @@ function ProjectDetail({ navigate }: { navigate: (p: Page) => void }) {
   const { fmt } = useCurrency();
   const [project, setProject] = useState<Project | null>(null);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState("overview");
 
-  const fetchProject = useCallback(async () => { setLoading(true); setError(null); try { const data = await API.projects.list(); if (data.length > 0) setProject(data[0]); else setError("No projects found"); } catch (err: any) { setError(err.message || "Failed to load project"); } finally { setLoading(false); } }, []);
+const fetchProject = useCallback(async () => { setLoading(true); try { const data = await API.projects.list(); if (data.length > 0) setProject(data[0]); else setProject(null); } catch { setProject(null); } finally { setLoading(false); } }, []);
   useEffect(() => { fetchProject(); }, [fetchProject]);
 
   if (loading) return <div className="px-3 md:px-5 py-4 md:py-6 space-y-4"><Skeleton className="h-8 w-64" /><div className="grid grid-cols-2 md:grid-cols-5 gap-2 md:gap-3">{[1,2,3,4,5].map(i => <Skeleton key={i} className="h-24 rounded-2xl" />)}</div><Skeleton className="h-64 rounded-2xl" /></div>;
-  if (error || !project) return <ErrorState message={error || "Project not found"} onRetry={fetchProject} />;
+if (!project && !loading) return <EmptyState icon={Building2} title="No project selected" description="Select a project from the Projects tab." />;
 
   const p = project; const badge = stageBadge(p.stage); const tabs = ["overview","quotes","change-orders","audit-log"];
   const tabLabels: Record<string, string> = { overview: "Overview", quotes: "Quotes", "change-orders": "Change Orders", "audit-log": "Audit Log" };
@@ -539,13 +534,12 @@ function Workbook({ navigate }: { navigate: (p: Page) => void }) {
   const [projects, setProjects] = useState<Project[]>([]);
   const [quotes, setQuotes] = useState<Quote[]>([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
   const [selectedProjectId, setSelectedProjectId] = useState<string>("");
   const [selectedQuoteId, setSelectedQuoteId] = useState<string>("");
   const [showProjectSelect, setShowProjectSelect] = useState(false);
   const [exchangeRate, setExchangeRate] = useState(JMD_RATE);
 
-  const fetchData = useCallback(async () => { setLoading(true); setError(null); try { const [projData, quoteData] = await Promise.all([API.projects.list(), API.quotes.list()]); setProjects(projData); setQuotes(quoteData); if (projData.length > 0) setSelectedProjectId(projData[0].id); if (quoteData.length > 0) setSelectedQuoteId(quoteData[0].id); } catch (err: any) { setError(err.message || "Failed to load data"); } finally { setLoading(false); } }, []);
+const fetchData = useCallback(async () => { setLoading(true); try { const [projData, quoteData] = await Promise.all([API.projects.list(), API.quotes.list()]); setProjects(projData); setQuotes(quoteData); if (projData.length > 0) setSelectedProjectId(projData[0].id); if (quoteData.length > 0) setSelectedQuoteId(quoteData[0].id); } catch { setProjects([]); setQuotes([]); } finally { setLoading(false); } }, []);
   useEffect(() => { fetchData(); }, [fetchData]);
 
   const selectedProject = projects.find((p) => p.id === selectedProjectId);
@@ -564,7 +558,6 @@ function Workbook({ navigate }: { navigate: (p: Page) => void }) {
   const handleCreateQuote = async () => { if (!selectedProject) return; const newQuote: Quote = { id: crypto.randomUUID?.() || `q${Date.now()}`, clientName: selectedProject.client, refNumber: `Q-${new Date().getFullYear()}-${String(quotes.length + 1).padStart(3, "0")}`, date: new Date().toISOString().slice(0, 10), status: "draft", quoteType: "Both", categories: [{ id: crypto.randomUUID?.() || `cat1`, name: "Video Security Equipment", type: "Video Surveillance", lineItems: [] },{ id: crypto.randomUUID?.() || `cat2`, name: "Access Control Equipment", type: "Access Control", lineItems: [] },{ id: crypto.randomUUID?.() || `cat3`, name: "Professional Services", type: "Both", lineItems: [] }], exchangeRate }; setQuotes((prev) => [...prev, newQuote]); setSelectedQuoteId(newQuote.id); try { await API.quotes.create(newQuote); toast.success("Quote created"); } catch { toast.error("Failed to save quote"); } };
 
   if (loading) return <div className="px-3 md:px-5 py-4 md:py-6 space-y-4"><Skeleton className="h-10 w-48" /><Skeleton className="h-64 rounded-2xl" /></div>;
-  if (error) return <ErrorState message={error} onRetry={fetchData} />;
 
   return (
     <div className="flex flex-col h-[calc(100vh-56px)] overflow-hidden">
@@ -617,10 +610,10 @@ function DeviceSpecModal({ device, onClose }: { device: CatalogDevice; onClose: 
 function DeviceStore({ navigate: _navigate }: { navigate: (p: Page) => void }) {
   const [search, setSearch] = useState(""); const [categoryFilter, setCategoryFilter] = useState<string>("all"); const [viewMode, setViewMode] = useState<"grid" | "table">("grid");
   const [selectedDevice, setSelectedDevice] = useState<CatalogDevice | null>(null); const [devices, setDevices] = useState<CatalogDevice[]>([]);
-  const [loading, setLoading] = useState(true); const [error, setError] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true); 
   const { addToQuote } = useQuote(); const { fmt } = useCurrency();
 
-  const fetchDevices = useCallback(async () => { setLoading(true); setError(null); try { const data = await API.devices.list(); setDevices(data); } catch (err: any) { setError(err.message || "Failed to load devices"); } finally { setLoading(false); } }, []);
+  const fetchDevices = useCallback(async () => { setLoading(true); try { const data = await API.devices.list(); setDevices(data); } catch { setDevices([]); } finally { setLoading(false); } }, []);
   useEffect(() => { fetchDevices(); }, [fetchDevices]);
 
   const manufacturers = Array.from(new Set(devices.map((d) => d.manufacturer))).sort();
@@ -628,7 +621,6 @@ function DeviceStore({ navigate: _navigate }: { navigate: (p: Page) => void }) {
   const filtered = useMemo(() => { let result = devices; if (categoryFilter !== "all") result = result.filter((d) => d.category === categoryFilter); if (search.trim()) { const q = search.toLowerCase(); result = result.filter((d) => d.model.toLowerCase().includes(q) || d.manufacturer.toLowerCase().includes(q) || (d.sku ?? "").toLowerCase().includes(q) || (d.tags ?? []).some(t => t.toLowerCase().includes(q))); } return result; }, [devices, search, categoryFilter]);
 
   if (loading) return <div className="px-3 md:px-5 py-4 md:py-6 space-y-4"><Skeleton className="h-10 w-48" /><div className="grid gap-3 md:gap-4" style={{ gridTemplateColumns: "repeat(auto-fill, minmax(200px, 1fr))" }}>{[1,2,3,4,5,6].map(i => <Skeleton key={i} className="h-56 rounded-2xl" />)}</div></div>;
-  if (error) return <ErrorState message={error} onRetry={fetchDevices} />;
 
   return (
     <div className="px-3 md:px-5 py-4 md:py-6">
@@ -647,11 +639,11 @@ function DeviceStore({ navigate: _navigate }: { navigate: (p: Page) => void }) {
 const STATUS_META: Record<InstallStatus, { label: string; color: string; bg: string; icon: React.ElementType }> = { complete: { label: "Complete", color: "text-emerald-400", bg: "bg-emerald-500/12", icon: CheckCircle2 }, "in-progress": { label: "In Progress", color: "text-blue-400", bg: "bg-blue-500/12", icon: Clock }, failed: { label: "Failed / Defect", color: "text-rose-400", bg: "bg-rose-500/12", icon: AlertTriangle }, pending: { label: "Pending", color: "text-[#484f58]", bg: "bg-white/[0.04]", icon: AlertCircle } };
 
 function InstallTracker({ navigate: _navigate }: { navigate: (p: Page) => void }) {
-  const [zones, setZones] = useState<InstallZone[]>([]); const [loading, setLoading] = useState(true); const [error, setError] = useState<string | null>(null);
+  const [zones, setZones] = useState<InstallZone[]>([]); const [loading, setLoading] = useState(true); 
   const [expandedZone, setExpandedZone] = useState<string | null>(null); const [showAddDevice, setShowAddDevice] = useState(false);
   const [newDeviceName, setNewDeviceName] = useState(""); const [newDeviceLocation, setNewDeviceLocation] = useState(""); const [newDeviceType, setNewDeviceType] = useState<InstallDevice["type"]>("camera"); const [newDeviceZone, setNewDeviceZone] = useState(""); const [newDeviceAssignee, setNewDeviceAssignee] = useState("");
 
-  const fetchZones = useCallback(async () => { setLoading(true); setError(null); try { const data = await API.install.zones(); setZones(data); if (data.length > 0) setExpandedZone(data[0].id); } catch (err: any) { setError(err.message || "Failed to load install data"); } finally { setLoading(false); } }, []);
+  const fetchZones = useCallback(async () => { setLoading(true); try { const data = await API.install.zones(); setZones(data); if (data.length > 0) setExpandedZone(data[0].id); } catch { setZones([]); } finally { setLoading(false); } }, []);
   useEffect(() => { fetchZones(); }, [fetchZones]);
 
   const handleAddDevice = async (e: React.FormEvent) => { e.preventDefault(); if (!newDeviceName.trim() || !newDeviceZone) return; const device: InstallDevice = { id: crypto.randomUUID?.() || `d${Date.now()}`, name: newDeviceName.trim(), type: newDeviceType, location: newDeviceLocation.trim() || "TBD", status: "pending", assignee: newDeviceAssignee || "Unassigned" }; setZones((prev) => prev.map((z) => z.id === newDeviceZone ? { ...z, devices: [...z.devices, device] } : z)); setShowAddDevice(false); setNewDeviceName(""); setNewDeviceLocation(""); setExpandedZone(newDeviceZone); toast.success("Device added"); };
@@ -661,7 +653,6 @@ function InstallTracker({ navigate: _navigate }: { navigate: (p: Page) => void }
   const typeIcons: Record<string, React.ElementType> = { camera: Camera, access: Key, nvr: Cpu, door: DoorOpen, panel: PanelRight, power: Zap, server: Server };
 
   if (loading) return <div className="px-3 md:px-5 py-4 md:py-6 space-y-4"><Skeleton className="h-10 w-48" /><Skeleton className="h-32 rounded-2xl" /><Skeleton className="h-48 rounded-2xl" /></div>;
-  if (error) return <ErrorState message={error} onRetry={fetchZones} />;
 
   return (
     <div className="px-3 md:px-5 py-4 md:py-6 max-w-[1100px]">
