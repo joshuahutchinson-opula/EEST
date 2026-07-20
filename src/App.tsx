@@ -259,7 +259,7 @@ function Dashboard({ navigate }: { navigate: (p: Page) => void }) {
   const [showNewProject, setShowNewProject] = useState(false);
   const [progressAnim, setProgressAnim] = useState<{ id: string; stage: Stage } | null>(null);
 
-  const fetchProjects = useCallback(async () => { setLoading(true); setError(null); try { const data = await API.projects.list(); setProjects(data); } catch { setProjects([]); } finally { setLoading(false); } }, []);
+  const fetchProjects = useCallback(async () => { setLoading(true); try { const data = await API.projects.list(); setProjects(data); } catch { setProjects([]); } finally { setLoading(false); } }, []);
   useEffect(() => { fetchProjects(); }, [fetchProjects]);
 
   const active = projects.filter((p) => !["win", "lose"].includes(p.stage));
@@ -415,8 +415,10 @@ const fetchProject = useCallback(async () => { setLoading(true); try { const dat
 
   if (loading) return <div className="px-3 md:px-5 py-4 md:py-6 space-y-4"><Skeleton className="h-8 w-64" /><div className="grid grid-cols-2 md:grid-cols-5 gap-2 md:gap-3">{[1,2,3,4,5].map(i => <Skeleton key={i} className="h-24 rounded-2xl" />)}</div><Skeleton className="h-64 rounded-2xl" /></div>;
 if (!project && !loading) return <EmptyState icon={Building2} title="No project selected" description="Select a project from the Projects tab." />;
+if (!project) return null;
 
-  const p = project; const badge = stageBadge(p.stage); const tabs = ["overview","quotes","change-orders","audit-log"];
+const p = project!;
+const badge = stageBadge(p.stage); const tabs = ["overview","quotes","change-orders","audit-log"];
   const tabLabels: Record<string, string> = { overview: "Overview", quotes: "Quotes", "change-orders": "Change Orders", "audit-log": "Audit Log" };
 
   return (
