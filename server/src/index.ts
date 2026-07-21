@@ -8,6 +8,8 @@ import devicesRouter from "./routes/devices";
 import installRouter from "./routes/install";
 import canvasRouter from "./routes/canvas";
 import authRouter from "./routes/auth";
+import changeOrdersRouter from "./routes/changeOrders";
+import auditRouter from "./routes/audit";
 
 dotenv.config();
 
@@ -26,6 +28,8 @@ app.use("/api/devices", devicesRouter);
 app.use("/api/install", installRouter);
 app.use("/api/canvas", canvasRouter);
 app.use("/api/auth", authRouter);
+app.use("/api/change-orders", changeOrdersRouter);
+app.use("/api/audit", auditRouter);
 
 app.get("/api/health", (_req, res) => {
   res.json({ status: "ok", timestamp: new Date().toISOString() });
