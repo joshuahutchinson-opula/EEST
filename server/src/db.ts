@@ -33,6 +33,8 @@ export async function initDB() {
         summary TEXT,
         notes TEXT,
         collaborators JSONB DEFAULT '[]',
+        lead_source TEXT,
+        stage_history JSONB DEFAULT '[]',
         created_at TIMESTAMPTZ DEFAULT NOW(),
         updated_at TIMESTAMPTZ DEFAULT NOW(),
         deleted_at TIMESTAMPTZ
@@ -86,7 +88,7 @@ export async function initDB() {
         readers TEXT,
         authentication TEXT,
         price NUMERIC,
-        sku TEXT,
+        sku TEXT UNIQUE,
         image_url TEXT,
         frame_rate TEXT,
         compression TEXT,
@@ -121,6 +123,18 @@ export async function initDB() {
         updated_at TIMESTAMPTZ DEFAULT NOW()
       );
     `);
+
+    // Add columns if they don't exist (for existing tables)
+    await client.query(`ALTER TABLE projects ADD COLUMN IF NOT EXISTS lead_source TEXT`);
+    await client.query(`ALTER TABLE projects ADD COLUMN IF NOT EXISTS stage_history JSONB DEFAULT '[]'`);
+    await client.query(`ALTER TABLE quotes ADD COLUMN IF NOT EXISTS project_id UUID`);
+    await client.query(`ALTER TABLE devices ADD COLUMN IF NOT EXISTS tags TEXT[] DEFAULT '{}'`);
+    
+    // Add unique constraint on sku if not exists
+    try {
+      await client.query(`ALTER TABLE devices ADD CONSTRAINT devices_sku_unique UNIQUE (sku)`);
+    } catch {}
+
     console.log("Database tables initialized");
   } finally {
     client.release();
