@@ -122,6 +122,27 @@ export async function initDB() {
         layout_data JSONB DEFAULT '{}',
         updated_at TIMESTAMPTZ DEFAULT NOW()
       );
+
+      CREATE TABLE IF NOT EXISTS change_orders (
+        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+        project_id UUID REFERENCES projects(id),
+        title TEXT NOT NULL,
+        description TEXT,
+        cost_impact NUMERIC DEFAULT 0,
+        status TEXT DEFAULT 'draft',
+        created_by TEXT,
+        created_at TIMESTAMPTZ DEFAULT NOW(),
+        updated_at TIMESTAMPTZ DEFAULT NOW()
+      );
+
+      CREATE TABLE IF NOT EXISTS audit_logs (
+        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+        project_id UUID REFERENCES projects(id),
+        event TEXT NOT NULL,
+        details TEXT,
+        user_name TEXT,
+        created_at TIMESTAMPTZ DEFAULT NOW()
+      );
     `);
 
     // Add columns if they don't exist (for existing tables)
