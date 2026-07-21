@@ -459,33 +459,163 @@ const CANVAS_TOOLS = [
   { id: "cable", icon: Cable, label: "Cable" }, { id: "trash", icon: Trash2, label: "Delete" },
 ];
 
+type CanvasDevice = { id: string; type: "camera" | "door" | "panel" | "power" | "server" | "cable"; x: number; y: number; rot: number; fov?: number; range?: number; label: string; selected?: boolean; connectedTo?: string[]; doorConfig?: { swing: "inswinging" | "outswinging"; lockType: string; readers: string[]; accessType: string; keyOverride: boolean }; cablePoints?: { x: number; y: number }[]; };
+
+const CANVAS_TOOLS = [
+  { id: "select", icon: MousePointer, label: "Select" },
+  { id: "move", icon: Move, label: "Pan" },
+  { id: "camera", icon: Camera, label: "Camera" },
+  { id: "door", icon: DoorOpen, label: "Door" },
+  { id: "panel", icon: PanelRight, label: "Panel" },
+  { id: "power", icon: Zap, label: "Power" },
+  { id: "server", icon: Server, label: "NVR" },
+  { id: "cable", icon: Cable, label: "Cable" },
+  { id: "trash", icon: Trash2, label: "Delete" },
+];
+
 function DesignCanvas({ navigate }: { navigate: (p: Page) => void }) {
-  const [activeTool, setActiveTool] = useState("select"); const [showDeviceTray, setShowDeviceTray] = useState(false); const [showProperties, setShowProperties] = useState(true);
-  const [showFov, setShowFov] = useState(true); const [view3D, setView3D] = useState(false); const [devices, setDevices] = useState<CanvasDevice[]>([]);
-  const [selectedId, setSelectedId] = useState<string | null>(null); const [deviceSearch, setDeviceSearch] = useState("");
-  const [canvasScale, setCanvasScale] = useState(1); const [canvasOffset, setCanvasOffset] = useState({ x: 0, y: 0 });
+  const [activeTool, setActiveTool] = useState("select");
+  const [showDeviceTray, setShowDeviceTray] = useState(false);
+  const [showProperties, setShowProperties] = useState(true);
+  const [showFov, setShowFov] = useState(true);
+  const [view3D, setView3D] = useState(false);
+  const [devices, setDevices] = useState<CanvasDevice[]>([]);
+  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [deviceSearch, setDeviceSearch] = useState("");
+  const [canvasScale, setCanvasScale] = useState(1);
+  const [canvasOffset, setCanvasOffset] = useState({ x: 0, y: 0 });
   const [canvasImageUrl, setCanvasImageUrl] = useState<string>("");
   const [draggingDevice, setDraggingDevice] = useState<string | null>(null);
-  const canvasRef = useRef<HTMLDivElement>(null); const touchStartRef = useRef<{ x: number; y: number; dist: number } | null>(null);
+  const [cablePoints, setCablePoints] = useState<{ x: number; y: number }[]>([]);
+  const [projectId, setProjectId] = useState<string>("");
+  const canvasRef = useRef<HTMLDivElement>(null);
+  const touchStartRef = useRef<{ x: number; y: number; dist: number } | null>(null);
   const selected = devices.find((c) => c.id === selectedId);
 
-  useEffect(() => { const loadCanvas = async () => { try { const data = await API.canvas.get("current"); if (data.layoutData?.imageUrl) setCanvasImageUrl(data.layoutData.imageUrl); if (data.layoutData?.devices) setDevices(data.layoutData.devices); } catch {} }; loadCanvas(); }, []);
-  const saveCanvas = useCallback(async () => { try { await API.canvas.save("current", { devices, imageUrl: canvasImageUrl }); } catch {} }, [devices, canvasImageUrl]);
-  useEffect(() => { const t = setTimeout(() => { if (devices.length > 0 || canvasImageUrl) saveCanvas(); }, 2000); return () => clearTimeout(t); }, [devices, canvasImageUrl]);
+  useEffect(() => {
+    const loadCanvas = async () => {
+      try {
+        const projects = await API.projects.list();
+        const pid = projects[0]?.id;
+        if (pid) {
+          setProjectId(pid);
+          const data = await API.canvas.get(pid);
+          if (data.layoutData?.imageUrl) setCanvasImageUrl(data.layoutData.imageUrl);
+          if (data.layoutData?.devices) setDevices(data.layoutData.devices);
+        }
+      } catch {}
+    };
+    loadCanvas();
+  }, []);
 
-  const addDevice = (type: CanvasDevice["type"], x: number, y: number) => { const newDevice: CanvasDevice = { id: `dev${Date.now()}`, type, x, y, rot: 0, fov: type === "camera" ? 80 : undefined, range: type === "camera" ? 90 : undefined, label: `${type.toUpperCase()}-${String(devices.length + 1).padStart(2, "0")}` }; setDevices((prev) => [...prev, newDevice]); setSelectedId(newDevice.id); };
+  const saveCanvas = useCallback(async () => {
+    if (!projectId) return;
+    try {
+      await API.canvas.save(projectId, { devices, imageUrl: canvasImageUrl });
+    } catch {}
+  }, [devices, canvasImageUrl, projectId]);
 
-  const handleCanvasMouseDown = (e: React.MouseEvent) => { if (activeTool === "move") return; const rect = canvasRef.current?.getBoundingClientRect(); if (!rect) return; const x = ((e.clientX - rect.left) / rect.width) * 990; const y = ((e.clientY - rect.top) / rect.height) * 610;
-    if (activeTool === "select") { const clicked = devices.find((d) => Math.hypot(d.x - x, d.y - y) < 12); if (clicked) { setSelectedId(clicked.id); setDraggingDevice(clicked.id); } else { setSelectedId(null); } return; }
+  useEffect(() => {
+    const t = setTimeout(() => {
+      if (devices.length > 0 || canvasImageUrl) saveCanvas();
+    }, 2000);
+    return () => clearTimeout(t);
+  }, [devices, canvasImageUrl, saveCanvas]);
+
+  const addDevice = (type: CanvasDevice["type"], x: number, y: number) => {
+    const newDevice: CanvasDevice = {
+      id: `dev${Date.now()}`, type, x, y, rot: 0,
+      fov: type === "camera" ? 80 : undefined,
+      range: type === "camera" ? 90 : undefined,
+      label: `${type.toUpperCase()}-${String(devices.length + 1).padStart(2, "0")}`,
+      doorConfig: type === "door" ? { swing: "inswinging", lockType: "Electric Strike", readers: [], accessType: "Card", keyOverride: true } : undefined,
+    };
+    setDevices((prev) => [...prev, newDevice]);
+    setSelectedId(newDevice.id);
+  };
+
+  const handleCanvasMouseDown = (e: React.MouseEvent) => {
+    if (activeTool === "move") return;
+    const rect = canvasRef.current?.getBoundingClientRect();
+    if (!rect) return;
+    const x = ((e.clientX - rect.left) / rect.width) * 990;
+    const y = ((e.clientY - rect.top) / rect.height) * 610;
+
+    if (activeTool === "select") {
+      const clicked = devices.find((d) => Math.hypot(d.x - x, d.y - y) < 12);
+      if (clicked) { setSelectedId(clicked.id); setDraggingDevice(clicked.id); }
+      else { setSelectedId(null); }
+      return;
+    }
+
+    if (activeTool === "cable") {
+      setCablePoints((prev) => [...prev, { x, y }]);
+      return;
+    }
+
+    if (activeTool === "trash") {
+      const clicked = devices.find((d) => Math.hypot(d.x - x, d.y - y) < 12);
+      if (clicked) {
+        setDevices((prev) => prev.filter((d) => d.id !== clicked.id));
+        if (selectedId === clicked.id) setSelectedId(null);
+      }
+      return;
+    }
+
     addDevice(activeTool as CanvasDevice["type"], x, y);
   };
-  const handleCanvasMouseMove = (e: React.MouseEvent) => { if (!draggingDevice) return; const rect = canvasRef.current?.getBoundingClientRect(); if (!rect) return; const x = ((e.clientX - rect.left) / rect.width) * 990; const y = ((e.clientY - rect.top) / rect.height) * 610; setDevices((prev) => prev.map((d) => d.id === draggingDevice ? { ...d, x, y } : d)); };
+
+  const handleCanvasMouseMove = (e: React.MouseEvent) => {
+    if (!draggingDevice) return;
+    const rect = canvasRef.current?.getBoundingClientRect();
+    if (!rect) return;
+    const x = ((e.clientX - rect.left) / rect.width) * 990;
+    const y = ((e.clientY - rect.top) / rect.height) * 610;
+    setDevices((prev) => prev.map((d) => d.id === draggingDevice ? { ...d, x, y } : d));
+  };
+
   const handleCanvasMouseUp = () => { setDraggingDevice(null); };
 
-  const handleTouchStart = (e: React.TouchEvent) => { if (e.touches.length === 2) { const dx = e.touches[0].clientX - e.touches[1].clientX; const dy = e.touches[0].clientY - e.touches[1].clientY; touchStartRef.current = { x: (e.touches[0].clientX + e.touches[1].clientX) / 2, y: (e.touches[0].clientY + e.touches[1].clientY) / 2, dist: Math.hypot(dx, dy) }; } };
-  const handleTouchMove = (e: React.TouchEvent) => { if (!touchStartRef.current) return; if (e.touches.length === 2) { const dx = e.touches[0].clientX - e.touches[1].clientX; const dy = e.touches[0].clientY - e.touches[1].clientY; const newDist = Math.hypot(dx, dy); const scale = touchStartRef.current.dist > 0 ? newDist / touchStartRef.current.dist : 1; setCanvasScale((prev) => Math.max(0.5, Math.min(3, prev * scale))); touchStartRef.current = { ...touchStartRef.current, dist: newDist }; } };
+  const handleCanvasDoubleClick = () => {
+    if (activeTool === "cable" && cablePoints.length >= 2) {
+      const newCable: CanvasDevice = {
+        id: `dev${Date.now()}`, type: "cable", x: cablePoints[0].x, y: cablePoints[0].y, rot: 0,
+        label: `CABLE-${String(devices.filter(d=>d.type==="cable").length + 1).padStart(2, "0")}`,
+        cablePoints: [...cablePoints],
+      };
+      setDevices((prev) => [...prev, newCable]);
+      setCablePoints([]);
+    }
+  };
 
-  const getDeviceColor = (type: CanvasDevice["type"]) => { const colors: Record<string, string> = { camera: "#3b82f6", door: "#f59e0b", access: "#10b981", panel: "#f97316", power: "#ef4444", server: "#ec4899", cable: "#8b5cf6" }; return colors[type] || "#3b82f6"; };
+  const handleTouchStart = (e: React.TouchEvent) => {
+    if (e.touches.length === 2) {
+      const dx = e.touches[0].clientX - e.touches[1].clientX;
+      const dy = e.touches[0].clientY - e.touches[1].clientY;
+      touchStartRef.current = { x: (e.touches[0].clientX + e.touches[1].clientX) / 2, y: (e.touches[0].clientY + e.touches[1].clientY) / 2, dist: Math.hypot(dx, dy) };
+    }
+  };
+
+  const handleTouchMove = (e: React.TouchEvent) => {
+    if (!touchStartRef.current) return;
+    if (e.touches.length === 2) {
+      const dx = e.touches[0].clientX - e.touches[1].clientX;
+      const dy = e.touches[0].clientY - e.touches[1].clientY;
+      const newDist = Math.hypot(dx, dy);
+      const scale = touchStartRef.current.dist > 0 ? newDist / touchStartRef.current.dist : 1;
+      setCanvasScale((prev) => Math.max(0.5, Math.min(3, prev * scale)));
+      touchStartRef.current = { ...touchStartRef.current, dist: newDist };
+    }
+  };
+
+  const getDeviceColor = (type: CanvasDevice["type"]) => {
+    const colors: Record<string, string> = { camera: "#3b82f6", door: "#f59e0b", panel: "#f97316", power: "#ef4444", server: "#ec4899", cable: "#8b5cf6" };
+    return colors[type] || "#3b82f6";
+  };
+
+  const updateDoorConfig = (deviceId: string, config: Partial<CanvasDevice["doorConfig"]>) => {
+    setDevices((prev) => prev.map((d) => d.id === deviceId ? { ...d, doorConfig: { ...d.doorConfig!, ...config } } : d));
+  };
 
   return (
     <div className="fixed inset-0 flex flex-col" style={{ background: "#070c1a" }}>
@@ -497,13 +627,32 @@ function DesignCanvas({ navigate }: { navigate: (p: Page) => void }) {
         <button onClick={() => setShowDeviceTray(!showDeviceTray)} className={clsx("flex items-center gap-1.5 h-7 px-2 md:px-3 rounded-xl text-[10px] md:text-[11px] font-semibold transition-all cursor-pointer active:scale-[0.97] transition-transform", showDeviceTray ? "text-white" : "text-[#8b949e]")} style={G.btn}><Package className="w-3 h-3" /> Devices</button>
         <button onClick={() => { const svg = canvasRef.current?.querySelector("svg"); if (svg) { const data = new XMLSerializer().serializeToString(svg); const blob = new Blob([data], { type: "image/svg+xml" }); const url = URL.createObjectURL(blob); const a = document.createElement("a"); a.href = url; a.download = "floor-plan.svg"; a.click(); URL.revokeObjectURL(url); toast.success("Exported"); } }} className="flex items-center gap-1.5 h-7 px-2 md:px-3 rounded-xl text-[#e6edf3] text-[10px] md:text-[11px] font-semibold cursor-pointer active:scale-[0.97] transition-transform" style={G.btn}><Download className="w-3 h-3" /> Export</button>
       </header>
+
       <div className="flex-1 relative overflow-hidden">
         <motion.div className="absolute left-0 top-0 bottom-0 w-64 z-30 flex flex-col" style={G.liquidGlass} animate={{ x: showDeviceTray ? 0 : -256 }} transition={{ type: "spring", stiffness: 300, damping: 30 }}>
           <div className="px-4 py-3 flex items-center justify-between" style={{ borderBottom: "1px solid rgba(255,255,255,0.07)" }}><p className="text-white text-[12px] font-bold">Devices</p><button onClick={() => setShowDeviceTray(false)} className="w-6 h-6 rounded-lg hover:bg-white/[0.08] flex items-center justify-center cursor-pointer active:scale-[0.97] transition-transform min-w-[44px] min-h-[44px]"><X className="w-3.5 h-3.5 text-[#8b949e]" /></button></div>
           <div className="px-3 py-2.5"><div className="relative"><Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3 h-3 text-[#484f58]" /><input value={deviceSearch} onChange={(e) => setDeviceSearch(e.target.value)} placeholder="Search…" className="w-full h-7 rounded-xl pl-7 pr-2.5 text-[11px] text-[#e6edf3] focus:outline-none" style={G.input} /></div></div>
-          <div className="flex-1 overflow-y-auto" style={{ scrollbarWidth: "none" }}>{[{ category: "Cameras", color: "#3b82f6", items: ["Fixed Dome","PTZ","Bullet","Panoramic"] },{ category: "Access", color: "#10b981", items: ["Reader","Controller","Lock"] },{ category: "Infrastructure", color: "#f59e0b", items: ["Door","Panel","PoE Switch","Server"] }].map((cat) => (<div key={cat.category} className="p-3" style={{ borderBottom: "1px solid rgba(255,255,255,0.04)" }}><p className="text-[#484f58] text-[10px] font-bold uppercase tracking-widest mb-2 flex items-center gap-1.5"><span className="w-1.5 h-1.5 rounded-full" style={{ background: cat.color }} />{cat.category}</p><div className="space-y-0.5">{cat.items.filter(i => i.toLowerCase().includes(deviceSearch.toLowerCase())).map((item) => (<button key={item} onClick={() => { if (activeTool === "select") setActiveTool(cat.category === "Access" ? "access" : cat.category === "Infrastructure" ? "door" : "camera"); }} className="w-full text-left px-2.5 py-2 rounded-xl hover:bg-white/[0.05] transition-colors flex items-center gap-2.5 group cursor-pointer active:scale-[0.97] transition-transform"><div className="w-6 h-6 rounded-lg flex items-center justify-center flex-shrink-0" style={{ background: "rgba(255,255,255,0.04)" }}><Camera className="w-3 h-3 text-[#484f58]" /></div><span className="text-[#8b949e] text-[11px] font-medium group-hover:text-white transition-colors truncate">{item}</span></button>))}</div></div>))}</div>
+          <div className="flex-1 overflow-y-auto" style={{ scrollbarWidth: "none" }}>
+            {[{ category: "Cameras", color: "#3b82f6", items: ["Fixed Dome","PTZ","Bullet","Panoramic"] },{ category: "Doors & Access", color: "#f59e0b", items: ["Door","Electric Strike","Maglock","Reader"] },{ category: "Infrastructure", color: "#10b981", items: ["Panel","PoE Switch","Server"] }].map((cat) => (
+              <div key={cat.category} className="p-3" style={{ borderBottom: "1px solid rgba(255,255,255,0.04)" }}>
+                <p className="text-[#484f58] text-[10px] font-bold uppercase tracking-widest mb-2 flex items-center gap-1.5"><span className="w-1.5 h-1.5 rounded-full" style={{ background: cat.color }} />{cat.category}</p>
+                <div className="space-y-0.5">
+                  {cat.items.filter(i => i.toLowerCase().includes(deviceSearch.toLowerCase())).map((item) => (
+                    <button key={item} onClick={() => { if (cat.category === "Cameras") setActiveTool("camera"); else if (cat.category === "Doors & Access") setActiveTool("door"); else if (item === "Panel") setActiveTool("panel"); else if (item === "PoE Switch") setActiveTool("power"); else if (item === "Server") setActiveTool("server"); }}
+                      className="w-full text-left px-2.5 py-2 rounded-xl hover:bg-white/[0.05] transition-colors flex items-center gap-2.5 group cursor-pointer active:scale-[0.97] transition-transform">
+                      <div className="w-6 h-6 rounded-lg flex items-center justify-center flex-shrink-0" style={{ background: "rgba(255,255,255,0.04)" }}><Camera className="w-3 h-3 text-[#484f58]" /></div>
+                      <span className="text-[#8b949e] text-[11px] font-medium group-hover:text-white transition-colors truncate">{item}</span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            ))}
+          </div>
         </motion.div>
-        <div ref={canvasRef} className="absolute inset-0 flex items-center justify-center overflow-hidden" style={{ cursor: activeTool === "move" ? "grab" : activeTool === "select" ? "default" : "crosshair", touchAction: "none" }} onMouseDown={handleCanvasMouseDown} onMouseMove={handleCanvasMouseMove} onMouseUp={handleCanvasMouseUp} onTouchStart={handleTouchStart} onTouchMove={handleTouchMove} onTouchEnd={() => { touchStartRef.current = null; }}>
+
+        <div ref={canvasRef} className="absolute inset-0 flex items-center justify-center overflow-hidden" style={{ cursor: activeTool === "move" ? "grab" : activeTool === "select" ? "default" : "crosshair", touchAction: "none" }}
+          onMouseDown={handleCanvasMouseDown} onMouseMove={handleCanvasMouseMove} onMouseUp={handleCanvasMouseUp} onDoubleClick={handleCanvasDoubleClick}
+          onTouchStart={handleTouchStart} onTouchMove={handleTouchMove} onTouchEnd={() => { touchStartRef.current = null; }}>
           <svg viewBox="0 0 990 610" className="w-full h-full max-w-none" style={{ transform: `scale(${canvasScale}) translate(${canvasOffset.x}px, ${canvasOffset.y}px)`, maxHeight: "calc(100vh - 140px)" }}>
             <rect width="990" height="610" fill="#070c1a" />
             {canvasImageUrl && <image href={canvasImageUrl} x="0" y="0" width="990" height="610" opacity="0.35" />}
@@ -516,31 +665,72 @@ function DesignCanvas({ navigate }: { navigate: (p: Page) => void }) {
             <rect x="500" y="260" width="410" height="300" fill="rgba(139,92,246,0.03)" stroke="rgba(255,255,255,0.08)" strokeWidth="1" /><text x="705" y="418" textAnchor="middle" fill="rgba(255,255,255,0.15)" fontSize="10" fontFamily="sans-serif">DATA HALL A</text>
             <rect x="80" y="260" width="360" height="300" fill="rgba(16,185,129,0.02)" stroke="rgba(255,255,255,0.08)" strokeWidth="1" /><text x="260" y="418" textAnchor="middle" fill="rgba(255,255,255,0.15)" fontSize="10" fontFamily="sans-serif">DATA HALL B</text>
             <rect x="440" y="450" width="60" height="110" fill="rgba(6,182,212,0.03)" stroke="rgba(255,255,255,0.08)" strokeWidth="1" /><text x="470" y="512" textAnchor="middle" fill="rgba(255,255,255,0.15)" fontSize="7" fontFamily="sans-serif">NOC</text>
-            {showFov && devices.filter(d => d.type === "camera").map((cam) => (<path key={`fov-${cam.id}`} d={fovPath(cam.x, cam.y, cam.rot, cam.fov || 80, cam.range || 90)} fill={cam.id === selectedId ? "rgba(59,130,246,0.22)" : "rgba(59,130,246,0.10)"} />))}
-            {devices.map((dev) => { const color = getDeviceColor(dev.type); const isSelected = dev.id === selectedId;
+
+            {showFov && devices.filter(d => d.type === "camera").map((cam) => (
+              <path key={`fov-${cam.id}`} d={fovPath(cam.x, cam.y, cam.rot, cam.fov || 80, cam.range || 90)} fill={cam.id === selectedId ? "rgba(59,130,246,0.22)" : "rgba(59,130,246,0.10)"} />
+            ))}
+
+            {devices.map((dev) => {
+              const color = getDeviceColor(dev.type); const isSelected = dev.id === selectedId;
               if (dev.type === "camera") return (<g key={dev.id} style={{ cursor: "pointer" }}><circle cx={dev.x} cy={dev.y} r={isSelected ? 7 : 5} fill={color} stroke={isSelected ? "#fff" : "rgba(255,255,255,0.5)"} strokeWidth={isSelected ? 2 : 1} />{isSelected && <circle cx={dev.x} cy={dev.y} r="12" fill="none" stroke="rgba(59,130,246,0.4)" strokeWidth="1.5" strokeDasharray="3,2" />}</g>);
-              if (dev.type === "door") return (<g key={dev.id} style={{ cursor: "pointer" }}><rect x={dev.x-8} y={dev.y-3} width="16" height="6" fill="rgba(245,158,11,0.2)" stroke={color} strokeWidth={isSelected ? 2 : 1} rx="1" /><line x1={dev.x} y1={dev.y-3} x2={dev.x} y2={dev.y+8} stroke={color} strokeWidth="1" /><path d={`M${dev.x-6},${dev.y+4} Q${dev.x},${dev.y+12} ${dev.x+6},${dev.y+4}`} fill="none" stroke={color} strokeWidth="1" /></g>);
-              if (dev.type === "access") return (<g key={dev.id} style={{ cursor: "pointer" }}><rect x={dev.x-5} y={dev.y-5} width="10" height="10" fill="rgba(16,185,129,0.15)" stroke={color} strokeWidth={isSelected ? 2 : 1.5} rx="1.5" /><text x={dev.x} y={dev.y+3} textAnchor="middle" fill={color} fontSize="6" fontFamily="monospace">K</text></g>);
+              if (dev.type === "door") return (<g key={dev.id} style={{ cursor: "pointer" }}><rect x={dev.x-8} y={dev.y-3} width="16" height="6" fill="rgba(245,158,11,0.2)" stroke={color} strokeWidth={isSelected ? 2 : 1} rx="1" /><line x1={dev.x} y1={dev.y-3} x2={dev.x} y2={dev.y+8} stroke={color} strokeWidth="1" /><path d={dev.doorConfig?.swing === "outswinging" ? `M${dev.x-6},${dev.y+4} Q${dev.x},${dev.y-4} ${dev.x+6},${dev.y+4}` : `M${dev.x-6},${dev.y+4} Q${dev.x},${dev.y+12} ${dev.x+6},${dev.y+4}`} fill="none" stroke={color} strokeWidth="1" /></g>);
               if (dev.type === "panel") return (<g key={dev.id} style={{ cursor: "pointer" }}><rect x={dev.x-10} y={dev.y-7} width="20" height="14" fill="rgba(249,115,22,0.15)" stroke={color} strokeWidth={isSelected ? 2 : 1} rx="1" /><text x={dev.x} y={dev.y+1} textAnchor="middle" fill={color} fontSize="5" fontFamily="monospace">PNL</text></g>);
               if (dev.type === "power") return (<g key={dev.id} style={{ cursor: "pointer" }}><rect x={dev.x-8} y={dev.y-6} width="16" height="12" fill="rgba(239,68,68,0.15)" stroke={color} strokeWidth={isSelected ? 2 : 1} rx="1" /><text x={dev.x} y={dev.y+1} textAnchor="middle" fill={color} fontSize="4" fontFamily="monospace">PWR</text></g>);
               if (dev.type === "server") return (<g key={dev.id} style={{ cursor: "pointer" }}><rect x={dev.x-8} y={dev.y-8} width="16" height="16" fill="rgba(236,72,153,0.15)" stroke={color} strokeWidth={isSelected ? 2 : 1} rx="1" /><text x={dev.x} y={dev.y+1} textAnchor="middle" fill={color} fontSize="5" fontFamily="monospace">NVR</text></g>);
+              if (dev.type === "cable" && dev.cablePoints) {
+                const pointsStr = dev.cablePoints.map((p) => `${p.x},${p.y}`).join(" ");
+                const totalLength = dev.cablePoints.reduce((sum, p, i) => { if (i === 0) return 0; const prev = dev.cablePoints![i-1]; return sum + Math.hypot(p.x - prev.x, p.y - prev.y); }, 0);
+                return (<g key={dev.id} style={{ cursor: "pointer" }}><polyline points={pointsStr} fill="none" stroke={color} strokeWidth={isSelected ? 2.5 : 1.5} strokeDasharray={isSelected ? "none" : "6,3"} />{isSelected && <text x={dev.cablePoints[0].x + 5} y={dev.cablePoints[0].y - 5} fill="#fff" fontSize="7" fontFamily="sans-serif">{Math.round(totalLength * 0.3)}m</text>}</g>);
+              }
               return null;
             })}
-            <g transform="translate(10,580)"><rect x="0" y="0" width="200" height="24" fill="rgba(7,12,26,0.9)" rx="6" /><text x="12" y="16" fill="rgba(255,255,255,0.5)" fontSize="7" fontFamily="sans-serif">{devices.length} devices · Scale: {Math.round(canvasScale*100)}%</text></g>
+
+            {activeTool === "cable" && cablePoints.length > 0 && (
+              <>
+                <polyline points={cablePoints.map(p => `${p.x},${p.y}`).join(" ")} fill="none" stroke="#8b5cf6" strokeWidth="1.5" strokeDasharray="4,2" />
+                {cablePoints.map((p, i) => (<circle key={i} cx={p.x} cy={p.y} r="3" fill="#8b5cf6" />))}
+              </>
+            )}
+
+            <g transform="translate(10,580)"><rect x="0" y="0" width="220" height="24" fill="rgba(7,12,26,0.9)" rx="6" /><text x="12" y="16" fill="rgba(255,255,255,0.5)" fontSize="7" fontFamily="sans-serif">{devices.length} devices · Scale: {Math.round(canvasScale*100)}% {activeTool === "cable" ? "· Click points, double-click to finish" : ""}</text></g>
           </svg>
         </div>
+
         {showProperties && selected && (
           <div className="absolute right-0 top-0 bottom-0 w-72 z-30 flex flex-col" style={G.liquidGlass}>
             <div className="px-4 py-3 flex items-center justify-between" style={{ borderBottom: "1px solid rgba(255,255,255,0.07)" }}><p className="text-white text-[12px] font-bold">Properties</p><button onClick={() => setShowProperties(false)} className="w-6 h-6 rounded-lg hover:bg-white/[0.08] flex items-center justify-center cursor-pointer active:scale-[0.97] transition-transform min-w-[44px] min-h-[44px]"><X className="w-3.5 h-3.5 text-[#8b949e]" /></button></div>
             <div className="flex-1 p-4 overflow-y-auto space-y-4" style={{ scrollbarWidth: "none" }}>
               <div><p className="text-[#484f58] text-[10px] font-bold uppercase tracking-widest mb-2">Device</p><div className="rounded-xl p-3" style={G.card}><p className="text-white text-[12px] font-bold">{selected.label}</p><p className="text-[#484f58] text-[10px] mt-1 capitalize">{selected.type}</p></div></div>
               <div><p className="text-[#484f58] text-[10px] font-bold uppercase tracking-widest mb-2">Position</p><div className="grid grid-cols-2 gap-2">{[{ label: "X", value: Math.round(selected.x) },{ label: "Y", value: Math.round(selected.y) }].map((f) => (<div key={f.label} className="rounded-xl p-2.5" style={G.card}><p className="text-[#484f58] text-[10px] font-bold mb-1">{f.label}</p><p className="text-white text-[13px] font-bold">{f.value} px</p></div>))}</div></div>
-              <div className="flex gap-2"><button onClick={() => { setDevices((prev) => prev.filter((d) => d.id !== selected.id)); setSelectedId(null); }} className="flex-1 h-8 rounded-xl text-rose-400 text-[11px] font-semibold flex items-center justify-center gap-1.5 cursor-pointer active:scale-[0.97] transition-transform" style={{ background: "rgba(244,63,94,0.10)", border: "1px solid rgba(244,63,94,0.20)" }}><Trash2 className="w-3 h-3" /> Delete</button></div>
+
+              {selected.type === "door" && selected.doorConfig && (
+                <div className="space-y-2">
+                  <p className="text-[#484f58] text-[10px] font-bold uppercase tracking-widest">Door Config</p>
+                  <div className="rounded-xl p-3 space-y-2" style={G.card}>
+                    <div className="flex items-center justify-between"><span className="text-[#8b949e] text-[11px]">Swing</span><select value={selected.doorConfig.swing} onChange={(e) => updateDoorConfig(selected.id, { swing: e.target.value as "inswinging"|"outswinging" })} className="bg-transparent text-white text-[11px] font-semibold cursor-pointer" style={{ border: "1px solid rgba(255,255,255,0.10)", borderRadius: "6px", padding: "2px 6px" }}><option value="inswinging">Inswinging</option><option value="outswinging">Outswinging</option></select></div>
+                    <div className="flex items-center justify-between"><span className="text-[#8b949e] text-[11px]">Lock</span><select value={selected.doorConfig.lockType} onChange={(e) => updateDoorConfig(selected.id, { lockType: e.target.value })} className="bg-transparent text-white text-[11px] font-semibold cursor-pointer" style={{ border: "1px solid rgba(255,255,255,0.10)", borderRadius: "6px", padding: "2px 6px" }}><option>Electric Strike</option><option>Maglock</option><option>Deadbolt</option><option>Crash Bar</option></select></div>
+                    <div className="flex items-center justify-between"><span className="text-[#8b949e] text-[11px]">Access</span><select value={selected.doorConfig.accessType} onChange={(e) => updateDoorConfig(selected.id, { accessType: e.target.value })} className="bg-transparent text-white text-[11px] font-semibold cursor-pointer" style={{ border: "1px solid rgba(255,255,255,0.10)", borderRadius: "6px", padding: "2px 6px" }}><option>Card</option><option>Biometric</option><option>Keypad</option><option>Combo</option></select></div>
+                    <div className="flex items-center justify-between"><span className="text-[#8b949e] text-[11px]">Key Override</span><button onClick={() => updateDoorConfig(selected.id, { keyOverride: !selected.doorConfig?.keyOverride })} className={clsx("px-2 py-0.5 rounded text-[10px] font-bold", selected.doorConfig?.keyOverride ? "bg-emerald-500/20 text-emerald-400" : "bg-white/[0.05] text-[#484f58]")}>{selected.doorConfig?.keyOverride ? "Yes" : "No"}</button></div>
+                  </div>
+                </div>
+              )}
+
+              <div className="flex gap-2">
+                <button onClick={() => { setDevices((prev) => prev.filter((d) => d.id !== selected.id)); setSelectedId(null); }} className="flex-1 h-8 rounded-xl text-rose-400 text-[11px] font-semibold flex items-center justify-center gap-1.5 cursor-pointer active:scale-[0.97] transition-transform" style={{ background: "rgba(244,63,94,0.10)", border: "1px solid rgba(244,63,94,0.20)" }}><Trash2 className="w-3 h-3" /> Delete</button>
+              </div>
             </div>
           </div>
         )}
+
         <div className="absolute bottom-5 left-1/2 -translate-x-1/2 z-40 flex items-center gap-1 px-2 md:px-3 py-2 rounded-2xl overflow-x-auto max-w-[95vw]" style={G.liquidGlass}>
-          {CANVAS_TOOLS.map((tool) => (<button key={tool.id} onClick={() => setActiveTool(tool.id)} title={tool.label} className={clsx("w-8 h-8 md:w-9 md:h-9 rounded-xl flex items-center justify-center transition-all flex-shrink-0 cursor-pointer active:scale-[0.97] transition-transform min-w-[44px] min-h-[44px] md:min-w-0 md:min-h-0", activeTool === tool.id ? "text-white" : "text-[#8b949e] hover:bg-white/[0.07] hover:text-white")} style={activeTool === tool.id ? { background: "#3b82f6", boxShadow: "0 4px 16px rgba(59,130,246,0.45)" } : undefined}><tool.icon className="w-3.5 h-3.5 md:w-4 md:h-4" /></button>))}
+          {CANVAS_TOOLS.map((tool) => (
+            <button key={tool.id} onClick={() => { setActiveTool(tool.id); if (tool.id !== "cable") setCablePoints([]); }} title={tool.label}
+              className={clsx("w-8 h-8 md:w-9 md:h-9 rounded-xl flex items-center justify-center transition-all flex-shrink-0 cursor-pointer active:scale-[0.97] transition-transform min-w-[44px] min-h-[44px] md:min-w-0 md:min-h-0",
+                activeTool === tool.id ? "text-white" : "text-[#8b949e] hover:bg-white/[0.07] hover:text-white")}
+              style={activeTool === tool.id ? { background: "#3b82f6", boxShadow: "0 4px 16px rgba(59,130,246,0.45)" } : undefined}>
+              <tool.icon className="w-3.5 h-3.5 md:w-4 md:h-4" />
+            </button>
+          ))}
           <div className="w-px h-6 mx-1" style={{ background: "rgba(255,255,255,0.10)" }} />
           <button onClick={() => setShowProperties(!showProperties)} className={clsx("w-8 h-8 rounded-xl flex items-center justify-center transition-all flex-shrink-0 cursor-pointer active:scale-[0.97] transition-transform min-w-[44px] min-h-[44px]", showProperties ? "text-white" : "text-[#484f58]")} style={showProperties ? { background: "rgba(255,255,255,0.10)" } : undefined}><ChevronRight className="w-3.5 h-3.5" /></button>
         </div>
