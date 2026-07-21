@@ -13,6 +13,7 @@ import {
   Cpu, Activity, CheckSquare, ChevronUp, ExternalLink,
   Phone, Mail, MessageSquare, StickyNote, Users, Store,
   DoorOpen, PanelRight, Zap, Server, Cable, Box, Save,
+  Sun, Moon, SlidersHorizontal, ShoppingCart, History,
 } from "lucide-react";
 import { clsx } from "clsx";
 import logoImg from "./assets/2026-06-14_21.13.34_e-techsystemsja.com_2f51395e09e8-removebg-preview (1).png";
@@ -72,6 +73,27 @@ type Page = "login" | "dashboard" | "design-studio" | "project-detail" | "design
 type Stage = "assessment-scheduled" | "assessment-completed" | "design" | "proposal" | "negotiation" | "win" | "lose";
 type LeadSource = "Tender" | "Single Source" | "Inbound" | "Referral" | "Recurring Client" | "Outbound";
 type QuoteType = "Video Surveillance" | "Access Control" | "Both";
+
+interface AuditLogEntry {
+  id: string;
+  projectId: string;
+  event: string;
+  details: string;
+  timestamp: string;
+  user: string;
+}
+
+interface ChangeOrder {
+  id: string;
+  projectId: string;
+  title: string;
+  description: string;
+  costImpact: number;
+  status: "draft" | "submitted" | "approved" | "rejected";
+  createdAt: string;
+  updatedAt: string;
+  createdBy: string;
+}
 
 interface Project { id: string; name: string; client: string; value: number; stage: Stage; risk: "low" | "medium" | "high"; assignee: { name: string; initials: string; color: string }; dueDate: string; cameras: number; devices: number; location: string; contact?: { name: string; title: string; email: string; phone: string }; summary?: string; notes?: string; collaborators?: { name: string; initials: string; color: string; role: string }[]; leadSource?: LeadSource; stageHistory?: { stage: Stage; date: string }[]; createdAt?: string; updatedAt?: string; }
 interface QuoteLineItem { id: string; itemNumber: string; description: string; unitCost: number; quantity: number; markupPercent: number; sellPrice: number; costTotal: number; sellTotal: number; profit: number; jmdConversion: number; }
@@ -143,6 +165,8 @@ const API = {
   install: { zones: () => apiFetch<InstallZone[]>("/install/zones"), createZone: (data: { name: string; projectId?: string }) => apiFetch<InstallZone>("/install/zones", { method: "POST", body: JSON.stringify(data) }), addDevice: (zoneId: string, data: Partial<InstallDevice>) => apiFetch<InstallDevice>(`/install/zones/${zoneId}/devices`, { method: "POST", body: JSON.stringify(data) }), updateStatus: (zoneId: string, deviceId: string, status: InstallStatus) => apiFetch<void>(`/install/zones/${zoneId}/devices/${deviceId}`, { method: "PATCH", body: JSON.stringify({ status }) }) },
   canvas: { get: (projectId: string) => apiFetch<{ projectId: string; layoutData: any }>(`/canvas/${projectId}`), save: (projectId: string, data: any) => apiFetch<void>(`/canvas/${projectId}`, { method: "PUT", body: JSON.stringify(data) }), upload: (projectId: string, file: File) => { const fd = new FormData(); fd.append("file", file); return apiFetch<{ url: string }>(`/canvas/${projectId}/upload`, { method: "POST", body: fd }); } },
   fx: { getRate: async () => { try { const res = await fetch("https://open.er-api.com/v6/latest/USD"); const data = await res.json(); const rate = data.rates?.JMD || 157.4; localStorage.setItem("fx_rate", String(rate)); return rate; } catch { return parseFloat(localStorage.getItem("fx_rate") || "157.4"); } } },
+  audit: { list: (projectId: string) => apiFetch<AuditLogEntry[]>(`/audit/${projectId}`), log: (projectId: string, event: string, details: string) => apiFetch<void>(`/audit/${projectId}`, { method: "POST", body: JSON.stringify({ event, details }) }) },
+  changeOrders: { list: (projectId: string) => apiFetch<ChangeOrder[]>(`/change-orders/${projectId}`), create: (projectId: string, data: Partial<ChangeOrder>) => apiFetch<ChangeOrder>(`/change-orders/${projectId}`, { method: "POST", body: JSON.stringify(data) }), update: (projectId: string, id: string, data: Partial<ChangeOrder>) => apiFetch<ChangeOrder>(`/change-orders/${projectId}/${id}`, { method: "PATCH", body: JSON.stringify(data) }), delete: (projectId: string, id: string) => apiFetch<void>(`/change-orders/${projectId}/${id}`, { method: "DELETE" }) },
 };
 
 function Skeleton({ className }: { className?: string }) { return <div className={clsx("animate-pulse rounded-2xl", className)} style={{ background: "rgba(255,255,255,0.04)" }} />; }
@@ -248,19 +272,24 @@ function Dashboard({ navigate }: { navigate: (p: Page) => void }) {
   const negotiation = projects.filter((p) => p.stage === "negotiation"); const negoValue = negotiation.reduce((s, p) => s + p.value, 0);
   const avgDeal = active.length ? Math.round(pipeline / active.length) : 0;
 
+  const logAudit = async (projectId: string, event: string, details: string) => {
+    try { await API.audit.log(projectId, event, details); } catch {}
+  };
+
   const handleDragStart = (e: React.DragEvent<HTMLDivElement>, id: string) => { setDragging(id); e.dataTransfer.effectAllowed = "move"; };
   const handleDragEnd = () => { setDragging(null); setDragOverCol(null); };
   const handleDrop = async (colId: Stage) => {
     if (dragging) {
       const project = projects.find((p) => p.id === dragging);
       if (project && project.stage !== colId && colId !== "lose") { setProgressAnim({ id: dragging, stage: colId }); setTimeout(() => setProgressAnim(null), 1500); }
+      const oldStage = project?.stage;
       setProjects((prev) => prev.map((p) => p.id === dragging ? { ...p, stage: colId, stageHistory: [...(p.stageHistory || []), { stage: colId, date: new Date().toISOString().slice(0, 10) }] } : p));
-      try { await API.projects.update(dragging, { stage: colId }); } catch {}
+      try { await API.projects.update(dragging, { stage: colId }); await logAudit(dragging, "Stage Change", `Moved from ${oldStage} to ${colId}`); } catch {}
     }
     setDragging(null); setDragOverCol(null);
   };
   const handleDelete = async (id: string) => { setProjects((prev) => prev.filter((p) => p.id !== id)); try { await API.projects.delete(id); toast.success("Project deleted"); } catch { fetchProjects(); } };
-  const handleUpdate = async (updated: Project) => { setProjects((prev) => prev.map((p) => p.id === updated.id ? updated : p)); setSelectedDeal(updated); try { await API.projects.update(updated.id, updated); toast.success("Updated"); } catch { fetchProjects(); } };
+  const handleUpdate = async (updated: Project) => { setProjects((prev) => prev.map((p) => p.id === updated.id ? updated : p)); setSelectedDeal(updated); try { await API.projects.update(updated.id, updated); await logAudit(updated.id, "Project Edited", "Project details updated"); toast.success("Updated"); } catch { fetchProjects(); } };
 
   const selectedColumn = selectedDeal ? COLUMNS.find((c) => c.id === selectedDeal.stage)! : null;
   const STAT_COLORS = ["#3b82f6", "#10b981", "#f97316", "#8b5cf6"];
@@ -270,7 +299,7 @@ function Dashboard({ navigate }: { navigate: (p: Page) => void }) {
   return (
     <div>
       {selectedDeal && selectedColumn && <DealModal project={selectedDeal} column={selectedColumn} onClose={() => setSelectedDeal(null)} navigate={navigate} onUpdate={handleUpdate} onDelete={(id) => { handleDelete(id); setSelectedDeal(null); }} />}
-      {showNewProject && <NewProjectModal onClose={() => setShowNewProject(false)} onAdd={async (p) => { setProjects((prev) => [p, ...prev]); try { await API.projects.create(p); } catch { fetchProjects(); } }} />}
+      {showNewProject && <NewProjectModal onClose={() => setShowNewProject(false)} onAdd={async (p) => { setProjects((prev) => [p, ...prev]); try { await API.projects.create(p); await logAudit(p.id, "Project Created", `Project "${p.name}" created`); } catch { fetchProjects(); } }} />}
       {progressAnim && <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -20 }} className="fixed bottom-6 left-1/2 -translate-x-1/2 z-[250] px-5 py-3 rounded-2xl flex items-center gap-3" style={{ background: "rgba(16,185,129,0.95)", backdropFilter: "blur(20px)", boxShadow: "0 8px 32px rgba(16,185,129,0.4)" }}><CheckCircle2 className="w-5 h-5 text-white" /><span className="text-white text-[13px] font-bold">Project advanced to {COLUMNS.find((c) => c.id === progressAnim.stage)?.label}</span></motion.div>}
       <div className="px-3 md:px-5 pt-4 md:pt-6 pb-4 md:pb-5 flex-shrink-0" style={{ borderBottom: "1px solid rgba(255,255,255,0.06)" }}>
         <div className="flex items-center justify-between mb-4 md:mb-5"><div><h1 className="text-white font-bold text-lg md:text-xl tracking-tight">Project Pipeline</h1><p className="text-[#8b949e] text-[11px] md:text-[13px] mt-0.5">{projects.length} projects</p></div><button onClick={() => setShowNewProject(true)} className="flex items-center gap-1.5 h-8 px-3 md:px-4 rounded-xl text-white text-[11px] md:text-[12px] font-bold cursor-pointer active:scale-[0.97] transition-transform min-h-[44px]" style={{ background: "#3b82f6", boxShadow: "0 4px 16px rgba(59,130,246,0.35)" }}><Plus className="w-3.5 h-3.5" /> New Project</button></div>
@@ -287,13 +316,13 @@ function Dashboard({ navigate }: { navigate: (p: Page) => void }) {
   );
 }
 function NewProjectModal({ onClose, onAdd }: { onClose: () => void; onAdd: (p: Project) => void }) {
-  const [name, setName] = useState(""); const [client, setClient] = useState(""); const [location, setLocation] = useState(""); const [value, setValue] = useState(""); const [stage, setStage] = useState<Stage>("assessment-scheduled"); const [risk, setRisk] = useState<"low" | "medium" | "high">("low"); const [dueDate, setDueDate] = useState(""); const [summary, setSummary] = useState(""); const [leadSource, setLeadSource] = useState<LeadSource>("Inbound"); const [contactName, setContactName] = useState(""); const [contactTitle, setContactTitle] = useState(""); const [contactEmail, setContactEmail] = useState(""); const [contactPhone, setContactPhone] = useState(""); const [submitting, setSubmitting] = useState(false);
+  const [name, setName] = useState(""); const [client, setClient] = useState(""); const [location, setLocation] = useState(""); const [value, setValue] = useState(""); const [stage, setStage] = useState<Stage>("assessment-scheduled"); const [risk, setRisk] = useState<"low" | "medium" | "high">("low"); const [dueDate, setDueDate] = useState(""); const [summary, setSummary] = useState(""); const [leadSource, setLeadSource] = useState<LeadSource>("Inbound"); const [contactName, setContactName] = useState(""); const [contactTitle, setContactTitle] = useState(""); const [contactEmail, setContactEmail] = useState(""); const [contactPhone, setContactPhone] = useState(""); const [notes, setNotes] = useState(""); const [submitting, setSubmitting] = useState(false);
   const [collabSelect, setCollabSelect] = useState(""); const [collabRole, setCollabRole] = useState(""); const [collaborators, setCollaborators] = useState<{ name: string; initials: string; color: string; role: string }[]>([]);
   const canSubmit = name.trim() && client.trim();
 
   const addCollaborator = () => { if (!collabSelect) return; const member = TEAM.find(t => t.name === collabSelect); if (!member || collaborators.find(c => c.name === member.name)) return; setCollaborators((prev) => [...prev, { name: member.name, initials: member.initials, color: member.color, role: collabRole.trim() || "Team Member" }]); setCollabSelect(""); setCollabRole(""); };
 
-  const handleSubmit = async (e: React.FormEvent) => { e.preventDefault(); if (!canSubmit || submitting) return; setSubmitting(true); const newProject: Project = { id: crypto.randomUUID?.() || `p${Date.now()}`, name: name.trim(), client: client.trim(), location: location.trim() || "TBD", value: Math.round(parseFloat(value.replace(/[^0-9.]/g, "")) * (value.includes("M") ? 1_000_000 : value.includes("K") ? 1000 : 1)) || 0, cameras: 0, devices: 0, stage, risk, assignee: CURRENT_USER, dueDate: dueDate || new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10), summary: summary.trim() || undefined, leadSource, collaborators: collaborators.length > 0 ? collaborators : undefined, stageHistory: [{ stage, date: new Date().toISOString().slice(0, 10) }], contact: contactName.trim() ? { name: contactName.trim(), title: contactTitle.trim(), email: contactEmail.trim(), phone: contactPhone.trim() } : undefined }; onAdd(newProject); setSubmitting(false); onClose(); };
+  const handleSubmit = async (e: React.FormEvent) => { e.preventDefault(); if (!canSubmit || submitting) return; setSubmitting(true); const now = new Date().toISOString(); const newProject: Project = { id: crypto.randomUUID?.() || `p${Date.now()}`, name: name.trim(), client: client.trim(), location: location.trim() || "TBD", value: Math.round(parseFloat(value.replace(/[^0-9.]/g, "")) * (value.includes("M") ? 1_000_000 : value.includes("K") ? 1000 : 1)) || 0, cameras: 0, devices: 0, stage, risk, assignee: CURRENT_USER, dueDate: dueDate || new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10), summary: summary.trim() || undefined, notes: notes.trim() || undefined, leadSource, collaborators: collaborators.length > 0 ? collaborators : undefined, stageHistory: [{ stage, date: new Date().toISOString().slice(0, 10) }], contact: contactName.trim() ? { name: contactName.trim(), title: contactTitle.trim(), email: contactEmail.trim(), phone: contactPhone.trim() } : undefined, createdAt: now, updatedAt: now }; onAdd(newProject); setSubmitting(false); onClose(); };
 
   const inputCls = "w-full h-9 rounded-xl px-3 text-[#e6edf3] text-[12px] placeholder:text-[#484f58] focus:outline-none focus:ring-1 focus:ring-blue-500/50 transition-all";
   const labelCls = "block text-[#8b949e] text-[10px] font-bold uppercase tracking-widest mb-1.5";
@@ -309,32 +338,82 @@ function NewProjectModal({ onClose, onAdd }: { onClose: () => void; onAdd: (p: P
         <div style={{ borderTop: "1px solid rgba(255,255,255,0.07)", paddingTop: "12px" }}><label className={labelCls}>Collaborators</label><div className="flex gap-2 mb-2"><div className="relative flex-1"><select value={collabSelect} onChange={(e) => setCollabSelect(e.target.value)} className={`${inputCls} appearance-none cursor-pointer`} style={G.input}><option value="">Select team member</option>{TEAM.filter(t => !collaborators.find(c => c.name === t.name)).map((t) => (<option key={t.name} value={t.name} style={{ background: "#0d1117" }}>{t.name}</option>))}</select></div><input value={collabRole} onChange={(e) => setCollabRole(e.target.value)} placeholder="Role" className={`${inputCls} flex-1`} style={G.input} /><button type="button" onClick={addCollaborator} className="h-9 px-3 rounded-xl text-white text-[12px] font-bold cursor-pointer active:scale-[0.97] transition-transform" style={{ background: "#3b82f6" }}><Plus className="w-3.5 h-3.5" /></button></div>{collaborators.length > 0 && <div className="flex flex-wrap gap-2">{collaborators.map((c, i) => (<span key={i} className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl text-[11px] font-semibold" style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.10)" }}><span className="w-5 h-5 rounded-full flex items-center justify-center text-[9px] font-bold text-white" style={{ background: c.color }}>{c.initials}</span>{c.name} · {c.role}<button type="button" onClick={() => setCollaborators((prev) => prev.filter((_, j) => j !== i))} className="ml-1 text-[#484f58] hover:text-rose-400"><X className="w-3 h-3" /></button></span>))}</div>}</div>
         <div style={{ borderTop: "1px solid rgba(255,255,255,0.07)", paddingTop: "12px" }}><p className="text-[#484f58] text-[10px] font-bold uppercase tracking-widest mb-3">Contact (optional)</p><div className="grid grid-cols-2 gap-3"><div><label className={labelCls}>Name</label><input value={contactName} onChange={(e) => setContactName(e.target.value)} placeholder="Full name" className={inputCls} style={G.input} /></div><div><label className={labelCls}>Title</label><input value={contactTitle} onChange={(e) => setContactTitle(e.target.value)} placeholder="Job title" className={inputCls} style={G.input} /></div><div><label className={labelCls}>Email</label><input type="email" value={contactEmail} onChange={(e) => setContactEmail(e.target.value)} placeholder="email@company.com" className={inputCls} style={G.input} /></div><div><label className={labelCls}>Phone</label><input value={contactPhone} onChange={(e) => setContactPhone(e.target.value)} placeholder="+1 (876) 555-0000" className={inputCls} style={G.input} /></div></div></div>
         <div><label className={labelCls}>Project Scope</label><textarea value={summary} onChange={(e) => setSummary(e.target.value)} placeholder="Brief description…" rows={3} className="w-full rounded-xl px-3 py-2.5 text-[#e6edf3] text-[12px] placeholder:text-[#484f58] focus:outline-none resize-none transition-all" style={G.input} /></div>
+        <div><label className={labelCls}>Notes</label><textarea value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="Internal notes…" rows={2} className="w-full rounded-xl px-3 py-2.5 text-[#e6edf3] text-[12px] placeholder:text-[#484f58] focus:outline-none resize-none transition-all" style={G.input} /></div>
       </div><div className="px-5 md:px-7 pb-7 pt-4 flex gap-3" style={{ borderTop: "1px solid rgba(255,255,255,0.07)" }}><button type="button" onClick={onClose} className="flex-1 h-10 rounded-xl text-[#8b949e] text-[13px] font-semibold cursor-pointer active:scale-[0.97] transition-transform min-h-[44px]" style={G.btn}>Cancel</button><button type="submit" disabled={!canSubmit || submitting} className="flex-1 h-10 rounded-xl text-white text-[13px] font-bold transition-all disabled:opacity-40 cursor-pointer active:scale-[0.97] transition-transform min-h-[44px]" style={{ background: "#3b82f6", boxShadow: canSubmit ? "0 4px 20px rgba(59,130,246,0.4)" : "none" }}>{submitting ? "Adding…" : "Add to Pipeline"}</button></div></form>
     </motion.div></div>
   );
 }
 
 function DealModal({ project, column, onClose, navigate, onUpdate, onDelete }: { project: Project; column: Column; onClose: () => void; navigate: (p: Page) => void; onUpdate: (p: Project) => void; onDelete: (id: string) => void }) {
-  const [editing, setEditing] = useState(false); const { fmt } = useCurrency();
-  const [editName, setEditName] = useState(project.name); const [editClient, setEditClient] = useState(project.client); const [editLocation, setEditLocation] = useState(project.location); const [editValue, setEditValue] = useState(String(project.value)); const [editRisk, setEditRisk] = useState(project.risk); const [editDueDate, setEditDueDate] = useState(project.dueDate); const [saving, setSaving] = useState(false);
+  const [activeTab, setActiveTab] = useState("info"); const { fmt } = useCurrency();
+  const [editing, setEditing] = useState(false);
+  const [editName, setEditName] = useState(project.name); const [editClient, setEditClient] = useState(project.client); const [editLocation, setEditLocation] = useState(project.location); const [editValue, setEditValue] = useState(String(project.value)); const [editRisk, setEditRisk] = useState(project.risk); const [editDueDate, setEditDueDate] = useState(project.dueDate); const [editSummary, setEditSummary] = useState(project.summary || ""); const [editNotes, setEditNotes] = useState(project.notes || "");
+  const [saving, setSaving] = useState(false);
   const ls = project.leadSource ? LEAD_SOURCE_STYLES[project.leadSource] : null;
 
-  const handleSave = async () => { setSaving(true); const updated: Project = { ...project, name: editName, client: editClient, location: editLocation, value: parseFloat(editValue) || project.value, risk: editRisk, dueDate: editDueDate }; onUpdate(updated); setEditing(false); setSaving(false); };
+  const handleSave = async () => { setSaving(true); const updated: Project = { ...project, name: editName, client: editClient, location: editLocation, value: parseFloat(editValue) || project.value, risk: editRisk, dueDate: editDueDate, summary: editSummary, notes: editNotes, updatedAt: new Date().toISOString() }; onUpdate(updated); setEditing(false); setSaving(false); };
+
+  const tabs = [
+    { id: "info", label: "Info", icon: Building2 },
+    { id: "contact", label: "Contact", icon: Phone },
+    { id: "notes", label: "Notes", icon: StickyNote },
+    { id: "workbook", label: "Workbook", icon: FileText },
+  ];
 
   return (
-    <div className="fixed inset-0 z-[200] flex items-center justify-center p-4" onClick={onClose}><div className="absolute inset-0" style={{ background: "rgba(0,0,0,0.65)", backdropFilter: "blur(8px)" }} /><motion.div initial={{ opacity: 0, scale: 0.93, y: 20 }} animate={{ opacity: 1, scale: 1, y: 0 }} transition={{ type: "spring", damping: 26, stiffness: 360 }} onClick={(e) => e.stopPropagation()} className="relative z-10 w-full max-w-[480px] max-h-[90vh] overflow-y-auto rounded-3xl" style={{ background: "rgba(7,12,26,0.78)", backdropFilter: "blur(52px) saturate(200%)", border: "1px solid rgba(255,255,255,0.13)", boxShadow: "0 32px 80px rgba(0,0,0,0.9)" }}>
-      <div className="relative px-5 md:px-7 pt-5 md:pt-7 pb-5">
+    <div className="fixed inset-0 z-[200] flex items-center justify-center p-4" onClick={onClose}><div className="absolute inset-0" style={{ background: "rgba(0,0,0,0.65)", backdropFilter: "blur(8px)" }} /><motion.div initial={{ opacity: 0, scale: 0.93, y: 20 }} animate={{ opacity: 1, scale: 1, y: 0 }} transition={{ type: "spring", damping: 26, stiffness: 360 }} onClick={(e) => e.stopPropagation()} className="relative z-10 w-full max-w-[560px] max-h-[85vh] overflow-y-auto rounded-3xl" style={{ background: "rgba(7,12,26,0.78)", backdropFilter: "blur(52px) saturate(200%)", border: "1px solid rgba(255,255,255,0.13)", boxShadow: "0 32px 80px rgba(0,0,0,0.9)" }}>
+      <div className="relative px-5 md:px-7 pt-5 md:pt-7 pb-3">
         <div className="flex items-start justify-between gap-4"><div className="flex-1 min-w-0">
           <div className="flex flex-wrap items-center gap-1.5 mb-2.5"><span className="inline-flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-[0.14em] px-2.5 py-1 rounded-full" style={{ background: `${column.color}22`, color: column.color, border: `1px solid ${column.color}44` }}><span className="w-1.5 h-1.5 rounded-full" style={{ background: column.color }} />{column.label}</span>{ls && <span className="text-[9px] font-bold px-2 py-0.5 rounded-full" style={{ background: ls.bg, color: ls.text }}>{project.leadSource}</span>}</div>
-          {editing ? <input value={editName} onChange={(e) => setEditName(e.target.value)} className="text-white text-[1.1rem] font-bold bg-transparent border-b border-blue-500 w-full focus:outline-none" /> : <h2 className="text-white text-[1rem] md:text-[1.1rem] font-bold leading-snug">{project.name}</h2>}
-          {editing ? <input value={editClient} onChange={(e) => setEditClient(e.target.value)} className="text-[#8b949e] text-[13px] bg-transparent border-b border-blue-500 w-full mt-1 focus:outline-none" /> : <p className="text-[#8b949e] text-[12px] md:text-[13px] font-semibold mt-1 flex items-center gap-1.5"><Building2 className="w-3.5 h-3.5 flex-shrink-0" />{project.client}</p>}
+          <h2 className="text-white text-[1rem] md:text-[1.1rem] font-bold leading-snug">{project.name}</h2>
+          <p className="text-[#8b949e] text-[12px] md:text-[13px] font-semibold mt-1 flex items-center gap-1.5"><Building2 className="w-3.5 h-3.5 flex-shrink-0" />{project.client}</p>
         </div>
-        <div className="flex gap-2"><button onClick={() => setEditing(!editing)} className="w-8 h-8 rounded-xl flex items-center justify-center hover:bg-white/[0.08] cursor-pointer active:scale-[0.97] transition-transform" style={{ border: "1px solid rgba(255,255,255,0.10)" }}><Pencil className="w-4 h-4 text-[#8b949e]" /></button><button onClick={onClose} className="w-8 h-8 rounded-xl flex items-center justify-center hover:bg-white/[0.08] cursor-pointer active:scale-[0.97] transition-transform" style={{ border: "1px solid rgba(255,255,255,0.10)" }}><X className="w-4 h-4 text-[#8b949e]" /></button></div></div>
-        {editing && <div className="grid grid-cols-2 gap-2 mt-3"><input value={editLocation} onChange={(e) => setEditLocation(e.target.value)} placeholder="Location" className="w-full h-8 rounded-xl px-2 text-[12px] bg-transparent text-white" style={G.input} /><input type="number" value={editValue} onChange={(e) => setEditValue(e.target.value)} placeholder="Value" className="w-full h-8 rounded-xl px-2 text-[12px] bg-transparent text-white" style={G.input} /><select value={editRisk} onChange={(e) => setEditRisk(e.target.value as "low"|"medium"|"high")} className="w-full h-8 rounded-xl px-2 text-[12px] bg-transparent text-white" style={G.input}>{["low","medium","high"].map((r) => <option key={r} value={r}>{r}</option>)}</select><input type="date" value={editDueDate} onChange={(e) => setEditDueDate(e.target.value)} className="w-full h-8 rounded-xl px-2 text-[12px] bg-transparent text-white" style={{ ...G.input, colorScheme: "dark" }} /></div>}
+        <div className="flex gap-2 flex-shrink-0"><button onClick={() => setEditing(!editing)} className="w-8 h-8 rounded-xl flex items-center justify-center hover:bg-white/[0.08] cursor-pointer active:scale-[0.97] transition-transform" style={{ border: "1px solid rgba(255,255,255,0.10)" }}><Pencil className="w-4 h-4 text-[#8b949e]" /></button><button onClick={onClose} className="w-8 h-8 rounded-xl flex items-center justify-center hover:bg-white/[0.08] cursor-pointer active:scale-[0.97] transition-transform" style={{ border: "1px solid rgba(255,255,255,0.10)" }}><X className="w-4 h-4 text-[#8b949e]" /></button></div></div>
+        {editing && <div className="grid grid-cols-2 gap-2 mt-3"><input value={editName} onChange={(e) => setEditName(e.target.value)} placeholder="Name" className="w-full h-8 rounded-xl px-2 text-[12px] bg-transparent text-white" style={G.input} /><input value={editClient} onChange={(e) => setEditClient(e.target.value)} placeholder="Client" className="w-full h-8 rounded-xl px-2 text-[12px] bg-transparent text-white" style={G.input} /><input value={editLocation} onChange={(e) => setEditLocation(e.target.value)} placeholder="Location" className="w-full h-8 rounded-xl px-2 text-[12px] bg-transparent text-white" style={G.input} /><input type="number" value={editValue} onChange={(e) => setEditValue(e.target.value)} placeholder="Value" className="w-full h-8 rounded-xl px-2 text-[12px] bg-transparent text-white" style={G.input} /><select value={editRisk} onChange={(e) => setEditRisk(e.target.value as "low"|"medium"|"high")} className="w-full h-8 rounded-xl px-2 text-[12px] bg-transparent text-white" style={G.input}>{["low","medium","high"].map((r) => <option key={r} value={r}>{r}</option>)}</select><input type="date" value={editDueDate} onChange={(e) => setEditDueDate(e.target.value)} className="w-full h-8 rounded-xl px-2 text-[12px] bg-transparent text-white" style={{ ...G.input, colorScheme: "dark" }} /></div>}
         {editing && <div className="mt-3 flex gap-2"><button onClick={handleSave} disabled={saving} className="flex-1 h-9 rounded-xl text-white text-[13px] font-bold cursor-pointer active:scale-[0.97] transition-transform" style={{ background: "#10b981" }}><Save className="w-3.5 h-3.5 inline mr-1" />{saving ? "Saving…" : "Save"}</button><button onClick={() => setEditing(false)} className="flex-1 h-9 rounded-xl text-[#8b949e] text-[13px] font-semibold cursor-pointer active:scale-[0.97] transition-transform" style={G.btn}>Cancel</button></div>}
-        <div className="grid grid-cols-2 gap-2 mt-3">{[{ label: "Value", value: fmt(project.value, true), color: "#3b82f6" },{ label: "Devices", value: String(project.devices), color: "#06b6d4" }].map((s) => (<div key={s.label} className="rounded-2xl px-3 py-3 text-center" style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)" }}><p className="text-[10px] font-bold uppercase tracking-widest mb-1" style={{ color: "rgba(139,148,158,0.85)" }}>{s.label}</p><p className="text-[1.2rem] font-bold tracking-tight leading-none" style={{ color: s.color }}>{s.value}</p></div>))}</div>
-        <div className="mt-3 space-y-2"><div className="flex items-center gap-2"><div className="w-7 h-7 rounded-lg flex items-center justify-center text-[10px] font-bold text-white" style={{ background: project.assignee.color }}>{project.assignee.initials}</div><span className="text-white text-[12px] font-semibold">{project.assignee.name}</span><span className="text-[#484f58] text-[10px]">· Account Owner</span></div>{project.collaborators?.map((c) => (<div key={c.name} className="flex items-center gap-2"><div className="w-7 h-7 rounded-lg flex items-center justify-center text-[10px] font-bold text-white" style={{ background: c.color }}>{c.initials}</div><span className="text-white text-[12px] font-semibold">{c.name}</span><span className="text-[#484f58] text-[10px]">· {c.role}</span></div>))}</div>
       </div>
+
+      <div className="flex items-center gap-0.5 px-5 md:px-7 border-b" style={{ borderColor: "rgba(255,255,255,0.07)" }}>
+        {tabs.map((tab) => (
+          <button key={tab.id} onClick={() => setActiveTab(tab.id)} className={clsx("flex items-center gap-1.5 h-9 px-3 text-[11px] font-semibold border-b-2 -mb-px transition-all cursor-pointer active:scale-[0.97] transition-transform", activeTab === tab.id ? "border-blue-500 text-white" : "border-transparent text-[#8b949e]")}>
+            <tab.icon className="w-3 h-3" />{tab.label}
+          </button>
+        ))}
+      </div>
+
+      <div className="px-5 md:px-7 py-4">
+        {activeTab === "info" && (
+          <div className="space-y-3">
+            <div className="grid grid-cols-2 gap-2">{[{ label: "Value", value: fmt(project.value, true), color: "#3b82f6" },{ label: "Devices", value: String(project.devices), color: "#06b6d4" },{ label: "Cameras", value: String(project.cameras), color: "#8b5cf6" },{ label: "Due Date", value: fmtDateFull(project.dueDate), color: "#f59e0b" }].map((s) => (<div key={s.label} className="rounded-2xl px-3 py-3 text-center" style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)" }}><p className="text-[10px] font-bold uppercase tracking-widest mb-1" style={{ color: "rgba(139,148,158,0.85)" }}>{s.label}</p><p className="text-[1.2rem] font-bold tracking-tight leading-none" style={{ color: s.color }}>{s.value}</p></div>))}</div>
+            {project.summary && <div className="rounded-xl p-3" style={G.subtle}><p className="text-[#484f58] text-[9px] font-bold uppercase tracking-widest mb-1">Scope</p><p className="text-[#8b949e] text-[11px]">{project.summary}</p></div>}
+            <div className="space-y-2"><div className="flex items-center gap-2"><div className="w-7 h-7 rounded-lg flex items-center justify-center text-[10px] font-bold text-white" style={{ background: project.assignee.color }}>{project.assignee.initials}</div><span className="text-white text-[12px] font-semibold">{project.assignee.name}</span><span className="text-[#484f58] text-[10px]">· Account Owner</span></div>{project.collaborators?.map((c) => (<div key={c.name} className="flex items-center gap-2"><div className="w-7 h-7 rounded-lg flex items-center justify-center text-[10px] font-bold text-white" style={{ background: c.color }}>{c.initials}</div><span className="text-white text-[12px] font-semibold">{c.name}</span><span className="text-[#484f58] text-[10px]">· {c.role}</span></div>))}</div>
+          </div>
+        )}
+        {activeTab === "contact" && (
+          <div className="space-y-2">
+            {project.contact ? (
+              <div className="space-y-2">
+                {project.contact.name && <div className="flex items-center gap-2 text-[#e6edf3] text-[12px]"><Users className="w-3.5 h-3.5 text-[#484f58]" />{project.contact.name}{project.contact.title && <span className="text-[#484f58]">· {project.contact.title}</span>}</div>}
+                {project.contact.email && <div className="flex items-center gap-2 text-[#e6edf3] text-[12px]"><Mail className="w-3.5 h-3.5 text-[#484f58]" />{project.contact.email}</div>}
+                {project.contact.phone && <div className="flex items-center gap-2 text-[#e6edf3] text-[12px]"><Phone className="w-3.5 h-3.5 text-[#484f58]" />{project.contact.phone}</div>}
+              </div>
+            ) : <p className="text-[#484f58] text-[12px]">No contact info added yet.</p>}
+          </div>
+        )}
+        {activeTab === "notes" && (
+          <div>
+            {project.notes ? <p className="text-[#8b949e] text-[12px] whitespace-pre-wrap">{project.notes}</p> : <p className="text-[#484f58] text-[12px]">No notes yet.</p>}
+          </div>
+        )}
+        {activeTab === "workbook" && (
+          <div className="flex flex-col items-center gap-3 py-4">
+            <FileText className="w-10 h-10 text-[#484f58]" />
+            <p className="text-[#8b949e] text-[12px]">View full workbook for this project</p>
+            <button onClick={() => { navigate("workbook"); onClose(); }} className="h-9 px-5 rounded-xl text-white text-[12px] font-bold cursor-pointer active:scale-[0.97] transition-transform min-h-[44px]" style={{ background: "#3b82f6", boxShadow: "0 4px 20px rgba(59,130,246,0.4)" }}>Open Workbook <ExternalLink className="w-3 h-3 inline ml-1" /></button>
+          </div>
+        )}
+      </div>
+
       <div className="px-5 md:px-7 pb-7 flex gap-2.5"><button onClick={() => { navigate("project-detail"); onClose(); }} className="flex-1 h-10 rounded-xl flex items-center justify-center gap-2 text-white text-[13px] font-bold cursor-pointer active:scale-[0.97] transition-transform min-h-[44px]" style={{ background: "#3b82f6", boxShadow: "0 4px 20px rgba(59,130,246,0.4)" }}><ExternalLink className="w-3.5 h-3.5" />Open</button><button onClick={() => { navigate("design-canvas"); onClose(); }} className="flex-1 h-10 rounded-xl flex items-center justify-center gap-2 text-[#e6edf3] text-[13px] font-bold cursor-pointer active:scale-[0.97] transition-transform min-h-[44px]" style={G.btn}><Layers className="w-3.5 h-3.5 text-violet-400" />Design</button><button onClick={() => { onDelete(project.id); onClose(); }} className="h-10 px-3 rounded-xl text-rose-400 text-[13px] font-bold cursor-pointer active:scale-[0.97] transition-transform min-h-[44px]" style={{ background: "rgba(244,63,94,0.10)", border: "1px solid rgba(244,63,94,0.20)" }}><Trash2 className="w-3.5 h-3.5" /></button></div>
     </motion.div></div>
   );
@@ -350,11 +429,11 @@ function MiniFloorPlan({ project }: { project: Project }) {
 
 function stageBadge(stage: Stage) { const map: Record<Stage, { label: string; cls: string }> = { "assessment-scheduled": { label: "Assessment", cls: "bg-amber-500/12 text-amber-400" }, "assessment-completed": { label: "Assessed", cls: "bg-cyan-500/12 text-cyan-400" }, design: { label: "In Design", cls: "bg-violet-500/12 text-violet-400" }, proposal: { label: "Proposal", cls: "bg-blue-500/12 text-blue-400" }, negotiation: { label: "Negotiating", cls: "bg-orange-500/12 text-orange-400" }, win: { label: "Won", cls: "bg-emerald-500/12 text-emerald-400" }, lose: { label: "Lost", cls: "bg-rose-500/12 text-rose-400" } }; return map[stage]; }
 
-function UploadFloorPlanModal({ onClose, onUpload }: { onClose: () => void; onUpload: (file: File) => void }) {
+function UploadFloorPlanModal({ onClose, onUpload, mode }: { onClose: () => void; onUpload: (file: File, type: "2d" | "3d") => void; mode: "2d" | "3d" }) {
   const [dragOver, setDragOver] = useState(false); const [file, setFile] = useState<File | null>(null); const [uploading, setUploading] = useState(false);
-  const handleUpload = async () => { if (!file) return; setUploading(true); try { onUpload(file); onClose(); } catch { toast.error("Upload failed"); } finally { setUploading(false); } };
+  const handleUpload = async () => { if (!file) return; setUploading(true); try { onUpload(file, mode); onClose(); } catch { toast.error("Upload failed"); } finally { setUploading(false); } };
   return (
-    <div className="fixed inset-0 z-[200] flex items-center justify-center p-4" onClick={onClose}><div className="absolute inset-0" style={{ background: "rgba(0,0,0,0.65)", backdropFilter: "blur(8px)" }} /><motion.div initial={{ opacity: 0, scale: 0.94, y: 16 }} animate={{ opacity: 1, scale: 1, y: 0 }} transition={{ type: "spring", damping: 26, stiffness: 360 }} onClick={(e) => e.stopPropagation()} className="relative z-10 w-full max-w-[480px] rounded-3xl" style={{ background: "rgba(7,12,26,0.92)", backdropFilter: "blur(52px) saturate(200%)", border: "1px solid rgba(255,255,255,0.13)", boxShadow: "0 32px 80px rgba(0,0,0,0.9)" }}><div className="flex items-center justify-between px-6 pt-6 pb-5" style={{ borderBottom: "1px solid rgba(255,255,255,0.07)" }}><div><h2 className="text-white text-[1rem] font-bold">Upload Floor Plan</h2></div><button onClick={onClose} className="w-8 h-8 rounded-xl flex items-center justify-center hover:bg-white/[0.08] cursor-pointer active:scale-[0.97] transition-transform min-w-[44px] min-h-[44px]" style={{ border: "1px solid rgba(255,255,255,0.10)" }}><X className="w-4 h-4 text-[#8b949e]" /></button></div><div className="p-6"><div onDragOver={(e) => { e.preventDefault(); setDragOver(true); }} onDragLeave={() => setDragOver(false)} onDrop={(e) => { e.preventDefault(); if (e.dataTransfer.files.length > 0) setFile(e.dataTransfer.files[0]); }} className={clsx("border-2 border-dashed rounded-2xl p-10 text-center transition-all cursor-pointer", dragOver ? "border-violet-400 bg-violet-500/[0.06]" : file ? "border-emerald-500/40 bg-emerald-500/[0.03]" : "border-white/[0.10] hover:border-white/[0.20]")} onClick={() => document.getElementById("floorplan-upload")?.click()}><input id="floorplan-upload" type="file" accept="image/*,.pdf,.dwg,.dxf" className="hidden" onChange={(e) => { if (e.target.files?.[0]) setFile(e.target.files[0]); }} />{file ? <div className="space-y-2"><div className="w-12 h-12 rounded-xl mx-auto flex items-center justify-center" style={{ background: "rgba(16,185,129,0.15)" }}><CheckCircle2 className="w-6 h-6 text-emerald-400" /></div><p className="text-white text-[13px] font-semibold">{file.name}</p><p className="text-[#484f58] text-[11px]">{(file.size / 1024).toFixed(0)} KB</p></div> : <div className="space-y-3"><div className="w-14 h-14 rounded-2xl mx-auto flex items-center justify-center" style={{ background: "rgba(139,92,246,0.12)" }}><Upload className="w-6 h-6 text-violet-400" /></div><div><p className="text-white text-[13px] font-semibold">Drag & drop your floor plan</p><p className="text-[#484f58] text-[11px] mt-1">or click to browse files</p></div></div>}</div><div className="flex gap-3 mt-5"><button onClick={onClose} className="flex-1 h-10 rounded-xl text-[#8b949e] text-[13px] font-semibold cursor-pointer active:scale-[0.97] transition-transform min-h-[44px]" style={G.btn}>Cancel</button><button onClick={handleUpload} disabled={!file || uploading} className="flex-1 h-10 rounded-xl text-white text-[13px] font-bold disabled:opacity-40 flex items-center justify-center gap-2 cursor-pointer active:scale-[0.97] transition-transform min-h-[44px]" style={{ background: "#8b5cf6", boxShadow: file ? "0 4px 20px rgba(139,92,246,0.4)" : "none" }}>{uploading ? "Uploading…" : "Upload"}</button></div></div></motion.div></div>
+    <div className="fixed inset-0 z-[200] flex items-center justify-center p-4" onClick={onClose}><div className="absolute inset-0" style={{ background: "rgba(0,0,0,0.65)", backdropFilter: "blur(8px)" }} /><motion.div initial={{ opacity: 0, scale: 0.94, y: 16 }} animate={{ opacity: 1, scale: 1, y: 0 }} transition={{ type: "spring", damping: 26, stiffness: 360 }} onClick={(e) => e.stopPropagation()} className="relative z-10 w-full max-w-[480px] rounded-3xl" style={{ background: "rgba(7,12,26,0.92)", backdropFilter: "blur(52px) saturate(200%)", border: "1px solid rgba(255,255,255,0.13)", boxShadow: "0 32px 80px rgba(0,0,0,0.9)" }}><div className="flex items-center justify-between px-6 pt-6 pb-5" style={{ borderBottom: "1px solid rgba(255,255,255,0.07)" }}><div><h2 className="text-white text-[1rem] font-bold">Upload {mode === "2d" ? "Floor Plan" : "3D Rendering"}</h2></div><button onClick={onClose} className="w-8 h-8 rounded-xl flex items-center justify-center hover:bg-white/[0.08] cursor-pointer active:scale-[0.97] transition-transform min-w-[44px] min-h-[44px]" style={{ border: "1px solid rgba(255,255,255,0.10)" }}><X className="w-4 h-4 text-[#8b949e]" /></button></div><div className="p-6"><div onDragOver={(e) => { e.preventDefault(); setDragOver(true); }} onDragLeave={() => setDragOver(false)} onDrop={(e) => { e.preventDefault(); if (e.dataTransfer.files.length > 0) setFile(e.dataTransfer.files[0]); }} className={clsx("border-2 border-dashed rounded-2xl p-10 text-center transition-all cursor-pointer", dragOver ? "border-violet-400 bg-violet-500/[0.06]" : file ? "border-emerald-500/40 bg-emerald-500/[0.03]" : "border-white/[0.10] hover:border-white/[0.20]")} onClick={() => document.getElementById("floorplan-upload-2")?.click()}><input id="floorplan-upload-2" type="file" accept="image/*,.pdf,.dwg,.dxf" className="hidden" onChange={(e) => { if (e.target.files?.[0]) setFile(e.target.files[0]); }} />{file ? <div className="space-y-2"><div className="w-12 h-12 rounded-xl mx-auto flex items-center justify-center" style={{ background: "rgba(16,185,129,0.15)" }}><CheckCircle2 className="w-6 h-6 text-emerald-400" /></div><p className="text-white text-[13px] font-semibold">{file.name}</p><p className="text-[#484f58] text-[11px]">{(file.size / 1024).toFixed(0)} KB</p></div> : <div className="space-y-3"><div className="w-14 h-14 rounded-2xl mx-auto flex items-center justify-center" style={{ background: "rgba(139,92,246,0.12)" }}><Upload className="w-6 h-6 text-violet-400" /></div><div><p className="text-white text-[13px] font-semibold">Drag & drop your {mode === "2d" ? "floor plan" : "3D rendering"}</p><p className="text-[#484f58] text-[11px] mt-1">or click to browse files</p></div></div>}</div><div className="flex gap-3 mt-5"><button onClick={onClose} className="flex-1 h-10 rounded-xl text-[#8b949e] text-[13px] font-semibold cursor-pointer active:scale-[0.97] transition-transform min-h-[44px]" style={G.btn}>Cancel</button><button onClick={handleUpload} disabled={!file || uploading} className="flex-1 h-10 rounded-xl text-white text-[13px] font-bold disabled:opacity-40 flex items-center justify-center gap-2 cursor-pointer active:scale-[0.97] transition-transform min-h-[44px]" style={{ background: "#8b5cf6", boxShadow: file ? "0 4px 20px rgba(139,92,246,0.4)" : "none" }}>{uploading ? "Uploading…" : "Upload"}</button></div></div></motion.div></div>
   );
 }
 
@@ -371,17 +450,22 @@ function DesignStudio({ navigate }: { navigate: (p: Page) => void }) {
   const [projects, setProjects] = useState<Project[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
-  const [showUploadModal, setShowUploadModal] = useState(false);
+  const [showUploadModal, setShowUploadModal] = useState<"2d" | "3d" | null>(null);
   const [studioView, setStudioView] = useState<"projects" | "canvas">("projects");
   const [activeProjectId, setActiveProjectId] = useState<string>("");
   const [canvasImageUrl, setCanvasImageUrl] = useState<string>("");
+  const [canvas3DUrl, setCanvas3DUrl] = useState<string>("");
+  const [view3D, setView3D] = useState(false);
+  const [floorPlanOpacity, setFloorPlanOpacity] = useState(1);
+  const [floorPlanScale, setFloorPlanScale] = useState(1);
+  const [floorPlanRotation, setFloorPlanRotation] = useState(0);
 
   const fetchProjects = useCallback(async () => { setLoading(true); try { const data = await API.projects.list(); setProjects(data); if (data.length > 0 && !activeProjectId) setActiveProjectId(data[0].id); } catch { setProjects([]); } finally { setLoading(false); } }, []);
   useEffect(() => { fetchProjects(); }, [fetchProjects]);
 
-  const handleUpload = async (file: File) => {
+  const handleUpload = async (file: File, type: "2d" | "3d") => {
     if (!activeProjectId) { toast.error("Select a project first"); return; }
-    try { const result = await API.canvas.upload(activeProjectId, file); setCanvasImageUrl(result.url); setStudioView("canvas"); toast.success("Floor plan uploaded"); } catch { toast.error("Upload failed"); }
+    try { const result = await API.canvas.upload(activeProjectId, file); if (type === "2d") { setCanvasImageUrl(result.url); setStudioView("canvas"); } else { setCanvas3DUrl(result.url); } toast.success(type === "2d" ? "Floor plan uploaded" : "3D rendering uploaded"); } catch { toast.error("Upload failed"); }
   };
 
   const filtered = useMemo(() => { let result = projects; if (filter !== "all") result = result.filter((p) => p.stage === filter); if (search.trim()) { const q = search.toLowerCase(); result = result.filter((p) => p.name.toLowerCase().includes(q) || p.client.toLowerCase().includes(q) || p.location.toLowerCase().includes(q)); } return result; }, [projects, filter, search]);
@@ -392,13 +476,39 @@ function DesignStudio({ navigate }: { navigate: (p: Page) => void }) {
 
   return (
     <div className="px-3 md:px-5 py-4 md:py-6">
-      {showUploadModal && <UploadFloorPlanModal onClose={() => setShowUploadModal(false)} onUpload={handleUpload} />}
+      {showUploadModal && <UploadFloorPlanModal onClose={() => setShowUploadModal(null)} onUpload={handleUpload} mode={showUploadModal} />}
       <div className="flex items-center justify-between mb-4 md:mb-6"><div><h1 className="text-white font-bold text-lg md:text-xl tracking-tight">System Design Studio</h1></div><div className="flex items-center gap-2"><div className="flex items-center rounded-xl p-0.5 gap-0.5" style={G.btn}><button onClick={() => setStudioView("projects")} className={clsx("h-7 px-3 rounded-lg text-[11px] md:text-[12px] font-semibold transition-all cursor-pointer active:scale-[0.97] transition-transform", studioView === "projects" ? "text-white" : "text-[#484f58]")} style={studioView === "projects" ? { background: "rgba(255,255,255,0.12)" } : undefined}>Projects</button><button onClick={() => setStudioView("canvas")} className={clsx("h-7 px-3 rounded-lg text-[11px] md:text-[12px] font-semibold transition-all cursor-pointer active:scale-[0.97] transition-transform", studioView === "canvas" ? "text-white" : "text-[#484f58]")} style={studioView === "canvas" ? { background: "rgba(255,255,255,0.12)" } : undefined}>Canvas</button></div>{studioView === "projects" && <div className="flex items-center rounded-xl p-0.5 gap-0.5" style={G.btn}>{(["grid","list"] as const).map((m) => (<button key={m} onClick={() => setViewMode(m)} className={clsx("w-7 h-7 rounded-lg flex items-center justify-center transition-all cursor-pointer active:scale-[0.97] transition-transform", viewMode === m ? "text-white" : "text-[#484f58]")} style={viewMode === m ? { background: "rgba(255,255,255,0.12)" } : undefined}>{m === "grid" ? <Grid3x3 className="w-3.5 h-3.5" /> : <List className="w-3.5 h-3.5" />}</button>))}</div>}</div></div>
 
       {studioView === "canvas" ? (
-        <div className="rounded-2xl overflow-hidden relative" style={{ ...G.card, minHeight: "50vh" }}>
-          {canvasImageUrl ? <div className="relative w-full" style={{ paddingBottom: "56.25%" }}><img src={canvasImageUrl} alt="Floor Plan" className="absolute inset-0 w-full h-full object-contain" /></div> : <svg viewBox="0 0 990 610" className="w-full" style={{ maxHeight: "70vh" }}><rect width="990" height="610" fill="#070c1a" /><defs><pattern id="cgds" width="30" height="30" patternUnits="userSpaceOnUse"><path d="M 30 0 L 0 0 0 30" fill="none" stroke="rgba(255,255,255,0.024)" strokeWidth="0.5" /></pattern></defs><rect width="990" height="610" fill="url(#cgds)" /><rect x="80" y="50" width="830" height="510" fill="rgba(255,255,255,0.015)" stroke="rgba(255,255,255,0.12)" strokeWidth="1.5" rx="2" /><rect x="80" y="50" width="220" height="150" fill="rgba(59,130,246,0.04)" /><text x="190" y="132" textAnchor="middle" fill="rgba(255,255,255,0.18)" fontSize="9" fontFamily="sans-serif">RECEPTION</text></svg>}
-          <div className="absolute bottom-4 left-4 right-4 flex items-center justify-between pointer-events-none"><div className="px-3 py-1.5 rounded-xl text-[10px] md:text-[11px] font-semibold text-white pointer-events-auto" style={G.liquidGlass}>Floor Plan</div><button onClick={() => navigate("design-canvas")} className="px-3 py-1.5 rounded-xl text-[10px] md:text-[11px] font-bold text-white pointer-events-auto cursor-pointer active:scale-[0.97] transition-transform" style={{ background: "#3b82f6" }}>Open Canvas</button></div>
+        <div className="space-y-3">
+          <div className="flex items-center gap-2 flex-wrap">
+            <button onClick={() => setShowUploadModal("2d")} className="flex items-center gap-1.5 h-8 px-3 rounded-xl text-white text-[11px] font-semibold cursor-pointer active:scale-[0.97] transition-transform" style={G.btn}><Upload className="w-3 h-3" /> Upload 2D Floor Plan</button>
+            <button onClick={() => setShowUploadModal("3d")} className="flex items-center gap-1.5 h-8 px-3 rounded-xl text-white text-[11px] font-semibold cursor-pointer active:scale-[0.97] transition-transform" style={G.btn}><Box className="w-3 h-3" /> Upload 3D Rendering</button>
+            {(canvasImageUrl || canvas3DUrl) && (
+              <button onClick={() => setView3D(!view3D)} className={clsx("flex items-center gap-1.5 h-8 px-3 rounded-xl text-[11px] font-semibold cursor-pointer active:scale-[0.97] transition-transform", view3D ? "text-violet-400" : "text-[#8b949e]")} style={view3D ? { background: "rgba(139,92,246,0.15)", border: "1px solid rgba(139,92,246,0.35)" } : G.btn}>
+                {view3D ? "Switch to 2D" : "Switch to 3D"}
+              </button>
+            )}
+          </div>
+          {!view3D && canvasImageUrl && (
+            <div className="flex items-center gap-3 mb-2 flex-wrap">
+              <div className="flex items-center gap-2"><Sun className="w-3 h-3 text-[#484f58]" /><input type="range" min="0.1" max="1" step="0.05" value={floorPlanOpacity} onChange={(e) => setFloorPlanOpacity(parseFloat(e.target.value))} className="w-20" /><span className="text-[#8b949e] text-[10px]">{Math.round(floorPlanOpacity * 100)}%</span></div>
+              <div className="flex items-center gap-2"><ZoomIn className="w-3 h-3 text-[#484f58]" /><input type="range" min="0.5" max="3" step="0.1" value={floorPlanScale} onChange={(e) => setFloorPlanScale(parseFloat(e.target.value))} className="w-20" /><span className="text-[#8b949e] text-[10px]">{Math.round(floorPlanScale * 100)}%</span></div>
+              <div className="flex items-center gap-2"><RotateCcw className="w-3 h-3 text-[#484f58]" /><input type="range" min="-180" max="180" step="1" value={floorPlanRotation} onChange={(e) => setFloorPlanRotation(parseInt(e.target.value))} className="w-20" /><span className="text-[#8b949e] text-[10px]">{floorPlanRotation}°</span></div>
+            </div>
+          )}
+          <div className="rounded-2xl overflow-hidden relative" style={{ ...G.card, minHeight: "50vh" }}>
+            {view3D && canvas3DUrl ? (
+              <div className="relative w-full" style={{ paddingBottom: "56.25%" }}><img src={canvas3DUrl} alt="3D Rendering" className="absolute inset-0 w-full h-full object-contain" /></div>
+            ) : canvasImageUrl ? (
+              <div className="relative w-full" style={{ paddingBottom: "56.25%", overflow: "hidden" }}>
+                <img src={canvasImageUrl} alt="Floor Plan" className="absolute" style={{ opacity: floorPlanOpacity, transform: `scale(${floorPlanScale}) rotate(${floorPlanRotation}deg)`, transformOrigin: "center center", left: "50%", top: "50%", marginLeft: "-50%", marginTop: "-28.125%", maxWidth: "100%", maxHeight: "100%" }} />
+              </div>
+            ) : (
+              <svg viewBox="0 0 990 610" className="w-full" style={{ maxHeight: "70vh" }}><rect width="990" height="610" fill="#070c1a" /><defs><pattern id="cgds" width="30" height="30" patternUnits="userSpaceOnUse"><path d="M 30 0 L 0 0 0 30" fill="none" stroke="rgba(255,255,255,0.024)" strokeWidth="0.5" /></pattern></defs><rect width="990" height="610" fill="url(#cgds)" /><rect x="80" y="50" width="830" height="510" fill="rgba(255,255,255,0.015)" stroke="rgba(255,255,255,0.12)" strokeWidth="1.5" rx="2" /><rect x="80" y="50" width="220" height="150" fill="rgba(59,130,246,0.04)" /><text x="190" y="132" textAnchor="middle" fill="rgba(255,255,255,0.18)" fontSize="9" fontFamily="sans-serif">RECEPTION</text></svg>
+            )}
+            <div className="absolute bottom-4 left-4 right-4 flex items-center justify-between pointer-events-none"><div className="px-3 py-1.5 rounded-xl text-[10px] md:text-[11px] font-semibold text-white pointer-events-auto" style={G.liquidGlass}>{view3D ? "3D Rendering" : "Floor Plan"}</div><button onClick={() => navigate("design-canvas")} className="px-3 py-1.5 rounded-xl text-[10px] md:text-[11px] font-bold text-white pointer-events-auto cursor-pointer active:scale-[0.97] transition-transform" style={{ background: "#3b82f6" }}>Open Canvas</button></div>
+          </div>
         </div>
       ) : (
         <>
@@ -420,9 +530,41 @@ function ProjectDetail({ navigate }: { navigate: (p: Page) => void }) {
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState("overview");
   const [quotes, setQuotes] = useState<Quote[]>([]);
+  const [auditLog, setAuditLog] = useState<AuditLogEntry[]>([]);
+  const [changeOrders, setChangeOrders] = useState<ChangeOrder[]>([]);
+  const [showNewCO, setShowNewCO] = useState(false);
+  const [newCOTitle, setNewCOTitle] = useState("");
+  const [newCODesc, setNewCODesc] = useState("");
+  const [newCOCost, setNewCOCost] = useState("");
 
   const fetchProject = useCallback(async () => { setLoading(true); try { const data = await API.projects.list(); if (data.length > 0) setProject(data[0]); else setProject(null); const qData = await API.quotes.list(); setQuotes(qData.filter((q: Quote) => q.projectId === data[0]?.id)); } catch { setProject(null); } finally { setLoading(false); } }, []);
   useEffect(() => { fetchProject(); }, [fetchProject]);
+
+  useEffect(() => {
+    if (project) {
+      API.audit.list(project.id).then(setAuditLog).catch(() => setAuditLog([]));
+      API.changeOrders.list(project.id).then(setChangeOrders).catch(() => setChangeOrders([]));
+    }
+  }, [project]);
+
+  const handleCreateCO = async () => {
+    if (!project || !newCOTitle.trim()) return;
+    const co: Partial<ChangeOrder> = {
+      projectId: project.id,
+      title: newCOTitle.trim(),
+      description: newCODesc.trim(),
+      costImpact: parseFloat(newCOCost) || 0,
+      status: "draft",
+      createdBy: CURRENT_USER.name,
+    };
+    try {
+      const created = await API.changeOrders.create(project.id, co);
+      setChangeOrders((prev) => [...prev, created]);
+      setShowNewCO(false);
+      setNewCOTitle(""); setNewCODesc(""); setNewCOCost("");
+      toast.success("Change order created");
+    } catch { toast.error("Failed to create change order"); }
+  };
 
   if (loading) return <div className="px-3 md:px-5 py-4 md:py-6 space-y-4"><Skeleton className="h-8 w-64" /><div className="grid grid-cols-2 md:grid-cols-5 gap-2 md:gap-3">{[1,2,3,4,5].map(i => <Skeleton key={i} className="h-24 rounded-2xl" />)}</div></div>;
   if (!project) return <EmptyState icon={Building2} title="No project selected" description="Select a project from the Projects tab." />;
@@ -439,12 +581,43 @@ function ProjectDetail({ navigate }: { navigate: (p: Page) => void }) {
       <div className="flex items-center gap-0.5 mb-4 md:mb-5 overflow-x-auto" style={{ borderBottom: "1px solid rgba(255,255,255,0.07)", scrollbarWidth: "none" }}>{tabs.map((tab) => (<button key={tab} onClick={() => setActiveTab(tab)} className={clsx("h-10 px-3 md:px-4 text-[12px] md:text-[13px] font-semibold border-b-2 transition-all -mb-px whitespace-nowrap cursor-pointer active:scale-[0.97] transition-transform min-h-[44px]", activeTab === tab ? "border-blue-500 text-white" : "border-transparent text-[#8b949e]")}>{tabLabels[tab]}</button>))}</div>
       {activeTab === "overview" && (<div className="grid grid-cols-1 md:grid-cols-3 gap-4"><div className="md:col-span-2 space-y-4"><div className="rounded-2xl p-4 md:p-5" style={G.card}><h3 className="text-white text-[13px] md:text-[14px] font-bold mb-3">Project Scope</h3><p className="text-[#8b949e] text-[12px] leading-relaxed">{p.summary ?? "No scope defined yet."}</p></div><div className="rounded-2xl p-4 md:p-5" style={G.card}><h3 className="text-white text-[13px] md:text-[14px] font-bold mb-4">Team</h3><div className="space-y-3"><div className="flex items-center gap-3"><div className="w-8 h-8 rounded-xl flex items-center justify-center text-[11px] font-bold text-white" style={{ background: p.assignee.color }}>{p.assignee.initials}</div><div><p className="text-white text-[12px] font-semibold">{p.assignee.name}</p><p className="text-[#8b949e] text-[10px]">Account Owner</p></div></div>{p.collaborators?.map((c) => (<div key={c.name} className="flex items-center gap-3"><div className="w-8 h-8 rounded-xl flex items-center justify-center text-[11px] font-bold text-white" style={{ background: c.color }}>{c.initials}</div><div><p className="text-white text-[12px] font-semibold">{c.name}</p><p className="text-[#8b949e] text-[10px]">{c.role}</p></div></div>))}</div></div></div><div className="space-y-4"><div className="rounded-2xl p-4 md:p-5" style={G.card}><h3 className="text-white text-[13px] md:text-[14px] font-bold mb-4">Timeline</h3><div className="space-y-2">{COLUMNS.filter(c => !["win","lose"].includes(c.id)).map((col) => { const entry = stageHistory.find((s: any) => s.stage === col.id); const colIndex = COLUMNS.indexOf(col); const currentIndex = COLUMNS.indexOf(COLUMNS.find((c) => c.id === p.stage)!); const isPast = colIndex < currentIndex; const isCurrent = col.id === p.stage; return (<div key={col.id} className="flex items-center gap-3"><div className={clsx("w-5 h-5 rounded-full flex items-center justify-center flex-shrink-0", isPast ? "bg-emerald-500/20" : isCurrent ? "bg-blue-500/20 ring-2 ring-blue-500/40" : "bg-white/[0.04]")}>{isPast ? <CheckCircle2 className="w-3 h-3 text-emerald-400" /> : isCurrent ? <Clock className="w-3 h-3 text-blue-400" /> : <div className="w-1.5 h-1.5 rounded-full bg-white/20" />}</div><div className="flex-1 flex items-center justify-between"><span className={clsx("text-[11px] font-semibold", isPast ? "text-[#8b949e]" : isCurrent ? "text-white" : "text-[#484f58]")}>{col.label}</span><span className="text-[#484f58] text-[10px]">{entry?.date ? fmtDateFull(entry.date) : "—"}</span></div></div>); })}</div></div></div></div>)}
       {activeTab === "quotes" && (quotes.length === 0 ? <EmptyState icon={DollarSign} title="No workbook yet" description="" /> : <div className="space-y-3">{quotes.map((q) => (<div key={q.id} className="flex items-center justify-between rounded-2xl p-4" style={G.card}><div className="flex items-center gap-4"><DollarSign className="w-4 h-4 text-blue-400" /><div><p className="text-white text-[13px] font-semibold">{q.refNumber}</p><p className="text-[#484f58] text-[11px]">{q.date} · {q.status}</p></div></div><button onClick={() => navigate("workbook")} className="h-8 px-3 rounded-xl text-[#8b949e] text-[12px] font-semibold hover:text-white cursor-pointer" style={G.btn}>Open</button></div>))}</div>)}
-      {activeTab === "change-orders" && <EmptyState icon={AlertTriangle} title="No change orders" description="" />}
-      {activeTab === "audit-log" && <EmptyState icon={FileText} title="No audit entries" description="" />}
+      {activeTab === "change-orders" && (
+        <div>
+          <div className="flex items-center justify-between mb-3"><p className="text-[#8b949e] text-[11px]">{changeOrders.length} change orders</p><button onClick={() => setShowNewCO(true)} className="flex items-center gap-1.5 h-8 px-3 rounded-xl text-white text-[11px] font-bold cursor-pointer active:scale-[0.97] transition-transform" style={{ background: "#3b82f6" }}><Plus className="w-3 h-3" /> New Change Order</button></div>
+          {showNewCO && (
+            <div className="rounded-2xl p-4 mb-3" style={G.card}>
+              <div className="space-y-2">
+                <input value={newCOTitle} onChange={(e) => setNewCOTitle(e.target.value)} placeholder="Title" className="w-full h-9 rounded-xl px-3 text-[12px] text-[#e6edf3] focus:outline-none" style={G.input} />
+                <textarea value={newCODesc} onChange={(e) => setNewCODesc(e.target.value)} placeholder="Description" rows={2} className="w-full rounded-xl px-3 py-2 text-[12px] text-[#e6edf3] focus:outline-none resize-none" style={G.input} />
+                <input type="number" value={newCOCost} onChange={(e) => setNewCOCost(e.target.value)} placeholder="Cost Impact" className="w-full h-9 rounded-xl px-3 text-[12px] text-[#e6edf3] focus:outline-none" style={G.input} />
+                <div className="flex gap-2"><button onClick={handleCreateCO} className="flex-1 h-9 rounded-xl text-white text-[12px] font-bold cursor-pointer active:scale-[0.97] transition-transform" style={{ background: "#10b981" }}>Create</button><button onClick={() => setShowNewCO(false)} className="flex-1 h-9 rounded-xl text-[#8b949e] text-[12px] font-semibold cursor-pointer active:scale-[0.97] transition-transform" style={G.btn}>Cancel</button></div>
+              </div>
+            </div>
+          )}
+          {changeOrders.length === 0 && !showNewCO ? <EmptyState icon={AlertTriangle} title="No change orders" description="Create one to track scope changes." /> : (
+            <div className="space-y-2">{changeOrders.map((co) => (<div key={co.id} className="rounded-2xl p-4" style={G.card}><div className="flex items-center justify-between"><div><p className="text-white text-[13px] font-semibold">{co.title}</p>{co.description && <p className="text-[#8b949e] text-[11px] mt-0.5">{co.description}</p>}</div><span className={clsx("text-[10px] font-bold px-2 py-0.5 rounded-full", co.status === "approved" ? "bg-emerald-500/12 text-emerald-400" : co.status === "submitted" ? "bg-blue-500/12 text-blue-400" : co.status === "rejected" ? "bg-rose-500/12 text-rose-400" : "bg-amber-500/12 text-amber-400")}>{co.status}</span></div><div className="flex items-center justify-between mt-2"><span className="text-[#484f58] text-[10px]">{co.createdBy} · {fmtDateFull(co.createdAt)}</span>{co.costImpact !== 0 && <span className="text-white text-[12px] font-bold">{fmt(co.costImpact)}</span>}</div></div>))}</div>
+          )}
+        </div>
+      )}
+      {activeTab === "audit-log" && (
+        <div>
+          {auditLog.length === 0 ? <EmptyState icon={History} title="No audit entries" description="Activity will appear here automatically." /> : (
+            <div className="space-y-1">
+              {auditLog.map((entry) => (
+                <div key={entry.id} className="flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-white/[0.02]" style={{ borderBottom: "1px solid rgba(255,255,255,0.03)" }}>
+                  <div className="w-7 h-7 rounded-full flex items-center justify-center text-[9px] font-bold text-white flex-shrink-0" style={{ background: TEAM.find(t => t.name === entry.user)?.color || "#3b82f6" }}>{(TEAM.find(t => t.name === entry.user)?.initials || "??")}</div>
+                  <div className="flex-1 min-w-0"><p className="text-white text-[11px] font-semibold">{entry.event}</p><p className="text-[#8b949e] text-[10px]">{entry.details}</p></div>
+                  <span className="text-[#484f58] text-[10px] flex-shrink-0">{new Date(entry.timestamp).toLocaleString()}</span>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 }
-type CanvasDevice = { id: string; type: "camera" | "door" | "panel" | "power" | "server" | "cable"; x: number; y: number; rot: number; fov?: number; range?: number; label: string; selected?: boolean; connectedTo?: string[]; doorConfig?: { swing: "inswinging" | "outswinging"; lockType: string; readers: string[]; accessType: string; keyOverride: boolean }; cablePoints?: { x: number; y: number }[]; };
+type CanvasDevice = { id: string; type: "camera" | "door" | "panel" | "power" | "server" | "cable"; x: number; y: number; rot: number; fov?: number; range?: number; label: string; selected?: boolean; connectedTo?: string[]; doorConfig?: { swing: "inswinging" | "outswinging"; lockType: string; readers: string[]; accessType: string; keyOverride: boolean }; cablePoints?: { x: number; y: number }[]; deviceStoreRef?: string; };
 
 const CANVAS_TOOLS = [
   { id: "select", icon: MousePointer, label: "Select" }, { id: "move", icon: Move, label: "Pan" }, { id: "camera", icon: Camera, label: "Camera" },
@@ -458,17 +631,32 @@ function DesignCanvas({ navigate }: { navigate: (p: Page) => void }) {
   const [selectedId, setSelectedId] = useState<string | null>(null); const [deviceSearch, setDeviceSearch] = useState("");
   const [canvasScale, setCanvasScale] = useState(1); const [canvasOffset, setCanvasOffset] = useState({ x: 0, y: 0 });
   const [canvasImageUrl, setCanvasImageUrl] = useState<string>("");
+  const [canvas3DUrl, setCanvas3DUrl] = useState<string>("");
   const [draggingDevice, setDraggingDevice] = useState<string | null>(null);
   const [cablePoints, setCablePoints] = useState<{ x: number; y: number }[]>([]);
   const [projectId, setProjectId] = useState<string>("");
+  const [storeDevices, setStoreDevices] = useState<CatalogDevice[]>([]);
+  const [storeSearch, setStoreSearch] = useState("");
   const canvasRef = useRef<HTMLDivElement>(null); const touchStartRef = useRef<{ x: number; y: number; dist: number } | null>(null);
   const selected = devices.find((c) => c.id === selectedId);
+  const storeDevice = selected?.deviceStoreRef ? storeDevices.find(d => d.id === selected.deviceStoreRef) : null;
 
-  useEffect(() => { const loadCanvas = async () => { try { const projects = await API.projects.list(); const pid = projects[0]?.id; if (pid) { setProjectId(pid); const data = await API.canvas.get(pid); if (data.layoutData?.imageUrl) setCanvasImageUrl(data.layoutData.imageUrl); if (data.layoutData?.devices) setDevices(data.layoutData.devices); } } catch {} }; loadCanvas(); }, []);
-  const saveCanvas = useCallback(async () => { if (!projectId) return; try { await API.canvas.save(projectId, { devices, imageUrl: canvasImageUrl }); } catch {} }, [devices, canvasImageUrl, projectId]);
+  useEffect(() => {
+    API.devices.list().then(setStoreDevices).catch(() => setStoreDevices([]));
+  }, []);
+
+  useEffect(() => { const loadCanvas = async () => { try { const projects = await API.projects.list(); const pid = projects[0]?.id; if (pid) { setProjectId(pid); const data = await API.canvas.get(pid); if (data.layoutData?.imageUrl) setCanvasImageUrl(data.layoutData.imageUrl); if (data.layoutData?.image3DUrl) setCanvas3DUrl(data.layoutData.image3DUrl); if (data.layoutData?.devices) setDevices(data.layoutData.devices); } } catch {} }; loadCanvas(); }, []);
+  const saveCanvas = useCallback(async () => { if (!projectId) return; try { await API.canvas.save(projectId, { devices, imageUrl: canvasImageUrl, image3DUrl: canvas3DUrl }); } catch {} }, [devices, canvasImageUrl, canvas3DUrl, projectId]);
   useEffect(() => { const t = setTimeout(() => { if (devices.length > 0 || canvasImageUrl) saveCanvas(); }, 2000); return () => clearTimeout(t); }, [devices, canvasImageUrl, saveCanvas]);
 
-  const addDevice = (type: CanvasDevice["type"], x: number, y: number) => { const newDevice: CanvasDevice = { id: `dev${Date.now()}`, type, x, y, rot: 0, fov: type === "camera" ? 80 : undefined, range: type === "camera" ? 90 : undefined, label: `${type.toUpperCase()}-${String(devices.length + 1).padStart(2, "0")}`, doorConfig: type === "door" ? { swing: "inswinging", lockType: "Electric Strike", readers: [], accessType: "Card", keyOverride: true } : undefined }; setDevices((prev) => [...prev, newDevice]); setSelectedId(newDevice.id); };
+  const addDevice = (type: CanvasDevice["type"], x: number, y: number, storeRef?: string) => { const newDevice: CanvasDevice = { id: `dev${Date.now()}`, type, x, y, rot: 0, fov: type === "camera" ? 80 : undefined, range: type === "camera" ? 90 : undefined, label: `${type.toUpperCase()}-${String(devices.length + 1).padStart(2, "0")}`, doorConfig: type === "door" ? { swing: "inswinging", lockType: "Electric Strike", readers: [], accessType: "Card", keyOverride: true } : undefined, deviceStoreRef: storeRef }; setDevices((prev) => [...prev, newDevice]); setSelectedId(newDevice.id); };
+
+  const placeDeviceFromStore = (device: CatalogDevice, x: number, y: number) => {
+    const typeMap: Record<string, CanvasDevice["type"]> = { camera: "camera", "access-control": "door", nvr: "server", analytics: "server", other: "camera" };
+    const canvasType = typeMap[device.category] || "camera";
+    addDevice(canvasType, x, y, device.id);
+    toast.success(`${device.model} placed`);
+  };
 
   const handleCanvasMouseDown = (e: React.MouseEvent) => { if (activeTool === "move") return; const rect = canvasRef.current?.getBoundingClientRect(); if (!rect) return; const x = ((e.clientX - rect.left) / rect.width) * 990; const y = ((e.clientY - rect.top) / rect.height) * 610;
     if (activeTool === "select") { const clicked = devices.find((d) => Math.hypot(d.x - x, d.y - y) < 12); if (clicked) { setSelectedId(clicked.id); setDraggingDevice(clicked.id); } else { setSelectedId(null); } return; }
@@ -484,6 +672,9 @@ function DesignCanvas({ navigate }: { navigate: (p: Page) => void }) {
   const getDeviceColor = (type: CanvasDevice["type"]) => { const colors: Record<string, string> = { camera: "#3b82f6", door: "#f59e0b", panel: "#f97316", power: "#ef4444", server: "#ec4899", cable: "#8b5cf6" }; return colors[type] || "#3b82f6"; };
   const updateDoorConfig = (deviceId: string, config: Partial<CanvasDevice["doorConfig"]>) => { setDevices((prev) => prev.map((d) => d.id === deviceId ? { ...d, doorConfig: { ...d.doorConfig!, ...config } } : d)); };
 
+  const filteredStoreDevices = storeSearch.trim() ? storeDevices.filter(d => d.model.toLowerCase().includes(storeSearch.toLowerCase()) || d.manufacturer.toLowerCase().includes(storeSearch.toLowerCase())) : storeDevices;
+  const CAT_COLOR: Record<string, { bg: string; text: string; label: string }> = { camera: { bg: "rgba(59,130,246,0.12)", text: "#60a5fa", label: "Camera" }, "access-control": { bg: "rgba(139,92,246,0.12)", text: "#a78bfa", label: "Access" }, nvr: { bg: "rgba(16,185,129,0.12)", text: "#34d399", label: "NVR" }, analytics: { bg: "rgba(249,115,22,0.12)", text: "#fb923c", label: "VMS" }, other: { bg: "rgba(100,100,100,0.12)", text: "#8b949e", label: "Other" } };
+
   return (
     <div className="fixed inset-0 flex flex-col" style={{ background: "#070c1a" }}>
       <header className="h-12 flex items-center gap-2 md:gap-4 px-3 md:px-4 flex-shrink-0 z-40" style={G.liquidGlass}>
@@ -491,32 +682,42 @@ function DesignCanvas({ navigate }: { navigate: (p: Page) => void }) {
         <div className="flex-1" />
         <button onClick={() => setView3D(!view3D)} className={clsx("flex items-center gap-1.5 h-7 px-2 rounded-xl text-[10px] font-semibold cursor-pointer active:scale-[0.97] transition-transform", view3D ? "text-violet-400" : "text-[#8b949e]")} style={view3D ? { background: "rgba(139,92,246,0.15)" } : G.btn}><Box className="w-3 h-3" /> {view3D ? "2D" : "3D"}</button>
         <button onClick={() => setShowFov(!showFov)} className={clsx("flex items-center gap-1.5 h-7 px-2 rounded-xl text-[10px] font-semibold cursor-pointer active:scale-[0.97] transition-transform", showFov ? "text-blue-400" : "text-[#8b949e]")} style={showFov ? { background: "rgba(59,130,246,0.15)" } : G.btn}><Eye className="w-3 h-3" /> FOV</button>
-        <button onClick={() => setShowDeviceTray(!showDeviceTray)} className={clsx("flex items-center gap-1.5 h-7 px-2 rounded-xl text-[10px] font-semibold cursor-pointer active:scale-[0.97] transition-transform", showDeviceTray ? "text-white" : "text-[#8b949e]")} style={G.btn}><Package className="w-3 h-3" /> Devices</button>
+        <button onClick={() => setShowDeviceTray(!showDeviceTray)} className={clsx("flex items-center gap-1.5 h-7 px-2 rounded-xl text-[10px] font-semibold cursor-pointer active:scale-[0.97] transition-transform", showDeviceTray ? "text-white" : "text-[#8b949e]")} style={G.btn}><Store className="w-3 h-3" /> Store</button>
         <button onClick={() => { const svg = canvasRef.current?.querySelector("svg"); if (svg) { const data = new XMLSerializer().serializeToString(svg); const blob = new Blob([data], { type: "image/svg+xml" }); const url = URL.createObjectURL(blob); const a = document.createElement("a"); a.href = url; a.download = "floor-plan.svg"; a.click(); URL.revokeObjectURL(url); toast.success("Exported"); } }} className="flex items-center gap-1.5 h-7 px-2 rounded-xl text-[#e6edf3] text-[10px] font-semibold cursor-pointer active:scale-[0.97] transition-transform" style={G.btn}><Download className="w-3 h-3" /> Export</button>
       </header>
       <div className="flex-1 relative overflow-hidden">
-        <motion.div className="absolute left-0 top-0 bottom-0 w-64 z-30 flex flex-col" style={G.liquidGlass} animate={{ x: showDeviceTray ? 0 : -256 }} transition={{ type: "spring", stiffness: 300, damping: 30 }}>
-          <div className="px-4 py-3 flex items-center justify-between" style={{ borderBottom: "1px solid rgba(255,255,255,0.07)" }}><p className="text-white text-[12px] font-bold">Devices</p><button onClick={() => setShowDeviceTray(false)} className="w-6 h-6 rounded-lg hover:bg-white/[0.08] flex items-center justify-center cursor-pointer active:scale-[0.97] transition-transform min-w-[44px] min-h-[44px]"><X className="w-3.5 h-3.5 text-[#8b949e]" /></button></div>
-          <div className="px-3 py-2.5"><div className="relative"><Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3 h-3 text-[#484f58]" /><input value={deviceSearch} onChange={(e) => setDeviceSearch(e.target.value)} placeholder="Search…" className="w-full h-7 rounded-xl pl-7 pr-2.5 text-[11px] text-[#e6edf3] focus:outline-none" style={G.input} /></div></div>
+        <motion.div className="absolute left-0 top-0 bottom-0 w-80 z-30 flex flex-col" style={G.liquidGlass} animate={{ x: showDeviceTray ? 0 : -320 }} transition={{ type: "spring", stiffness: 300, damping: 30 }}>
+          <div className="px-4 py-3 flex items-center justify-between" style={{ borderBottom: "1px solid rgba(255,255,255,0.07)" }}><p className="text-white text-[12px] font-bold">Device Store</p><button onClick={() => setShowDeviceTray(false)} className="w-6 h-6 rounded-lg hover:bg-white/[0.08] flex items-center justify-center cursor-pointer active:scale-[0.97] transition-transform min-w-[44px] min-h-[44px]"><X className="w-3.5 h-3.5 text-[#8b949e]" /></button></div>
+          <div className="px-3 py-2.5"><div className="relative"><Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3 h-3 text-[#484f58]" /><input value={storeSearch} onChange={(e) => setStoreSearch(e.target.value)} placeholder="Search device store…" className="w-full h-7 rounded-xl pl-7 pr-2.5 text-[11px] text-[#e6edf3] focus:outline-none" style={G.input} /></div></div>
           <div className="flex-1 overflow-y-auto" style={{ scrollbarWidth: "none" }}>
-            {[{ category: "Cameras", color: "#3b82f6", items: ["Fixed Dome","PTZ","Bullet","Panoramic"] },{ category: "Doors & Access", color: "#f59e0b", items: ["Door","Electric Strike","Maglock","Reader"] },{ category: "Infrastructure", color: "#10b981", items: ["Panel","PoE Switch","Server"] }].map((cat) => (
-              <div key={cat.category} className="p-3" style={{ borderBottom: "1px solid rgba(255,255,255,0.04)" }}><p className="text-[#484f58] text-[10px] font-bold uppercase tracking-widest mb-2 flex items-center gap-1.5"><span className="w-1.5 h-1.5 rounded-full" style={{ background: cat.color }} />{cat.category}</p>
-                <div className="space-y-0.5">{cat.items.filter(i => i.toLowerCase().includes(deviceSearch.toLowerCase())).map((item) => (<button key={item} onClick={() => { if (cat.category === "Cameras") setActiveTool("camera"); else if (cat.category === "Doors & Access") setActiveTool("door"); else if (item === "Panel") setActiveTool("panel"); else if (item === "PoE Switch") setActiveTool("power"); else if (item === "Server") setActiveTool("server"); }} className="w-full text-left px-2.5 py-2 rounded-xl hover:bg-white/[0.05] transition-colors flex items-center gap-2.5 group cursor-pointer active:scale-[0.97] transition-transform"><div className="w-6 h-6 rounded-lg flex items-center justify-center flex-shrink-0" style={{ background: "rgba(255,255,255,0.04)" }}><Camera className="w-3 h-3 text-[#484f58]" /></div><span className="text-[#8b949e] text-[11px] font-medium group-hover:text-white truncate">{item}</span></button>))}</div></div>))}
+            {filteredStoreDevices.map((device) => {
+              const cc = CAT_COLOR[device.category] ?? CAT_COLOR.other;
+              return (
+                <button key={device.id} onClick={() => { setActiveTool("select"); placeDeviceFromStore(device, 495, 305); }} className="w-full flex items-center gap-2.5 px-3 py-2.5 hover:bg-white/[0.04] transition-colors cursor-pointer active:scale-[0.97] transition-transform text-left" style={{ borderBottom: "1px solid rgba(255,255,255,0.04)" }}>
+                  <div className="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0" style={{ background: "rgba(255,255,255,0.04)" }}>{device.imageUrl ? <img src={device.imageUrl} alt="" className="w-full h-full object-contain p-0.5 opacity-70" /> : <Camera className="w-3.5 h-3.5 text-[#484f58]" />}</div>
+                  <div className="flex-1 min-w-0"><p className="text-white text-[11px] font-semibold truncate">{device.model}</p><p className="text-[#484f58] text-[9px]">{device.manufacturer}{device.price ? ` · $${device.price.toFixed(0)}` : ""}</p></div>
+                  <span className="inline-block px-1.5 py-0.5 rounded text-[8px] font-bold uppercase flex-shrink-0" style={{ background: cc.bg, color: cc.text }}>{cc.label}</span>
+                </button>
+              );
+            })}
+            {filteredStoreDevices.length === 0 && <div className="px-4 py-8 text-center"><p className="text-[#484f58] text-[11px]">No devices found</p></div>}
           </div>
         </motion.div>
         <div ref={canvasRef} className="absolute inset-0 flex items-center justify-center overflow-hidden" style={{ cursor: activeTool === "move" ? "grab" : "crosshair", touchAction: "none" }} onMouseDown={handleCanvasMouseDown} onMouseMove={handleCanvasMouseMove} onMouseUp={handleCanvasMouseUp} onDoubleClick={handleCanvasDoubleClick} onTouchStart={handleTouchStart} onTouchMove={handleTouchMove}>
           <svg viewBox="0 0 990 610" className="w-full h-full max-w-none" style={{ transform: `scale(${canvasScale}) translate(${canvasOffset.x}px, ${canvasOffset.y}px)`, maxHeight: "calc(100vh - 140px)" }}>
             <rect width="990" height="610" fill="#070c1a" />
-            {canvasImageUrl && <image href={canvasImageUrl} x="0" y="0" width="990" height="610" opacity="0.35" />}
-            <defs><pattern id="cg" width="30" height="30" patternUnits="userSpaceOnUse"><path d="M 30 0 L 0 0 0 30" fill="none" stroke="rgba(255,255,255,0.024)" strokeWidth="0.5" /></pattern></defs>
-            <rect width="990" height="610" fill="url(#cg)" />
-            <rect x="80" y="50" width="830" height="510" fill="rgba(255,255,255,0.015)" stroke="rgba(255,255,255,0.12)" strokeWidth="1.5" rx="2" />
-            <rect x="80" y="50" width="220" height="150" fill="rgba(59,130,246,0.04)" stroke="rgba(255,255,255,0.08)" strokeWidth="1" /><text x="190" y="132" textAnchor="middle" fill="rgba(255,255,255,0.18)" fontSize="9" fontFamily="sans-serif">RECEPTION</text>
-            <rect x="640" y="50" width="270" height="150" fill="rgba(245,158,11,0.03)" stroke="rgba(255,255,255,0.08)" strokeWidth="1" /><text x="775" y="132" textAnchor="middle" fill="rgba(255,255,255,0.18)" fontSize="9" fontFamily="sans-serif">SERVER ROOM</text>
-            <rect x="80" y="200" width="830" height="60" fill="rgba(255,255,255,0.01)" stroke="rgba(255,255,255,0.05)" strokeWidth="0.5" /><text x="495" y="234" textAnchor="middle" fill="rgba(255,255,255,0.08)" fontSize="8" fontFamily="sans-serif">CORRIDOR</text>
-            <rect x="500" y="260" width="410" height="300" fill="rgba(139,92,246,0.03)" stroke="rgba(255,255,255,0.08)" strokeWidth="1" /><text x="705" y="418" textAnchor="middle" fill="rgba(255,255,255,0.15)" fontSize="10" fontFamily="sans-serif">DATA HALL A</text>
-            <rect x="80" y="260" width="360" height="300" fill="rgba(16,185,129,0.02)" stroke="rgba(255,255,255,0.08)" strokeWidth="1" /><text x="260" y="418" textAnchor="middle" fill="rgba(255,255,255,0.15)" fontSize="10" fontFamily="sans-serif">DATA HALL B</text>
-            <rect x="440" y="450" width="60" height="110" fill="rgba(6,182,212,0.03)" stroke="rgba(255,255,255,0.08)" strokeWidth="1" /><text x="470" y="512" textAnchor="middle" fill="rgba(255,255,255,0.15)" fontSize="7" fontFamily="sans-serif">NOC</text>
+            {view3D && canvas3DUrl ? <image href={canvas3DUrl} x="0" y="0" width="990" height="610" opacity="1" /> : canvasImageUrl && <image href={canvasImageUrl} x="0" y="0" width="990" height="610" opacity="0.35" />}
+            {!(view3D && canvas3DUrl) && (<>
+              <defs><pattern id="cg" width="30" height="30" patternUnits="userSpaceOnUse"><path d="M 30 0 L 0 0 0 30" fill="none" stroke="rgba(255,255,255,0.024)" strokeWidth="0.5" /></pattern></defs>
+              <rect width="990" height="610" fill="url(#cg)" />
+              <rect x="80" y="50" width="830" height="510" fill="rgba(255,255,255,0.015)" stroke="rgba(255,255,255,0.12)" strokeWidth="1.5" rx="2" />
+              <rect x="80" y="50" width="220" height="150" fill="rgba(59,130,246,0.04)" stroke="rgba(255,255,255,0.08)" strokeWidth="1" /><text x="190" y="132" textAnchor="middle" fill="rgba(255,255,255,0.18)" fontSize="9" fontFamily="sans-serif">RECEPTION</text>
+              <rect x="640" y="50" width="270" height="150" fill="rgba(245,158,11,0.03)" stroke="rgba(255,255,255,0.08)" strokeWidth="1" /><text x="775" y="132" textAnchor="middle" fill="rgba(255,255,255,0.18)" fontSize="9" fontFamily="sans-serif">SERVER ROOM</text>
+              <rect x="80" y="200" width="830" height="60" fill="rgba(255,255,255,0.01)" stroke="rgba(255,255,255,0.05)" strokeWidth="0.5" /><text x="495" y="234" textAnchor="middle" fill="rgba(255,255,255,0.08)" fontSize="8" fontFamily="sans-serif">CORRIDOR</text>
+              <rect x="500" y="260" width="410" height="300" fill="rgba(139,92,246,0.03)" stroke="rgba(255,255,255,0.08)" strokeWidth="1" /><text x="705" y="418" textAnchor="middle" fill="rgba(255,255,255,0.15)" fontSize="10" fontFamily="sans-serif">DATA HALL A</text>
+              <rect x="80" y="260" width="360" height="300" fill="rgba(16,185,129,0.02)" stroke="rgba(255,255,255,0.08)" strokeWidth="1" /><text x="260" y="418" textAnchor="middle" fill="rgba(255,255,255,0.15)" fontSize="10" fontFamily="sans-serif">DATA HALL B</text>
+              <rect x="440" y="450" width="60" height="110" fill="rgba(6,182,212,0.03)" stroke="rgba(255,255,255,0.08)" strokeWidth="1" /><text x="470" y="512" textAnchor="middle" fill="rgba(255,255,255,0.15)" fontSize="7" fontFamily="sans-serif">NOC</text>
+            </>)}
             {showFov && devices.filter(d => d.type === "camera").map((cam) => (<path key={`fov-${cam.id}`} d={fovPath(cam.x, cam.y, cam.rot, cam.fov || 80, cam.range || 90)} fill={cam.id === selectedId ? "rgba(59,130,246,0.22)" : "rgba(59,130,246,0.10)"} />))}
             {devices.map((dev) => { const color = getDeviceColor(dev.type); const isSelected = dev.id === selectedId;
               if (dev.type === "camera") return (<g key={dev.id} style={{ cursor: "pointer" }}><circle cx={dev.x} cy={dev.y} r={isSelected ? 7 : 5} fill={color} stroke={isSelected ? "#fff" : "rgba(255,255,255,0.5)"} strokeWidth={isSelected ? 2 : 1} />{isSelected && <circle cx={dev.x} cy={dev.y} r="12" fill="none" stroke="rgba(59,130,246,0.4)" strokeWidth="1.5" strokeDasharray="3,2" />}</g>);
@@ -536,6 +737,19 @@ function DesignCanvas({ navigate }: { navigate: (p: Page) => void }) {
             <div className="px-4 py-3 flex items-center justify-between" style={{ borderBottom: "1px solid rgba(255,255,255,0.07)" }}><p className="text-white text-[12px] font-bold">Properties</p><button onClick={() => setShowProperties(false)} className="w-6 h-6 rounded-lg hover:bg-white/[0.08] flex items-center justify-center cursor-pointer active:scale-[0.97] transition-transform min-w-[44px] min-h-[44px]"><X className="w-3.5 h-3.5 text-[#8b949e]" /></button></div>
             <div className="flex-1 p-4 overflow-y-auto space-y-4" style={{ scrollbarWidth: "none" }}>
               <div><p className="text-[#484f58] text-[10px] font-bold uppercase tracking-widest mb-2">Device</p><div className="rounded-xl p-3" style={G.card}><p className="text-white text-[12px] font-bold">{selected.label}</p><p className="text-[#484f58] text-[10px] mt-1 capitalize">{selected.type}</p></div></div>
+              {storeDevice && (
+                <div className="space-y-3">
+                  <div><p className="text-[#484f58] text-[10px] font-bold uppercase tracking-widest mb-2">Device Store Info</p><div className="rounded-xl p-3 space-y-2" style={G.card}>
+                    <p className="text-white text-[12px] font-bold">{storeDevice.model}</p>
+                    <p className="text-[#8b949e] text-[10px]">{storeDevice.manufacturer}</p>
+                    {storeDevice.resolution && <div className="flex justify-between"><span className="text-[#484f58] text-[10px]">Resolution</span><span className="text-white text-[10px] font-semibold">{storeDevice.resolution}</span></div>}
+                    {storeDevice.lens && <div className="flex justify-between"><span className="text-[#484f58] text-[10px]">Lens</span><span className="text-white text-[10px] font-semibold">{storeDevice.lens}</span></div>}
+                    {storeDevice.sensor && <div className="flex justify-between"><span className="text-[#484f58] text-[10px]">Sensor</span><span className="text-white text-[10px] font-semibold">{storeDevice.sensor}</span></div>}
+                    {storeDevice.frameRate && <div className="flex justify-between"><span className="text-[#484f58] text-[10px]">Frame Rate</span><span className="text-white text-[10px] font-semibold">{storeDevice.frameRate}</span></div>}
+                    {storeDevice.price && <div className="flex justify-between"><span className="text-[#484f58] text-[10px]">Price</span><span className="text-white text-[10px] font-bold">${storeDevice.price.toFixed(2)}</span></div>}
+                  </div></div>
+                </div>
+              )}
               <div><p className="text-[#484f58] text-[10px] font-bold uppercase tracking-widest mb-2">Position</p><div className="grid grid-cols-2 gap-2">{[{ label: "X", value: Math.round(selected.x) },{ label: "Y", value: Math.round(selected.y) }].map((f) => (<div key={f.label} className="rounded-xl p-2.5" style={G.card}><p className="text-[#484f58] text-[10px] font-bold mb-1">{f.label}</p><p className="text-white text-[13px] font-bold">{f.value} px</p></div>))}</div></div>
               {selected.type === "door" && selected.doorConfig && (<div className="space-y-2"><p className="text-[#484f58] text-[10px] font-bold uppercase tracking-widest">Door Config</p><div className="rounded-xl p-3 space-y-2" style={G.card}>
                 <div className="flex items-center justify-between"><span className="text-[#8b949e] text-[11px]">Swing</span><select value={selected.doorConfig.swing} onChange={(e) => updateDoorConfig(selected.id, { swing: e.target.value as "inswinging"|"outswinging" })} className="bg-transparent text-white text-[11px] font-semibold cursor-pointer" style={{ border: "1px solid rgba(255,255,255,0.10)", borderRadius: "6px", padding: "2px 6px" }}><option value="inswinging">Inswinging</option><option value="outswinging">Outswinging</option></select></div>
@@ -656,6 +870,17 @@ function Workbook({ navigate }: { navigate: (p: Page) => void }) {
     { id: "synthesis", label: "Synthesis" },
   ];
 
+  const BOM_CATEGORIES = [
+    { section: 100, name: "General Requirements" },
+    { section: 200, name: "Video Surveillance Equipment" },
+    { section: 300, name: "Access Control Equipment" },
+    { section: 400, name: "Software & Licensing" },
+    { section: 500, name: "Compute & Storage" },
+    { section: 600, name: "Networking & Infrastructure" },
+    { section: 700, name: "Installation & Labor" },
+    { section: 800, name: "Professional Services" },
+  ];
+
   return (
     <div className="flex flex-col h-[calc(100vh-56px)] overflow-hidden">
       {showProjectSelect && <SelectProjectModal onClose={() => setShowProjectSelect(false)} onSelect={(id) => { setSelectedProjectId(id); setShowProjectSelect(false); }} currentId={selectedProjectId} projects={projects} />}
@@ -708,6 +933,75 @@ function Workbook({ navigate }: { navigate: (p: Page) => void }) {
                 </div>
               );
             })}
+            {activeTab === "bom" && (
+              <div className="space-y-4">
+                {BOM_CATEGORIES.map((bomCat) => {
+                  const matchingCat = quoteCategories.find(c => {
+                    const nameMap: Record<number, string> = {
+                      100: "General Requirements",
+                      200: "Video Security Equipment",
+                      300: "Access Control Equipment",
+                      400: "Software",
+                      500: "Compute & Storage",
+                      600: "Networking",
+                      700: "Installation & Labor",
+                      800: "Professional Services",
+                    };
+                    return c.name === nameMap[bomCat.section];
+                  });
+                  const items = matchingCat?.lineItems.filter(li => li.quantity > 0) || [];
+                  const catSubtotal = items.reduce((s, li) => s + recalcLineItem(li).sellTotal, 0);
+                  const isCollapsed = collapsedCategories.has(`bom-${bomCat.section}`);
+                  return (
+                    <div key={bomCat.section} className="rounded-2xl overflow-hidden" style={G.card}>
+                      <button onClick={() => toggleCollapse(`bom-${bomCat.section}`)} className="w-full px-4 py-3 flex items-center justify-between hover:bg-white/[0.02] transition-colors cursor-pointer active:scale-[0.97] transition-transform min-h-[44px]" style={{ borderBottom: isCollapsed ? "none" : "1px solid rgba(255,255,255,0.06)", background: "rgba(255,255,255,0.02)" }}>
+                        <div className="flex items-center gap-3"><span className="text-[#484f58] text-[12px] font-bold font-mono">{bomCat.section}</span><h3 className="text-white text-[13px] font-bold">{bomCat.name}</h3><span className="text-[#484f58] text-[10px]">({items.length})</span></div>
+                        <div className="flex items-center gap-3"><span className="text-[#8b949e] text-[11px] font-bold">{fmt(catSubtotal)}</span>{isCollapsed ? <ChevronDown className="w-4 h-4 text-[#484f58]" /> : <ChevronUp className="w-4 h-4 text-[#484f58]" />}</div>
+                      </button>
+                      {!isCollapsed && items.length > 0 && (
+                        <div className="overflow-x-auto">
+                          <table className="w-full" style={{ minWidth: "500px" }}>
+                            <thead><tr style={{ borderBottom: "1px solid rgba(255,255,255,0.06)" }}>{["#","Description","QTY","Unit Cost","Extended"].map(h => <th key={h} className="px-3 py-2 text-[#484f58] text-[9px] font-bold uppercase text-left">{h}</th>)}</tr></thead>
+                            <tbody>
+                              {items.map((item, idx) => { const r = recalcLineItem(item); return (
+                                <tr key={item.id} style={{ borderBottom: "1px solid rgba(255,255,255,0.03)" }}>
+                                  <td className="px-3 py-2 text-[#484f58] text-[10px] font-mono">{String(idx+1).padStart(2,"0")}</td>
+                                  <td className="px-3 py-2 text-white text-[11px] font-semibold">{item.description}</td>
+                                  <td className="px-3 py-2 text-white text-[11px] text-center">{item.quantity}</td>
+                                  <td className="px-3 py-2 text-white text-[11px] text-right">{fmt(r.unitCost)}</td>
+                                  <td className="px-3 py-2 text-white text-[11px] font-bold text-right">{fmt(r.sellTotal)}</td>
+                                </tr>
+                              );})}
+                              <tr style={{ background: "rgba(255,255,255,0.02)" }}>
+                                <td colSpan={4} className="px-3 py-2 text-[#8b949e] text-[10px] font-bold text-right uppercase">Section {bomCat.section} Subtotal</td>
+                                <td className="px-3 py-2 text-white text-[11px] font-bold text-right">{fmt(catSubtotal)}</td>
+                              </tr>
+                            </tbody>
+                          </table>
+                        </div>
+                      )}
+                      {!isCollapsed && items.length === 0 && <div className="px-4 py-3 text-[#484f58] text-[10px]">No items in this section</div>}
+                    </div>
+                  );
+                })}
+                <div className="rounded-2xl p-4" style={{ ...G.card, background: "rgba(59,130,246,0.06)", border: "1px solid rgba(59,130,246,0.20)" }}>
+                  <h3 className="text-white text-[14px] font-bold mb-3">BOM Summary</h3>
+                  <div className="space-y-2">
+                    {BOM_CATEGORIES.map((bomCat) => {
+                      const matchingCat = quoteCategories.find(c => {
+                        const nameMap: Record<number, string> = { 100: "General Requirements", 200: "Video Security Equipment", 300: "Access Control Equipment", 400: "Software", 500: "Compute & Storage", 600: "Networking", 700: "Installation & Labor", 800: "Professional Services" };
+                        return c.name === nameMap[bomCat.section];
+                      });
+                      const subtotal = (matchingCat?.lineItems.filter(li => li.quantity > 0) || []).reduce((s, li) => s + recalcLineItem(li).sellTotal, 0);
+                      return (<div key={bomCat.section} className="flex justify-between py-1"><span className="text-[#8b949e] text-[11px]">{bomCat.section} — {bomCat.name}</span><span className="text-white text-[11px] font-bold">{fmt(subtotal)}</span></div>);
+                    })}
+                    <div className="flex justify-between py-2 border-t border-white/10"><span className="text-[#8b949e] text-[12px]">Subtotal</span><span className="text-white text-[13px] font-bold">{fmt(grandTotalPreTax)}</span></div>
+                    <div className="flex justify-between py-1"><span className="text-[#8b949e] text-[12px]">GCT (15%)</span><span className="text-[#8b949e] text-[12px] font-bold">{fmt(gctAmount)}</span></div>
+                    <div className="flex justify-between py-2 border-t-2 border-white/10"><span className="text-white text-[14px] font-bold">Grand Total</span><span className="text-white text-[1.1rem] font-extrabold" style={{ color: "#60a5fa" }}>{fmt(grandTotal)}</span></div>
+                  </div>
+                </div>
+              </div>
+            )}
             {activeTab === "synthesis" && (
               <div className="space-y-4">
                 {quoteCategories.map((category) => {
@@ -726,6 +1020,42 @@ function Workbook({ navigate }: { navigate: (p: Page) => void }) {
                     </div>
                   );
                 })}
+                <div className="rounded-2xl p-4" style={G.card}>
+                  <h3 className="text-white text-[13px] font-bold mb-3">Importation</h3>
+                  <div className="overflow-x-auto">
+                    <table className="w-full" style={{ minWidth: "500px" }}>
+                      <thead><tr>{["Description","QTY","List Price","Extended"].map(h => <th key={h} className="px-3 py-2 text-[#484f58] text-[9px] font-bold uppercase text-left">{h}</th>)}</tr></thead>
+                      <tbody>
+                        {[{ desc: "Shipping / Freight" },{ desc: "Importation Tax" }].map((row) => (
+                          <tr key={row.desc}>
+                            <td className="px-3 py-2 text-white text-[11px] font-semibold">{row.desc}</td>
+                            <td className="px-3 py-2"><input type="number" defaultValue={0} className="bg-transparent text-white text-[11px] w-16 text-center focus:outline-none" style={G.input} /></td>
+                            <td className="px-3 py-2"><input type="number" defaultValue={0} className="bg-transparent text-white text-[11px] w-24 text-right focus:outline-none" style={G.input} /></td>
+                            <td className="px-3 py-2 text-white text-[11px] font-bold text-right">{fmt(0)}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+                <div className="rounded-2xl p-4" style={G.card}>
+                  <h3 className="text-white text-[13px] font-bold mb-3">Professional Services</h3>
+                  <div className="overflow-x-auto">
+                    <table className="w-full" style={{ minWidth: "500px" }}>
+                      <thead><tr>{["Description","QTY","List Price","Extended"].map(h => <th key={h} className="px-3 py-2 text-[#484f58] text-[9px] font-bold uppercase text-left">{h}</th>)}</tr></thead>
+                      <tbody>
+                        {["Equipment Installation","Software / Platform Setup","Project Management","Contingency"].map((svc) => (
+                          <tr key={svc}>
+                            <td className="px-3 py-2 text-white text-[11px] font-semibold">{svc}</td>
+                            <td className="px-3 py-2"><input type="number" defaultValue={0} className="bg-transparent text-white text-[11px] w-16 text-center focus:outline-none" style={G.input} /></td>
+                            <td className="px-3 py-2"><input type="number" defaultValue={0} className="bg-transparent text-white text-[11px] w-24 text-right focus:outline-none" style={G.input} /></td>
+                            <td className="px-3 py-2 text-white text-[11px] font-bold text-right">{fmt(0)}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
                 <div className="rounded-2xl p-4" style={{ ...G.card, background: "rgba(59,130,246,0.06)", border: "1px solid rgba(59,130,246,0.20)" }}>
                   <h3 className="text-white text-[14px] font-bold mb-3">Synthesis</h3>
                   <div className="space-y-2">
@@ -737,73 +1067,8 @@ function Workbook({ navigate }: { navigate: (p: Page) => void }) {
                 </div>
               </div>
             )}
-            {(activeTab === "bom" || (activeTab !== "asset-list" && activeTab !== "synthesis")) && <EmptyState icon={Package} title={activeTab === "bom" ? "BOM coming soon" : "Coming soon"} description="This tab will be available in the next update." />}
           </div>
         </div>
-      )}
-    </div>
-  );
-}
-const CAT_COLOR: Record<string, { bg: string; text: string; label: string }> = { camera: { bg: "rgba(59,130,246,0.12)", text: "#60a5fa", label: "Camera" }, "access-control": { bg: "rgba(139,92,246,0.12)", text: "#a78bfa", label: "Access" }, nvr: { bg: "rgba(16,185,129,0.12)", text: "#34d399", label: "NVR" }, analytics: { bg: "rgba(249,115,22,0.12)", text: "#fb923c", label: "VMS" }, other: { bg: "rgba(100,100,100,0.12)", text: "#8b949e", label: "Other" } };
-
-function DeviceSpecModal({ device, onClose }: { device: CatalogDevice; onClose: () => void }) {
-  const { addToQuote } = useQuote(); const { fmt } = useCurrency(); const cc = CAT_COLOR[device.category] ?? CAT_COLOR.other;
-  const specs: { label: string; value?: string }[] = [
-    { label: "SKU", value: device.sku },{ label: "Category", value: cc.label },{ label: "Camera Type", value: device.cameraType },
-    { label: "Resolution", value: device.resolution },{ label: "Sensor", value: device.sensor },{ label: "Lens", value: device.lens },
-    { label: "Frame Rate", value: device.frameRate },{ label: "Compression", value: device.compression },{ label: "FOV", value: device.fov },
-    { label: "Night Vision", value: device.nightVision },{ label: "Weather Rating", value: device.weatherRating },{ label: "Power Input", value: device.powerInput },
-    { label: "Storage", value: device.storage },{ label: "Operating Temp", value: device.operatingTemp },{ label: "Authentication", value: device.authentication },
-    { label: "Channels", value: device.channels },{ label: "Readers", value: device.readers },
-  ].filter((s) => !!s.value);
-
-  return (
-    <div className="fixed inset-0 z-[300] flex items-center justify-center p-4" onClick={onClose}><div className="absolute inset-0" style={{ background: "rgba(0,0,0,0.7)", backdropFilter: "blur(10px)" }} /><motion.div initial={{ opacity: 0, scale: 0.93, y: 18 }} animate={{ opacity: 1, scale: 1, y: 0 }} transition={{ type: "spring", damping: 26, stiffness: 340 }} onClick={(e) => e.stopPropagation()} className="relative z-10 w-full max-w-[780px] max-h-[90vh] overflow-y-auto rounded-3xl flex flex-col md:flex-row" style={{ background: "rgba(7,12,26,0.95)", backdropFilter: "blur(52px) saturate(200%)", border: "1px solid rgba(255,255,255,0.13)", boxShadow: "0 40px 100px rgba(0,0,0,0.95)" }}>
-      <div className="w-full md:w-56 flex-shrink-0 relative flex items-center justify-center" style={{ background: "rgba(255,255,255,0.03)", minHeight: "250px" }}>
-        {device.imageUrl ? <img src={device.imageUrl} alt={device.model} className="w-full h-full object-contain p-4" style={{ maxHeight: "320px" }} /> : <div className="w-full h-full flex items-center justify-center"><Camera className="w-16 h-16 text-[#484f58]" /></div>}
-        <div className="absolute bottom-4 left-4 flex flex-wrap gap-1.5">
-          <span className="inline-block px-2 py-0.5 rounded-lg text-[10px] font-bold uppercase" style={{ background: cc.bg, color: cc.text }}>{cc.label}</span>
-          {device.cameraType && <span className="inline-block px-2 py-0.5 rounded-lg text-[9px] font-bold uppercase" style={{ background: "rgba(255,255,255,0.08)", color: "#e6edf3" }}>{device.cameraType}</span>}
-          {device.tags?.map((tag) => { const ts = TAG_STYLES[tag]; return ts ? <span key={tag} className="inline-block px-2 py-0.5 rounded-lg text-[9px] font-bold uppercase" style={{ background: ts.bg, color: ts.text, border: `1px solid ${ts.border}` }}>{tag}</span> : null; })}
-        </div>
-      </div>
-      <div className="flex-1 flex flex-col overflow-hidden"><div className="px-5 md:px-6 pt-5 md:pt-6 pb-4 flex items-start justify-between flex-shrink-0" style={{ borderBottom: "1px solid rgba(255,255,255,0.07)" }}><div><p className="text-[#8b949e] text-[11px] font-semibold">{device.manufacturer}</p><h2 className="text-white text-[1.1rem] font-bold mt-0.5">{device.model}</h2>{device.price && <p className="text-[0.9rem] font-bold mt-1" style={{ color: cc.text }}>{fmt(device.price)} <span className="text-[#484f58] text-[10px] font-normal">/ unit</span></p>}</div><button onClick={onClose} className="w-8 h-8 rounded-xl flex items-center justify-center hover:bg-white/[0.08] cursor-pointer active:scale-[0.97] transition-transform min-w-[44px] min-h-[44px]" style={{ border: "1px solid rgba(255,255,255,0.10)" }}><X className="w-4 h-4 text-[#8b949e]" /></button></div>
-        <div className="flex-1 overflow-y-auto px-5 md:px-6 py-4"><div className="grid grid-cols-1 md:grid-cols-2 gap-2 md:gap-3">{specs.map((s) => (<div key={s.label} className="rounded-xl p-3" style={G.subtle}><p className="text-[#484f58] text-[9px] font-bold uppercase tracking-widest mb-1">{s.label}</p><p className="text-white text-[11px] font-semibold">{s.value}</p></div>))}</div></div>
-        <div className="px-5 md:px-6 py-4 flex items-center gap-3 flex-shrink-0" style={{ borderTop: "1px solid rgba(255,255,255,0.07)" }}><button onClick={() => { addToQuote(device); onClose(); }} className="flex items-center gap-2 h-9 px-4 rounded-xl text-white text-[11px] font-bold cursor-pointer active:scale-[0.97] transition-transform min-h-[44px]" style={{ background: "#3b82f6", boxShadow: "0 4px 16px rgba(59,130,246,0.35)" }}><Plus className="w-3.5 h-3.5" /> Add to Quote</button></div>
-      </div>
-    </motion.div></div>
-  );
-}
-
-function DeviceStore({ navigate: _navigate }: { navigate: (p: Page) => void }) {
-  const [search, setSearch] = useState(""); const [categoryFilter, setCategoryFilter] = useState<string>("all"); const [cameraTypeFilter, setCameraTypeFilter] = useState<string>("all"); const [viewMode, setViewMode] = useState<"grid" | "table">("grid");
-  const [selectedDevice, setSelectedDevice] = useState<CatalogDevice | null>(null); const [devices, setDevices] = useState<CatalogDevice[]>([]);
-  const [loading, setLoading] = useState(true); const { addToQuote } = useQuote(); const { fmt } = useCurrency();
-  const [csvUploading, setCsvUploading] = useState(false);
-
-  const fetchDevices = useCallback(async () => { setLoading(true); try { const data = await API.devices.list(); setDevices(data); } catch { setDevices([]); } finally { setLoading(false); } }, []);
-  useEffect(() => { fetchDevices(); }, [fetchDevices]);
-
-  const handleCSVUpload = async (e: React.ChangeEvent<HTMLInputElement>) => { const file = e.target.files?.[0]; if (!file) return; setCsvUploading(true); try { const text = await file.text(); const lines = text.split("\n").filter(l => l.trim()); const headers = lines[0].split(",").map(h => h.trim().replace(/"/g,"")); const parsed = lines.slice(1).map(line => { const vals = line.split(",").map(v => v.trim().replace(/"/g,"")); const obj: any = {}; headers.forEach((h,i) => { obj[h] = vals[i]; }); return { model: obj.Model||obj.model||"", manufacturer: obj.Manufacturer||obj.manufacturer||"Unknown", category: "camera" as const, cameraType: obj["Camera Type"]||undefined, resolution: obj["Max Video Resolution"]||undefined, lens: obj["Sensor/Lens/Horizontal FOV"]||undefined, price: parseFloat(obj.Price||"0")||undefined, sku: obj.SKU||obj.Model||undefined, imageUrl: obj["Image URL"]||obj.Image||undefined, tags: [] as DeviceTag[] }; }); if (parsed.length > 0) { await API.devices.bulk(parsed); toast.success(`Imported ${parsed.length} devices`); fetchDevices(); } } catch { toast.error("CSV import failed"); } finally { setCsvUploading(false); e.target.value = ""; } };
-
-  const categories: { id: string; label: string }[] = [{ id: "all", label: "All" },{ id: "camera", label: "Cameras" },{ id: "access-control", label: "Access" },{ id: "nvr", label: "NVR" },{ id: "analytics", label: "VMS" }];
-  const filtered = useMemo(() => { let result = devices; if (categoryFilter !== "all") result = result.filter((d) => d.category === categoryFilter); if (cameraTypeFilter !== "all") result = result.filter((d) => d.cameraType === cameraTypeFilter); if (search.trim()) { const q = search.toLowerCase(); result = result.filter((d) => d.model.toLowerCase().includes(q) || d.manufacturer.toLowerCase().includes(q) || (d.sku??"").toLowerCase().includes(q) || (d.tags??[]).some(t=>t.toLowerCase().includes(q))); } return result; }, [devices, search, categoryFilter, cameraTypeFilter]);
-
-  if (loading) return <div className="px-3 md:px-5 py-4 md:py-6 space-y-4"><Skeleton className="h-10 w-48" /><div className="grid gap-3 md:gap-4" style={{ gridTemplateColumns: "repeat(auto-fill, minmax(200px, 1fr))" }}>{[1,2,3,4,5,6].map(i => <Skeleton key={i} className="h-56 rounded-2xl" />)}</div></div>;
-
-  return (
-    <div className="px-3 md:px-5 py-4 md:py-6">
-      {selectedDevice && <DeviceSpecModal device={selectedDevice} onClose={() => setSelectedDevice(null)} />}
-      <div className="flex items-center justify-between mb-4 md:mb-6"><div><h1 className="text-white font-bold text-lg md:text-xl tracking-tight">Device Store</h1><p className="text-[#8b949e] text-[11px] mt-0.5">{filtered.length} products</p></div><div className="flex items-center gap-2"><label className="flex items-center gap-1.5 h-8 px-3 rounded-xl text-[#8b949e] text-[11px] font-semibold hover:text-white cursor-pointer active:scale-[0.97] transition-transform" style={G.btn}><Upload className="w-3.5 h-3.5" /> {csvUploading ? "Importing…" : "Import CSV"}<input type="file" accept=".csv" className="hidden" onChange={handleCSVUpload} disabled={csvUploading} /></label><div className="flex items-center h-8 rounded-xl overflow-hidden" style={{ background: "rgba(255,255,255,0.05)" }}><button onClick={() => setViewMode("grid")} className="h-full px-2.5 flex items-center justify-center cursor-pointer active:scale-[0.97] transition-transform" style={viewMode==="grid"?{background:"#3b82f620",color:"#60a5fa"}:{color:"#484f58"}}><Grid3x3 className="w-3.5 h-3.5" /></button><button onClick={() => setViewMode("table")} className="h-full px-2.5 flex items-center justify-center cursor-pointer active:scale-[0.97] transition-transform" style={viewMode==="table"?{background:"#3b82f620",color:"#60a5fa"}:{color:"#484f58"}}><List className="w-3.5 h-3.5" /></button></div></div></div>
-      <div className="mb-4 md:mb-5 flex items-center gap-2 flex-wrap">
-        <div className="relative flex-1 min-w-[160px] max-w-sm"><Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[#484f58]" /><input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search model, SKU, tags…" className="h-9 rounded-xl pl-9 w-full text-[12px] text-[#e6edf3] focus:outline-none" style={G.input} /></div>
-        <div className="flex gap-1.5 flex-wrap">{categories.map((c) => (<button key={c.id} onClick={() => setCategoryFilter(c.id)} className="h-8 px-2.5 rounded-xl text-[11px] font-semibold cursor-pointer active:scale-[0.97] transition-transform whitespace-nowrap" style={categoryFilter===c.id?{background:"rgba(59,130,246,0.15)",color:"#60a5fa",border:"1px solid rgba(59,130,246,0.35)"}:{...G.btn,color:"#8b949e"}}>{c.label}</button>))}</div>
-        <div className="relative"><select value={cameraTypeFilter} onChange={(e) => setCameraTypeFilter(e.target.value)} className="h-8 rounded-xl px-2.5 text-[11px] font-semibold cursor-pointer appearance-none pr-6" style={G.btn}><option value="all">All Types</option>{CAMERA_TYPES.map(ct=><option key={ct} value={ct}>{ct}</option>)}</select><ChevronDown className="absolute right-1.5 top-1/2 -translate-y-1/2 w-3 h-3 text-[#484f58] pointer-events-none" /></div>
-      </div>
-      {devices.length === 0 ? <EmptyState icon={Store} title="Device store is empty" description="Import a CSV to populate the catalog." /> : filtered.length === 0 ? <EmptyState icon={Search} title="No devices match" description="Try adjusting filters." /> : viewMode === "grid" ? (
-        <div className="grid gap-3 md:gap-4" style={{ gridTemplateColumns: "repeat(auto-fill, minmax(200px, 1fr))" }}>{filtered.map((device) => { const cc = CAT_COLOR[device.category] ?? CAT_COLOR.other; return (<div key={device.id} onClick={() => setSelectedDevice(device)} className="rounded-2xl overflow-hidden cursor-pointer group transition-all md:hover:-translate-y-1" style={{ ...G.card }}><div className="relative h-32 md:h-36 overflow-hidden" style={{ background: "rgba(255,255,255,0.03)" }}>{device.imageUrl ? <img src={device.imageUrl} alt={device.model} className="w-full h-full object-contain p-3 opacity-70 group-hover:opacity-90 group-hover:scale-105 transition-all duration-500" /> : <div className="w-full h-full flex items-center justify-center"><Camera className="w-12 h-12 text-[#484f58]" /></div>}<div className="absolute top-2.5 left-2.5 flex flex-wrap gap-1"><span className="inline-block px-2 py-0.5 rounded-lg text-[9px] font-bold uppercase" style={{ background: cc.bg, color: cc.text }}>{cc.label}</span>{device.cameraType && <span className="inline-block px-2 py-0.5 rounded-lg text-[8px] font-bold uppercase" style={{ background: "rgba(255,255,255,0.08)", color: "#e6edf3" }}>{device.cameraType}</span>}</div></div><div className="p-3"><p className="text-[#8b949e] text-[9px] font-semibold">{device.manufacturer}</p><p className="text-white text-[12px] font-bold mt-0.5 truncate">{device.model}</p>{device.resolution && <p className="text-[#484f58] text-[9px] mt-1 truncate">{device.resolution}</p>}<div className="flex flex-wrap gap-1 mt-2">{device.tags?.slice(0,3).map((tag) => { const ts = TAG_STYLES[tag]; return ts ? <span key={tag} className="inline-block px-1.5 py-0.5 rounded-md text-[8px] font-bold uppercase" style={{ background: ts.bg, color: ts.text }}>{tag}</span> : null; })}</div><div className="flex items-center justify-between mt-2 pt-2" style={{ borderTop: "1px solid rgba(255,255,255,0.06)" }}><span className="text-[#484f58] text-[8px] font-mono">{device.sku}</span><span className="font-bold text-[11px]" style={{ color: cc.text }}>{device.price ? fmt(device.price) : "—"}</span></div></div></div>); })}</div>
-      ) : (
-        <div className="rounded-2xl overflow-hidden" style={G.card}><div className="overflow-x-auto"><table className="w-full" style={{ minWidth: "700px" }}><thead><tr style={{ background: "rgba(255,255,255,0.03)", borderBottom: "1px solid rgba(255,255,255,0.08)" }}>{["","Model","Manufacturer","Type","Resolution","Tags","SKU","Price"].map((h) => (<th key={h} className={`${h==="Price"?"text-right":"text-left"} px-3 py-3 text-[#484f58] text-[10px] font-bold uppercase tracking-widest`}>{h}</th>))}</tr></thead><tbody>{filtered.map((device, i) => { const cc = CAT_COLOR[device.category] ?? CAT_COLOR.other; return (<tr key={device.id} onClick={() => setSelectedDevice(device)} className="cursor-pointer hover:bg-white/[0.02] transition-colors group" style={{ borderBottom: i<filtered.length-1?"1px solid rgba(255,255,255,0.04)":"none" }}><td className="px-3 py-2.5"><div className="w-9 h-9 rounded-xl overflow-hidden flex-shrink-0" style={{ background: "rgba(255,255,255,0.04)" }}>{device.imageUrl ? <img src={device.imageUrl} alt={device.model} className="w-full h-full object-contain p-1 opacity-70" /> : <Camera className="w-4 h-4 text-[#484f58] m-auto mt-2.5" />}</div></td><td className="px-3 py-2.5 text-white text-[11px] font-semibold">{device.model}</td><td className="px-3 py-2.5 text-[#8b949e] text-[10px]">{device.manufacturer}</td><td className="px-3 py-2.5"><span className="inline-block px-2 py-0.5 rounded-lg text-[9px] font-bold uppercase" style={{ background: cc.bg, color: cc.text }}>{device.cameraType || cc.label}</span></td><td className="px-3 py-2.5 text-[#8b949e] text-[10px]">{device.resolution||"—"}</td><td className="px-3 py-2.5"><div className="flex flex-wrap gap-1">{device.tags?.map((tag) => { const ts = TAG_STYLES[tag]; return ts ? <span key={tag} className="inline-block px-1.5 py-0.5 rounded-md text-[8px] font-bold uppercase" style={{ background: ts.bg, color: ts.text }}>{tag}</span> : null; })}</div></td><td className="px-3 py-2.5 text-[#484f58] text-[10px] font-mono">{device.sku}</td><td className="px-3 py-2.5 text-right"><span className="text-white text-[11px] font-bold">{device.price?fmt(device.price):"—"}</span></td></tr>); })}</tbody></table></div></div>
       )}
     </div>
   );
@@ -883,6 +1148,71 @@ function InstallTracker({ navigate: _navigate }: { navigate: (p: Page) => void }
             })}
           </div>
         </>
+      )}
+    </div>
+  );
+}
+
+const CAT_COLOR_DS: Record<string, { bg: string; text: string; label: string }> = { camera: { bg: "rgba(59,130,246,0.12)", text: "#60a5fa", label: "Camera" }, "access-control": { bg: "rgba(139,92,246,0.12)", text: "#a78bfa", label: "Access" }, nvr: { bg: "rgba(16,185,129,0.12)", text: "#34d399", label: "NVR" }, analytics: { bg: "rgba(249,115,22,0.12)", text: "#fb923c", label: "VMS" }, other: { bg: "rgba(100,100,100,0.12)", text: "#8b949e", label: "Other" } };
+
+function DeviceSpecModal({ device, onClose }: { device: CatalogDevice; onClose: () => void }) {
+  const { addToQuote } = useQuote(); const { fmt } = useCurrency(); const cc = CAT_COLOR_DS[device.category] ?? CAT_COLOR_DS.other;
+  const specs: { label: string; value?: string }[] = [
+    { label: "SKU", value: device.sku },{ label: "Category", value: cc.label },{ label: "Camera Type", value: device.cameraType },
+    { label: "Resolution", value: device.resolution },{ label: "Sensor", value: device.sensor },{ label: "Lens", value: device.lens },
+    { label: "Frame Rate", value: device.frameRate },{ label: "Compression", value: device.compression },{ label: "FOV", value: device.fov },
+    { label: "Night Vision", value: device.nightVision },{ label: "Weather Rating", value: device.weatherRating },{ label: "Power Input", value: device.powerInput },
+    { label: "Storage", value: device.storage },{ label: "Operating Temp", value: device.operatingTemp },{ label: "Authentication", value: device.authentication },
+    { label: "Channels", value: device.channels },{ label: "Readers", value: device.readers },
+  ].filter((s) => !!s.value);
+
+  return (
+    <div className="fixed inset-0 z-[300] flex items-center justify-center p-4" onClick={onClose}><div className="absolute inset-0" style={{ background: "rgba(0,0,0,0.7)", backdropFilter: "blur(10px)" }} /><motion.div initial={{ opacity: 0, scale: 0.93, y: 18 }} animate={{ opacity: 1, scale: 1, y: 0 }} transition={{ type: "spring", damping: 26, stiffness: 340 }} onClick={(e) => e.stopPropagation()} className="relative z-10 w-full max-w-[780px] max-h-[90vh] overflow-y-auto rounded-3xl flex flex-col md:flex-row" style={{ background: "rgba(7,12,26,0.95)", backdropFilter: "blur(52px) saturate(200%)", border: "1px solid rgba(255,255,255,0.13)", boxShadow: "0 40px 100px rgba(0,0,0,0.95)" }}>
+      <div className="w-full md:w-56 flex-shrink-0 relative flex items-center justify-center" style={{ background: "rgba(255,255,255,0.03)", minHeight: "250px" }}>
+        {device.imageUrl ? <img src={device.imageUrl} alt={device.model} className="w-full h-full object-contain p-4" style={{ maxHeight: "320px" }} /> : <div className="w-full h-full flex items-center justify-center"><Camera className="w-16 h-16 text-[#484f58]" /></div>}
+        <div className="absolute bottom-4 left-4 flex flex-wrap gap-1.5">
+          <span className="inline-block px-2 py-0.5 rounded-lg text-[10px] font-bold uppercase" style={{ background: cc.bg, color: cc.text }}>{cc.label}</span>
+          {device.cameraType && <span className="inline-block px-2 py-0.5 rounded-lg text-[9px] font-bold uppercase" style={{ background: "rgba(255,255,255,0.08)", color: "#e6edf3" }}>{device.cameraType}</span>}
+          {device.tags?.map((tag) => { const ts = TAG_STYLES[tag]; return ts ? <span key={tag} className="inline-block px-2 py-0.5 rounded-lg text-[9px] font-bold uppercase" style={{ background: ts.bg, color: ts.text, border: `1px solid ${ts.border}` }}>{tag}</span> : null; })}
+        </div>
+      </div>
+      <div className="flex-1 flex flex-col overflow-hidden"><div className="px-5 md:px-6 pt-5 md:pt-6 pb-4 flex items-start justify-between flex-shrink-0" style={{ borderBottom: "1px solid rgba(255,255,255,0.07)" }}><div><p className="text-[#8b949e] text-[11px] font-semibold">{device.manufacturer}</p><h2 className="text-white text-[1.1rem] font-bold mt-0.5">{device.model}</h2>{device.price && <p className="text-[0.9rem] font-bold mt-1" style={{ color: cc.text }}>{fmt(device.price)} <span className="text-[#484f58] text-[10px] font-normal">/ unit</span></p>}</div><button onClick={onClose} className="w-8 h-8 rounded-xl flex items-center justify-center hover:bg-white/[0.08] cursor-pointer active:scale-[0.97] transition-transform min-w-[44px] min-h-[44px]" style={{ border: "1px solid rgba(255,255,255,0.10)" }}><X className="w-4 h-4 text-[#8b949e]" /></button></div>
+        <div className="flex-1 overflow-y-auto px-5 md:px-6 py-4"><div className="grid grid-cols-1 md:grid-cols-2 gap-2 md:gap-3">{specs.map((s) => (<div key={s.label} className="rounded-xl p-3" style={G.subtle}><p className="text-[#484f58] text-[9px] font-bold uppercase tracking-widest mb-1">{s.label}</p><p className="text-white text-[11px] font-semibold">{s.value}</p></div>))}</div></div>
+        <div className="px-5 md:px-6 py-4 flex items-center gap-3 flex-shrink-0" style={{ borderTop: "1px solid rgba(255,255,255,0.07)" }}><button onClick={() => { addToQuote(device); onClose(); }} className="flex items-center gap-2 h-9 px-4 rounded-xl text-white text-[11px] font-bold cursor-pointer active:scale-[0.97] transition-transform min-h-[44px]" style={{ background: "#3b82f6", boxShadow: "0 4px 16px rgba(59,130,246,0.35)" }}><Plus className="w-3.5 h-3.5" /> Add to Quote</button></div>
+      </div>
+    </motion.div></div>
+  );
+}
+
+function DeviceStore({ navigate: _navigate }: { navigate: (p: Page) => void }) {
+  const [search, setSearch] = useState(""); const [categoryFilter, setCategoryFilter] = useState<string>("all"); const [cameraTypeFilter, setCameraTypeFilter] = useState<string>("all"); const [viewMode, setViewMode] = useState<"grid" | "table">("grid");
+  const [selectedDevice, setSelectedDevice] = useState<CatalogDevice | null>(null); const [devices, setDevices] = useState<CatalogDevice[]>([]);
+  const [loading, setLoading] = useState(true); const { addToQuote } = useQuote(); const { fmt } = useCurrency();
+  const [csvUploading, setCsvUploading] = useState(false);
+
+  const fetchDevices = useCallback(async () => { setLoading(true); try { const data = await API.devices.list(); setDevices(data); } catch { setDevices([]); } finally { setLoading(false); } }, []);
+  useEffect(() => { fetchDevices(); }, [fetchDevices]);
+
+  const handleCSVUpload = async (e: React.ChangeEvent<HTMLInputElement>) => { const file = e.target.files?.[0]; if (!file) return; setCsvUploading(true); try { const text = await file.text(); const lines = text.split("\n").filter(l => l.trim()); const headers = lines[0].split(",").map(h => h.trim().replace(/"/g,"")); const parsed = lines.slice(1).map(line => { const vals = line.split(",").map(v => v.trim().replace(/"/g,"")); const obj: any = {}; headers.forEach((h,i) => { obj[h] = vals[i]; }); return { model: obj.Model||obj.model||"", manufacturer: obj.Manufacturer||obj.manufacturer||"Unknown", category: "camera" as const, cameraType: obj["Camera Type"]||undefined, resolution: obj["Max Video Resolution"]||undefined, lens: obj["Sensor/Lens/Horizontal FOV"]||undefined, price: parseFloat(obj.Price||"0")||undefined, sku: obj.SKU||obj.Model||undefined, imageUrl: obj["Image URL"]||obj.Image||undefined, tags: [] as DeviceTag[] }; }); if (parsed.length > 0) { await API.devices.bulk(parsed); toast.success(`Imported ${parsed.length} devices`); fetchDevices(); } } catch { toast.error("CSV import failed"); } finally { setCsvUploading(false); e.target.value = ""; } };
+
+  const categories: { id: string; label: string }[] = [{ id: "all", label: "All" },{ id: "camera", label: "Cameras" },{ id: "access-control", label: "Access" },{ id: "nvr", label: "NVR" },{ id: "analytics", label: "VMS" }];
+  const filtered = useMemo(() => { let result = devices; if (categoryFilter !== "all") result = result.filter((d) => d.category === categoryFilter); if (cameraTypeFilter !== "all") result = result.filter((d) => d.cameraType === cameraTypeFilter); if (search.trim()) { const q = search.toLowerCase(); result = result.filter((d) => d.model.toLowerCase().includes(q) || d.manufacturer.toLowerCase().includes(q) || (d.sku??"").toLowerCase().includes(q) || (d.tags??[]).some(t=>t.toLowerCase().includes(q))); } return result; }, [devices, search, categoryFilter, cameraTypeFilter]);
+
+  if (loading) return <div className="px-3 md:px-5 py-4 md:py-6 space-y-4"><Skeleton className="h-10 w-48" /><div className="grid gap-3 md:gap-4" style={{ gridTemplateColumns: "repeat(auto-fill, minmax(200px, 1fr))" }}>{[1,2,3,4,5,6].map(i => <Skeleton key={i} className="h-56 rounded-2xl" />)}</div></div>;
+
+  return (
+    <div className="px-3 md:px-5 py-4 md:py-6">
+      {selectedDevice && <DeviceSpecModal device={selectedDevice} onClose={() => setSelectedDevice(null)} />}
+      <div className="flex items-center justify-between mb-4 md:mb-6"><div><h1 className="text-white font-bold text-lg md:text-xl tracking-tight">Device Store</h1><p className="text-[#8b949e] text-[11px] mt-0.5">{filtered.length} products</p></div><div className="flex items-center gap-2"><label className="flex items-center gap-1.5 h-8 px-3 rounded-xl text-[#8b949e] text-[11px] font-semibold hover:text-white cursor-pointer active:scale-[0.97] transition-transform" style={G.btn}><Upload className="w-3.5 h-3.5" /> {csvUploading ? "Importing…" : "Import CSV"}<input type="file" accept=".csv" className="hidden" onChange={handleCSVUpload} disabled={csvUploading} /></label><div className="flex items-center h-8 rounded-xl overflow-hidden" style={{ background: "rgba(255,255,255,0.05)" }}><button onClick={() => setViewMode("grid")} className="h-full px-2.5 flex items-center justify-center cursor-pointer active:scale-[0.97] transition-transform" style={viewMode==="grid"?{background:"#3b82f620",color:"#60a5fa"}:{color:"#484f58"}}><Grid3x3 className="w-3.5 h-3.5" /></button><button onClick={() => setViewMode("table")} className="h-full px-2.5 flex items-center justify-center cursor-pointer active:scale-[0.97] transition-transform" style={viewMode==="table"?{background:"#3b82f620",color:"#60a5fa"}:{color:"#484f58"}}><List className="w-3.5 h-3.5" /></button></div></div></div>
+      <div className="mb-4 md:mb-5 flex items-center gap-2 flex-wrap">
+        <div className="relative flex-1 min-w-[160px] max-w-sm"><Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[#484f58]" /><input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search model, SKU, tags…" className="h-9 rounded-xl pl-9 w-full text-[12px] text-[#e6edf3] focus:outline-none" style={G.input} /></div>
+        <div className="flex gap-1.5 flex-wrap">{categories.map((c) => (<button key={c.id} onClick={() => setCategoryFilter(c.id)} className="h-8 px-2.5 rounded-xl text-[11px] font-semibold cursor-pointer active:scale-[0.97] transition-transform whitespace-nowrap" style={categoryFilter===c.id?{background:"rgba(59,130,246,0.15)",color:"#60a5fa",border:"1px solid rgba(59,130,246,0.35)"}:{...G.btn,color:"#8b949e"}}>{c.label}</button>))}</div>
+        <div className="relative"><select value={cameraTypeFilter} onChange={(e) => setCameraTypeFilter(e.target.value)} className="h-8 rounded-xl px-2.5 text-[11px] font-semibold cursor-pointer appearance-none pr-6" style={G.btn}><option value="all">All Types</option>{CAMERA_TYPES.map(ct=><option key={ct} value={ct}>{ct}</option>)}</select><ChevronDown className="absolute right-1.5 top-1/2 -translate-y-1/2 w-3 h-3 text-[#484f58] pointer-events-none" /></div>
+      </div>
+      {devices.length === 0 ? <EmptyState icon={Store} title="Device store is empty" description="Import a CSV to populate the catalog." /> : filtered.length === 0 ? <EmptyState icon={Search} title="No devices match" description="Try adjusting filters." /> : viewMode === "grid" ? (
+        <div className="grid gap-3 md:gap-4" style={{ gridTemplateColumns: "repeat(auto-fill, minmax(200px, 1fr))" }}>{filtered.map((device) => { const cc = CAT_COLOR_DS[device.category] ?? CAT_COLOR_DS.other; return (<div key={device.id} onClick={() => setSelectedDevice(device)} className="rounded-2xl overflow-hidden cursor-pointer group transition-all md:hover:-translate-y-1" style={{ ...G.card }}><div className="relative h-32 md:h-36 overflow-hidden" style={{ background: "rgba(255,255,255,0.03)" }}>{device.imageUrl ? <img src={device.imageUrl} alt={device.model} className="w-full h-full object-contain p-3 opacity-70 group-hover:opacity-90 group-hover:scale-105 transition-all duration-500" /> : <div className="w-full h-full flex items-center justify-center"><Camera className="w-12 h-12 text-[#484f58]" /></div>}<div className="absolute top-2.5 left-2.5 flex flex-wrap gap-1"><span className="inline-block px-2 py-0.5 rounded-lg text-[9px] font-bold uppercase" style={{ background: cc.bg, color: cc.text }}>{cc.label}</span>{device.cameraType && <span className="inline-block px-2 py-0.5 rounded-lg text-[8px] font-bold uppercase" style={{ background: "rgba(255,255,255,0.08)", color: "#e6edf3" }}>{device.cameraType}</span>}</div></div><div className="p-3"><p className="text-[#8b949e] text-[9px] font-semibold">{device.manufacturer}</p><p className="text-white text-[12px] font-bold mt-0.5 truncate">{device.model}</p>{device.resolution && <p className="text-[#484f58] text-[9px] mt-1 truncate">{device.resolution}</p>}<div className="flex flex-wrap gap-1 mt-2">{device.tags?.slice(0,3).map((tag) => { const ts = TAG_STYLES[tag]; return ts ? <span key={tag} className="inline-block px-1.5 py-0.5 rounded-md text-[8px] font-bold uppercase" style={{ background: ts.bg, color: ts.text }}>{tag}</span> : null; })}</div><div className="flex items-center justify-between mt-2 pt-2" style={{ borderTop: "1px solid rgba(255,255,255,0.06)" }}><span className="text-[#484f58] text-[8px] font-mono">{device.sku}</span><span className="font-bold text-[11px]" style={{ color: cc.text }}>{device.price ? fmt(device.price) : "—"}</span></div></div></div>); })}</div>
+      ) : (
+        <div className="rounded-2xl overflow-hidden" style={G.card}><div className="overflow-x-auto"><table className="w-full" style={{ minWidth: "700px" }}><thead><tr style={{ background: "rgba(255,255,255,0.03)", borderBottom: "1px solid rgba(255,255,255,0.08)" }}>{["","Model","Manufacturer","Type","Resolution","Tags","SKU","Price"].map((h) => (<th key={h} className={`${h==="Price"?"text-right":"text-left"} px-3 py-3 text-[#484f58] text-[10px] font-bold uppercase tracking-widest`}>{h}</th>))}</tr></thead><tbody>{filtered.map((device, i) => { const cc = CAT_COLOR_DS[device.category] ?? CAT_COLOR_DS.other; return (<tr key={device.id} onClick={() => setSelectedDevice(device)} className="cursor-pointer hover:bg-white/[0.02] transition-colors group" style={{ borderBottom: i<filtered.length-1?"1px solid rgba(255,255,255,0.04)":"none" }}><td className="px-3 py-2.5"><div className="w-9 h-9 rounded-xl overflow-hidden flex-shrink-0" style={{ background: "rgba(255,255,255,0.04)" }}>{device.imageUrl ? <img src={device.imageUrl} alt={device.model} className="w-full h-full object-contain p-1 opacity-70" /> : <Camera className="w-4 h-4 text-[#484f58] m-auto mt-2.5" />}</div></td><td className="px-3 py-2.5 text-white text-[11px] font-semibold">{device.model}</td><td className="px-3 py-2.5 text-[#8b949e] text-[10px]">{device.manufacturer}</td><td className="px-3 py-2.5"><span className="inline-block px-2 py-0.5 rounded-lg text-[9px] font-bold uppercase" style={{ background: cc.bg, color: cc.text }}>{device.cameraType || cc.label}</span></td><td className="px-3 py-2.5 text-[#8b949e] text-[10px]">{device.resolution||"—"}</td><td className="px-3 py-2.5"><div className="flex flex-wrap gap-1">{device.tags?.map((tag) => { const ts = TAG_STYLES[tag]; return ts ? <span key={tag} className="inline-block px-1.5 py-0.5 rounded-md text-[8px] font-bold uppercase" style={{ background: ts.bg, color: ts.text }}>{tag}</span> : null; })}</div></td><td className="px-3 py-2.5 text-[#484f58] text-[10px] font-mono">{device.sku}</td><td className="px-3 py-2.5 text-right"><span className="text-white text-[11px] font-bold">{device.price?fmt(device.price):"—"}</span></td></tr>); })}</tbody></table></div></div>
       )}
     </div>
   );
