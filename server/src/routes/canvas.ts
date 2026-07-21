@@ -38,4 +38,42 @@ router.put("/:projectId", async (req: Request, res: Response) => {
   }
 });
 
+// POST /api/canvas/:projectId/upload
+router.post("/:projectId/upload", async (req: Request, res: Response) => {
+  try {
+    const { projectId } = req.params;
+    const { url, imageData } = req.body;
+
+    // If client sends a URL directly, use it
+    if (url) {
+      // Store the URL in canvas_layouts
+      await pool.query(
+        `INSERT INTO canvas_layouts (project_id, layout_data, updated_at)
+         VALUES ($1, $2, NOW())
+         ON CONFLICT (project_id) DO UPDATE SET layout_data = $2, updated_at = NOW()`,
+        [projectId, JSON.stringify({ imageUrl: url })]
+      );
+      return res.json({ url });
+    }
+
+    // If client sends base64 data, store it
+    if (imageData) {
+      // In production, you'd upload to S3/Cloudinary here
+      // For now, store the data URL in canvas_layouts
+      await pool.query(
+        `INSERT INTO canvas_layouts (project_id, layout_data, updated_at)
+         VALUES ($1, $2, NOW())
+         ON CONFLICT (project_id) DO UPDATE SET layout_data = $2, updated_at = NOW()`,
+        [projectId, JSON.stringify({ imageUrl: imageData })]
+      );
+      return res.json({ url: imageData });
+    }
+
+    res.status(400).json({ error: "No url or imageData provided" });
+  } catch (err) {
+    console.error("POST /canvas/:projectId/upload error:", err);
+    res.status(500).json({ error: "Failed to upload" });
+  }
+});
+
 export default router;
