@@ -1,6 +1,7 @@
 import express from "express";
 import cors from "cors";
 import dotenv from "dotenv";
+import path from "path";
 import { initDB } from "./db";
 import projectsRouter from "./routes/projects";
 import quotesRouter from "./routes/quotes";
@@ -21,6 +22,7 @@ app.use(cors({
   credentials: true
 }));
 app.use(express.json({ limit: "10mb" }));
+app.use("/uploads", express.static(path.join(__dirname, "uploads")));
 
 app.use("/api/projects", projectsRouter);
 app.use("/api/quotes", quotesRouter);
