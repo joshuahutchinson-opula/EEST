@@ -1,7 +1,26 @@
 import { Router, Request, Response } from "express";
+import multer from "multer";
+import path from "path";
+import fs from "fs";
 import pool from "../db";
 
 const router = Router();
+
+// Configure multer for file uploads
+const uploadDir = path.join(__dirname, "..", "uploads");
+if (!fs.existsSync(uploadDir)) {
+  fs.mkdirSync(uploadDir, { recursive: true });
+}
+
+const storage = multer.diskStorage({
+  destination: (_req, _file, cb) => cb(null, uploadDir),
+  filename: (_req, file, cb) => {
+    const uniqueSuffix = Date.now() + "-" + Math.round(Math.random() * 1e9);
+    cb(null, uniqueSuffix + path.extname(file.originalname));
+  },
+});
+
+const upload = multer({ storage, limits: { fileSize: 50 * 1024 * 1024 } });
 
 // GET /api/canvas/:projectId
 router.get("/:projectId", async (req: Request, res: Response) => {
@@ -39,14 +58,19 @@ router.put("/:projectId", async (req: Request, res: Response) => {
 });
 
 // POST /api/canvas/:projectId/upload
-router.post("/:projectId/upload", async (req: Request, res: Response) => {
+router.post("/:projectId/upload", upload.single("file"), async (req: Request, res: Response) => {
   try {
     const { projectId } = req.params;
-    const { url, imageData } = req.body;
 
-    // If client sends a URL directly, use it
+    // If a file was uploaded
+    if (req.file) {
+      const fileUrl = `/uploads/${req.file.filename}`;
+      return res.json({ url: fileUrl });
+    }
+
+    // Fallback to JSON body for URLs or base64
+    const { url, imageData } = req.body;
     if (url) {
-      // Store the URL in canvas_layouts
       await pool.query(
         `INSERT INTO canvas_layouts (project_id, layout_data, updated_at)
          VALUES ($1, $2, NOW())
@@ -56,10 +80,7 @@ router.post("/:projectId/upload", async (req: Request, res: Response) => {
       return res.json({ url });
     }
 
-    // If client sends base64 data, store it
     if (imageData) {
-      // In production, you'd upload to S3/Cloudinary here
-      // For now, store the data URL in canvas_layouts
       await pool.query(
         `INSERT INTO canvas_layouts (project_id, layout_data, updated_at)
          VALUES ($1, $2, NOW())
@@ -69,11 +90,17 @@ router.post("/:projectId/upload", async (req: Request, res: Response) => {
       return res.json({ url: imageData });
     }
 
-    res.status(400).json({ error: "No url or imageData provided" });
+    res.status(400).json({ error: "No file, url, or imageData provided" });
   } catch (err) {
     console.error("POST /canvas/:projectId/upload error:", err);
     res.status(500).json({ error: "Failed to upload" });
   }
+});
+
+// Serve uploaded files statically
+router.use("/uploads", (_req: Request, res: Response) => {
+  // This is handled by express.static in the main server file
+  res.status(404).json({ error: "File not found" });
 });
 
 export default router;
