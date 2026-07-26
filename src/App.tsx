@@ -1168,7 +1168,7 @@ function Workbook({ navigate }: { navigate: (p: Page) => void }) {
   const [showProjectSelect, setShowProjectSelect] = useState(false);
   const [exchangeRate, setExchangeRate] = useState(parseFloat(localStorage.getItem("fx_rate") || "157.4"));
   const [activeTab, setActiveTab] = useState<string>(() => localStorage.getItem("wb_tab") || "asset-list");
-  const [collapsedCategories, setCollapsedCategories] = useState<Set<string>>(new Set());
+const [collapsedCategories, setCollapsedCategories] = useState<Set<string>>(new Set<string>());
   const [saveStatus, setSaveStatus] = useState<"saved" | "saving" | "">("saved");
   const [generatingPDF, setGeneratingPDF] = useState(false);
   const [canvasDevices, setCanvasDevices] = useState<CanvasDevice[]>([]);
