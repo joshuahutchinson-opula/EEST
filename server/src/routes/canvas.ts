@@ -43,12 +43,12 @@ router.get("/:projectId", async (req: Request, res: Response) => {
 router.put("/:projectId", async (req: Request, res: Response) => {
   try {
     const { projectId } = req.params;
-    const { layoutData } = req.body;
+    const layoutData = req.body.layoutData || req.body;
     await pool.query(
       `INSERT INTO canvas_layouts (project_id, layout_data, updated_at)
        VALUES ($1, $2, NOW())
        ON CONFLICT (project_id) DO UPDATE SET layout_data = $2, updated_at = NOW()`,
-      [projectId, JSON.stringify(layoutData || {})]
+      [projectId, JSON.stringify(layoutData)]
     );
     res.json({ success: true });
   } catch (err) {
@@ -60,9 +60,7 @@ router.put("/:projectId", async (req: Request, res: Response) => {
 // POST /api/canvas/:projectId/upload
 router.post("/:projectId/upload", upload.single("file"), async (req: Request, res: Response) => {
   try {
-    const { projectId } = req.params;
-
-    // If a file was uploaded
+    // If a file was uploaded via multer
     if (req.file) {
       const fileUrl = `/uploads/${req.file.filename}`;
       return res.json({ url: fileUrl });
@@ -75,7 +73,7 @@ router.post("/:projectId/upload", upload.single("file"), async (req: Request, re
         `INSERT INTO canvas_layouts (project_id, layout_data, updated_at)
          VALUES ($1, $2, NOW())
          ON CONFLICT (project_id) DO UPDATE SET layout_data = $2, updated_at = NOW()`,
-        [projectId, JSON.stringify({ imageUrl: url })]
+        [req.params.projectId, JSON.stringify({ imageUrl: url })]
       );
       return res.json({ url });
     }
@@ -85,7 +83,7 @@ router.post("/:projectId/upload", upload.single("file"), async (req: Request, re
         `INSERT INTO canvas_layouts (project_id, layout_data, updated_at)
          VALUES ($1, $2, NOW())
          ON CONFLICT (project_id) DO UPDATE SET layout_data = $2, updated_at = NOW()`,
-        [projectId, JSON.stringify({ imageUrl: imageData })]
+        [req.params.projectId, JSON.stringify({ imageUrl: imageData })]
       );
       return res.json({ url: imageData });
     }
@@ -95,12 +93,6 @@ router.post("/:projectId/upload", upload.single("file"), async (req: Request, re
     console.error("POST /canvas/:projectId/upload error:", err);
     res.status(500).json({ error: "Failed to upload" });
   }
-});
-
-// Serve uploaded files statically
-router.use("/uploads", (_req: Request, res: Response) => {
-  // This is handled by express.static in the main server file
-  res.status(404).json({ error: "File not found" });
 });
 
 export default router;
