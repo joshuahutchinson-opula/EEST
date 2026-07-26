@@ -102,7 +102,7 @@ interface Column { id: Stage; label: string; color: string; }
 
 type CanvasDevice = { id: string; type: "camera" | "door" | "panel" | "power" | "server" | "cable"; x: number; y: number; rot: number; fov?: number; range?: number; label: string; selected?: boolean; connectedTo?: string[]; doorConfig?: { swing: "inswinging" | "outswinging"; lockType: string; readers: string[]; accessType: string; keyOverride: boolean }; cablePoints?: { x: number; y: number }[]; deviceStoreRef?: string; imageUrl?: string; };
 type FloorPlanFile = { id: string; type: "2d" | "3d"; url: string; originalName: string; format: string; is3DModel?: boolean; };
-
+type IconType = React.ComponentType<{ className?: string }>;
 const COLUMNS: Column[] = [
   { id: "assessment-scheduled", label: "Assessment Scheduled", color: "#f59e0b" },
   { id: "assessment-completed", label: "Assessment Completed", color: "#06b6d4" },
@@ -156,7 +156,7 @@ const API = {
 };
 
 function Skeleton({ className }: { className?: string }) { return <div className={clsx("animate-pulse rounded-2xl", className)} style={{ background: "rgba(255,255,255,0.04)" }} />; }
-function EmptyState({ icon: Icon, title, description, action }: { icon: React.ElementType; title: string; description: string; action?: { label: string; onClick: () => void } }) {
+function EmptyState({ icon: Icon, title, description, action }: { icon: IconType; title: string; description: string; action?: { label: string; onClick: () => void } }) {
   return (
     <div className="flex flex-col items-center justify-center py-16 px-4 text-center">
       <div className="w-16 h-16 rounded-2xl flex items-center justify-center mb-4" style={{ background: "rgba(59,130,246,0.10)", border: "1px solid rgba(59,130,246,0.18)" }}><Icon className="w-8 h-8 text-blue-400" /></div>
@@ -1444,7 +1444,7 @@ const [collapsedCategories, setCollapsedCategories] = useState<Set<string>>(new 
     </div>
   );
 }
-const STATUS_META: Record<InstallStatus, { label: string; color: string; bg: string; icon: React.ElementType }> = { complete: { label: "Complete", color: "text-emerald-400", bg: "bg-emerald-500/12", icon: CheckCircle2 }, "in-progress": { label: "In Progress", color: "text-blue-400", bg: "bg-blue-500/12", icon: Clock }, failed: { label: "Failed", color: "text-rose-400", bg: "bg-rose-500/12", icon: AlertTriangle }, pending: { label: "Pending", color: "text-[#484f58]", bg: "bg-white/[0.04]", icon: AlertCircle } };
+const STATUS_META: Record<InstallStatus, { label: string; color: string; bg: string; icon: IconType }> = { complete: { label: "Complete", color: "text-emerald-400", bg: "bg-emerald-500/12", icon: CheckCircle2 }, "in-progress": { label: "In Progress", color: "text-blue-400", bg: "bg-blue-500/12", icon: Clock }, failed: { label: "Failed", color: "text-rose-400", bg: "bg-rose-500/12", icon: AlertTriangle }, pending: { label: "Pending", color: "text-[#484f58]", bg: "bg-white/[0.04]", icon: AlertCircle } };
 
 function InstallTracker({ navigate: _navigate }: { navigate: (p: Page) => void }) {
   const [projects, setProjects] = useState<Project[]>([]);
@@ -1467,8 +1467,7 @@ function InstallTracker({ navigate: _navigate }: { navigate: (p: Page) => void }
     try { await API.install.updateStatus(zoneId, deviceId, status); } catch {}
   };
 
-  const typeIcons: Record<string, React.ElementType> = { camera: Camera, access: Key, nvr: Cpu, door: DoorOpen, panel: PanelRight, power: Zap, server: Server };
-
+const typeIcons: Record<string, IconType> = { camera: Camera, access: Key, nvr: Cpu, door: DoorOpen, panel: PanelRight, power: Zap, server: Server };
   if (loading) return <div className="px-3 md:px-5 py-4 md:py-6 space-y-4"><Skeleton className="h-10 w-48" /><Skeleton className="h-32 rounded-2xl" /><Skeleton className="h-48 rounded-2xl" /></div>;
 
   const allDevices = zones.flatMap((z) => z.devices);
