@@ -103,6 +103,7 @@ interface Column { id: Stage; label: string; color: string; }
 type CanvasDevice = { id: string; type: "camera" | "door" | "panel" | "power" | "server" | "cable"; x: number; y: number; rot: number; fov?: number; range?: number; label: string; selected?: boolean; connectedTo?: string[]; doorConfig?: { swing: "inswinging" | "outswinging"; lockType: string; readers: string[]; accessType: string; keyOverride: boolean }; cablePoints?: { x: number; y: number }[]; deviceStoreRef?: string; imageUrl?: string; };
 type FloorPlanFile = { id: string; type: "2d" | "3d"; url: string; originalName: string; format: string; is3DModel?: boolean; };
 type IconType = React.ComponentType<{ className?: string }>;
+
 const COLUMNS: Column[] = [
   { id: "assessment-scheduled", label: "Assessment Scheduled", color: "#f59e0b" },
   { id: "assessment-completed", label: "Assessment Completed", color: "#06b6d4" },
@@ -192,10 +193,7 @@ function UserMenu() {
           <div className="absolute right-0 top-full mt-2 z-[60] w-56 rounded-2xl overflow-hidden" style={{ background: "rgba(7,12,26,0.97)", border: "1px solid rgba(255,255,255,0.12)", boxShadow: "0 8px 32px rgba(0,0,0,0.8)", backdropFilter: "blur(20px)" }}>
             <div className="px-4 py-3 flex items-center gap-3" style={{ borderBottom: "1px solid rgba(255,255,255,0.07)" }}>
               <div className="w-8 h-8 rounded-full flex items-center justify-center text-white text-[11px] font-bold flex-shrink-0" style={{ background: "linear-gradient(135deg, #3b82f6, #8b5cf6)", boxShadow: "0 0 12px rgba(139,92,246,0.5)" }}>{CURRENT_USER.initials}</div>
-              <div>
-                <p className="text-white text-[12px] font-semibold">{CURRENT_USER.name}</p>
-                <p className="text-[#484f58] text-[10px]">Administrator</p>
-              </div>
+              <div><p className="text-white text-[12px] font-semibold">{CURRENT_USER.name}</p><p className="text-[#484f58] text-[10px]">Administrator</p></div>
             </div>
             <div className="py-1">
               <button onClick={() => { setOpen(false); localStorage.removeItem("auth_token"); localStorage.removeItem("app_logged_in"); localStorage.removeItem("app_page"); window.location.href = "/"; }} className="w-full flex items-center gap-2.5 px-4 py-2.5 text-[#8b949e] hover:text-white hover:bg-white/[0.05] transition-colors text-left cursor-pointer active:scale-[0.97] transition-transform min-h-[44px] text-[12px] font-semibold">
@@ -358,18 +356,14 @@ function NewProjectModal({ onClose, onAdd }: { onClose: () => void; onAdd: (p: P
   );
 }
 
-// Helper: deduplicate team list — if assignee is also a collaborator, merge roles
 function getDeduplicatedTeam(project: Project): { name: string; initials: string; color: string; roles: string[] }[] {
   const members: { name: string; initials: string; color: string; roles: string[] }[] = [];
   members.push({ name: project.assignee.name, initials: project.assignee.initials, color: project.assignee.color, roles: ["Account Owner"] });
   if (project.collaborators) {
     for (const c of project.collaborators) {
       const existing = members.find(m => m.name === c.name);
-      if (existing) {
-        existing.roles.push(c.role);
-      } else {
-        members.push({ name: c.name, initials: c.initials, color: c.color, roles: [c.role] });
-      }
+      if (existing) { existing.roles.push(c.role); }
+      else { members.push({ name: c.name, initials: c.initials, color: c.color, roles: [c.role] }); }
     }
   }
   return members;
@@ -593,21 +587,8 @@ function ProjectDetail({ navigate }: { navigate: (p: Page) => void }) {
 
   const handleCreateCO = async () => {
     if (!project || !newCOTitle.trim()) return;
-    const co: Partial<ChangeOrder> = {
-      projectId: project.id,
-      title: newCOTitle.trim(),
-      description: newCODesc.trim(),
-      costImpact: parseFloat(newCOCost) || 0,
-      status: "draft",
-      createdBy: CURRENT_USER.name,
-    };
-    try {
-      const created = await API.changeOrders.create(project.id, co);
-      setChangeOrders((prev) => [...prev, created]);
-      setShowNewCO(false);
-      setNewCOTitle(""); setNewCODesc(""); setNewCOCost("");
-      toast.success("Change order created");
-    } catch { toast.error("Failed to create change order"); }
+    const co: Partial<ChangeOrder> = { projectId: project.id, title: newCOTitle.trim(), description: newCODesc.trim(), costImpact: parseFloat(newCOCost) || 0, status: "draft", createdBy: CURRENT_USER.name };
+    try { const created = await API.changeOrders.create(project.id, co); setChangeOrders((prev) => [...prev, created]); setShowNewCO(false); setNewCOTitle(""); setNewCODesc(""); setNewCOCost(""); toast.success("Change order created"); } catch { toast.error("Failed to create change order"); }
   };
 
   if (loading) return <div className="px-3 md:px-5 py-4 md:py-6 space-y-4"><Skeleton className="h-8 w-64" /><div className="grid grid-cols-2 md:grid-cols-5 gap-2 md:gap-3">{[1,2,3,4,5].map(i => <Skeleton key={i} className="h-24 rounded-2xl" />)}</div></div>;
@@ -629,16 +610,7 @@ function ProjectDetail({ navigate }: { navigate: (p: Page) => void }) {
       {activeTab === "change-orders" && (
         <div>
           <div className="flex items-center justify-between mb-3"><p className="text-[#8b949e] text-[11px]">{changeOrders.length} change orders</p><button onClick={() => setShowNewCO(true)} className="flex items-center gap-1.5 h-8 px-3 rounded-xl text-white text-[11px] font-bold cursor-pointer active:scale-[0.97] transition-transform" style={{ background: "#3b82f6" }}><Plus className="w-3 h-3" /> New Change Order</button></div>
-          {showNewCO && (
-            <div className="rounded-2xl p-4 mb-3" style={G.card}>
-              <div className="space-y-2">
-                <input value={newCOTitle} onChange={(e) => setNewCOTitle(e.target.value)} placeholder="Title" className="w-full h-9 rounded-xl px-3 text-[12px] text-[#e6edf3] focus:outline-none" style={G.input} />
-                <textarea value={newCODesc} onChange={(e) => setNewCODesc(e.target.value)} placeholder="Description" rows={2} className="w-full rounded-xl px-3 py-2 text-[12px] text-[#e6edf3] focus:outline-none resize-none" style={G.input} />
-                <input type="number" value={newCOCost} onChange={(e) => setNewCOCost(e.target.value)} placeholder="Cost Impact" className="w-full h-9 rounded-xl px-3 text-[12px] text-[#e6edf3] focus:outline-none" style={G.input} />
-                <div className="flex gap-2"><button onClick={handleCreateCO} className="flex-1 h-9 rounded-xl text-white text-[12px] font-bold cursor-pointer active:scale-[0.97] transition-transform" style={{ background: "#10b981" }}>Create</button><button onClick={() => setShowNewCO(false)} className="flex-1 h-9 rounded-xl text-[#8b949e] text-[12px] font-semibold cursor-pointer active:scale-[0.97] transition-transform" style={G.btn}>Cancel</button></div>
-              </div>
-            </div>
-          )}
+          {showNewCO && (<div className="rounded-2xl p-4 mb-3" style={G.card}><div className="space-y-2"><input value={newCOTitle} onChange={(e) => setNewCOTitle(e.target.value)} placeholder="Title" className="w-full h-9 rounded-xl px-3 text-[12px] text-[#e6edf3] focus:outline-none" style={G.input} /><textarea value={newCODesc} onChange={(e) => setNewCODesc(e.target.value)} placeholder="Description" rows={2} className="w-full rounded-xl px-3 py-2 text-[12px] text-[#e6edf3] focus:outline-none resize-none" style={G.input} /><input type="number" value={newCOCost} onChange={(e) => setNewCOCost(e.target.value)} placeholder="Cost Impact" className="w-full h-9 rounded-xl px-3 text-[12px] text-[#e6edf3] focus:outline-none" style={G.input} /><div className="flex gap-2"><button onClick={handleCreateCO} className="flex-1 h-9 rounded-xl text-white text-[12px] font-bold cursor-pointer active:scale-[0.97] transition-transform" style={{ background: "#10b981" }}>Create</button><button onClick={() => setShowNewCO(false)} className="flex-1 h-9 rounded-xl text-[#8b949e] text-[12px] font-semibold cursor-pointer active:scale-[0.97] transition-transform" style={G.btn}>Cancel</button></div></div></div>)}
           {changeOrders.length === 0 && !showNewCO ? <EmptyState icon={AlertTriangle} title="No change orders" description="Create one to track scope changes." /> : (
             <div className="space-y-2">{changeOrders.map((co) => (<div key={co.id} className="rounded-2xl p-4" style={G.card}><div className="flex items-center justify-between"><div><p className="text-white text-[13px] font-semibold">{co.title}</p>{co.description && <p className="text-[#8b949e] text-[11px] mt-0.5">{co.description}</p>}</div><span className={clsx("text-[10px] font-bold px-2 py-0.5 rounded-full", co.status === "approved" ? "bg-emerald-500/12 text-emerald-400" : co.status === "submitted" ? "bg-blue-500/12 text-blue-400" : co.status === "rejected" ? "bg-rose-500/12 text-rose-400" : "bg-amber-500/12 text-amber-400")}>{co.status}</span></div><div className="flex items-center justify-between mt-2"><span className="text-[#484f58] text-[10px]">{co.createdBy} · {fmtDateFull(co.createdAt)}</span>{co.costImpact !== 0 && <span className="text-white text-[12px] font-bold">{fmt(co.costImpact)}</span>}</div></div>))}</div>
           )}
@@ -647,15 +619,7 @@ function ProjectDetail({ navigate }: { navigate: (p: Page) => void }) {
       {activeTab === "audit-log" && (
         <div>
           {auditLog.length === 0 ? <EmptyState icon={History} title="No audit entries" description="Activity will appear here automatically." /> : (
-            <div className="space-y-1">
-              {auditLog.map((entry) => (
-                <div key={entry.id} className="flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-white/[0.02]" style={{ borderBottom: "1px solid rgba(255,255,255,0.03)" }}>
-                  <div className="w-7 h-7 rounded-full flex items-center justify-center text-[9px] font-bold text-white flex-shrink-0" style={{ background: TEAM.find(t => t.name === entry.user)?.color || "#3b82f6" }}>{(TEAM.find(t => t.name === entry.user)?.initials || "??")}</div>
-                  <div className="flex-1 min-w-0"><p className="text-white text-[11px] font-semibold">{entry.event}</p><p className="text-[#8b949e] text-[10px]">{entry.details}</p></div>
-                  <span className="text-[#484f58] text-[10px] flex-shrink-0">{new Date(entry.timestamp).toLocaleString()}</span>
-                </div>
-              ))}
-            </div>
+            <div className="space-y-1">{auditLog.map((entry) => (<div key={entry.id} className="flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-white/[0.02]" style={{ borderBottom: "1px solid rgba(255,255,255,0.03)" }}><div className="w-7 h-7 rounded-full flex items-center justify-center text-[9px] font-bold text-white flex-shrink-0" style={{ background: TEAM.find(t => t.name === entry.user)?.color || "#3b82f6" }}>{(TEAM.find(t => t.name === entry.user)?.initials || "??")}</div><div className="flex-1 min-w-0"><p className="text-white text-[11px] font-semibold">{entry.event}</p><p className="text-[#8b949e] text-[10px]">{entry.details}</p></div><span className="text-[#484f58] text-[10px] flex-shrink-0">{new Date(entry.timestamp).toLocaleString()}</span></div>))}</div>
           )}
         </div>
       )}
@@ -719,7 +683,7 @@ function DesignCanvas({ navigate }: { navigate: (p: Page) => void }) {
   const [storeSearch, setStoreSearch] = useState("");
   const [draggingDevice, setDraggingDevice] = useState<string | null>(null);
   const [cablePoints, setCablePoints] = useState<{ x: number; y: number }[]>([]);
-  const [projectId, setProjectId] = useState<string>("");
+  const [projectId, setProjectId] = useState<string>(() => localStorage.getItem("canvas_last_project") || "");
   const [storeDevices, setStoreDevices] = useState<CatalogDevice[]>([]);
   const [floorPlan2D, setFloorPlan2D] = useState<FloorPlanFile | null>(null);
   const [floorPlan3D, setFloorPlan3D] = useState<FloorPlanFile | null>(null);
@@ -737,9 +701,10 @@ function DesignCanvas({ navigate }: { navigate: (p: Page) => void }) {
     const loadCanvas = async () => {
       try {
         const projects = await API.projects.list();
-        const pid = projects[0]?.id;
+        const pid = projectId || projects[0]?.id;
         if (pid) {
           setProjectId(pid);
+          localStorage.setItem("canvas_last_project", pid);
           const data = await API.canvas.get(pid);
           if (data.layoutData?.imageUrl) setFloorPlan2D({ id: "2d-" + pid, type: "2d", url: data.layoutData.imageUrl, originalName: "floor-plan", format: data.layoutData.imageUrl.match(/\.(\w+)(\?|$)/)?.[1] || "png" });
           if (data.layoutData?.image3DUrl) {
@@ -755,15 +720,14 @@ function DesignCanvas({ navigate }: { navigate: (p: Page) => void }) {
 
   const saveCanvas = useCallback(async () => {
     if (!projectId) return;
-    try { await API.canvas.save(projectId, { devices, imageUrl: floorPlan2D?.url || "", image3DUrl: floorPlan3D?.url || "" }); } catch {}
+    try { await API.canvas.save(projectId, { layoutData: { devices, imageUrl: floorPlan2D?.url || "", image3DUrl: floorPlan3D?.url || "" } }); } catch (err) { console.error("Canvas save failed:", err); }
   }, [devices, floorPlan2D, floorPlan3D, projectId]);
 
   useEffect(() => {
-    const t = setTimeout(() => { if (devices.length > 0 || floorPlan2D || floorPlan3D) saveCanvas(); }, 2000);
+    const t = setTimeout(() => { if (devices.length > 0 || floorPlan2D || floorPlan3D) saveCanvas(); }, 1000);
     return () => clearTimeout(t);
-  }, [devices, floorPlan2D, floorPlan3D, saveCanvas]);
+  }, [devices, saveCanvas]);
 
-  // Sync canvas device to workbook
   const syncDeviceToWorkbook = async (device: CatalogDevice) => {
     if (!projectId) return;
     try {
@@ -773,110 +737,63 @@ function DesignCanvas({ navigate }: { navigate: (p: Page) => void }) {
         const projects = await API.projects.list();
         const proj = projects.find((p: Project) => p.id === projectId);
         projectQuote = await API.quotes.create({
-          clientName: proj?.client || "",
-          refNumber: `Q-${projectId.slice(0, 8).toUpperCase()}`,
-          date: new Date().toISOString().slice(0, 10),
-          status: "draft",
-          quoteType: "Both",
-          exchangeRate: parseFloat(localStorage.getItem("fx_rate") || "157.4"),
-          projectId,
+          clientName: proj?.client || "", refNumber: `Q-${projectId.slice(0, 8).toUpperCase()}`, date: new Date().toISOString().slice(0, 10), status: "draft", quoteType: "Both",
+          exchangeRate: parseFloat(localStorage.getItem("fx_rate") || "157.4"), projectId,
           categories: [
-            { id: crypto.randomUUID?.() || `cat1`, name: "Video Security Equipment", type: "Video Surveillance" as QuoteType, lineItems: [] },
-            { id: crypto.randomUUID?.() || `cat2`, name: "Access Control Equipment", type: "Access Control" as QuoteType, lineItems: [] },
-            { id: crypto.randomUUID?.() || `cat3`, name: "Software", type: "Both" as QuoteType, lineItems: [] },
-            { id: crypto.randomUUID?.() || `cat4`, name: "Compute & Storage", type: "Both" as QuoteType, lineItems: [] },
-            { id: crypto.randomUUID?.() || `cat5`, name: "Networking", type: "Both" as QuoteType, lineItems: [] },
-            { id: crypto.randomUUID?.() || `cat6`, name: "Installation & Labor", type: "Both" as QuoteType, lineItems: [] },
+            { id: crypto.randomUUID?.() || "cat1", name: "Video Security Equipment", type: "Video Surveillance" as QuoteType, lineItems: [] },
+            { id: crypto.randomUUID?.() || "cat2", name: "Access Control Equipment", type: "Access Control" as QuoteType, lineItems: [] },
+            { id: crypto.randomUUID?.() || "cat3", name: "Software", type: "Both" as QuoteType, lineItems: [] },
+            { id: crypto.randomUUID?.() || "cat4", name: "Compute & Storage", type: "Both" as QuoteType, lineItems: [] },
+            { id: crypto.randomUUID?.() || "cat5", name: "Networking", type: "Both" as QuoteType, lineItems: [] },
+            { id: crypto.randomUUID?.() || "cat6", name: "Installation & Labor", type: "Both" as QuoteType, lineItems: [] },
           ],
         });
       }
       const targetCatName = device.category === "camera" ? "Video Security Equipment" : device.category === "access-control" ? "Access Control Equipment" : device.category === "nvr" ? "Compute & Storage" : "Video Security Equipment";
       const categories = projectQuote.categories || [];
       let targetCat = categories.find((c: QuoteCategory) => c.name === targetCatName);
-      if (!targetCat) {
-        targetCat = { id: crypto.randomUUID?.() || `cat${Date.now()}`, name: targetCatName, type: "Both" as QuoteType, lineItems: [] };
-        categories.push(targetCat);
-      }
+      if (!targetCat) { targetCat = { id: crypto.randomUUID?.() || `cat${Date.now()}`, name: targetCatName, type: "Both" as QuoteType, lineItems: [] }; categories.push(targetCat); }
       const existingItem = targetCat.lineItems.find((li: QuoteLineItem) => li.description === `${device.manufacturer} ${device.model}`);
       if (existingItem) {
         existingItem.quantity += 1;
         const sellPrice = existingItem.unitCost * (1 + existingItem.markupPercent);
-        existingItem.sellPrice = sellPrice;
-        existingItem.costTotal = existingItem.unitCost * existingItem.quantity;
-        existingItem.sellTotal = sellPrice * existingItem.quantity;
-        existingItem.profit = existingItem.sellTotal - existingItem.costTotal;
+        existingItem.sellPrice = sellPrice; existingItem.costTotal = existingItem.unitCost * existingItem.quantity; existingItem.sellTotal = sellPrice * existingItem.quantity; existingItem.profit = existingItem.sellTotal - existingItem.costTotal;
       } else {
-        const price = device.price || 0;
-        const sellPrice = price * 1.35;
-        targetCat.lineItems.push({
-          id: crypto.randomUUID?.() || `li${Date.now()}`,
-          itemNumber: String(targetCat.lineItems.length + 1).padStart(2, "0"),
-          description: `${device.manufacturer} ${device.model}`,
-          unitCost: price,
-          quantity: 1,
-          markupPercent: 0.35,
-          sellPrice,
-          costTotal: price,
-          sellTotal: sellPrice,
-          profit: sellPrice - price,
-          jmdConversion: sellPrice * (parseFloat(localStorage.getItem("fx_rate") || "157.4")),
-        });
+        const price = device.price || 0; const sellPrice = price * 1.35;
+        targetCat.lineItems.push({ id: crypto.randomUUID?.() || `li${Date.now()}`, itemNumber: String(targetCat.lineItems.length + 1).padStart(2, "0"), description: `${device.manufacturer} ${device.model}`, unitCost: price, quantity: 1, markupPercent: 0.35, sellPrice, costTotal: price, sellTotal: sellPrice, profit: sellPrice - price, jmdConversion: sellPrice * (parseFloat(localStorage.getItem("fx_rate") || "157.4")) });
       }
       await API.quotes.update(projectQuote.id, { categories });
-    } catch {}
+    } catch (err) { console.error("Workbook sync failed:", err); }
   };
 
   const addDevice = (type: CanvasDevice["type"], x: number, y: number, storeRef?: string, imgUrl?: string) => {
-    const newDevice: CanvasDevice = {
-      id: `dev${Date.now()}`, type, x, y, rot: 0,
-      fov: type === "camera" ? 80 : undefined,
-      range: type === "camera" ? 90 : undefined,
-      label: `${type.toUpperCase()}-${String(devices.length + 1).padStart(2, "0")}`,
-      doorConfig: type === "door" ? { swing: "inswinging", lockType: "Electric Strike", readers: [], accessType: "Card", keyOverride: true } : undefined,
-      deviceStoreRef: storeRef,
-      imageUrl: imgUrl,
-    };
-    setDevices((prev) => [...prev, newDevice]);
+    const newDevice: CanvasDevice = { id: `dev${Date.now()}`, type, x, y, rot: 0, fov: type === "camera" ? 80 : undefined, range: type === "camera" ? 90 : undefined, label: `${type.toUpperCase()}-${String(devices.length + 1).padStart(2, "0")}`, doorConfig: type === "door" ? { swing: "inswinging", lockType: "Electric Strike", readers: [], accessType: "Card", keyOverride: true } : undefined, deviceStoreRef: storeRef, imageUrl: imgUrl };
+    setDevices((prev) => { const updated = [...prev, newDevice]; return updated; });
     setSelectedId(newDevice.id);
   };
 
   const placeDeviceFromStore = (device: CatalogDevice, x: number, y: number) => {
     const typeMap: Record<string, CanvasDevice["type"]> = { camera: "camera", "access-control": "door", nvr: "server", analytics: "server", other: "camera" };
-    const canvasType = typeMap[device.category] || "camera";
-    addDevice(canvasType, x, y, device.id, device.imageUrl);
+    addDevice(typeMap[device.category] || "camera", x, y, device.id, device.imageUrl);
     syncDeviceToWorkbook(device);
     toast.success(`${device.model} placed`);
   };
 
-  const getDeviceColor = (type: CanvasDevice["type"]) => {
-    const colors: Record<string, string> = { camera: "#3b82f6", door: "#f59e0b", panel: "#f97316", power: "#ef4444", server: "#ec4899", cable: "#8b5cf6" };
-    return colors[type] || "#3b82f6";
-  };
-
-  const updateDoorConfig = (deviceId: string, config: Partial<CanvasDevice["doorConfig"]>) => {
-    setDevices((prev) => prev.map((d) => d.id === deviceId ? { ...d, doorConfig: { ...d.doorConfig!, ...config } } : d));
-  };
+  const getDeviceColor = (type: CanvasDevice["type"]) => { const colors: Record<string, string> = { camera: "#3b82f6", door: "#f59e0b", panel: "#f97316", power: "#ef4444", server: "#ec4899", cable: "#8b5cf6" }; return colors[type] || "#3b82f6"; };
+  const updateDoorConfig = (deviceId: string, config: Partial<CanvasDevice["doorConfig"]>) => { setDevices((prev) => prev.map((d) => d.id === deviceId ? { ...d, doorConfig: { ...d.doorConfig!, ...config } } : d)); };
 
   const handleCanvasClick = (e: any) => {
     if (activeTool === "move" || activeTool === "select" || activeTool === "trash") return;
-    const transformState = transformRef.current?.state;
-    if (!transformState) return;
+    const transformState = transformRef.current?.state; if (!transformState) return;
     const scale = transformState.scale;
-    const posX = (e.clientX - transformState.positionX) / scale;
-    const posY = (e.clientY - transformState.positionY) / scale;
+    const posX = (e.clientX - transformState.positionX) / scale; const posY = (e.clientY - transformState.positionY) / scale;
     if (activeTool === "cable") { setCablePoints((prev) => [...prev, { x: posX, y: posY }]); return; }
     addDevice(activeTool as CanvasDevice["type"], posX, posY);
   };
 
   const handleDoubleClick = () => {
     if (activeTool === "cable" && cablePoints.length >= 2) {
-      const newCable: CanvasDevice = {
-        id: `dev${Date.now()}`, type: "cable",
-        x: cablePoints[0].x, y: cablePoints[0].y, rot: 0,
-        label: `CABLE-${String(devices.filter(d => d.type === "cable").length + 1).padStart(2, "0")}`,
-        cablePoints: [...cablePoints],
-      };
-      setDevices((prev) => [...prev, newCable]);
+      setDevices((prev) => [...prev, { id: `dev${Date.now()}`, type: "cable", x: cablePoints[0].x, y: cablePoints[0].y, rot: 0, label: `CABLE-${String(prev.filter(d => d.type === "cable").length + 1).padStart(2, "0")}`, cablePoints: [...cablePoints] }]);
       setCablePoints([]);
     }
   };
@@ -887,52 +804,34 @@ function DesignCanvas({ navigate }: { navigate: (p: Page) => void }) {
     if (activeTool === "select") { setSelectedId(deviceId); setDraggingDevice(deviceId); }
   };
 
-  const handleDeviceMouseDown = (deviceId: string, _e: React.MouseEvent) => {
-    if (activeTool === "select") setDraggingDevice(deviceId);
-  };
+  const handleDeviceMouseDown = (deviceId: string, _e: React.MouseEvent) => { if (activeTool === "select") setDraggingDevice(deviceId); };
 
   const handleCanvasMouseMove = (e: React.MouseEvent) => {
     if (!draggingDevice || activeTool !== "select") return;
-    const transformState = transformRef.current?.state;
-    if (!transformState) return;
+    const transformState = transformRef.current?.state; if (!transformState) return;
     const scale = transformState.scale;
-    const posX = (e.clientX - transformState.positionX) / scale;
-    const posY = (e.clientY - transformState.positionY) / scale;
+    const posX = (e.clientX - transformState.positionX) / scale; const posY = (e.clientY - transformState.positionY) / scale;
     setDevices((prev) => prev.map((d) => d.id === draggingDevice ? { ...d, x: posX, y: posY } : d));
   };
 
   const handleCanvasMouseUp = () => { setDraggingDevice(null); };
 
-  const filteredStoreDevices = storeSearch.trim()
-    ? storeDevices.filter(d => d.model.toLowerCase().includes(storeSearch.toLowerCase()) || d.manufacturer.toLowerCase().includes(storeSearch.toLowerCase()))
-    : storeDevices;
+  const filteredStoreDevices = storeSearch.trim() ? storeDevices.filter(d => d.model.toLowerCase().includes(storeSearch.toLowerCase()) || d.manufacturer.toLowerCase().includes(storeSearch.toLowerCase())) : storeDevices;
 
-  const CAT_COLOR: Record<string, { bg: string; text: string; label: string }> = {
-    camera: { bg: "rgba(59,130,246,0.12)", text: "#60a5fa", label: "Camera" },
-    "access-control": { bg: "rgba(139,92,246,0.12)", text: "#a78bfa", label: "Access" },
-    nvr: { bg: "rgba(16,185,129,0.12)", text: "#34d399", label: "NVR" },
-    analytics: { bg: "rgba(249,115,22,0.12)", text: "#fb923c", label: "VMS" },
-    other: { bg: "rgba(100,100,100,0.12)", text: "#8b949e", label: "Other" },
-  };
+  const CAT_COLOR: Record<string, { bg: string; text: string; label: string }> = { camera: { bg: "rgba(59,130,246,0.12)", text: "#60a5fa", label: "Camera" }, "access-control": { bg: "rgba(139,92,246,0.12)", text: "#a78bfa", label: "Access" }, nvr: { bg: "rgba(16,185,129,0.12)", text: "#34d399", label: "NVR" }, analytics: { bg: "rgba(249,115,22,0.12)", text: "#fb923c", label: "VMS" }, other: { bg: "rgba(100,100,100,0.12)", text: "#8b949e", label: "Other" } };
 
   const uploadFile = async (type: "2d" | "3d") => {
-    const input = document.createElement("input");
-    input.type = "file";
+    const input = document.createElement("input"); input.type = "file";
     input.accept = type === "2d" ? "image/*,.pdf,.dwg,.dxf" : "image/*,.glb,.gltf,.obj,.stl,.fbx";
     input.onchange = async (e: any) => {
-      const file = e.target.files?.[0];
-      if (!file || !projectId) return;
+      const file = e.target.files?.[0]; if (!file || !projectId) return;
       const ext = file.name.split(".").pop()?.toLowerCase() || "";
       if (type === "2d" && ext === "pdf") {
         setPdfRendering(true);
         try {
-          const arrayBuffer = await file.arrayBuffer();
-          const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
-          const page = await pdf.getPage(1);
-          const viewport = page.getViewport({ scale: 2 });
-          const canvas = document.createElement("canvas");
-          canvas.width = viewport.width;
-          canvas.height = viewport.height;
+          const arrayBuffer = await file.arrayBuffer(); const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+          const page = await pdf.getPage(1); const viewport = page.getViewport({ scale: 2 });
+          const canvas = document.createElement("canvas"); canvas.width = viewport.width; canvas.height = viewport.height;
           const ctx = canvas.getContext("2d")!;
           await page.render({ canvasContext: ctx, viewport, canvas }).promise;
           const dataUrl = canvas.toDataURL("image/png");
@@ -940,17 +839,12 @@ function DesignCanvas({ navigate }: { navigate: (p: Page) => void }) {
           setFloorPlan2D({ id: "2d-" + projectId, type: "2d", url: result.url, originalName: file.name, format: "png" });
           toast.success("PDF rendered and uploaded");
         } catch { toast.error("Failed to render PDF"); }
-        setPdfRendering(false);
-        return;
+        setPdfRendering(false); return;
       }
       try {
         const result = await API.canvas.upload(projectId, file);
-        if (type === "2d") {
-          setFloorPlan2D({ id: "2d-" + projectId, type: "2d", url: result.url, originalName: file.name, format: ext });
-        } else {
-          const is3DModel = /\.(glb|gltf|obj|stl|fbx)$/i.test(file.name);
-          setFloorPlan3D({ id: "3d-" + projectId, type: "3d", url: result.url, originalName: file.name, format: ext, is3DModel });
-        }
+        if (type === "2d") setFloorPlan2D({ id: "2d-" + projectId, type: "2d", url: result.url, originalName: file.name, format: ext });
+        else { const is3DModel = /\.(glb|gltf|obj|stl|fbx)$/i.test(file.name); setFloorPlan3D({ id: "3d-" + projectId, type: "3d", url: result.url, originalName: file.name, format: ext, is3DModel }); }
         toast.success(type === "2d" ? "Floor plan uploaded" : "3D file uploaded");
       } catch { toast.error("Upload failed"); }
     };
@@ -978,13 +872,9 @@ function DesignCanvas({ navigate }: { navigate: (p: Page) => void }) {
           </div>
         )}
       </header>
-
       <div className="flex-1 relative overflow-hidden" onMouseMove={handleCanvasMouseMove} onMouseUp={handleCanvasMouseUp}>
         <motion.div className="absolute left-0 top-0 bottom-0 w-80 z-30 flex flex-col" style={G.liquidGlass} animate={{ x: showDeviceTray ? 0 : -320 }} transition={{ type: "spring", stiffness: 300, damping: 30 }}>
-          <div className="px-4 py-3 flex items-center justify-between" style={{ borderBottom: "1px solid rgba(255,255,255,0.07)" }}>
-            <p className="text-white text-[12px] font-bold">Device Store</p>
-            <button onClick={() => setShowDeviceTray(false)} className="w-6 h-6 rounded-lg hover:bg-white/[0.08] flex items-center justify-center cursor-pointer active:scale-[0.97] transition-transform min-w-[44px] min-h-[44px]"><X className="w-3.5 h-3.5 text-[#8b949e]" /></button>
-          </div>
+          <div className="px-4 py-3 flex items-center justify-between" style={{ borderBottom: "1px solid rgba(255,255,255,0.07)" }}><p className="text-white text-[12px] font-bold">Device Store</p><button onClick={() => setShowDeviceTray(false)} className="w-6 h-6 rounded-lg hover:bg-white/[0.08] flex items-center justify-center cursor-pointer active:scale-[0.97] transition-transform min-w-[44px] min-h-[44px]"><X className="w-3.5 h-3.5 text-[#8b949e]" /></button></div>
           <div className="px-3 py-2.5"><div className="relative"><Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3 h-3 text-[#484f58]" /><input value={storeSearch} onChange={(e) => setStoreSearch(e.target.value)} placeholder="Search device store..." className="w-full h-7 rounded-xl pl-7 pr-2.5 text-[11px] text-[#e6edf3] focus:outline-none" style={G.input} /></div></div>
           <div className="flex-1 overflow-y-auto" style={{ scrollbarWidth: "none" }}>
             {filteredStoreDevices.map((device) => {
@@ -1000,86 +890,34 @@ function DesignCanvas({ navigate }: { navigate: (p: Page) => void }) {
             {filteredStoreDevices.length === 0 && <div className="px-4 py-8 text-center"><p className="text-[#484f58] text-[11px]">No devices found</p></div>}
           </div>
         </motion.div>
-
         {view3D && floorPlan3D ? (
-          <div className="absolute inset-0">
-            <ThreeDViewer file={floorPlan3D} />
-            <div className="absolute bottom-4 left-4 px-3 py-1.5 rounded-xl text-[10px] font-semibold text-white" style={G.liquidGlass}>3D View — {floorPlan3D.originalName}</div>
-          </div>
+          <div className="absolute inset-0"><ThreeDViewer file={floorPlan3D} /><div className="absolute bottom-4 left-4 px-3 py-1.5 rounded-xl text-[10px] font-semibold text-white" style={G.liquidGlass}>3D View — {floorPlan3D.originalName}</div></div>
         ) : (
           <TransformWrapper ref={transformRef} initialScale={1} minScale={0.2} maxScale={5} centerOnInit wheel={{ step: 0.1 }} panning={{ excluded: ["device-icon"] }}>
             {({ zoomIn, zoomOut, resetTransform }: any) => (
               <>
                 <TransformComponent wrapperStyle={{ width: "100%", height: "100%" }} contentStyle={{ width: "100%", height: "100%" }}>
-                  <div className="relative" style={{ width: "100%", height: "100%", minWidth: "2000px", minHeight: "1500px", background: "#070c1a", backgroundImage: "radial-gradient(circle, rgba(255,255,255,0.015) 1px, transparent 1px)", backgroundSize: "20px 20px", transform: `rotate(${canvasRotation}deg)`, transformOrigin: "center center" }}
-                    onClick={handleCanvasClick} onDoubleClick={handleDoubleClick}>
-                    {floorPlan2D && (
-                      <img src={floorPlan2D.url} alt="Floor Plan" className="absolute left-1/2 top-1/2" style={{ transform: "translate(-50%, -50%)", opacity: floorPlanOpacity, maxWidth: "90%", maxHeight: "90%", pointerEvents: "none", userSelect: "none" }} draggable={false} />
-                    )}
+                  <div className="relative" style={{ width: "100%", height: "100%", minWidth: "2000px", minHeight: "1500px", background: "#070c1a", backgroundImage: "radial-gradient(circle, rgba(255,255,255,0.015) 1px, transparent 1px)", backgroundSize: "20px 20px", transform: `rotate(${canvasRotation}deg)`, transformOrigin: "center center" }} onClick={handleCanvasClick} onDoubleClick={handleDoubleClick}>
+                    {floorPlan2D && <img src={floorPlan2D.url} alt="Floor Plan" className="absolute left-1/2 top-1/2" style={{ transform: "translate(-50%, -50%)", opacity: floorPlanOpacity, maxWidth: "90%", maxHeight: "90%", pointerEvents: "none", userSelect: "none" }} draggable={false} />}
                     {activeTool === "cable" && cablePoints.length > 0 && (
-                      <svg className="absolute inset-0 w-full h-full pointer-events-none" style={{ zIndex: 10 }}>
-                        <polyline points={cablePoints.map(p => `${p.x},${p.y}`).join(" ")} fill="none" stroke="#8b5cf6" strokeWidth="2" strokeDasharray="6,3" />
-                        {cablePoints.map((p, i) => (<circle key={i} cx={p.x} cy={p.y} r="4" fill="#8b5cf6" />))}
-                      </svg>
+                      <svg className="absolute inset-0 w-full h-full pointer-events-none" style={{ zIndex: 10 }}><polyline points={cablePoints.map(p => `${p.x},${p.y}`).join(" ")} fill="none" stroke="#8b5cf6" strokeWidth="2" strokeDasharray="6,3" />{cablePoints.map((p, i) => (<circle key={i} cx={p.x} cy={p.y} r="4" fill="#8b5cf6" />))}</svg>
                     )}
                     {devices.map((dev) => {
-                      const color = getDeviceColor(dev.type);
-                      const isSelected = dev.id === selectedId;
+                      const color = getDeviceColor(dev.type); const isSelected = dev.id === selectedId;
                       const deviceStoreItem = dev.deviceStoreRef ? storeDevices.find(d => d.id === dev.deviceStoreRef) : null;
                       return (
-                        <div key={dev.id} className="device-icon absolute cursor-pointer" style={{ left: dev.x, top: dev.y, transform: "translate(-50%, -50%)", zIndex: 20 }}
-                          onClick={(e) => handleDeviceClick(dev.id, e)} onMouseDown={(e) => handleDeviceMouseDown(dev.id, e)}>
-                          {dev.type === "camera" && (
-                            <div className="relative">
-                              {deviceStoreItem?.imageUrl ? (
-                                <img src={deviceStoreItem.imageUrl} alt="" className="w-8 h-8 object-contain rounded" style={{ border: isSelected ? "2px solid #3b82f6" : "1px solid rgba(255,255,255,0.3)", background: "rgba(0,0,0,0.6)" }} />
-                              ) : (
-                                <div className="w-6 h-6 rounded-full flex items-center justify-center" style={{ background: color, border: isSelected ? "2px solid #fff" : "1px solid rgba(255,255,255,0.5)", boxShadow: isSelected ? `0 0 12px ${color}` : "none" }}>
-                                  <Camera className="w-3 h-3 text-white" />
-                                </div>
-                              )}
-                              {showFov && (
-                                <svg className="absolute" style={{ left: "-45px", top: "-45px", width: "100px", height: "100px", pointerEvents: "none", transform: `rotate(${dev.rot}deg)` }}>
-                                  <path d={fovPath(50, 50, 0, dev.fov || 80, dev.range || 45)} fill={isSelected ? "rgba(59,130,246,0.22)" : "rgba(59,130,246,0.08)"} />
-                                </svg>
-                              )}
-                            </div>
-                          )}
-                          {dev.type === "door" && (
-                            <div className="relative" style={{ transform: `rotate(${dev.rot}deg)` }}>
-                              <div className="flex items-center gap-0.5 px-1.5 py-0.5 rounded" style={{ background: "rgba(245,158,11,0.2)", border: isSelected ? "2px solid #f59e0b" : "1px solid rgba(245,158,11,0.5)" }}>
-                                <DoorOpen className="w-3.5 h-3.5 text-amber-400" />
-                                {dev.doorConfig?.swing === "outswinging" ? (
-                                  <svg width="12" height="12" viewBox="0 0 12 12"><path d="M2,10 Q2,2 10,2" fill="none" stroke="#f59e0b" strokeWidth="1" /></svg>
-                                ) : (
-                                  <svg width="12" height="12" viewBox="0 0 12 12"><path d="M2,2 Q2,10 10,10" fill="none" stroke="#f59e0b" strokeWidth="1" /></svg>
-                                )}
-                              </div>
-                            </div>
-                          )}
-                          {dev.type === "panel" && (
-                            <div className="px-1.5 py-0.5 rounded text-[9px] font-bold flex items-center gap-1" style={{ background: "rgba(249,115,22,0.2)", border: isSelected ? "2px solid #f97316" : "1px solid rgba(249,115,22,0.5)", color: "#f97316" }}><PanelRight className="w-3 h-3" />PNL</div>
-                          )}
-                          {dev.type === "power" && (
-                            <div className="px-1.5 py-0.5 rounded text-[9px] font-bold flex items-center gap-1" style={{ background: "rgba(239,68,68,0.2)", border: isSelected ? "2px solid #ef4444" : "1px solid rgba(239,68,68,0.5)", color: "#ef4444" }}><Zap className="w-3 h-3" />PWR</div>
-                          )}
-                          {dev.type === "server" && (
-                            <div className="px-1.5 py-0.5 rounded text-[9px] font-bold flex items-center gap-1" style={{ background: "rgba(236,72,153,0.2)", border: isSelected ? "2px solid #ec4899" : "1px solid rgba(236,72,153,0.5)", color: "#ec4899" }}><Server className="w-3 h-3" />NVR</div>
-                          )}
-                          {dev.type === "cable" && dev.cablePoints && (
-                            <svg className="absolute pointer-events-none" style={{ left: 0, top: 0, width: "100%", height: "100%", overflow: "visible" }}>
-                              <polyline points={dev.cablePoints.map(p => `${p.x - dev.x},${p.y - dev.y}`).join(" ")} fill="none" stroke={color} strokeWidth={isSelected ? 2.5 : 1.5} strokeDasharray={isSelected ? "none" : "6,3"} />
-                            </svg>
-                          )}
+                        <div key={dev.id} className="device-icon absolute cursor-pointer" style={{ left: dev.x, top: dev.y, transform: "translate(-50%, -50%)", zIndex: 20 }} onClick={(e) => handleDeviceClick(dev.id, e)} onMouseDown={(e) => handleDeviceMouseDown(dev.id, e)}>
+                          {dev.type === "camera" && (<div className="relative">{deviceStoreItem?.imageUrl ? <img src={deviceStoreItem.imageUrl} alt="" className="w-8 h-8 object-contain rounded" style={{ border: isSelected ? "2px solid #3b82f6" : "1px solid rgba(255,255,255,0.3)", background: "rgba(0,0,0,0.6)" }} /> : <div className="w-6 h-6 rounded-full flex items-center justify-center" style={{ background: color, border: isSelected ? "2px solid #fff" : "1px solid rgba(255,255,255,0.5)", boxShadow: isSelected ? `0 0 12px ${color}` : "none" }}><Camera className="w-3 h-3 text-white" /></div>}{showFov && <svg className="absolute" style={{ left: "-45px", top: "-45px", width: "100px", height: "100px", pointerEvents: "none", transform: `rotate(${dev.rot}deg)` }}><path d={fovPath(50, 50, 0, dev.fov || 80, dev.range || 45)} fill={isSelected ? "rgba(59,130,246,0.22)" : "rgba(59,130,246,0.08)"} /></svg>}</div>)}
+                          {dev.type === "door" && (<div className="relative" style={{ transform: `rotate(${dev.rot}deg)` }}><div className="flex items-center gap-0.5 px-1.5 py-0.5 rounded" style={{ background: "rgba(245,158,11,0.2)", border: isSelected ? "2px solid #f59e0b" : "1px solid rgba(245,158,11,0.5)" }}><DoorOpen className="w-3.5 h-3.5 text-amber-400" />{dev.doorConfig?.swing === "outswinging" ? <svg width="12" height="12" viewBox="0 0 12 12"><path d="M2,10 Q2,2 10,2" fill="none" stroke="#f59e0b" strokeWidth="1" /></svg> : <svg width="12" height="12" viewBox="0 0 12 12"><path d="M2,2 Q2,10 10,10" fill="none" stroke="#f59e0b" strokeWidth="1" /></svg>}</div></div>)}
+                          {dev.type === "panel" && <div className="px-1.5 py-0.5 rounded text-[9px] font-bold flex items-center gap-1" style={{ background: "rgba(249,115,22,0.2)", border: isSelected ? "2px solid #f97316" : "1px solid rgba(249,115,22,0.5)", color: "#f97316" }}><PanelRight className="w-3 h-3" />PNL</div>}
+                          {dev.type === "power" && <div className="px-1.5 py-0.5 rounded text-[9px] font-bold flex items-center gap-1" style={{ background: "rgba(239,68,68,0.2)", border: isSelected ? "2px solid #ef4444" : "1px solid rgba(239,68,68,0.5)", color: "#ef4444" }}><Zap className="w-3 h-3" />PWR</div>}
+                          {dev.type === "server" && <div className="px-1.5 py-0.5 rounded text-[9px] font-bold flex items-center gap-1" style={{ background: "rgba(236,72,153,0.2)", border: isSelected ? "2px solid #ec4899" : "1px solid rgba(236,72,153,0.5)", color: "#ec4899" }}><Server className="w-3 h-3" />NVR</div>}
+                          {dev.type === "cable" && dev.cablePoints && <svg className="absolute pointer-events-none" style={{ left: 0, top: 0, width: "100%", height: "100%", overflow: "visible" }}><polyline points={dev.cablePoints.map(p => `${p.x - dev.x},${p.y - dev.y}`).join(" ")} fill="none" stroke={color} strokeWidth={isSelected ? 2.5 : 1.5} strokeDasharray={isSelected ? "none" : "6,3"} /></svg>}
                           <div className="absolute -bottom-4 left-1/2 -translate-x-1/2 text-[8px] font-semibold whitespace-nowrap" style={{ color: isSelected ? "#fff" : "#484f58", textShadow: isSelected ? "0 0 6px rgba(0,0,0,0.8)" : "none" }}>{dev.label}</div>
                         </div>
                       );
                     })}
-                    {!floorPlan2D && (
-                      <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-                        <div className="text-center"><Upload className="w-12 h-12 text-[#484f58] mx-auto mb-3" /><p className="text-[#484f58] text-[14px] font-semibold">Upload a floor plan or 3D model to begin</p><p className="text-[#484f58] text-[11px] mt-1">Use the toolbar buttons above</p></div>
-                      </div>
-                    )}
+                    {!floorPlan2D && (<div className="absolute inset-0 flex items-center justify-center pointer-events-none"><div className="text-center"><Upload className="w-12 h-12 text-[#484f58] mx-auto mb-3" /><p className="text-[#484f58] text-[14px] font-semibold">Upload a floor plan or 3D model to begin</p><p className="text-[#484f58] text-[11px] mt-1">Use the toolbar buttons above</p></div></div>)}
                   </div>
                 </TransformComponent>
                 <div className="absolute bottom-20 right-4 z-40 flex flex-col gap-1">
@@ -1091,62 +929,21 @@ function DesignCanvas({ navigate }: { navigate: (p: Page) => void }) {
             )}
           </TransformWrapper>
         )}
-
         {showProperties && selected && (
           <div className="absolute right-0 top-0 bottom-0 w-72 z-30 flex flex-col" style={G.liquidGlass}>
-            <div className="px-4 py-3 flex items-center justify-between" style={{ borderBottom: "1px solid rgba(255,255,255,0.07)" }}>
-              <p className="text-white text-[12px] font-bold">Properties</p>
-              <button onClick={() => setShowProperties(false)} className="w-6 h-6 rounded-lg hover:bg-white/[0.08] flex items-center justify-center cursor-pointer active:scale-[0.97] transition-transform min-w-[44px] min-h-[44px]"><X className="w-3.5 h-3.5 text-[#8b949e]" /></button>
-            </div>
+            <div className="px-4 py-3 flex items-center justify-between" style={{ borderBottom: "1px solid rgba(255,255,255,0.07)" }}><p className="text-white text-[12px] font-bold">Properties</p><button onClick={() => setShowProperties(false)} className="w-6 h-6 rounded-lg hover:bg-white/[0.08] flex items-center justify-center cursor-pointer active:scale-[0.97] transition-transform min-w-[44px] min-h-[44px]"><X className="w-3.5 h-3.5 text-[#8b949e]" /></button></div>
             <div className="flex-1 p-4 overflow-y-auto space-y-4" style={{ scrollbarWidth: "none" }}>
               <div><p className="text-[#484f58] text-[10px] font-bold uppercase tracking-widest mb-2">Device</p><div className="rounded-xl p-3" style={G.card}><p className="text-white text-[12px] font-bold">{selected.label}</p><p className="text-[#484f58] text-[10px] mt-1 capitalize">{selected.type}</p></div></div>
-              {storeDevice && (
-                <div className="space-y-3">
-                  <div><p className="text-[#484f58] text-[10px] font-bold uppercase tracking-widest mb-2">Device Store Info</p>
-                    <div className="rounded-xl p-3 space-y-2" style={G.card}>
-                      <p className="text-white text-[12px] font-bold">{storeDevice.model}</p><p className="text-[#8b949e] text-[10px]">{storeDevice.manufacturer}</p>
-                      {storeDevice.resolution && <div className="flex justify-between"><span className="text-[#484f58] text-[10px]">Resolution</span><span className="text-white text-[10px] font-semibold">{storeDevice.resolution}</span></div>}
-                      {storeDevice.lens && <div className="flex justify-between"><span className="text-[#484f58] text-[10px]">Lens</span><span className="text-white text-[10px] font-semibold">{storeDevice.lens}</span></div>}
-                      {storeDevice.sensor && <div className="flex justify-between"><span className="text-[#484f58] text-[10px]">Sensor</span><span className="text-white text-[10px] font-semibold">{storeDevice.sensor}</span></div>}
-                      {storeDevice.frameRate && <div className="flex justify-between"><span className="text-[#484f58] text-[10px]">Frame Rate</span><span className="text-white text-[10px] font-semibold">{storeDevice.frameRate}</span></div>}
-                      {storeDevice.price && <div className="flex justify-between"><span className="text-[#484f58] text-[10px]">Price</span><span className="text-white text-[10px] font-bold">${storeDevice.price.toFixed(2)}</span></div>}
-                    </div>
-                  </div>
-                </div>
-              )}
+              {storeDevice && (<div className="space-y-3"><div><p className="text-[#484f58] text-[10px] font-bold uppercase tracking-widest mb-2">Device Store Info</p><div className="rounded-xl p-3 space-y-2" style={G.card}><p className="text-white text-[12px] font-bold">{storeDevice.model}</p><p className="text-[#8b949e] text-[10px]">{storeDevice.manufacturer}</p>{storeDevice.resolution && <div className="flex justify-between"><span className="text-[#484f58] text-[10px]">Resolution</span><span className="text-white text-[10px] font-semibold">{storeDevice.resolution}</span></div>}{storeDevice.lens && <div className="flex justify-between"><span className="text-[#484f58] text-[10px]">Lens</span><span className="text-white text-[10px] font-semibold">{storeDevice.lens}</span></div>}{storeDevice.sensor && <div className="flex justify-between"><span className="text-[#484f58] text-[10px]">Sensor</span><span className="text-white text-[10px] font-semibold">{storeDevice.sensor}</span></div>}{storeDevice.frameRate && <div className="flex justify-between"><span className="text-[#484f58] text-[10px]">Frame Rate</span><span className="text-white text-[10px] font-semibold">{storeDevice.frameRate}</span></div>}{storeDevice.price && <div className="flex justify-between"><span className="text-[#484f58] text-[10px]">Price</span><span className="text-white text-[10px] font-bold">${storeDevice.price.toFixed(2)}</span></div>}</div></div></div>)}
               <div><p className="text-[#484f58] text-[10px] font-bold uppercase tracking-widest mb-2">Position</p><div className="grid grid-cols-2 gap-2">{[{ label: "X", value: Math.round(selected.x) },{ label: "Y", value: Math.round(selected.y) }].map((f) => (<div key={f.label} className="rounded-xl p-2.5" style={G.card}><p className="text-[#484f58] text-[10px] font-bold mb-1">{f.label}</p><p className="text-white text-[13px] font-bold">{f.value} px</p></div>))}</div></div>
-              {selected.type === "camera" && (
-                <div className="space-y-2"><p className="text-[#484f58] text-[10px] font-bold uppercase tracking-widest">Camera Settings</p>
-                  <div className="rounded-xl p-3 space-y-2" style={G.card}>
-                    <div className="flex items-center justify-between"><span className="text-[#8b949e] text-[11px]">Rotation</span><input type="range" min="0" max="360" value={selected.rot} onChange={(e) => setDevices((prev) => prev.map((d) => d.id === selected.id ? { ...d, rot: parseInt(e.target.value) } : d))} className="w-24" /><span className="text-white text-[10px] font-bold">{selected.rot}°</span></div>
-                    <div className="flex items-center justify-between"><span className="text-[#8b949e] text-[11px]">FOV</span><select value={selected.fov || 80} onChange={(e) => setDevices((prev) => prev.map((d) => d.id === selected.id ? { ...d, fov: parseInt(e.target.value) } : d))} className="bg-transparent text-white text-[11px] font-semibold cursor-pointer" style={{ border: "1px solid rgba(255,255,255,0.10)", borderRadius: "6px", padding: "2px 6px" }}><option value="60">60°</option><option value="80">80°</option><option value="100">100°</option><option value="120">120°</option><option value="180">180°</option><option value="360">360°</option></select></div>
-                    <div className="flex items-center justify-between"><span className="text-[#8b949e] text-[11px]">Range</span><input type="number" value={selected.range || 90} onChange={(e) => setDevices((prev) => prev.map((d) => d.id === selected.id ? { ...d, range: parseInt(e.target.value) || 90 } : d))} className="bg-transparent text-white text-[11px] w-16 text-center font-semibold" style={G.input} /><span className="text-[#484f58] text-[10px]">px</span></div>
-                  </div>
-                </div>
-              )}
-              {selected.type === "door" && selected.doorConfig && (
-                <div className="space-y-2"><p className="text-[#484f58] text-[10px] font-bold uppercase tracking-widest">Door Config</p>
-                  <div className="rounded-xl p-3 space-y-2" style={G.card}>
-                    <div className="flex items-center justify-between"><span className="text-[#8b949e] text-[11px]">Swing</span><select value={selected.doorConfig.swing} onChange={(e) => updateDoorConfig(selected.id, { swing: e.target.value as "inswinging"|"outswinging" })} className="bg-transparent text-white text-[11px] font-semibold cursor-pointer" style={{ border: "1px solid rgba(255,255,255,0.10)", borderRadius: "6px", padding: "2px 6px" }}><option value="inswinging">Inswinging</option><option value="outswinging">Outswinging</option></select></div>
-                    <div className="flex items-center justify-between"><span className="text-[#8b949e] text-[11px]">Lock</span><select value={selected.doorConfig.lockType} onChange={(e) => updateDoorConfig(selected.id, { lockType: e.target.value })} className="bg-transparent text-white text-[11px] font-semibold cursor-pointer" style={{ border: "1px solid rgba(255,255,255,0.10)", borderRadius: "6px", padding: "2px 6px" }}><option>Electric Strike</option><option>Maglock</option><option>Deadbolt</option><option>Crash Bar</option></select></div>
-                    <div className="flex items-center justify-between"><span className="text-[#8b949e] text-[11px]">Access</span><select value={selected.doorConfig.accessType} onChange={(e) => updateDoorConfig(selected.id, { accessType: e.target.value })} className="bg-transparent text-white text-[11px] font-semibold cursor-pointer" style={{ border: "1px solid rgba(255,255,255,0.10)", borderRadius: "6px", padding: "2px 6px" }}><option>Card</option><option>Biometric</option><option>Keypad</option><option>Combo</option></select></div>
-                    <div className="flex items-center justify-between"><span className="text-[#8b949e] text-[11px]">Key Override</span><button onClick={() => updateDoorConfig(selected.id, { keyOverride: !selected.doorConfig?.keyOverride })} className={clsx("px-2 py-0.5 rounded text-[10px] font-bold", selected.doorConfig?.keyOverride ? "bg-emerald-500/20 text-emerald-400" : "bg-white/[0.05] text-[#484f58]")}>{selected.doorConfig?.keyOverride ? "Yes" : "No"}</button></div>
-                  </div>
-                </div>
-              )}
+              {selected.type === "camera" && (<div className="space-y-2"><p className="text-[#484f58] text-[10px] font-bold uppercase tracking-widest">Camera Settings</p><div className="rounded-xl p-3 space-y-2" style={G.card}><div className="flex items-center justify-between"><span className="text-[#8b949e] text-[11px]">Rotation</span><input type="range" min="0" max="360" value={selected.rot} onChange={(e) => setDevices((prev) => prev.map((d) => d.id === selected.id ? { ...d, rot: parseInt(e.target.value) } : d))} className="w-24" /><span className="text-white text-[10px] font-bold">{selected.rot}°</span></div><div className="flex items-center justify-between"><span className="text-[#8b949e] text-[11px]">FOV</span><select value={selected.fov || 80} onChange={(e) => setDevices((prev) => prev.map((d) => d.id === selected.id ? { ...d, fov: parseInt(e.target.value) } : d))} className="bg-transparent text-white text-[11px] font-semibold cursor-pointer" style={{ border: "1px solid rgba(255,255,255,0.10)", borderRadius: "6px", padding: "2px 6px" }}><option value="60">60°</option><option value="80">80°</option><option value="100">100°</option><option value="120">120°</option><option value="180">180°</option><option value="360">360°</option></select></div><div className="flex items-center justify-between"><span className="text-[#8b949e] text-[11px]">Range</span><input type="number" value={selected.range || 90} onChange={(e) => setDevices((prev) => prev.map((d) => d.id === selected.id ? { ...d, range: parseInt(e.target.value) || 90 } : d))} className="bg-transparent text-white text-[11px] w-16 text-center font-semibold" style={G.input} /><span className="text-[#484f58] text-[10px]">px</span></div></div></div>)}
+              {selected.type === "door" && selected.doorConfig && (<div className="space-y-2"><p className="text-[#484f58] text-[10px] font-bold uppercase tracking-widest">Door Config</p><div className="rounded-xl p-3 space-y-2" style={G.card}><div className="flex items-center justify-between"><span className="text-[#8b949e] text-[11px]">Swing</span><select value={selected.doorConfig.swing} onChange={(e) => updateDoorConfig(selected.id, { swing: e.target.value as "inswinging"|"outswinging" })} className="bg-transparent text-white text-[11px] font-semibold cursor-pointer" style={{ border: "1px solid rgba(255,255,255,0.10)", borderRadius: "6px", padding: "2px 6px" }}><option value="inswinging">Inswinging</option><option value="outswinging">Outswinging</option></select></div><div className="flex items-center justify-between"><span className="text-[#8b949e] text-[11px]">Lock</span><select value={selected.doorConfig.lockType} onChange={(e) => updateDoorConfig(selected.id, { lockType: e.target.value })} className="bg-transparent text-white text-[11px] font-semibold cursor-pointer" style={{ border: "1px solid rgba(255,255,255,0.10)", borderRadius: "6px", padding: "2px 6px" }}><option>Electric Strike</option><option>Maglock</option><option>Deadbolt</option><option>Crash Bar</option></select></div><div className="flex items-center justify-between"><span className="text-[#8b949e] text-[11px]">Access</span><select value={selected.doorConfig.accessType} onChange={(e) => updateDoorConfig(selected.id, { accessType: e.target.value })} className="bg-transparent text-white text-[11px] font-semibold cursor-pointer" style={{ border: "1px solid rgba(255,255,255,0.10)", borderRadius: "6px", padding: "2px 6px" }}><option>Card</option><option>Biometric</option><option>Keypad</option><option>Combo</option></select></div><div className="flex items-center justify-between"><span className="text-[#8b949e] text-[11px]">Key Override</span><button onClick={() => updateDoorConfig(selected.id, { keyOverride: !selected.doorConfig?.keyOverride })} className={clsx("px-2 py-0.5 rounded text-[10px] font-bold", selected.doorConfig?.keyOverride ? "bg-emerald-500/20 text-emerald-400" : "bg-white/[0.05] text-[#484f58]")}>{selected.doorConfig?.keyOverride ? "Yes" : "No"}</button></div></div></div>)}
               <button onClick={() => { setDevices((prev) => prev.filter((d) => d.id !== selected.id)); setSelectedId(null); }} className="w-full h-8 rounded-xl text-rose-400 text-[11px] font-semibold flex items-center justify-center gap-1.5 cursor-pointer active:scale-[0.97] transition-transform" style={{ background: "rgba(244,63,94,0.10)", border: "1px solid rgba(244,63,94,0.20)" }}><Trash2 className="w-3 h-3" /> Delete</button>
             </div>
           </div>
         )}
-
         <div className="absolute bottom-5 left-1/2 -translate-x-1/2 z-40 flex items-center gap-1 px-2 py-2 rounded-2xl overflow-x-auto max-w-[95vw]" style={G.liquidGlass}>
-          {CANVAS_TOOLS.map((tool) => (
-            <button key={tool.id} onClick={() => { setActiveTool(tool.id); if (tool.id !== "cable") setCablePoints([]); if (tool.id === "move") setDraggingDevice(null); }} title={tool.label}
-              className={clsx("w-8 h-8 rounded-xl flex items-center justify-center transition-all flex-shrink-0 cursor-pointer active:scale-[0.97] transition-transform min-w-[44px] min-h-[44px] md:min-w-0 md:min-h-0", activeTool === tool.id ? "text-white" : "text-[#8b949e]")}
-              style={activeTool === tool.id ? { background: "#3b82f6", boxShadow: "0 4px 16px rgba(59,130,246,0.45)" } : undefined}>
-              <tool.icon className="w-3.5 h-3.5" />
-            </button>
-          ))}
+          {CANVAS_TOOLS.map((tool) => (<button key={tool.id} onClick={() => { setActiveTool(tool.id); if (tool.id !== "cable") setCablePoints([]); if (tool.id === "move") setDraggingDevice(null); }} title={tool.label} className={clsx("w-8 h-8 rounded-xl flex items-center justify-center transition-all flex-shrink-0 cursor-pointer active:scale-[0.97] transition-transform min-w-[44px] min-h-[44px] md:min-w-0 md:min-h-0", activeTool === tool.id ? "text-white" : "text-[#8b949e]")} style={activeTool === tool.id ? { background: "#3b82f6", boxShadow: "0 4px 16px rgba(59,130,246,0.45)" } : undefined}><tool.icon className="w-3.5 h-3.5" /></button>))}
           <div className="w-px h-6 mx-1" style={{ background: "rgba(255,255,255,0.10)" }} />
           <button onClick={() => setShowProperties(!showProperties)} className={clsx("w-8 h-8 rounded-xl flex items-center justify-center transition-all flex-shrink-0 cursor-pointer active:scale-[0.97] transition-transform min-w-[44px] min-h-[44px]", showProperties ? "text-white" : "text-[#484f58]")} style={showProperties ? { background: "rgba(255,255,255,0.10)" } : undefined}><ChevronRight className="w-3.5 h-3.5" /></button>
           <span className="text-[#484f58] text-[9px] ml-1">{devices.length} devices</span>
@@ -1163,14 +960,13 @@ function Workbook({ navigate }: { navigate: (p: Page) => void }) {
   const [projects, setProjects] = useState<Project[]>([]);
   const [quotes, setQuotes] = useState<Quote[]>([]);
   const [loading, setLoading] = useState(true);
-  const [selectedProjectId, setSelectedProjectId] = useState<string>("");
+  const [selectedProjectId, setSelectedProjectId] = useState<string>(() => localStorage.getItem("wb_last_project") || "");
   const [selectedQuoteId, setSelectedQuoteId] = useState<string>("");
   const [showProjectSelect, setShowProjectSelect] = useState(false);
   const [exchangeRate, setExchangeRate] = useState(parseFloat(localStorage.getItem("fx_rate") || "157.4"));
   const [activeTab, setActiveTab] = useState<string>(() => localStorage.getItem("wb_tab") || "asset-list");
-const [collapsedCategories, setCollapsedCategories] = useState<Set<string>>(new Set<string>());
+  const [collapsedCategories, setCollapsedCategories] = useState<Set<string>>(new Set<string>());
   const [saveStatus, setSaveStatus] = useState<"saved" | "saving" | "">("saved");
-  const [generatingPDF, setGeneratingPDF] = useState(false);
   const [canvasDevices, setCanvasDevices] = useState<CanvasDevice[]>([]);
   const [storeDevices, setStoreDevices] = useState<CatalogDevice[]>([]);
 
@@ -1184,9 +980,11 @@ const [collapsedCategories, setCollapsedCategories] = useState<Set<string>>(new 
       const [projData, quoteData] = await Promise.all([API.projects.list(), API.quotes.list()]);
       setProjects(projData);
       setQuotes(quoteData);
-      if (!selectedProjectId && projData.length > 0) {
-        setSelectedProjectId(projData[0].id);
-        const pq = quoteData.find((q: Quote) => q.projectId === projData[0].id);
+      const lastId = localStorage.getItem("wb_last_project");
+      const pid = lastId && projData.find(p => p.id === lastId) ? lastId : projData[0]?.id || "";
+      if (pid && !selectedProjectId) {
+        setSelectedProjectId(pid);
+        const pq = quoteData.find((q: Quote) => q.projectId === pid);
         if (pq) setSelectedQuoteId(pq.id);
       }
     } catch { setProjects([]); setQuotes([]); } finally { setLoading(false); }
@@ -1197,6 +995,7 @@ const [collapsedCategories, setCollapsedCategories] = useState<Set<string>>(new 
 
   useEffect(() => {
     if (selectedProjectId) {
+      localStorage.setItem("wb_last_project", selectedProjectId);
       API.canvas.get(selectedProjectId).then(data => {
         if (data.layoutData?.devices) setCanvasDevices(data.layoutData.devices);
         else setCanvasDevices([]);
@@ -1269,17 +1068,6 @@ const [collapsedCategories, setCollapsedCategories] = useState<Set<string>>(new 
     { id: "synthesis", label: "Synthesis" },
   ];
 
-  const BOM_CATEGORIES = [
-    { section: 100, name: "General Requirements" },
-    { section: 200, name: "Video Surveillance Equipment" },
-    { section: 300, name: "Access Control Equipment" },
-    { section: 400, name: "Software & Licensing" },
-    { section: 500, name: "Compute & Storage" },
-    { section: 600, name: "Networking & Infrastructure" },
-    { section: 700, name: "Installation & Labor" },
-    { section: 800, name: "Professional Services" },
-  ];
-
   return (
     <div className="flex flex-col h-[calc(100vh-56px)] overflow-hidden">
       {showProjectSelect && <SelectProjectModal onClose={() => setShowProjectSelect(false)} onSelect={(id: string) => { setSelectedProjectId(id); setShowProjectSelect(false); }} currentId={selectedProjectId} projects={projects} />}
@@ -1315,20 +1103,7 @@ const [collapsedCategories, setCollapsedCategories] = useState<Set<string>>(new 
                     <div className="overflow-x-auto">
                       <table className="w-full" style={{ minWidth: "500px" }}>
                         <thead><tr style={{ borderBottom: "1px solid rgba(255,255,255,0.06)" }}>{["Device","Type","Model","QTY","Unit Cost"].map(h => <th key={h} className="px-3 py-2.5 text-[#484f58] text-[9px] font-bold uppercase tracking-widest text-left">{h}</th>)}</tr></thead>
-                        <tbody>
-                          {canvasDevices.map((dev) => {
-                            const sd = dev.deviceStoreRef ? storeDevices.find(d => d.id === dev.deviceStoreRef) : null;
-                            return (
-                              <tr key={dev.id} style={{ borderBottom: "1px solid rgba(255,255,255,0.03)" }}>
-                                <td className="px-3 py-2.5 text-white text-[11px] font-semibold">{dev.label}</td>
-                                <td className="px-3 py-2.5 text-[#8b949e] text-[10px] capitalize">{dev.type}</td>
-                                <td className="px-3 py-2.5 text-white text-[11px]">{sd ? `${sd.manufacturer} ${sd.model}` : "—"}</td>
-                                <td className="px-3 py-2.5 text-white text-[11px] text-center">1</td>
-                                <td className="px-3 py-2.5 text-white text-[11px] font-bold text-right">{sd?.price ? fmt(sd.price) : "—"}</td>
-                              </tr>
-                            );
-                          })}
-                        </tbody>
+                        <tbody>{canvasDevices.map((dev) => { const sd = dev.deviceStoreRef ? storeDevices.find(d => d.id === dev.deviceStoreRef) : null; return (<tr key={dev.id} style={{ borderBottom: "1px solid rgba(255,255,255,0.03)" }}><td className="px-3 py-2.5 text-white text-[11px] font-semibold">{dev.label}</td><td className="px-3 py-2.5 text-[#8b949e] text-[10px] capitalize">{dev.type}</td><td className="px-3 py-2.5 text-white text-[11px]">{sd ? `${sd.manufacturer} ${sd.model}` : "—"}</td><td className="px-3 py-2.5 text-white text-[11px] text-center">1</td><td className="px-3 py-2.5 text-white text-[11px] font-bold text-right">{sd?.price ? fmt(sd.price) : "—"}</td></tr>); })}</tbody>
                       </table>
                     </div>
                   </div>
@@ -1346,10 +1121,7 @@ const [collapsedCategories, setCollapsedCategories] = useState<Set<string>>(new 
                         <div className="overflow-x-auto">
                           <table className="w-full" style={{ minWidth: "800px" }}>
                             <thead><tr style={{ borderBottom: "1px solid rgba(255,255,255,0.06)" }}>{["Item","QTY","Cost","Mark up %","Sell","Cost Total","Total","Profit"].map((h) => (<th key={h} className="px-3 py-2.5 text-[#484f58] text-[9px] font-bold uppercase tracking-widest text-left">{h}</th>))}</tr></thead>
-                            <tbody>
-                              {category.lineItems.map((item) => { const r = recalcLineItem(item); return (<tr key={item.id} className="hover:bg-white/[0.02]" style={{ borderBottom: "1px solid rgba(255,255,255,0.03)" }}><td className="px-3 py-2.5"><input value={item.description} onChange={(e) => updateQuoteLineItem(category.id, item.id, { description: e.target.value })} className="bg-transparent text-white text-[11px] font-semibold w-full min-w-[120px] focus:outline-none" /></td><td className="px-3 py-2.5"><input type="number" value={item.quantity} onChange={(e) => updateQuoteLineItem(category.id, item.id, { quantity: parseInt(e.target.value)||0 })} className="bg-transparent text-white text-[11px] w-16 text-center focus:outline-none" style={G.input} /></td><td className="px-3 py-2.5"><input type="number" value={item.unitCost} onChange={(e) => updateQuoteLineItem(category.id, item.id, { unitCost: parseFloat(e.target.value)||0 })} className="bg-transparent text-white text-[11px] w-20 text-right focus:outline-none" style={G.input} /></td><td className="px-3 py-2.5"><input type="number" value={Math.round(item.markupPercent*100)} onChange={(e) => updateQuoteLineItem(category.id, item.id, { markupPercent: (parseFloat(e.target.value)||0)/100 })} className="bg-transparent text-white text-[11px] w-16 text-center focus:outline-none" style={G.input} /><span className="text-[#484f58] text-[10px]">%</span></td><td className="px-3 py-2.5 text-white text-[11px] font-bold text-right">{fmt(r.sellPrice)}</td><td className="px-3 py-2.5 text-[#8b949e] text-[11px] text-right">{fmt(r.costTotal)}</td><td className="px-3 py-2.5 text-white text-[11px] font-bold text-right">{fmt(r.sellTotal)}</td><td className="px-3 py-2.5 text-[10px] font-bold text-right" style={{ color: r.profit>=0?"#34d399":"#f87171" }}>{fmt(r.profit)}</td></tr>); })}
-                              <tr><td colSpan={8} className="px-3 py-2"><button onClick={() => addLineItem(category.id)} className="text-[#484f58] hover:text-blue-400 text-[11px] font-semibold flex items-center gap-1 cursor-pointer"><Plus className="w-3 h-3" /> Add item</button></td></tr>
-                            </tbody>
+                            <tbody>{category.lineItems.map((item) => { const r = recalcLineItem(item); return (<tr key={item.id} className="hover:bg-white/[0.02]" style={{ borderBottom: "1px solid rgba(255,255,255,0.03)" }}><td className="px-3 py-2.5"><input value={item.description} onChange={(e) => updateQuoteLineItem(category.id, item.id, { description: e.target.value })} className="bg-transparent text-white text-[11px] font-semibold w-full min-w-[120px] focus:outline-none" /></td><td className="px-3 py-2.5"><input type="number" value={item.quantity} onChange={(e) => updateQuoteLineItem(category.id, item.id, { quantity: parseInt(e.target.value)||0 })} className="bg-transparent text-white text-[11px] w-16 text-center focus:outline-none" style={G.input} /></td><td className="px-3 py-2.5"><input type="number" value={item.unitCost} onChange={(e) => updateQuoteLineItem(category.id, item.id, { unitCost: parseFloat(e.target.value)||0 })} className="bg-transparent text-white text-[11px] w-20 text-right focus:outline-none" style={G.input} /></td><td className="px-3 py-2.5"><input type="number" value={Math.round(item.markupPercent*100)} onChange={(e) => updateQuoteLineItem(category.id, item.id, { markupPercent: (parseFloat(e.target.value)||0)/100 })} className="bg-transparent text-white text-[11px] w-16 text-center focus:outline-none" style={G.input} /><span className="text-[#484f58] text-[10px]">%</span></td><td className="px-3 py-2.5 text-white text-[11px] font-bold text-right">{fmt(r.sellPrice)}</td><td className="px-3 py-2.5 text-[#8b949e] text-[11px] text-right">{fmt(r.costTotal)}</td><td className="px-3 py-2.5 text-white text-[11px] font-bold text-right">{fmt(r.sellTotal)}</td><td className="px-3 py-2.5 text-[10px] font-bold text-right" style={{ color: r.profit>=0?"#34d399":"#f87171" }}>{fmt(r.profit)}</td></tr>); })}<tr><td colSpan={8} className="px-3 py-2"><button onClick={() => addLineItem(category.id)} className="text-[#484f58] hover:text-blue-400 text-[11px] font-semibold flex items-center gap-1 cursor-pointer"><Plus className="w-3 h-3" /> Add item</button></td></tr></tbody>
                           </table>
                         </div>
                       )}
@@ -1360,79 +1132,65 @@ const [collapsedCategories, setCollapsedCategories] = useState<Set<string>>(new 
             )}
             {activeTab === "bom" && (
               <div className="space-y-4">
-                {BOM_CATEGORIES.map((bomCat) => {
-                  const matchingCat = quoteCategories.find(c => {
-                    const nameMap: Record<number, string> = { 100: "General Requirements", 200: "Video Security Equipment", 300: "Access Control Equipment", 400: "Software", 500: "Compute & Storage", 600: "Networking", 700: "Installation & Labor", 800: "Professional Services" };
-                    return c.name === nameMap[bomCat.section];
-                  });
-                  const items = matchingCat?.lineItems.filter(li => li.quantity > 0) || [];
-                  const catSubtotal = items.reduce((s, li) => s + recalcLineItem(li).sellTotal, 0);
-                  const isCollapsed = collapsedCategories.has(`bom-${bomCat.section}`);
-                  return (
-                    <div key={bomCat.section} className="rounded-2xl overflow-hidden" style={G.card}>
-                      <button onClick={() => toggleCollapse(`bom-${bomCat.section}`)} className="w-full px-4 py-3 flex items-center justify-between hover:bg-white/[0.02] transition-colors cursor-pointer active:scale-[0.97] transition-transform min-h-[44px]" style={{ borderBottom: isCollapsed ? "none" : "1px solid rgba(255,255,255,0.06)", background: "rgba(255,255,255,0.02)" }}>
-                        <div className="flex items-center gap-3"><span className="text-[#484f58] text-[12px] font-bold font-mono">{bomCat.section}</span><h3 className="text-white text-[13px] font-bold">{bomCat.name}</h3><span className="text-[#484f58] text-[10px]">({items.length})</span></div>
-                        <div className="flex items-center gap-3"><span className="text-[#8b949e] text-[11px] font-bold">{fmt(catSubtotal)}</span>{isCollapsed ? <ChevronDown className="w-4 h-4 text-[#484f58]" /> : <ChevronUp className="w-4 h-4 text-[#484f58]" />}</div>
-                      </button>
-                      {!isCollapsed && items.length > 0 && (
-                        <div className="overflow-x-auto">
-                          <table className="w-full" style={{ minWidth: "500px" }}>
-                            <thead><tr style={{ borderBottom: "1px solid rgba(255,255,255,0.06)" }}>{["#","Description","QTY","Unit Cost","Extended"].map(h => <th key={h} className="px-3 py-2 text-[#484f58] text-[9px] font-bold uppercase text-left">{h}</th>)}</tr></thead>
-                            <tbody>{items.map((item, idx) => { const r = recalcLineItem(item); return (<tr key={item.id} style={{ borderBottom: "1px solid rgba(255,255,255,0.03)" }}><td className="px-3 py-2 text-[#484f58] text-[10px] font-mono">{String(idx+1).padStart(2,"0")}</td><td className="px-3 py-2 text-white text-[11px] font-semibold">{item.description}</td><td className="px-3 py-2 text-white text-[11px] text-center">{item.quantity}</td><td className="px-3 py-2 text-white text-[11px] text-right">{fmt(r.unitCost)}</td><td className="px-3 py-2 text-white text-[11px] font-bold text-right">{fmt(r.sellTotal)}</td></tr>); })}<tr style={{ background: "rgba(255,255,255,0.02)" }}><td colSpan={4} className="px-3 py-2 text-[#8b949e] text-[10px] font-bold text-right uppercase">Section {bomCat.section} Subtotal</td><td className="px-3 py-2 text-white text-[11px] font-bold text-right">{fmt(catSubtotal)}</td></tr></tbody>
-                          </table>
-                        </div>
-                      )}
-                      {!isCollapsed && items.length === 0 && <div className="px-4 py-3 text-[#484f58] text-[10px]">No items in this section</div>}
-                    </div>
-                  );
-                })}
+                <div className="rounded-2xl overflow-hidden" style={G.card}>
+                  <div className="overflow-x-auto">
+                    <table className="w-full" style={{ minWidth: "900px" }}>
+                      <thead><tr style={{ borderBottom: "1px solid rgba(255,255,255,0.08)", background: "rgba(255,255,255,0.03)" }}>{["Item No","Products – Description","List","Qty","Extended"].map(h => <th key={h} className="px-3 py-2.5 text-[#484f58] text-[9px] font-bold uppercase tracking-widest text-left">{h}</th>)}</tr></thead>
+                      <tbody>
+                        <tr style={{ background: "rgba(59,130,246,0.06)" }}><td colSpan={5} className="px-4 py-2.5 text-white text-[12px] font-bold uppercase tracking-widest">Video Surveillance</td></tr>
+                        {[{ item: "100", desc: "Video Management System Software", list: 0, qty: 0 },{ item: "200", desc: "Compute and Storage", list: 0, qty: 0 },{ item: "300", desc: "Control Room", list: 0, qty: 0 },{ item: "400", desc: "Video Security Equipment", list: 0, qty: 0 },{ item: "500", desc: "Network", list: 0, qty: 0 },{ item: "600", desc: "Network Infrastructure", list: 0, qty: 0 },{ item: "700", desc: "Professional Services", list: 0, qty: 0 },{ item: "700.5", desc: "Contingency plan", list: 0, qty: 0 },{ item: "800", desc: "Importation", list: 0, qty: 0 }].map(row => {
+                          const qCat = quoteCategories.find(c => { const map: Record<string,string> = {"100":"Video Management System Software","200":"Compute and Storage","300":"Control Room","400":"Video Security Equipment","500":"Network","600":"Network Infrastructure","700":"Professional Services","800":"Importation"}; return c.name === map[row.item]; });
+                          const catItems = qCat?.lineItems.filter(li => li.quantity > 0) || [];
+                          if (catItems.length === 0) return (<tr key={row.item} style={{ borderBottom: "1px solid rgba(255,255,255,0.03)" }}><td className="px-4 py-2 text-[#484f58] text-[10px] font-mono">{row.item}</td><td className="px-4 py-2 text-[#8b949e] text-[11px]">{row.desc}</td><td className="px-4 py-2 text-[#8b949e] text-[11px] text-right">—</td><td className="px-4 py-2"><input type="number" defaultValue={row.qty} className="bg-transparent text-white text-[11px] w-16 text-center focus:outline-none" style={G.input} /></td><td className="px-4 py-2 text-[#8b949e] text-[11px] font-bold text-right">—</td></tr>);
+                          return catItems.map((li, i) => { const r = recalcLineItem(li); return (<tr key={li.id} style={{ borderBottom: "1px solid rgba(255,255,255,0.03)" }}><td className="px-4 py-2 text-[#484f58] text-[10px] font-mono">{row.item}{catItems.length > 1 ? `.${i+1}` : ""}</td><td className="px-4 py-2 text-white text-[11px] font-semibold max-w-[400px] truncate">{li.description}</td><td className="px-4 py-2 text-white text-[11px] text-right">{fmt(r.unitCost)}</td><td className="px-4 py-2"><input type="number" value={li.quantity} onChange={(e) => updateQuoteLineItem(qCat!.id, li.id, { quantity: parseInt(e.target.value)||0 })} className="bg-transparent text-white text-[11px] w-16 text-center focus:outline-none" style={G.input} /></td><td className="px-4 py-2 text-white text-[11px] font-bold text-right">{fmt(r.sellTotal)}</td></tr>); });
+                        })}
+                        <tr style={{ background: "rgba(255,255,255,0.04)" }}><td colSpan={4} className="px-4 py-2 text-[#8b949e] text-[10px] font-bold text-right uppercase">Total Video Surveillance</td><td className="px-4 py-2 text-white text-[12px] font-bold text-right">{fmt(grandTotalPreTax)}</td></tr>
+                        <tr><td colSpan={5} className="px-4 py-1"></td></tr>
+                        <tr style={{ background: "rgba(139,92,246,0.06)" }}><td colSpan={5} className="px-4 py-2.5 text-white text-[12px] font-bold uppercase tracking-widest">Access Control Systems</td></tr>
+                        {[{ item: "900", desc: "Access Control System Software", list: 0, qty: 0 },{ item: "1000", desc: "Hardware", list: 0, qty: 0 },{ item: "1100", desc: "Infrastructure", list: 0, qty: 0 },{ item: "1200", desc: "Professional Services", list: 0, qty: 0 },{ item: "1200.5", desc: "Contingency plan", list: 0, qty: 0 },{ item: "1300", desc: "Importation", list: 0, qty: 0 }].map(row => (
+                          <tr key={row.item} style={{ borderBottom: "1px solid rgba(255,255,255,0.03)" }}><td className="px-4 py-2 text-[#484f58] text-[10px] font-mono">{row.item}</td><td className="px-4 py-2 text-[#8b949e] text-[11px]">{row.desc}</td><td className="px-4 py-2 text-[#8b949e] text-[11px] text-right">—</td><td className="px-4 py-2"><input type="number" defaultValue={row.qty} className="bg-transparent text-white text-[11px] w-16 text-center focus:outline-none" style={G.input} /></td><td className="px-4 py-2 text-[#8b949e] text-[11px] font-bold text-right">—</td></tr>
+                        ))}
+                        <tr style={{ background: "rgba(255,255,255,0.04)" }}><td colSpan={4} className="px-4 py-2 text-[#8b949e] text-[10px] font-bold text-right uppercase">Total Access Control</td><td className="px-4 py-2 text-white text-[12px] font-bold text-right">—</td></tr>
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
                 <div className="rounded-2xl p-4" style={{ ...G.card, background: "rgba(59,130,246,0.06)", border: "1px solid rgba(59,130,246,0.20)" }}>
-                  <h3 className="text-white text-[14px] font-bold mb-3">BOM Summary</h3>
                   <div className="space-y-2">
-                    {BOM_CATEGORIES.map((bomCat) => {
-                      const matchingCat = quoteCategories.find(c => { const nameMap: Record<number, string> = { 100: "General Requirements", 200: "Video Security Equipment", 300: "Access Control Equipment", 400: "Software", 500: "Compute & Storage", 600: "Networking", 700: "Installation & Labor", 800: "Professional Services" }; return c.name === nameMap[bomCat.section]; });
-                      const subtotal = (matchingCat?.lineItems.filter(li => li.quantity > 0) || []).reduce((s, li) => s + recalcLineItem(li).sellTotal, 0);
-                      return (<div key={bomCat.section} className="flex justify-between py-1"><span className="text-[#8b949e] text-[11px]">{bomCat.section} — {bomCat.name}</span><span className="text-white text-[11px] font-bold">{fmt(subtotal)}</span></div>);
-                    })}
-                    <div className="flex justify-between py-2 border-t border-white/10"><span className="text-[#8b949e] text-[12px]">Subtotal</span><span className="text-white text-[13px] font-bold">{fmt(grandTotalPreTax)}</span></div>
-                    <div className="flex justify-between py-1"><span className="text-[#8b949e] text-[12px]">GCT (15%)</span><span className="text-[#8b949e] text-[12px] font-bold">{fmt(gctAmount)}</span></div>
+                    <div className="flex justify-between py-1"><span className="text-[#8b949e] text-[11px]">Grand Total Supply, Install, Configure and Commission Security Solution</span><span className="text-white text-[14px] font-bold">{fmt(grandTotalPreTax)}</span></div>
+                    <div className="flex justify-between py-1"><span className="text-[#8b949e] text-[12px]">Tax</span><span className="text-[#8b949e] text-[12px] font-bold">{fmt(gctAmount)}</span></div>
                     <div className="flex justify-between py-2 border-t-2 border-white/10"><span className="text-white text-[14px] font-bold">Grand Total</span><span className="text-white text-[1.1rem] font-extrabold" style={{ color: "#60a5fa" }}>{fmt(grandTotal)}</span></div>
                   </div>
                 </div>
               </div>
             )}
             {activeTab === "synthesis" && (
-              <div className="space-y-4">
-                {quoteCategories.map((category) => {
-                  const isCollapsed = collapsedCategories.has(category.id);
-                  const activeItems = category.lineItems.filter(li => li.quantity > 0);
-                  const catSubtotal = activeItems.reduce((s, li) => s + li.sellTotal, 0);
-                  return (
-                    <div key={category.id} className="rounded-2xl overflow-hidden" style={G.card}>
-                      <button onClick={() => toggleCollapse(category.id)} className="w-full px-4 py-3 flex items-center justify-between hover:bg-white/[0.02] transition-colors cursor-pointer active:scale-[0.97] transition-transform min-h-[44px]" style={{ borderBottom: isCollapsed ? "none" : "1px solid rgba(255,255,255,0.06)", background: "rgba(255,255,255,0.02)" }}>
-                        <div className="flex items-center gap-2"><h3 className="text-white text-[13px] font-bold">{category.name}</h3><span className="text-[#484f58] text-[10px]">({activeItems.length})</span></div>
-                        <div className="flex items-center gap-3"><span className="text-[#8b949e] text-[11px] font-bold">{fmt(catSubtotal)}</span>{isCollapsed ? <ChevronDown className="w-4 h-4 text-[#484f58]" /> : <ChevronUp className="w-4 h-4 text-[#484f58]" />}</div>
-                      </button>
-                      {!isCollapsed && category.lineItems.length > 0 && (
-                        <div className="overflow-x-auto"><table className="w-full" style={{ minWidth: "500px" }}><thead><tr>{["#","Description","Qty","Total"].map(h=><th key={h} className="px-3 py-2 text-[#484f58] text-[9px] font-bold uppercase text-left">{h}</th>)}</tr></thead><tbody>{activeItems.map((item, idx) => { const r = recalcLineItem(item); return (<tr key={item.id}><td className="px-3 py-2 text-[#484f58] text-[10px]">{String(idx+1).padStart(2,"0")}</td><td className="px-3 py-2 text-white text-[11px]">{item.description}</td><td className="px-3 py-2 text-white text-[11px] text-center">{item.quantity}</td><td className="px-3 py-2 text-white text-[11px] font-bold text-right">{fmt(r.sellTotal)}</td></tr>); })}</tbody></table></div>
-                      )}
-                    </div>
-                  );
-                })}
-                <div className="rounded-2xl p-4" style={G.card}>
-                  <h3 className="text-white text-[13px] font-bold mb-3">Importation</h3>
-                  <div className="overflow-x-auto"><table className="w-full" style={{ minWidth: "500px" }}><thead><tr>{["Description","QTY","List Price","Extended"].map(h => <th key={h} className="px-3 py-2 text-[#484f58] text-[9px] font-bold uppercase text-left">{h}</th>)}</tr></thead><tbody>{[{ desc: "Shipping / Freight" },{ desc: "Importation Tax" }].map((row) => (<tr key={row.desc}><td className="px-3 py-2 text-white text-[11px] font-semibold">{row.desc}</td><td className="px-3 py-2"><input type="number" defaultValue={0} className="bg-transparent text-white text-[11px] w-16 text-center focus:outline-none" style={G.input} /></td><td className="px-3 py-2"><input type="number" defaultValue={0} className="bg-transparent text-white text-[11px] w-24 text-right focus:outline-none" style={G.input} /></td><td className="px-3 py-2 text-white text-[11px] font-bold text-right">{fmt(0)}</td></tr>))}</tbody></table></div>
+              <div className="space-y-0">
+                <div className="rounded-2xl overflow-hidden" style={G.card}>
+                  <div className="overflow-x-auto">
+                    <table className="w-full" style={{ minWidth: "700px" }}>
+                      <thead><tr style={{ borderBottom: "1px solid rgba(255,255,255,0.08)", background: "rgba(255,255,255,0.03)" }}>{["Item No","DESIGNATION","Qty","Unit Price in US Dollar (JMD)","TOTAL COST US Dollar (JMD)"].map(h => <th key={h} className="px-3 py-2.5 text-[#484f58] text-[9px] font-bold uppercase tracking-widest text-left">{h}</th>)}</tr></thead>
+                      <tbody>
+                        <tr style={{ background: "rgba(59,130,246,0.06)" }}><td colSpan={5} className="px-4 py-2.5 text-white text-[12px] font-bold uppercase tracking-widest">Video Surveillance</td></tr>
+                        {[{ item: "100", desc: "Video Management System Software" },{ item: "200", desc: "Compute and Storage" },{ item: "300", desc: "Control Room" },{ item: "400", desc: "Video Security Equipment" },{ item: "500", desc: "Network" },{ item: "600", desc: "Network Infrastructure" },{ item: "700", desc: "Professional Services" },{ item: "700.5", desc: "Contingency plan", qty: 0 },{ item: "800", desc: "Importation" }].map(row => {
+                          const qCat = quoteCategories.find(c => { const map: Record<string,string> = {"100":"Video Management System Software","200":"Compute and Storage","300":"Control Room","400":"Video Security Equipment","500":"Network","600":"Network Infrastructure","700":"Professional Services","800":"Importation"}; return c.name === map[row.item]; });
+                          const catItems = qCat?.lineItems.filter(li => li.quantity > 0) || [];
+                          const subtotal = catItems.reduce((s, li) => s + recalcLineItem(li).sellTotal, 0);
+                          return (<tr key={row.item} style={{ borderBottom: "1px solid rgba(255,255,255,0.03)" }}><td className="px-4 py-2 text-[#484f58] text-[10px] font-mono">{row.item}</td><td className="px-4 py-2 text-white text-[11px] font-semibold">{row.desc}</td><td className="px-4 py-2 text-white text-[11px] text-center">{row.qty ?? 1}</td><td className="px-4 py-2 text-white text-[11px] text-right">{subtotal > 0 ? fmt(subtotal) : "—"}</td><td className="px-4 py-2 text-white text-[11px] font-bold text-right">{subtotal > 0 ? fmt(subtotal) : "—"}</td></tr>);
+                        })}
+                        <tr style={{ background: "rgba(255,255,255,0.04)" }}><td colSpan={4} className="px-4 py-2 text-[#8b949e] text-[10px] font-bold text-right uppercase">Total Video Surveillance</td><td className="px-4 py-2 text-white text-[12px] font-bold text-right">{fmt(grandTotalPreTax)}</td></tr>
+                        <tr><td colSpan={5} className="px-4 py-1"></td></tr>
+                        <tr style={{ background: "rgba(139,92,246,0.06)" }}><td colSpan={5} className="px-4 py-2.5 text-white text-[12px] font-bold uppercase tracking-widest">Access Control Systems</td></tr>
+                        {[{ item: "900", desc: "Access Control System Software" },{ item: "1000", desc: "Hardware" },{ item: "1100", desc: "Infrastructure" },{ item: "1200", desc: "Professional Services" },{ item: "1200.5", desc: "Contingency plan", qty: 0 },{ item: "1300", desc: "Importation" }].map(row => (<tr key={row.item} style={{ borderBottom: "1px solid rgba(255,255,255,0.03)" }}><td className="px-4 py-2 text-[#484f58] text-[10px] font-mono">{row.item}</td><td className="px-4 py-2 text-white text-[11px] font-semibold">{row.desc}</td><td className="px-4 py-2 text-white text-[11px] text-center">{row.qty ?? 1}</td><td className="px-4 py-2 text-[#8b949e] text-[11px] text-right">—</td><td className="px-4 py-2 text-[#8b949e] text-[11px] font-bold text-right">—</td></tr>))}
+                        <tr style={{ background: "rgba(255,255,255,0.04)" }}><td colSpan={4} className="px-4 py-2 text-[#8b949e] text-[10px] font-bold text-right uppercase">Total Access Control</td><td className="px-4 py-2 text-white text-[12px] font-bold text-right">—</td></tr>
+                      </tbody>
+                    </table>
+                  </div>
                 </div>
-                <div className="rounded-2xl p-4" style={G.card}>
-                  <h3 className="text-white text-[13px] font-bold mb-3">Professional Services</h3>
-                  <div className="overflow-x-auto"><table className="w-full" style={{ minWidth: "500px" }}><thead><tr>{["Description","QTY","List Price","Extended"].map(h => <th key={h} className="px-3 py-2 text-[#484f58] text-[9px] font-bold uppercase text-left">{h}</th>)}</tr></thead><tbody>{["Equipment Installation","Software / Platform Setup","Project Management","Contingency"].map((svc) => (<tr key={svc}><td className="px-3 py-2 text-white text-[11px] font-semibold">{svc}</td><td className="px-3 py-2"><input type="number" defaultValue={0} className="bg-transparent text-white text-[11px] w-16 text-center focus:outline-none" style={G.input} /></td><td className="px-3 py-2"><input type="number" defaultValue={0} className="bg-transparent text-white text-[11px] w-24 text-right focus:outline-none" style={G.input} /></td><td className="px-3 py-2 text-white text-[11px] font-bold text-right">{fmt(0)}</td></tr>))}</tbody></table></div>
-                </div>
-                <div className="rounded-2xl p-4" style={{ ...G.card, background: "rgba(59,130,246,0.06)", border: "1px solid rgba(59,130,246,0.20)" }}>
-                  <h3 className="text-white text-[14px] font-bold mb-3">Synthesis</h3>
+                <div className="rounded-2xl p-4 mt-4" style={{ ...G.card, background: "rgba(59,130,246,0.06)", border: "1px solid rgba(59,130,246,0.20)" }}>
                   <div className="space-y-2">
-                    {categorySubtotals.map((cs) => (<div key={cs.category.id} className="flex justify-between py-1"><span className="text-[#8b949e] text-[12px]">{cs.category.name}</span><span className="text-white text-[12px] font-bold">{fmt(cs.subtotal)}</span></div>))}
-                    <div className="flex justify-between py-2 border-t border-white/10"><span className="text-[#8b949e] text-[12px]">Subtotal</span><span className="text-white text-[13px] font-bold">{fmt(grandTotalPreTax)}</span></div>
-                    <div className="flex justify-between py-1"><span className="text-[#8b949e] text-[12px]">GCT (15%)</span><span className="text-[#8b949e] text-[12px] font-bold">{fmt(gctAmount)}</span></div>
+                    <div className="flex justify-between py-1"><span className="text-[#8b949e] text-[11px]">Grand Total Supply, Install, Configure and Commission Security Solution</span><span className="text-white text-[14px] font-bold">{fmt(grandTotalPreTax)}</span></div>
+                    <div className="flex justify-between py-1"><span className="text-[#8b949e] text-[12px]">Tax</span><span className="text-[#8b949e] text-[12px] font-bold">{fmt(gctAmount)}</span></div>
                     <div className="flex justify-between py-2 border-t-2 border-white/10"><span className="text-white text-[14px] font-bold">Grand Total</span><span className="text-white text-[1.1rem] font-extrabold" style={{ color: "#60a5fa" }}>{fmt(grandTotal)}</span></div>
                   </div>
                 </div>
@@ -1467,7 +1225,8 @@ function InstallTracker({ navigate: _navigate }: { navigate: (p: Page) => void }
     try { await API.install.updateStatus(zoneId, deviceId, status); } catch {}
   };
 
-const typeIcons: Record<string, IconType> = { camera: Camera, access: Key, nvr: Cpu, door: DoorOpen, panel: PanelRight, power: Zap, server: Server };
+  const typeIcons: Record<string, IconType> = { camera: Camera, access: Key, nvr: Cpu, door: DoorOpen, panel: PanelRight, power: Zap, server: Server };
+
   if (loading) return <div className="px-3 md:px-5 py-4 md:py-6 space-y-4"><Skeleton className="h-10 w-48" /><Skeleton className="h-32 rounded-2xl" /><Skeleton className="h-48 rounded-2xl" /></div>;
 
   const allDevices = zones.flatMap((z) => z.devices);
@@ -1478,7 +1237,6 @@ const typeIcons: Record<string, IconType> = { camera: Camera, access: Key, nvr: 
   return (
     <div className="px-3 md:px-5 py-4 md:py-6 max-w-[1100px]">
       <div className="mb-4 md:mb-6"><h1 className="text-white font-bold text-lg md:text-xl tracking-tight">Install Tracker</h1><p className="text-[#8b949e] text-[11px] mt-0.5">{total} devices across {zones.length} zones · {projects.length} projects</p></div>
-
       {projects.length === 0 ? <EmptyState icon={CheckSquare} title="No active installs" description="Projects in Win stage will appear here." /> : (
         <>
           <div className="rounded-2xl p-4 md:p-5 mb-4" style={G.card}>
@@ -1633,29 +1391,16 @@ export default function App() {
   const [currency, setCurrency] = useState<"USD" | "JMD">("USD");
   const [currentQuote, setCurrentQuote] = useState<Quote | null>(null);
 
-  useEffect(() => {
-    if (page !== "login") localStorage.setItem("app_page", page);
-  }, [page]);
+  useEffect(() => { if (page !== "login") localStorage.setItem("app_page", page); }, [page]);
+  useEffect(() => { API.fx.getRate(); }, []);
 
-  useEffect(() => {
-    API.fx.getRate();
-  }, []);
-
-  const handleLogin = () => {
-    localStorage.setItem("auth_token", "stub-jwt-token");
-    localStorage.setItem("app_logged_in", "true");
-    setPage("dashboard");
-  };
-
+  const handleLogin = () => { localStorage.setItem("auth_token", "stub-jwt-token"); localStorage.setItem("app_logged_in", "true"); setPage("dashboard"); };
   const currencyCtx: CurrencyCtx = useMemo(() => ({ currency, setCurrency, fmt: makeFmt(currency) }), [currency]);
 
   const addToQuote = (device: CatalogDevice) => {
-    const price = device.price;
-    if (!price || !currentQuote) return;
+    const price = device.price; if (!price || !currentQuote) return;
     setCurrentQuote((prev) => {
-      if (!prev) return prev;
-      const firstCat = prev.categories[0];
-      if (!firstCat) return prev;
+      if (!prev) return prev; const firstCat = prev.categories[0]; if (!firstCat) return prev;
       const sellPrice = price * 1.35;
       const newItem: QuoteLineItem = { id: crypto.randomUUID?.() || `li${Date.now()}`, itemNumber: String(firstCat.lineItems.length + 1).padStart(2, "0"), description: `${device.manufacturer} ${device.model}`, unitCost: price, quantity: 1, markupPercent: 0.35, sellPrice, costTotal: price, sellTotal: sellPrice, profit: sellPrice - price, jmdConversion: sellPrice * (parseFloat(localStorage.getItem("fx_rate") || "157.4")) };
       return { ...prev, categories: prev.categories.map((c, i) => i === 0 ? { ...c, lineItems: [...c.lineItems, newItem] } : c) };
