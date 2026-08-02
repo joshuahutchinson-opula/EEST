@@ -3353,9 +3353,7 @@ function LoginPage({ onLogin }: { onLogin: () => void }) {
 
 // ─── Root ─────────────────────────────────────────────────────────────────────
 
-export function App() {
-
-export default App;
+export default function App() {
   const [page, setPage] = useState<Page>("login");
   const [currency, setCurrency] = useState<"USD" | "JMD">("USD");
   const [quoteItems, setQuoteItems] = useState<QuoteItem[]>(INITIAL_QUOTE_ITEMS);
