@@ -38,6 +38,8 @@ router.get("/", async (_req: Request, res: Response) => {
       collaborators: row.collaborators || [],
       leadSource: row.lead_source || undefined,
       stageHistory: row.stage_history || [],
+      pipelineType: row.pipeline_type || "sales",
+      projectStage: row.project_stage || null,
       createdAt: row.created_at,
       updatedAt: row.updated_at,
     }));
@@ -81,6 +83,8 @@ router.get("/:id", async (req: Request, res: Response) => {
       collaborators: row.collaborators || [],
       leadSource: row.lead_source || undefined,
       stageHistory: row.stage_history || [],
+      pipelineType: row.pipeline_type || "sales",
+      projectStage: row.project_stage || null,
       createdAt: row.created_at,
       updatedAt: row.updated_at,
     });
@@ -93,10 +97,10 @@ router.get("/:id", async (req: Request, res: Response) => {
 // POST /api/projects
 router.post("/", async (req: Request, res: Response) => {
   try {
-    const { name, client, value, stage, risk, assignee, dueDate, cameras, devices, location, contact, summary, notes, collaborators, leadSource, stageHistory } = req.body;
+    const { name, client, value, stage, risk, assignee, dueDate, cameras, devices, location, contact, summary, notes, collaborators, leadSource, stageHistory, pipelineType, projectStage } = req.body;
     const result = await pool.query(
-      `INSERT INTO projects (name, client, value, stage, risk, assignee_name, assignee_initials, assignee_color, due_date, cameras, devices, location, contact_name, contact_title, contact_email, contact_phone, summary, notes, collaborators, lead_source, stage_history)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21) RETURNING *`,
+      `INSERT INTO projects (name, client, value, stage, risk, assignee_name, assignee_initials, assignee_color, due_date, cameras, devices, location, contact_name, contact_title, contact_email, contact_phone, summary, notes, collaborators, lead_source, stage_history, pipeline_type, project_stage)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23) RETURNING *`,
       [
         name, client, value || 0, stage || "assessment-scheduled", risk || "low",
         assignee?.name || "", assignee?.initials || "", assignee?.color || "#3b82f6",
@@ -104,6 +108,7 @@ router.post("/", async (req: Request, res: Response) => {
         contact?.name || null, contact?.title || null, contact?.email || null, contact?.phone || null,
         summary || null, notes || null, JSON.stringify(collaborators || []),
         leadSource || null, JSON.stringify(stageHistory || []),
+        pipelineType || "sales", projectStage || null,
       ]
     );
     const row = result.rows[0];
@@ -117,6 +122,8 @@ router.post("/", async (req: Request, res: Response) => {
       summary: row.summary, notes: row.notes, collaborators: row.collaborators || [],
       leadSource: row.lead_source || undefined,
       stageHistory: row.stage_history || [],
+      pipelineType: row.pipeline_type || "sales",
+      projectStage: row.project_stage || null,
     });
   } catch (err) {
     console.error("POST /projects error:", err);
@@ -128,7 +135,7 @@ router.post("/", async (req: Request, res: Response) => {
 router.patch("/:id", async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
-    const { name, client, value, stage, risk, assignee, dueDate, cameras, devices, location, contact, summary, notes, collaborators, leadSource, stageHistory } = req.body;
+    const { name, client, value, stage, risk, assignee, dueDate, cameras, devices, location, contact, summary, notes, collaborators, leadSource, stageHistory, pipelineType, projectStage } = req.body;
     const result = await pool.query(
       `UPDATE projects SET name=COALESCE($2,name), client=COALESCE($3,client), value=COALESCE($4,value), stage=COALESCE($5,stage), risk=COALESCE($6,risk),
        assignee_name=COALESCE($7,assignee_name), assignee_initials=COALESCE($8,assignee_initials), assignee_color=COALESCE($9,assignee_color),
@@ -136,10 +143,12 @@ router.patch("/:id", async (req: Request, res: Response) => {
        contact_name=COALESCE($14,contact_name), contact_title=COALESCE($15,contact_title), contact_email=COALESCE($16,contact_email), contact_phone=COALESCE($17,contact_phone),
        summary=COALESCE($18,summary), notes=COALESCE($19,notes), collaborators=COALESCE($20,collaborators),
        lead_source=COALESCE($21,lead_source), stage_history=COALESCE($22,stage_history),
+       pipeline_type=COALESCE($23,pipeline_type), project_stage=COALESCE($24,project_stage),
        updated_at=NOW() WHERE id=$1 AND deleted_at IS NULL RETURNING *`,
       [id, name, client, value, stage, risk, assignee?.name, assignee?.initials, assignee?.color, dueDate, cameras, devices, location,
        contact?.name, contact?.title, contact?.email, contact?.phone, summary, notes, collaborators ? JSON.stringify(collaborators) : null,
-       leadSource, stageHistory ? JSON.stringify(stageHistory) : null]
+       leadSource, stageHistory ? JSON.stringify(stageHistory) : null,
+       pipelineType, projectStage]
     );
     if (result.rows.length === 0) return res.status(404).json({ error: "Project not found" });
     const row = result.rows[0];
@@ -152,6 +161,8 @@ router.patch("/:id", async (req: Request, res: Response) => {
       summary: row.summary, notes: row.notes, collaborators: row.collaborators,
       leadSource: row.lead_source || undefined,
       stageHistory: row.stage_history || [],
+      pipelineType: row.pipeline_type || "sales",
+      projectStage: row.project_stage || null,
     });
   } catch (err) {
     console.error("PATCH /projects/:id error:", err);
