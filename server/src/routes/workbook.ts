@@ -1,6 +1,6 @@
 // server/routes/workbook.ts
 import { Router, Request, Response } from "express";
-import { pool } from "../db"; // your PostgreSQL pool
+import pool from "../db"; // your PostgreSQL pool
 
 const router = Router();
 
