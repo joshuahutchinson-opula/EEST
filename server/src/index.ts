@@ -14,6 +14,7 @@ import auditRouter from "./routes/audit";
 import tasksRouter from "./routes/tasks";
 import documentsRouter from "./routes/documents";
 import notificationsRouter from "./routes/notifications";
+import workbookRouter from "./routes/workbook";
 
 dotenv.config();
 
@@ -38,6 +39,7 @@ app.use("/api/audit", auditRouter);
 app.use("/api/tasks", tasksRouter);
 app.use("/api/documents", documentsRouter);
 app.use("/api/notifications", notificationsRouter);
+app.use("/api/workbook", workbookRouter);
 
 app.get("/api/health", (_req, res) => {
   res.json({ status: "ok", timestamp: new Date().toISOString() });
