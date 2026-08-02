@@ -17,7 +17,9 @@ import {
   RotateCw, Maximize2, Minimize2, LogOut,
   ListTodo, PlusCircle, GanttChart, ClipboardCheck,
   Link2, Copy, Filter, CheckCheck, Paperclip, Image,
-  BellRing, Layout, BarChart4,
+  BellRing, Layout, BarChart4, Table2, Hash, Info, FileDown,
+  Printer, Wrench, ClipboardList, Truck, PackageCheck,
+  UserCheck, Send, EyeOff, GanttChartSquare,
 } from "lucide-react";
 import { clsx } from "clsx";
 import { TransformWrapper, TransformComponent } from "react-zoom-pan-pinch";
@@ -79,7 +81,7 @@ function makeFmt(currency: "USD" | "JMD") {
   };
 }
 
-type Page = "login" | "dashboard" | "design-studio" | "project-detail" | "design-canvas" | "workbook" | "install-tracker" | "device-store";
+type Page = "login" | "dashboard" | "design-studio" | "project-detail" | "design-canvas" | "workbook" | "install-tracker" | "device-store" | "site-assessment" | "client-portal";
 type Stage = "assessment-scheduled" | "assessment-completed" | "design" | "proposal" | "negotiation" | "win" | "lose";
 type ProjectStage = "quick-support" | "planning" | "procurement" | "installation" | "commissioning" | "complete";
 type PipelineType = "sales" | "project";
@@ -115,23 +117,41 @@ type CanvasDevice = { id: string; type: "camera" | "door" | "panel" | "power" | 
 type FloorPlanFile = { id: string; type: "2d" | "3d"; url: string; originalName: string; format: string; is3DModel?: boolean; };
 type IconType = React.ComponentType<{ className?: string }>;
 
+interface SynthesisOverride { id: string; projectId: string; sectionNumber: string; overrideValue: number | null; isOverridden: boolean; overriddenBy?: string; overriddenAt?: string; }
+interface WorkbookAuditEntry { id: string; projectId: string; fieldPath: string; oldValue: string; newValue: string; changedBy: string; changedAt: string; }
+interface AssetListItem { id: string; item: string; qty: number; cost: number; markupPercent: number; sell: number; costTotal: number; total: number; profit: number; isCanvasDevice?: boolean; deviceType?: string; sourceCategory?: string; sourceItemId?: string; }
+type WorkbookTab = "asset-list" | "bom" | "synthesis";
+
+const BOM_SECTIONS = [
+  { section: 100, name: "Video Management System Software" }, { section: 200, name: "Compute and Storage" },
+  { section: 300, name: "Control Room" }, { section: 400, name: "Video Security Equipment" },
+  { section: 500, name: "Network" }, { section: 600, name: "Network Infrastructure" },
+  { section: 700, name: "Professional Services" }, { section: 800, name: "Importation" },
+] as const;
+
+const SYNTHESIS_SECTIONS = [
+  { section: "100", name: "Video Management System Software", group: "video" },
+  { section: "200", name: "Compute and Storage", group: "video" }, { section: "300", name: "Control Room", group: "video" },
+  { section: "400", name: "Video Security Equipment", group: "video" }, { section: "500", name: "Network", group: "video" },
+  { section: "600", name: "Network Infrastructure", group: "video" }, { section: "700", name: "Professional Services", group: "video" },
+  { section: "700.5", name: "Contingency Plan", group: "video" }, { section: "800", name: "Importation", group: "video" },
+  { section: "900", name: "Access Control System Software", group: "access" }, { section: "1000", name: "Hardware", group: "access" },
+  { section: "1100", name: "Infrastructure", group: "access" }, { section: "1200", name: "Professional Services", group: "access" },
+  { section: "1200.5", name: "Contingency Plan", group: "access" }, { section: "1300", name: "Importation", group: "access" },
+] as const;
+
 const COLUMNS: Column[] = [
   { id: "assessment-scheduled", label: "Assessment Scheduled", color: "#f59e0b" },
   { id: "assessment-completed", label: "Assessment Completed", color: "#06b6d4" },
-  { id: "design", label: "Design", color: "#8b5cf6" },
-  { id: "proposal", label: "Proposal", color: "#3b82f6" },
-  { id: "negotiation", label: "Negotiation", color: "#f97316" },
-  { id: "win", label: "Win", color: "#10b981" },
+  { id: "design", label: "Design", color: "#8b5cf6" }, { id: "proposal", label: "Proposal", color: "#3b82f6" },
+  { id: "negotiation", label: "Negotiation", color: "#f97316" }, { id: "win", label: "Win", color: "#10b981" },
   { id: "lose", label: "Lose", color: "#f43f5e" },
 ];
 
 const PROJECT_COLUMNS: ProjectColumn[] = [
-  { id: "quick-support", label: "Quick Support Tasks", color: "#f59e0b" },
-  { id: "planning", label: "Planning", color: "#3b82f6" },
-  { id: "procurement", label: "Procurement", color: "#8b5cf6" },
-  { id: "installation", label: "Installation", color: "#f97316" },
-  { id: "commissioning", label: "Commissioning", color: "#06b6d4" },
-  { id: "complete", label: "Complete", color: "#10b981" },
+  { id: "quick-support", label: "Quick Support Tasks", color: "#f59e0b" }, { id: "planning", label: "Planning", color: "#3b82f6" },
+  { id: "procurement", label: "Procurement", color: "#8b5cf6" }, { id: "installation", label: "Installation", color: "#f97316" },
+  { id: "commissioning", label: "Commissioning", color: "#06b6d4" }, { id: "complete", label: "Complete", color: "#10b981" },
 ];
 
 const CAMERA_TYPES: CameraType[] = ["Dome", "Bullet", "PTZ", "Box", "Panoramic", "Thermal"];
@@ -177,10 +197,30 @@ const API = {
   tasks: { list: (projectId: string) => apiFetch<Task[]>(`/tasks/${projectId}`), create: (projectId: string, data: Partial<Task>) => apiFetch<Task>(`/tasks/${projectId}`, { method: "POST", body: JSON.stringify(data) }), update: (projectId: string, id: string, data: Partial<Task>) => apiFetch<Task>(`/tasks/${projectId}/${id}`, { method: "PATCH", body: JSON.stringify(data) }), delete: (projectId: string, id: string) => apiFetch<void>(`/tasks/${projectId}/${id}`, { method: "DELETE" }) },
   documents: { list: (projectId: string) => apiFetch<Document[]>(`/documents/${projectId}`), upload: (projectId: string, file: File) => { const fd = new FormData(); fd.append("file", file); return apiFetch<Document>(`/documents/${projectId}`, { method: "POST", body: fd }); }, delete: (projectId: string, id: string) => apiFetch<void>(`/documents/${projectId}/${id}`, { method: "DELETE" }) },
   notifications: { list: () => apiFetch<Notification[]>("/notifications"), create: (data: Partial<Notification>) => apiFetch<void>("/notifications", { method: "POST", body: JSON.stringify(data) }), markRead: (id: string) => apiFetch<void>(`/notifications/${id}/read`, { method: "PATCH" }), markAllRead: () => apiFetch<void>("/notifications/read-all", { method: "PATCH" }) },
+  workbook: {
+    getOverrides: (projectId: string) => apiFetch<SynthesisOverride[]>(`/workbook/${projectId}/overrides`),
+    saveOverrides: (projectId: string, overrides: Partial<SynthesisOverride>[]) => apiFetch<void>(`/workbook/${projectId}/overrides`, { method: "PUT", body: JSON.stringify({ overrides }) }),
+    getAudit: (projectId: string, fieldPath?: string) => apiFetch<WorkbookAuditEntry[]>(`/workbook/${projectId}/audit${fieldPath ? `?fieldPath=${encodeURIComponent(fieldPath)}` : ""}`),
+    logAudit: (projectId: string, fieldPath: string, oldValue: string, newValue: string) => apiFetch<void>(`/workbook/${projectId}/audit`, { method: "POST", body: JSON.stringify({ fieldPath, oldValue, newValue, changedBy: CURRENT_USER.name }) }),
+    getPriceHistory: (deviceId: string) => apiFetch<{ price: number; recordedAt: string }[]>(`/devices/${deviceId}/price-history`),
+  },
+  proposals: { generate: (projectId: string) => apiFetch<{ url: string }>(`/workbook/${projectId}/proposal`, { method: "POST" }) },
+  share: { generate: (projectId: string, type: string) => apiFetch<{ token: string; url: string }>("/share/generate", { method: "POST", body: JSON.stringify({ projectId, type }) }) },
+  procurement: { listPOs: (projectId: string) => apiFetch<any[]>(`/procurement/${projectId}`), createPO: (projectId: string, data: any) => apiFetch<any>(`/procurement/${projectId}`, { method: "POST", body: JSON.stringify(data) }) },
+  commissioning: { list: (projectId: string) => apiFetch<any[]>(`/commissioning/${projectId}`), update: (projectId: string, deviceId: string, data: any) => apiFetch<void>(`/commissioning/${projectId}/${deviceId}`, { method: "PATCH", body: JSON.stringify(data) }), generateReport: (projectId: string) => apiFetch<{ url: string }>(`/commissioning/${projectId}/report`, { method: "POST" }) },
+  subcontractors: { list: (projectId: string) => apiFetch<any[]>(`/subcontractors/${projectId}`), add: (projectId: string, data: any) => apiFetch<any>(`/subcontractors/${projectId}`, { method: "POST", body: JSON.stringify(data) }), rate: (subId: string, rating: number) => apiFetch<void>(`/subcontractors/${subId}/rate`, { method: "POST", body: JSON.stringify({ rating }) }) },
+  clientPortal: { getRequests: (projectId: string) => apiFetch<any[]>(`/client-portal/${projectId}/requests`), createRequest: (projectId: string, data: any) => apiFetch<any>(`/client-portal/${projectId}/requests`, { method: "POST", body: JSON.stringify(data) }), approveQuote: (requestId: string) => apiFetch<void>(`/client-portal/requests/${requestId}/approve`, { method: "POST" }) },
 };
 
-function Skeleton({ className }: { className?: string }) { return <div className={clsx("animate-pulse rounded-2xl", className)} style={{ background: "rgba(255,255,255,0.04)" }} />; }
+function recalcLineItem(item: QuoteLineItem, exchangeRate: number): QuoteLineItem {
+  const sellPrice = item.unitCost * (1 + item.markupPercent);
+  const costTotal = item.unitCost * item.quantity;
+  const sellTotal = sellPrice * item.quantity;
+  const profit = sellTotal - costTotal;
+  return { ...item, sellPrice, costTotal, sellTotal, profit, jmdConversion: sellTotal * exchangeRate };
+}
 
+function Skeleton({ className }: { className?: string }) { return <div className={clsx("animate-pulse rounded-2xl", className)} style={{ background: "rgba(255,255,255,0.04)" }} />; }
 function SkeletonCard() {
   return (
     <div className="rounded-2xl p-4 space-y-3" style={G.card}>
@@ -223,49 +263,16 @@ function CurrencyToggle() {
     </div>
   );
 }
-const NAV_ITEMS: { id: Page; label: string }[] = [
-  { id: "dashboard", label: "Pipeline" }, { id: "design-studio", label: "Projects" }, { id: "workbook", label: "Workbook" }, { id: "install-tracker", label: "Install Tracker" }, { id: "device-store", label: "Device Store" },
-];
-
 function NotificationBell() {
   const [open, setOpen] = useState(false);
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const unreadCount = notifications.filter(n => !n.isRead).length;
-
-  useEffect(() => {
-    API.notifications.list().then(setNotifications).catch(() => {});
-    const interval = setInterval(() => { API.notifications.list().then(setNotifications).catch(() => {}); }, 30000);
-    return () => clearInterval(interval);
-  }, []);
-
+  useEffect(() => { API.notifications.list().then(setNotifications).catch(() => {}); const interval = setInterval(() => { API.notifications.list().then(setNotifications).catch(() => {}); }, 30000); return () => clearInterval(interval); }, []);
   const handleMarkAllRead = async () => { await API.notifications.markAllRead(); setNotifications(prev => prev.map(n => ({ ...n, isRead: true }))); };
-
   return (
     <div className="relative">
-      <button onClick={() => setOpen(!open)} className="relative w-8 h-8 rounded-xl flex items-center justify-center hover:bg-white/[0.08] transition-colors cursor-pointer active:scale-[0.97] transition-transform" style={G.btn}>
-        <Bell className="w-3.5 h-3.5 text-[#8b949e]" />
-        {unreadCount > 0 && <span className="absolute -top-0.5 -right-0.5 w-4 h-4 rounded-full bg-rose-500 text-white text-[8px] font-bold flex items-center justify-center">{unreadCount > 9 ? "9+" : unreadCount}</span>}
-      </button>
-      {open && (
-        <>
-          <div className="fixed inset-0 z-50" onClick={() => setOpen(false)} />
-          <div className="absolute right-0 top-full mt-2 z-[60] w-80 rounded-2xl overflow-hidden" style={{ background: "rgba(7,12,26,0.97)", border: "1px solid rgba(255,255,255,0.12)", boxShadow: "0 8px 32px rgba(0,0,0,0.8)", backdropFilter: "blur(20px)" }}>
-            <div className="px-4 py-3 flex items-center justify-between" style={{ borderBottom: "1px solid rgba(255,255,255,0.07)" }}>
-              <p className="text-white text-[12px] font-bold">Notifications</p>
-              {unreadCount > 0 && <button onClick={handleMarkAllRead} className="text-[10px] text-blue-400 font-semibold hover:text-blue-300 cursor-pointer">Mark all read</button>}
-            </div>
-            <div className="max-h-[320px] overflow-y-auto" style={{ scrollbarWidth: "none" }}>
-              {notifications.length === 0 ? <div className="px-4 py-6 text-center"><p className="text-[#484f58] text-[11px]">No notifications yet</p></div> :
-                notifications.map(n => (
-                  <div key={n.id} className={clsx("px-4 py-2.5 hover:bg-white/[0.03] transition-colors cursor-pointer", !n.isRead && "bg-white/[0.02]")} style={{ borderBottom: "1px solid rgba(255,255,255,0.03)" }} onClick={() => { API.notifications.markRead(n.id); setNotifications(prev => prev.map(x => x.id === n.id ? { ...x, isRead: true } : x)); }}>
-                    <div className="flex items-start gap-2"><div className={clsx("w-1.5 h-1.5 rounded-full mt-1.5 flex-shrink-0", !n.isRead ? "bg-blue-400" : "bg-transparent")} /><div className="flex-1 min-w-0"><p className="text-white text-[11px] font-semibold">{n.event}</p>{n.details && <p className="text-[#8b949e] text-[10px] mt-0.5">{n.details}</p>}<p className="text-[#484f58] text-[9px] mt-1">{new Date(n.timestamp).toLocaleString()}</p></div></div>
-                  </div>
-                ))
-              }
-            </div>
-          </div>
-        </>
-      )}
+      <button onClick={() => setOpen(!open)} className="relative w-8 h-8 rounded-xl flex items-center justify-center hover:bg-white/[0.08] transition-colors cursor-pointer active:scale-[0.97] transition-transform" style={G.btn}><Bell className="w-3.5 h-3.5 text-[#8b949e]" />{unreadCount > 0 && <span className="absolute -top-0.5 -right-0.5 w-4 h-4 rounded-full bg-rose-500 text-white text-[8px] font-bold flex items-center justify-center">{unreadCount > 9 ? "9+" : unreadCount}</span>}</button>
+      {open && (<><div className="fixed inset-0 z-50" onClick={() => setOpen(false)} /><div className="absolute right-0 top-full mt-2 z-[60] w-80 rounded-2xl overflow-hidden" style={{ background: "rgba(7,12,26,0.97)", border: "1px solid rgba(255,255,255,0.12)", boxShadow: "0 8px 32px rgba(0,0,0,0.8)", backdropFilter: "blur(20px)" }}><div className="px-4 py-3 flex items-center justify-between" style={{ borderBottom: "1px solid rgba(255,255,255,0.07)" }}><p className="text-white text-[12px] font-bold">Notifications</p>{unreadCount > 0 && <button onClick={handleMarkAllRead} className="text-[10px] text-blue-400 font-semibold hover:text-blue-300 cursor-pointer">Mark all read</button>}</div><div className="max-h-[320px] overflow-y-auto" style={{ scrollbarWidth: "none" }}>{notifications.length === 0 ? <div className="px-4 py-6 text-center"><p className="text-[#484f58] text-[11px]">No notifications yet</p></div> : notifications.map(n => (<div key={n.id} className={clsx("px-4 py-2.5 hover:bg-white/[0.03] transition-colors cursor-pointer", !n.isRead && "bg-white/[0.02]")} style={{ borderBottom: "1px solid rgba(255,255,255,0.03)" }} onClick={() => { API.notifications.markRead(n.id); setNotifications(prev => prev.map(x => x.id === n.id ? { ...x, isRead: true } : x)); }}><div className="flex items-start gap-2"><div className={clsx("w-1.5 h-1.5 rounded-full mt-1.5 flex-shrink-0", !n.isRead ? "bg-blue-400" : "bg-transparent")} /><div className="flex-1 min-w-0"><p className="text-white text-[11px] font-semibold">{n.event}</p>{n.details && <p className="text-[#8b949e] text-[10px] mt-0.5">{n.details}</p>}<p className="text-[#484f58] text-[9px] mt-1">{new Date(n.timestamp).toLocaleString()}</p></div></div></div>))}</div></div></>)}
     </div>
   );
 }
@@ -274,32 +281,16 @@ function UserMenu() {
   const [open, setOpen] = useState(false);
   return (
     <div className="relative">
-      <button onClick={() => setOpen(!open)} className="flex items-center gap-2 h-8 pl-1.5 pr-2.5 rounded-xl hover:bg-white/[0.06] transition-colors cursor-pointer active:scale-[0.97] transition-transform min-h-[44px] md:min-h-0">
-        <div className="w-6 h-6 rounded-full flex items-center justify-center text-white text-[9px] font-bold flex-shrink-0" style={{ background: "linear-gradient(135deg, #3b82f6, #8b5cf6)", boxShadow: "0 0 12px rgba(139,92,246,0.5)" }}>{CURRENT_USER.initials}</div>
-        <span className="text-white text-[12px] font-semibold hidden md:inline">{CURRENT_USER.name}</span>
-        <ChevronDown className="w-3 h-3 text-[#8b949e] hidden md:block" />
-      </button>
-      {open && (
-        <>
-          <div className="fixed inset-0 z-50" onClick={() => setOpen(false)} />
-          <div className="absolute right-0 top-full mt-2 z-[60] w-56 rounded-2xl overflow-hidden" style={{ background: "rgba(7,12,26,0.97)", border: "1px solid rgba(255,255,255,0.12)", boxShadow: "0 8px 32px rgba(0,0,0,0.8)", backdropFilter: "blur(20px)" }}>
-            <div className="px-4 py-3 flex items-center gap-3" style={{ borderBottom: "1px solid rgba(255,255,255,0.07)" }}>
-              <div className="w-8 h-8 rounded-full flex items-center justify-center text-white text-[11px] font-bold flex-shrink-0" style={{ background: "linear-gradient(135deg, #3b82f6, #8b5cf6)", boxShadow: "0 0 12px rgba(139,92,246,0.5)" }}>{CURRENT_USER.initials}</div>
-              <div><p className="text-white text-[12px] font-semibold">{CURRENT_USER.name}</p><p className="text-[#484f58] text-[10px]">Administrator</p></div>
-            </div>
-            <div className="py-1">
-              <button onClick={() => { setOpen(false); localStorage.removeItem("auth_token"); localStorage.removeItem("app_logged_in"); localStorage.removeItem("app_page"); window.location.href = "/"; }} className="w-full flex items-center gap-2.5 px-4 py-2.5 text-[#8b949e] hover:text-white hover:bg-white/[0.05] transition-colors text-left cursor-pointer active:scale-[0.97] transition-transform min-h-[44px] text-[12px] font-semibold">
-                <LogOut className="w-3.5 h-3.5 text-rose-400" /> Sign Out
-              </button>
-            </div>
-          </div>
-        </>
-      )}
+      <button onClick={() => setOpen(!open)} className="flex items-center gap-2 h-8 pl-1.5 pr-2.5 rounded-xl hover:bg-white/[0.06] transition-colors cursor-pointer active:scale-[0.97] transition-transform min-h-[44px] md:min-h-0"><div className="w-6 h-6 rounded-full flex items-center justify-center text-white text-[9px] font-bold flex-shrink-0" style={{ background: "linear-gradient(135deg, #3b82f6, #8b5cf6)", boxShadow: "0 0 12px rgba(139,92,246,0.5)" }}>{CURRENT_USER.initials}</div><span className="text-white text-[12px] font-semibold hidden md:inline">{CURRENT_USER.name}</span><ChevronDown className="w-3 h-3 text-[#8b949e] hidden md:block" /></button>
+      {open && (<><div className="fixed inset-0 z-50" onClick={() => setOpen(false)} /><div className="absolute right-0 top-full mt-2 z-[60] w-56 rounded-2xl overflow-hidden" style={{ background: "rgba(7,12,26,0.97)", border: "1px solid rgba(255,255,255,0.12)", boxShadow: "0 8px 32px rgba(0,0,0,0.8)", backdropFilter: "blur(20px)" }}><div className="px-4 py-3 flex items-center gap-3" style={{ borderBottom: "1px solid rgba(255,255,255,0.07)" }}><div className="w-8 h-8 rounded-full flex items-center justify-center text-white text-[11px] font-bold flex-shrink-0" style={{ background: "linear-gradient(135deg, #3b82f6, #8b5cf6)", boxShadow: "0 0 12px rgba(139,92,246,0.5)" }}>{CURRENT_USER.initials}</div><div><p className="text-white text-[12px] font-semibold">{CURRENT_USER.name}</p><p className="text-[#484f58] text-[10px]">Administrator</p></div></div><div className="py-1"><button onClick={() => { setOpen(false); localStorage.removeItem("auth_token"); localStorage.removeItem("app_logged_in"); localStorage.removeItem("app_page"); window.location.href = "/"; }} className="w-full flex items-center gap-2.5 px-4 py-2.5 text-[#8b949e] hover:text-white hover:bg-white/[0.05] transition-colors text-left cursor-pointer active:scale-[0.97] transition-transform min-h-[44px] text-[12px] font-semibold"><LogOut className="w-3.5 h-3.5 text-rose-400" /> Sign Out</button></div></div></>)}
     </div>
   );
 }
 
-// Breadcrumb component
+const NAV_ITEMS: { id: Page; label: string }[] = [
+  { id: "dashboard", label: "Pipeline" }, { id: "design-studio", label: "Projects" }, { id: "workbook", label: "Workbook" }, { id: "install-tracker", label: "Install Tracker" }, { id: "device-store", label: "Device Store" },
+];
+
 function Breadcrumb({ page, projectName }: { page: Page; projectName?: string }) {
   const crumbs: { label: string; page?: Page }[] = [];
   if (page === "dashboard") crumbs.push({ label: "Pipeline", page: "dashboard" });
@@ -309,19 +300,9 @@ function Breadcrumb({ page, projectName }: { page: Page; projectName?: string })
   else if (page === "device-store") crumbs.push({ label: "Device Store", page: "device-store" });
   else if (page === "design-canvas") crumbs.push({ label: "Projects", page: "design-studio" }, { label: "Design Canvas" });
   else if (page === "project-detail") crumbs.push({ label: "Projects", page: "design-studio" }, { label: projectName || "Project Detail" });
-
   return (
     <div className="flex items-center gap-1.5 text-[11px]">
-      {crumbs.map((crumb, i) => (
-        <span key={i} className="flex items-center gap-1.5">
-          {i > 0 && <ChevronRight className="w-3 h-3 text-[#484f58]" />}
-          {crumb.page ? (
-            <button className="text-[#8b949e] hover:text-white font-semibold transition-colors cursor-pointer">{crumb.label}</button>
-          ) : (
-            <span className="text-white font-semibold">{crumb.label}</span>
-          )}
-        </span>
-      ))}
+      {crumbs.map((crumb, i) => (<span key={i} className="flex items-center gap-1.5">{i > 0 && <ChevronRight className="w-3 h-3 text-[#484f58]" />}{crumb.page ? <button className="text-[#8b949e] hover:text-white font-semibold transition-colors cursor-pointer">{crumb.label}</button> : <span className="text-white font-semibold">{crumb.label}</span>}</span>))}
     </div>
   );
 }
@@ -329,28 +310,18 @@ function Breadcrumb({ page, projectName }: { page: Page; projectName?: string })
 function AppTopbar({ page, navigate, breadcrumb }: { page: Page; navigate: (p: Page) => void; breadcrumb?: { label: string; parent: Page } }) {
   const activeTab = NAV_ITEMS.find((n) => n.id === page)?.id ?? null;
   return (
-    <header className="fixed top-0 inset-x-0 z-50 h-14 flex items-center gap-3 md:gap-5 px-3 md:px-5"
-      style={{ background: "rgba(7,12,26,0.65)", backdropFilter: "blur(40px) saturate(180%)", borderBottom: "1px solid rgba(255,255,255,0.08)", boxShadow: "0 1px 0 rgba(255,255,255,0.04), 0 8px 32px rgba(0,0,0,0.5)" }}>
-      <button onClick={() => navigate("dashboard")} className="flex items-center gap-2.5 flex-shrink-0 cursor-pointer active:scale-[0.97] transition-transform min-h-[44px]">
-        <img src={logoImg} alt="E-Tech Systems" className="h-8 md:h-10 object-contain" style={{ filter: "brightness(1.1)", marginTop: "-2px", marginBottom: "-2px" }} />
-      </button>
+    <header className="fixed top-0 inset-x-0 z-50 h-14 flex items-center gap-3 md:gap-5 px-3 md:px-5" style={{ background: "rgba(7,12,26,0.65)", backdropFilter: "blur(40px) saturate(180%)", borderBottom: "1px solid rgba(255,255,255,0.08)", boxShadow: "0 1px 0 rgba(255,255,255,0.04), 0 8px 32px rgba(0,0,0,0.5)" }}>
+      <button onClick={() => navigate("dashboard")} className="flex items-center gap-2.5 flex-shrink-0 cursor-pointer active:scale-[0.97] transition-transform min-h-[44px]"><img src={logoImg} alt="E-Tech Systems" className="h-8 md:h-10 object-contain" style={{ filter: "brightness(1.1)", marginTop: "-2px", marginBottom: "-2px" }} /></button>
       <div className="w-px h-4 flex-shrink-0 hidden md:block" style={{ background: "rgba(255,255,255,0.12)" }} />
-      {breadcrumb ? (
-        <div className="flex items-center gap-2"><button onClick={() => navigate(breadcrumb.parent)} className="flex items-center gap-1.5 text-[#8b949e] hover:text-white text-[12px] font-semibold transition-colors cursor-pointer active:scale-[0.97] transition-transform"><ArrowLeft className="w-3.5 h-3.5" />{breadcrumb.label}</button><ChevronRight className="w-3.5 h-3.5 text-[#484f58]" /><span className="text-white text-[12px] font-semibold">Project Detail</span></div>
-      ) : (
-        <nav className="flex items-center gap-0.5 overflow-x-auto" style={{ scrollbarWidth: "none" }}>
-          {NAV_ITEMS.map((item) => (<button key={item.id} onClick={() => navigate(item.id)} className={clsx("h-8 px-2.5 md:px-3.5 rounded-xl text-[11px] md:text-[13px] font-semibold transition-all duration-150 whitespace-nowrap cursor-pointer active:scale-[0.97] transition-transform", activeTab === item.id ? "text-white" : "text-[#8b949e] hover:text-white")} style={activeTab === item.id ? { background: "rgba(255,255,255,0.10)", border: "1px solid rgba(255,255,255,0.13)", boxShadow: "inset 0 1px 0 rgba(255,255,255,0.08)" } : undefined}>{item.label}</button>))}
-        </nav>
+      {breadcrumb ? (<div className="flex items-center gap-2"><button onClick={() => navigate(breadcrumb.parent)} className="flex items-center gap-1.5 text-[#8b949e] hover:text-white text-[12px] font-semibold transition-colors cursor-pointer active:scale-[0.97] transition-transform"><ArrowLeft className="w-3.5 h-3.5" />{breadcrumb.label}</button><ChevronRight className="w-3.5 h-3.5 text-[#484f58]" /><span className="text-white text-[12px] font-semibold">Project Detail</span></div>) : (
+        <nav className="flex items-center gap-0.5 overflow-x-auto" style={{ scrollbarWidth: "none" }}>{NAV_ITEMS.map((item) => (<button key={item.id} onClick={() => navigate(item.id)} className={clsx("h-8 px-2.5 md:px-3.5 rounded-xl text-[11px] md:text-[13px] font-semibold transition-all duration-150 whitespace-nowrap cursor-pointer active:scale-[0.97] transition-transform", activeTab === item.id ? "text-white" : "text-[#8b949e] hover:text-white")} style={activeTab === item.id ? { background: "rgba(255,255,255,0.10)", border: "1px solid rgba(255,255,255,0.13)", boxShadow: "inset 0 1px 0 rgba(255,255,255,0.08)" } : undefined}>{item.label}</button>))}</nav>
       )}
       <div className="flex-1" />
-      <div className="flex items-center gap-1 md:gap-1.5">
-        <div className="hidden md:block"><CurrencyToggle /></div>
-        <NotificationBell />
-        <UserMenu />
-      </div>
+      <div className="flex items-center gap-1 md:gap-1.5"><div className="hidden md:block"><CurrencyToggle /></div><NotificationBell /><UserMenu /></div>
     </header>
   );
 }
+
 function KanbanCard({ project, column, dragging, onDragStart, onDragEnd, onClick, onDelete }: { project: Project; column: Column | ProjectColumn; dragging: string | null; onDragStart: (e: React.DragEvent<HTMLDivElement>, id: string) => void; onDragEnd: () => void; onClick: () => void; onDelete: (id: string) => void; }) {
   const { fmt } = useCurrency(); const isDragging = dragging === project.id; const [menuOpen, setMenuOpen] = useState(false); const [confirmDelete, setConfirmDelete] = useState(false);
   const ls = project.leadSource ? LEAD_SOURCE_STYLES[project.leadSource] : null;
@@ -359,53 +330,25 @@ function KanbanCard({ project, column, dragging, onDragStart, onDragEnd, onClick
   const [showNotes, setShowNotes] = useState(false);
   const allCollaborators = project.collaborators || [];
   const hasCollaborators = allCollaborators.length > 0;
-
   return (
-    <>
-      {confirmDelete && <ConfirmDialog open={confirmDelete} title="Delete Project" message={`Are you sure you want to delete "${project.name}"? This action cannot be undone.`} onConfirm={() => { onDelete(project.id); setConfirmDelete(false); toast.success("Project deleted"); }} onCancel={() => setConfirmDelete(false)} />}
-      <div draggable onDragStart={(e) => { e.stopPropagation(); onDragStart(e, project.id); }} onDragEnd={onDragEnd} onClick={onClick} className={clsx("group relative rounded-2xl cursor-pointer select-none transition-all duration-200", isDragging ? "opacity-25 scale-[0.96]" : "md:hover:-translate-y-1")} style={{ background: "rgba(255,255,255,0.055)", backdropFilter: "blur(24px)", border: isDragging ? "1px solid rgba(255,255,255,0.05)" : "1px solid rgba(255,255,255,0.11)", borderLeft: `3px solid ${column.color}`, boxShadow: isDragging ? "none" : "0 2px 16px rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,255,255,0.09)" }}>
-        <div className="p-3 md:p-4 md:pl-5">
-          <div className="flex items-start justify-between gap-2 mb-2">
-            <div className="flex items-center gap-1.5 flex-1 min-w-0">
-              {isOverdue && <span className="w-2 h-2 rounded-full bg-rose-500 flex-shrink-0" title="Overdue" />}
-              {isDueSoon && !isOverdue && <span className="w-2 h-2 rounded-full bg-amber-500 flex-shrink-0" title="Due soon" />}
-              <h3 className="text-white text-[12px] md:text-[13px] font-semibold leading-snug truncate">{project.name}</h3>
-            </div>
-            <div className="relative flex-shrink-0"><button onClick={(e) => { e.stopPropagation(); setMenuOpen(!menuOpen); }} className="opacity-0 group-hover:opacity-100 transition-opacity w-8 h-8 rounded-lg hover:bg-white/10 flex items-center justify-center mt-0.5 cursor-pointer active:scale-[0.97] transition-transform min-w-[44px] min-h-[44px] md:min-w-0 md:min-h-0"><MoreHorizontal className="w-3.5 h-3.5 text-[#8b949e]" /></button>
-              {menuOpen && <><div className="fixed inset-0 z-10" onClick={(e) => { e.stopPropagation(); setMenuOpen(false); }} /><div className="absolute right-0 top-7 z-20 w-40 rounded-xl overflow-hidden py-1" style={{ background: "rgba(7,12,26,0.97)", border: "1px solid rgba(255,255,255,0.12)", boxShadow: "0 8px 32px rgba(0,0,0,0.8)", backdropFilter: "blur(20px)" }}><button onClick={(e) => { e.stopPropagation(); setConfirmDelete(true); setMenuOpen(false); }} className="w-full flex items-center gap-2.5 px-3 py-2.5 text-rose-400 text-[12px] font-semibold hover:bg-rose-500/10 transition-colors text-left cursor-pointer active:scale-[0.97] transition-transform min-h-[44px]"><Trash2 className="w-3.5 h-3.5" /> Delete</button></div></>}
-            </div>
-          </div>
-          <div className="flex items-center gap-1.5 mb-1"><Building2 className="w-3 h-3 text-[#8b949e] flex-shrink-0" /><span className="text-[#8b949e] text-[10px] md:text-[11px] font-semibold truncate">{project.client}</span></div>
-          <div className="flex items-center flex-wrap gap-1.5 mb-2">
-            {ls && <span className="text-[9px] font-bold px-1.5 py-0.5 rounded-full" style={{ background: ls.bg, color: ls.text }}>{project.leadSource}</span>}
-            <span className={clsx("text-[9px] md:text-[10px] font-bold px-1.5 py-0.5 rounded-full uppercase tracking-wide", project.risk === "high" ? "bg-rose-500/20 text-rose-400" : project.risk === "medium" ? "bg-amber-500/20 text-amber-400" : "bg-emerald-500/20 text-emerald-400")}>{project.risk}</span>
-          </div>
-          <div className="flex items-center gap-2 mb-2.5"><span className="text-white font-bold text-[14px] md:text-[15px] tracking-tight">{fmt(project.value, true)}</span></div>
-          <div className="flex items-center gap-3 mb-3"><span className="flex items-center gap-1 text-[#484f58] text-[10px] md:text-[11px]"><Camera className="w-3 h-3" />{project.cameras} cams</span><span className="flex items-center gap-1 text-[#484f58] text-[10px] md:text-[11px]"><Fingerprint className="w-3 h-3" />{project.devices} devices</span></div>
-          {project.notes && (
-            <div className="relative mb-2">
-              <button onClick={(e) => { e.stopPropagation(); setShowNotes(!showNotes); }} className="text-[10px] text-[#484f58] hover:text-[#8b949e] font-semibold cursor-pointer flex items-center gap-1"><StickyNote className="w-3 h-3" /> Notes</button>
-              {showNotes && <div className="absolute top-full left-0 mt-1 w-48 rounded-xl p-2 z-30 text-[10px] text-[#8b949e]" style={{ background: "rgba(7,12,26,0.97)", border: "1px solid rgba(255,255,255,0.10)", boxShadow: "0 4px 16px rgba(0,0,0,0.6)" }}>{project.notes}</div>}
-            </div>
-          )}
-          <div className="flex items-center justify-between pt-2.5" style={{ borderTop: "1px solid rgba(255,255,255,0.06)" }}>
-            <div className="flex items-center gap-1">
-              <div className="w-5 h-5 rounded-full flex items-center justify-center text-[9px] font-bold text-white flex-shrink-0" style={{ background: project.assignee.color, boxShadow: `0 0 8px ${project.assignee.color}60` }}>{project.assignee.initials}</div>
-              <span className="text-[#8b949e] text-[10px] md:text-[11px] font-medium truncate max-w-[60px]">{project.assignee.name}</span>
-              {hasCollaborators && (
-                <div className="flex items-center -space-x-1.5 ml-0.5">
-                  {allCollaborators.slice(0, 3).map((c, i) => (
-                    <div key={i} className="w-4 h-4 rounded-full flex items-center justify-center text-[7px] font-bold text-white ring-1 ring-black/30" style={{ background: c.color }} title={c.name}>{c.initials}</div>
-                  ))}
-                  {allCollaborators.length > 3 && <span className="text-[#484f58] text-[8px] ml-1">+{allCollaborators.length - 3}</span>}
-                </div>
-              )}
-            </div>
-            <span className={clsx("flex items-center gap-1 text-[10px] md:text-[11px]", isOverdue ? "text-rose-400" : isDueSoon ? "text-amber-400" : "text-[#484f58]")}><Calendar className="w-3 h-3" />{fmtDate(project.dueDate)}</span>
-          </div>
+    <>{confirmDelete && <ConfirmDialog open={confirmDelete} title="Delete Project" message={`Are you sure you want to delete "${project.name}"? This action cannot be undone.`} onConfirm={() => { onDelete(project.id); setConfirmDelete(false); toast.success("Project deleted"); }} onCancel={() => setConfirmDelete(false)} />}
+    <div draggable onDragStart={(e) => { e.stopPropagation(); onDragStart(e, project.id); }} onDragEnd={onDragEnd} onClick={onClick} className={clsx("group relative rounded-2xl cursor-pointer select-none transition-all duration-200", isDragging ? "opacity-25 scale-[0.96]" : "md:hover:-translate-y-1")} style={{ background: "rgba(255,255,255,0.055)", backdropFilter: "blur(24px)", border: isDragging ? "1px solid rgba(255,255,255,0.05)" : "1px solid rgba(255,255,255,0.11)", borderLeft: `3px solid ${column.color}`, boxShadow: isDragging ? "none" : "0 2px 16px rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,255,255,0.09)" }}>
+      <div className="p-3 md:p-4 md:pl-5">
+        <div className="flex items-start justify-between gap-2 mb-2"><div className="flex items-center gap-1.5 flex-1 min-w-0">{isOverdue && <span className="w-2 h-2 rounded-full bg-rose-500 flex-shrink-0" title="Overdue" />}{isDueSoon && !isOverdue && <span className="w-2 h-2 rounded-full bg-amber-500 flex-shrink-0" title="Due soon" />}<h3 className="text-white text-[12px] md:text-[13px] font-semibold leading-snug truncate">{project.name}</h3></div>
+        <div className="relative flex-shrink-0"><button onClick={(e) => { e.stopPropagation(); setMenuOpen(!menuOpen); }} className="opacity-0 group-hover:opacity-100 transition-opacity w-8 h-8 rounded-lg hover:bg-white/10 flex items-center justify-center mt-0.5 cursor-pointer active:scale-[0.97] transition-transform min-w-[44px] min-h-[44px] md:min-w-0 md:min-h-0"><MoreHorizontal className="w-3.5 h-3.5 text-[#8b949e]" /></button>
+        {menuOpen && <><div className="fixed inset-0 z-10" onClick={(e) => { e.stopPropagation(); setMenuOpen(false); }} /><div className="absolute right-0 top-7 z-20 w-40 rounded-xl overflow-hidden py-1" style={{ background: "rgba(7,12,26,0.97)", border: "1px solid rgba(255,255,255,0.12)", boxShadow: "0 8px 32px rgba(0,0,0,0.8)", backdropFilter: "blur(20px)" }}><button onClick={(e) => { e.stopPropagation(); setConfirmDelete(true); setMenuOpen(false); }} className="w-full flex items-center gap-2.5 px-3 py-2.5 text-rose-400 text-[12px] font-semibold hover:bg-rose-500/10 transition-colors text-left cursor-pointer active:scale-[0.97] transition-transform min-h-[44px]"><Trash2 className="w-3.5 h-3.5" /> Delete</button></div></>}</div></div>
+        <div className="flex items-center gap-1.5 mb-1"><Building2 className="w-3 h-3 text-[#8b949e] flex-shrink-0" /><span className="text-[#8b949e] text-[10px] md:text-[11px] font-semibold truncate">{project.client}</span></div>
+        <div className="flex items-center flex-wrap gap-1.5 mb-2">{ls && <span className="text-[9px] font-bold px-1.5 py-0.5 rounded-full" style={{ background: ls.bg, color: ls.text }}>{project.leadSource}</span>}<span className={clsx("text-[9px] md:text-[10px] font-bold px-1.5 py-0.5 rounded-full uppercase tracking-wide", project.risk === "high" ? "bg-rose-500/20 text-rose-400" : project.risk === "medium" ? "bg-amber-500/20 text-amber-400" : "bg-emerald-500/20 text-emerald-400")}>{project.risk}</span></div>
+        <div className="flex items-center gap-2 mb-2.5"><span className="text-white font-bold text-[14px] md:text-[15px] tracking-tight">{fmt(project.value, true)}</span></div>
+        <div className="flex items-center gap-3 mb-3"><span className="flex items-center gap-1 text-[#484f58] text-[10px] md:text-[11px]"><Camera className="w-3 h-3" />{project.cameras} cams</span><span className="flex items-center gap-1 text-[#484f58] text-[10px] md:text-[11px]"><Fingerprint className="w-3 h-3" />{project.devices} devices</span></div>
+        {project.notes && (<div className="relative mb-2"><button onClick={(e) => { e.stopPropagation(); setShowNotes(!showNotes); }} className="text-[10px] text-[#484f58] hover:text-[#8b949e] font-semibold cursor-pointer flex items-center gap-1"><StickyNote className="w-3 h-3" /> Notes</button>{showNotes && <div className="absolute top-full left-0 mt-1 w-48 rounded-xl p-2 z-30 text-[10px] text-[#8b949e]" style={{ background: "rgba(7,12,26,0.97)", border: "1px solid rgba(255,255,255,0.10)", boxShadow: "0 4px 16px rgba(0,0,0,0.6)" }}>{project.notes}</div>}</div>)}
+        <div className="flex items-center justify-between pt-2.5" style={{ borderTop: "1px solid rgba(255,255,255,0.06)" }}>
+          <div className="flex items-center gap-1"><div className="w-5 h-5 rounded-full flex items-center justify-center text-[9px] font-bold text-white flex-shrink-0" style={{ background: project.assignee.color, boxShadow: `0 0 8px ${project.assignee.color}60` }}>{project.assignee.initials}</div><span className="text-[#8b949e] text-[10px] md:text-[11px] font-medium truncate max-w-[60px]">{project.assignee.name}</span>
+          {hasCollaborators && (<div className="flex items-center -space-x-1.5 ml-0.5">{allCollaborators.slice(0, 3).map((c, i) => (<div key={i} className="w-4 h-4 rounded-full flex items-center justify-center text-[7px] font-bold text-white ring-1 ring-black/30" style={{ background: c.color }} title={c.name}>{c.initials}</div>))}{allCollaborators.length > 3 && <span className="text-[#484f58] text-[8px] ml-1">+{allCollaborators.length - 3}</span>}</div>)}</div>
+          <span className={clsx("flex items-center gap-1 text-[10px] md:text-[11px]", isOverdue ? "text-rose-400" : isDueSoon ? "text-amber-400" : "text-[#484f58]")}><Calendar className="w-3 h-3" />{fmtDate(project.dueDate)}</span>
         </div>
       </div>
-    </>
+    </div></>
   );
 }
 
@@ -414,10 +357,7 @@ function KanbanColumn({ column, projects, totalValue, dragging, isOver, onDragSt
   return (
     <div onDragOver={onDragOver} onDragLeave={onDragLeave} onDrop={onDrop} className="w-[260px] md:w-[272px] flex-shrink-0 flex flex-col rounded-2xl transition-all duration-200" style={isOver ? { background: "rgba(59,130,246,0.08)", backdropFilter: "blur(24px)", border: "1px solid rgba(59,130,246,0.35)" } : { background: "rgba(255,255,255,0.032)", backdropFilter: "blur(24px)", border: "1px solid rgba(255,255,255,0.07)", boxShadow: "0 2px 20px rgba(0,0,0,0.3)" }}>
       <div className="px-3.5 pt-3.5 pb-3 flex-shrink-0" style={{ borderBottom: "1px solid rgba(255,255,255,0.06)" }}>
-        <div className="flex items-center justify-between mb-1">
-          <div className="flex items-center gap-2 min-w-0"><div className="w-2 h-2 rounded-full flex-shrink-0" style={{ background: column.color, boxShadow: `0 0 10px ${column.color}88` }} /><span className="text-white text-[11px] md:text-[12px] font-bold truncate leading-tight">{column.label}</span></div>
-          <span className="text-[#8b949e] text-[10px] md:text-[11px] px-1.5 py-0.5 rounded-full font-bold" style={{ background: "rgba(255,255,255,0.08)" }}>{projects.length}</span>
-        </div>
+        <div className="flex items-center justify-between mb-1"><div className="flex items-center gap-2 min-w-0"><div className="w-2 h-2 rounded-full flex-shrink-0" style={{ background: column.color, boxShadow: `0 0 10px ${column.color}88` }} /><span className="text-white text-[11px] md:text-[12px] font-bold truncate leading-tight">{column.label}</span></div><span className="text-[#8b949e] text-[10px] md:text-[11px] px-1.5 py-0.5 rounded-full font-bold" style={{ background: "rgba(255,255,255,0.08)" }}>{projects.length}</span></div>
         <p className="text-[#484f58] text-[10px] md:text-[11px] font-semibold ml-4">{fmt(totalValue, true)}</p>
       </div>
       <div className="flex-1 p-2 space-y-2 overflow-y-auto" style={{ scrollbarWidth: "none", scrollBehavior: "smooth", WebkitOverflowScrolling: "touch", minHeight: "120px", maxHeight: "calc(100vh - 250px)" }}>
@@ -437,25 +377,19 @@ function Dashboard({ navigate }: { navigate: (p: Page) => void }) {
   const [progressAnim, setProgressAnim] = useState<{ id: string; stage: string } | null>(null);
   const [pipelineType, setPipelineType] = useState<PipelineType>(() => (localStorage.getItem("pipeline_type") as PipelineType) || "sales");
   const [confirmDelete, setConfirmDelete] = useState<string | null>(null);
-
   useEffect(() => { localStorage.setItem("pipeline_type", pipelineType); }, [pipelineType]);
-
   const fetchProjects = useCallback(async () => { setLoading(true); try { const data = await API.projects.list(); setProjects(data); } catch { setProjects([]); } finally { setLoading(false); } }, []);
   useEffect(() => { fetchProjects(); }, [fetchProjects]);
-
   const salesProjects = projects.filter(p => !p.pipelineType || p.pipelineType === "sales");
   const projectProjects = projects.filter(p => p.pipelineType === "project");
   const currentProjects = pipelineType === "sales" ? salesProjects : projectProjects;
-
   const active = salesProjects.filter((p) => !["win", "lose"].includes(p.stage));
   const pipeline = active.reduce((s, p) => s + p.value, 0);
   const won = salesProjects.filter((p) => p.stage === "win"); const closed = salesProjects.filter((p) => ["win", "lose"].includes(p.stage));
   const winRate = closed.length ? Math.round((won.length / closed.length) * 100) : 0;
   const negotiation = salesProjects.filter((p) => p.stage === "negotiation"); const negoValue = negotiation.reduce((s, p) => s + p.value, 0);
   const avgDeal = active.length ? Math.round(pipeline / active.length) : 0;
-
   const logAudit = async (projectId: string, event: string, details: string) => { try { await API.audit.log(projectId, event, details); } catch {} };
-
   const handleDragStart = (e: React.DragEvent<HTMLDivElement>, id: string) => { setDragging(id); e.dataTransfer.effectAllowed = "move"; };
   const handleDragEnd = () => { setDragging(null); setDragOverCol(null); };
   const handleDrop = async (colId: string) => {
@@ -464,34 +398,18 @@ function Dashboard({ navigate }: { navigate: (p: Page) => void }) {
       if (project) {
         const oldStage = pipelineType === "sales" ? project.stage : project.projectStage;
         if (oldStage !== colId && colId !== "lose") { setProgressAnim({ id: dragging, stage: colId }); setTimeout(() => setProgressAnim(null), 1500); }
-        if (pipelineType === "sales") {
-          setProjects((prev) => prev.map((p) => p.id === dragging ? { ...p, stage: colId as Stage, stageHistory: [...(p.stageHistory || []), { stage: colId as Stage, date: new Date().toISOString().slice(0, 10) }] } : p));
-          try { await API.projects.update(dragging, { stage: colId as Stage }); await logAudit(dragging, "Stage Change", `Moved from ${oldStage} to ${colId}`); } catch {}
-        } else {
-          setProjects((prev) => prev.map((p) => p.id === dragging ? { ...p, projectStage: colId as any as ProjectStage } : p));
-          try { await API.projects.update(dragging, { projectStage: colId as any }); await logAudit(dragging, "Project Stage Change", `Moved from ${oldStage} to ${colId}`); } catch {}
-        }
+        if (pipelineType === "sales") { setProjects((prev) => prev.map((p) => p.id === dragging ? { ...p, stage: colId as Stage, stageHistory: [...(p.stageHistory || []), { stage: colId as Stage, date: new Date().toISOString().slice(0, 10) }] } : p)); try { await API.projects.update(dragging, { stage: colId as Stage }); await logAudit(dragging, "Stage Change", `Moved from ${oldStage} to ${colId}`); } catch {} }
+        else { setProjects((prev) => prev.map((p) => p.id === dragging ? { ...p, projectStage: colId as ProjectStage } : p)); try { await API.projects.update(dragging, { projectStage: colId }); await logAudit(dragging, "Project Stage Change", `Moved from ${oldStage} to ${colId}`); } catch {} }
       }
     }
     setDragging(null); setDragOverCol(null);
   };
   const handleDelete = async (id: string) => { setProjects((prev) => prev.filter((p) => p.id !== id)); try { await API.projects.delete(id); toast.success("Project deleted"); } catch { fetchProjects(); } };
   const handleUpdate = async (updated: Project) => { setProjects((prev) => prev.map((p) => p.id === updated.id ? updated : p)); setSelectedDeal(updated); try { await API.projects.update(updated.id, updated); await logAudit(updated.id, "Project Edited", "Project details updated"); toast.success("Updated"); } catch { fetchProjects(); } };
-
   const selectedColumn = selectedDeal ? [...COLUMNS, ...PROJECT_COLUMNS].find((c) => (pipelineType === "sales" ? c.id === selectedDeal.stage : c.id === selectedDeal.projectStage))! : null;
   const STAT_COLORS = ["#3b82f6", "#10b981", "#f97316", "#8b5cf6"];
-
-  if (loading) return (
-    <div className="px-3 md:px-5 py-4 md:py-6 space-y-4">
-      <Skeleton className="h-10 w-48" />
-      <div className="flex gap-2 mb-4"><Skeleton className="h-8 w-32 rounded-full" /><Skeleton className="h-8 w-32 rounded-full" /></div>
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-2 md:gap-3">{[1,2,3,4].map(i => <Skeleton key={i} className="h-24 rounded-2xl" />)}</div>
-      <div className="flex gap-2 md:gap-3 overflow-hidden">{[1,2,3,4,5,6,7].map(i => <Skeleton key={i} className="w-[272px] h-[400px] rounded-2xl flex-shrink-0" />)}</div>
-    </div>
-  );
-
+  if (loading) return (<div className="px-3 md:px-5 py-4 md:py-6 space-y-4"><Skeleton className="h-10 w-48" /><div className="flex gap-2 mb-4"><Skeleton className="h-8 w-32 rounded-full" /><Skeleton className="h-8 w-32 rounded-full" /></div><div className="grid grid-cols-2 md:grid-cols-4 gap-2 md:gap-3">{[1,2,3,4].map(i => <Skeleton key={i} className="h-24 rounded-2xl" />)}</div><div className="flex gap-2 md:gap-3 overflow-hidden">{[1,2,3,4,5,6,7].map(i => <Skeleton key={i} className="w-[272px] h-[400px] rounded-2xl flex-shrink-0" />)}</div></div>);
   const columns = pipelineType === "sales" ? COLUMNS : PROJECT_COLUMNS;
-
   return (
     <div>
       {selectedDeal && selectedColumn && <DealModal project={selectedDeal} column={selectedColumn} onClose={() => setSelectedDeal(null)} navigate={navigate} onUpdate={handleUpdate} onDelete={(id) => { handleDelete(id); setSelectedDeal(null); }} pipelineType={pipelineType} />}
@@ -500,12 +418,8 @@ function Dashboard({ navigate }: { navigate: (p: Page) => void }) {
       <div className="px-3 md:px-5 pt-4 md:pt-6 pb-4 md:pb-5 flex-shrink-0" style={{ borderBottom: "1px solid rgba(255,255,255,0.06)" }}>
         <div className="flex items-center justify-between mb-4 md:mb-5">
           <div>
-            <div className="flex items-center gap-3 mb-1">
-              <h1 className="text-white font-bold text-lg md:text-xl tracking-tight">{pipelineType === "sales" ? "Sales Pipeline" : "Project Pipeline"}</h1>
-              <div className="flex items-center h-7 rounded-xl overflow-hidden" style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.10)" }}>
-                <button onClick={() => setPipelineType("sales")} className={clsx("h-full px-3 text-[10px] font-bold transition-all cursor-pointer active:scale-[0.97] transition-transform", pipelineType === "sales" ? "text-white" : "text-[#484f58]")} style={pipelineType === "sales" ? { background: "#3b82f6" } : undefined}>Sales</button>
-                <button onClick={() => setPipelineType("project")} className={clsx("h-full px-3 text-[10px] font-bold transition-all cursor-pointer active:scale-[0.97] transition-transform", pipelineType === "project" ? "text-white" : "text-[#484f58]")} style={pipelineType === "project" ? { background: "#8b5cf6" } : undefined}>Projects</button>
-              </div>
+            <div className="flex items-center gap-3 mb-1"><h1 className="text-white font-bold text-lg md:text-xl tracking-tight">{pipelineType === "sales" ? "Sales Pipeline" : "Project Pipeline"}</h1>
+              <div className="flex items-center h-7 rounded-xl overflow-hidden" style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.10)" }}><button onClick={() => setPipelineType("sales")} className={clsx("h-full px-3 text-[10px] font-bold transition-all cursor-pointer active:scale-[0.97] transition-transform", pipelineType === "sales" ? "text-white" : "text-[#484f58]")} style={pipelineType === "sales" ? { background: "#3b82f6" } : undefined}>Sales</button><button onClick={() => setPipelineType("project")} className={clsx("h-full px-3 text-[10px] font-bold transition-all cursor-pointer active:scale-[0.97] transition-transform", pipelineType === "project" ? "text-white" : "text-[#484f58]")} style={pipelineType === "project" ? { background: "#8b5cf6" } : undefined}>Projects</button></div>
             </div>
             <p className="text-[#8b949e] text-[11px] md:text-[13px] mt-0.5">{currentProjects.length} projects</p>
           </div>
@@ -522,11 +436,7 @@ function Dashboard({ navigate }: { navigate: (p: Page) => void }) {
       {currentProjects.length === 0 ? <EmptyState icon={Layers} title="No projects yet" description={`Create your first ${pipelineType === "sales" ? "sales" : "project"} pipeline item.`} action={{ label: "New Project", onClick: () => setShowNewProject(true) }} /> : (
         <div className="overflow-x-auto px-3 md:px-5 py-4 md:py-5" style={{ scrollbarWidth: "thin", scrollbarColor: "rgba(255,255,255,0.08) transparent", scrollBehavior: "smooth", WebkitOverflowScrolling: "touch" }}>
           <div className="flex gap-2 md:gap-3 min-w-max pb-3">
-            {columns.map((col) => {
-              const colProjects = currentProjects.filter((p) => pipelineType === "sales" ? p.stage === col.id : p.projectStage === col.id);
-              const totalValue = colProjects.reduce((s, p) => s + p.value, 0);
-              return <KanbanColumn key={col.id} column={col} projects={colProjects} totalValue={totalValue} dragging={dragging} isOver={dragOverCol === col.id} onDragStart={handleDragStart} onDragEnd={handleDragEnd} onDragOver={(e) => { e.preventDefault(); setDragOverCol(col.id); }} onDragLeave={() => setDragOverCol(null)} onDrop={() => handleDrop(col.id)} onCardClick={(p) => setSelectedDeal(p)} onDelete={handleDelete} />;
-            })}
+            {columns.map((col) => { const colProjects = currentProjects.filter((p) => pipelineType === "sales" ? p.stage === col.id : p.projectStage === col.id); const totalValue = colProjects.reduce((s, p) => s + p.value, 0); return <KanbanColumn key={col.id} column={col} projects={colProjects} totalValue={totalValue} dragging={dragging} isOver={dragOverCol === col.id} onDragStart={handleDragStart} onDragEnd={handleDragEnd} onDragOver={(e) => { e.preventDefault(); setDragOverCol(col.id); }} onDragLeave={() => setDragOverCol(null)} onDrop={() => handleDrop(col.id)} onCardClick={(p) => setSelectedDeal(p)} onDelete={handleDelete} />; })}
           </div>
         </div>
       )}
@@ -538,14 +448,10 @@ function NewProjectModal({ onClose, onAdd, pipelineType }: { onClose: () => void
   const [name, setName] = useState(""); const [client, setClient] = useState(""); const [location, setLocation] = useState(""); const [value, setValue] = useState(""); const [stage, setStage] = useState<Stage>("assessment-scheduled"); const [projectStage, setProjectStage] = useState<ProjectStage>("planning"); const [risk, setRisk] = useState<"low" | "medium" | "high">("low"); const [dueDate, setDueDate] = useState(""); const [summary, setSummary] = useState(""); const [leadSource, setLeadSource] = useState<LeadSource>("Inbound"); const [contactName, setContactName] = useState(""); const [contactTitle, setContactTitle] = useState(""); const [contactEmail, setContactEmail] = useState(""); const [contactPhone, setContactPhone] = useState(""); const [notes, setNotes] = useState(""); const [submitting, setSubmitting] = useState(false);
   const [collabSelect, setCollabSelect] = useState(""); const [collabRole, setCollabRole] = useState(""); const [collaborators, setCollaborators] = useState<{ name: string; initials: string; color: string; role: string }[]>([]);
   const canSubmit = name.trim() && client.trim();
-
   const addCollaborator = () => { if (!collabSelect) return; const member = TEAM.find(t => t.name === collabSelect); if (!member || collaborators.find(c => c.name === member.name)) return; setCollaborators((prev) => [...prev, { name: member.name, initials: member.initials, color: member.color, role: collabRole.trim() || "Team Member" }]); setCollabSelect(""); setCollabRole(""); };
-
   const handleSubmit = async (e: React.FormEvent) => { e.preventDefault(); if (!canSubmit || submitting) return; setSubmitting(true); const now = new Date().toISOString(); const newProject: Project = { id: crypto.randomUUID?.() || `p${Date.now()}`, name: name.trim(), client: client.trim(), location: location.trim() || "TBD", value: Math.round(parseFloat(value.replace(/[^0-9.]/g, "")) * (value.includes("M") ? 1_000_000 : value.includes("K") ? 1000 : 1)) || 0, cameras: 0, devices: 0, stage, risk, assignee: CURRENT_USER, dueDate: dueDate || new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10), summary: summary.trim() || undefined, notes: notes.trim() || undefined, leadSource, collaborators: collaborators.length > 0 ? collaborators : undefined, stageHistory: [{ stage, date: new Date().toISOString().slice(0, 10) }], contact: contactName.trim() ? { name: contactName.trim(), title: contactTitle.trim(), email: contactEmail.trim(), phone: contactPhone.trim() } : undefined, createdAt: now, updatedAt: now, pipelineType, projectStage: pipelineType === "project" ? (projectStage as ProjectStage) : undefined }; onAdd(newProject); setSubmitting(false); onClose(); };
-
   const inputCls = "w-full h-9 rounded-xl px-3 text-[#e6edf3] text-[12px] placeholder:text-[#484f58] focus:outline-none focus:ring-1 focus:ring-blue-500/50 transition-all";
   const labelCls = "block text-[#8b949e] text-[10px] font-bold uppercase tracking-widest mb-1.5";
-
   return (
     <div className="fixed inset-0 z-[200] flex items-center justify-center p-4" onClick={onClose}><div className="absolute inset-0" style={{ background: "rgba(0,0,0,0.65)", backdropFilter: "blur(8px)" }} /><motion.div initial={{ opacity: 0, scale: 0.94, y: 16 }} animate={{ opacity: 1, scale: 1, y: 0 }} transition={{ type: "spring", damping: 26, stiffness: 360 }} onClick={(e) => e.stopPropagation()} className="relative z-10 w-full max-w-[600px] max-h-[90vh] overflow-y-auto rounded-3xl" style={{ background: "rgba(7,12,26,0.92)", backdropFilter: "blur(52px) saturate(200%)", border: "1px solid rgba(255,255,255,0.13)", boxShadow: "0 32px 80px rgba(0,0,0,0.9)" }}>
       <div className="flex items-center justify-between px-5 md:px-7 pt-5 md:pt-7 pb-5" style={{ borderBottom: "1px solid rgba(255,255,255,0.07)" }}><div><h2 className="text-white text-[1rem] md:text-[1.1rem] font-bold">New {pipelineType === "sales" ? "Sales" : "Project"} Project</h2><p className="text-[#8b949e] text-[12px] mt-0.5">Account Owner: {CURRENT_USER.name}</p></div><button onClick={onClose} className="w-8 h-8 rounded-xl flex items-center justify-center hover:bg-white/[0.08] cursor-pointer active:scale-[0.97] transition-transform min-w-[44px] min-h-[44px]" style={{ border: "1px solid rgba(255,255,255,0.10)" }}><X className="w-4 h-4 text-[#8b949e]" /></button></div>
@@ -554,11 +460,7 @@ function NewProjectModal({ onClose, onAdd, pipelineType }: { onClose: () => void
         <div className="grid grid-cols-2 gap-4"><div><label className={labelCls}>Client *</label><input value={client} onChange={(e) => setClient(e.target.value)} placeholder="Company name" className={inputCls} style={G.input} /></div><div><label className={labelCls}>Location</label><input value={location} onChange={(e) => setLocation(e.target.value)} placeholder="Site address" className={inputCls} style={G.input} /></div></div>
         <div className="grid grid-cols-2 gap-4"><div><label className={labelCls}>Estimated Value</label><input value={value} onChange={(e) => setValue(e.target.value)} placeholder="e.g. 95000" className={inputCls} style={G.input} /></div><div><label className={labelCls}>Lead Source</label><div className="relative"><select value={leadSource} onChange={(e) => setLeadSource(e.target.value as LeadSource)} className={`${inputCls} appearance-none cursor-pointer pr-7`} style={G.input}>{(["Tender","Single Source","Inbound","Referral","Recurring Client","Outbound"] as LeadSource[]).map((ls) => (<option key={ls} value={ls} style={{ background: "#0d1117" }}>{ls}</option>))}</select><ChevronDown className="absolute right-2.5 top-1/2 -translate-y-1/2 w-3 h-3 text-[#484f58]" /></div></div></div>
         <div className="grid grid-cols-3 gap-4">
-          {pipelineType === "sales" ? (
-            <div><label className={labelCls}>Stage</label><div className="relative"><select value={stage} onChange={(e) => setStage(e.target.value as Stage)} className={`${inputCls} appearance-none cursor-pointer pr-7`} style={G.input}>{COLUMNS.map((c) => (<option key={c.id} value={c.id} style={{ background: "#0d1117" }}>{c.label}</option>))}</select><ChevronDown className="absolute right-2.5 top-1/2 -translate-y-1/2 w-3 h-3 text-[#484f58]" /></div></div>
-          ) : (
-            <div><label className={labelCls}>Stage</label><div className="relative"><select value={projectStage} onChange={(e) => setProjectStage(e.target.value as ProjectStage)} className={`${inputCls} appearance-none cursor-pointer pr-7`} style={G.input}>{PROJECT_COLUMNS.map((c) => (<option key={c.id} value={c.id} style={{ background: "#0d1117" }}>{c.label}</option>))}</select><ChevronDown className="absolute right-2.5 top-1/2 -translate-y-1/2 w-3 h-3 text-[#484f58]" /></div></div>
-          )}
+          {pipelineType === "sales" ? (<div><label className={labelCls}>Stage</label><div className="relative"><select value={stage} onChange={(e) => setStage(e.target.value as Stage)} className={`${inputCls} appearance-none cursor-pointer pr-7`} style={G.input}>{COLUMNS.map((c) => (<option key={c.id} value={c.id} style={{ background: "#0d1117" }}>{c.label}</option>))}</select><ChevronDown className="absolute right-2.5 top-1/2 -translate-y-1/2 w-3 h-3 text-[#484f58]" /></div></div>) : (<div><label className={labelCls}>Stage</label><div className="relative"><select value={projectStage} onChange={(e) => setProjectStage(e.target.value as ProjectStage)} className={`${inputCls} appearance-none cursor-pointer pr-7`} style={G.input}>{PROJECT_COLUMNS.map((c) => (<option key={c.id} value={c.id} style={{ background: "#0d1117" }}>{c.label}</option>))}</select><ChevronDown className="absolute right-2.5 top-1/2 -translate-y-1/2 w-3 h-3 text-[#484f58]" /></div></div>)}
           <div><label className={labelCls}>Risk</label><div className="relative"><select value={risk} onChange={(e) => setRisk(e.target.value as "low"|"medium"|"high")} className={`${inputCls} appearance-none cursor-pointer pr-7`} style={G.input}>{["low","medium","high"].map((r) => (<option key={r} value={r} style={{ background: "#0d1117" }}>{r.charAt(0).toUpperCase()+r.slice(1)}</option>))}</select><ChevronDown className="absolute right-2.5 top-1/2 -translate-y-1/2 w-3 h-3 text-[#484f58]" /></div></div>
           <div><label className={labelCls}>Due Date</label><input type="date" value={dueDate} onChange={(e) => setDueDate(e.target.value)} className={inputCls} style={{ ...G.input, colorScheme: "dark" }} /></div>
         </div>
@@ -570,158 +472,68 @@ function NewProjectModal({ onClose, onAdd, pipelineType }: { onClose: () => void
     </motion.div></div>
   );
 }
+
 function getDeduplicatedTeam(project: Project): { name: string; initials: string; color: string; roles: string[] }[] {
   const members: { name: string; initials: string; color: string; roles: string[] }[] = [];
   members.push({ name: project.assignee.name, initials: project.assignee.initials, color: project.assignee.color, roles: ["Account Owner"] });
-  if (project.collaborators) {
-    for (const c of project.collaborators) {
-      const existing = members.find(m => m.name === c.name);
-      if (existing) { existing.roles.push(c.role); }
-      else { members.push({ name: c.name, initials: c.initials, color: c.color, roles: [c.role] }); }
-    }
-  }
+  if (project.collaborators) { for (const c of project.collaborators) { const existing = members.find(m => m.name === c.name); if (existing) { existing.roles.push(c.role); } else { members.push({ name: c.name, initials: c.initials, color: c.color, roles: [c.role] }); } } }
   return members;
 }
 
 function TaskList({ projectId }: { projectId: string }) {
-  const [tasks, setTasks] = useState<Task[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [showNew, setShowNew] = useState(false);
-  const [newTitle, setNewTitle] = useState("");
-  const [newAssignee, setNewAssignee] = useState("");
-  const [newPriority, setNewPriority] = useState<TaskPriority>("medium");
-  const [newDueDate, setNewDueDate] = useState("");
-  const [statusFilter, setStatusFilter] = useState<TaskStatus | "all">("all");
-  const [confirmDelete, setConfirmDelete] = useState<string | null>(null);
-
+  const [tasks, setTasks] = useState<Task[]>([]); const [loading, setLoading] = useState(true); const [showNew, setShowNew] = useState(false);
+  const [newTitle, setNewTitle] = useState(""); const [newAssignee, setNewAssignee] = useState(""); const [newPriority, setNewPriority] = useState<TaskPriority>("medium"); const [newDueDate, setNewDueDate] = useState("");
+  const [statusFilter, setStatusFilter] = useState<TaskStatus | "all">("all"); const [confirmDelete, setConfirmDelete] = useState<string | null>(null);
   const fetchTasks = useCallback(async () => { setLoading(true); try { const data = await API.tasks.list(projectId); setTasks(data); } catch { setTasks([]); } finally { setLoading(false); } }, [projectId]);
   useEffect(() => { fetchTasks(); }, [fetchTasks]);
-
-  const handleCreate = async () => {
-    if (!newTitle.trim()) return;
-    try {
-      const created = await API.tasks.create(projectId, { title: newTitle.trim(), assignee: newAssignee || undefined, priority: newPriority, dueDate: newDueDate || undefined, status: "todo" });
-      setTasks(prev => [created, ...prev]);
-      setNewTitle(""); setNewAssignee(""); setNewPriority("medium"); setNewDueDate(""); setShowNew(false);
-      toast.success("Task added");
-    } catch { toast.error("Failed to create task"); }
-  };
-
-  const handleStatusChange = async (taskId: string, status: TaskStatus) => {
-    setTasks(prev => prev.map(t => t.id === taskId ? { ...t, status } : t));
-    try { await API.tasks.update(projectId, taskId, { status }); } catch { fetchTasks(); }
-  };
-
-  const handleDelete = async (taskId: string) => {
-    setTasks(prev => prev.filter(t => t.id !== taskId));
-    try { await API.tasks.delete(projectId, taskId); toast.success("Task deleted"); } catch { fetchTasks(); }
-    setConfirmDelete(null);
-  };
-
+  const handleCreate = async () => { if (!newTitle.trim()) return; try { const created = await API.tasks.create(projectId, { title: newTitle.trim(), assignee: newAssignee || undefined, priority: newPriority, dueDate: newDueDate || undefined, status: "todo" }); setTasks(prev => [created, ...prev]); setNewTitle(""); setNewAssignee(""); setNewPriority("medium"); setNewDueDate(""); setShowNew(false); toast.success("Task added"); } catch { toast.error("Failed to create task"); } };
+  const handleStatusChange = async (taskId: string, status: TaskStatus) => { setTasks(prev => prev.map(t => t.id === taskId ? { ...t, status } : t)); try { await API.tasks.update(projectId, taskId, { status }); } catch { fetchTasks(); } };
+  const handleDelete = async (taskId: string) => { setTasks(prev => prev.filter(t => t.id !== taskId)); try { await API.tasks.delete(projectId, taskId); toast.success("Task deleted"); } catch { fetchTasks(); } setConfirmDelete(null); };
   const filteredTasks = statusFilter === "all" ? tasks : tasks.filter(t => t.status === statusFilter);
   const statusColors: Record<TaskStatus, string> = { todo: "#484f58", "in-progress": "#3b82f6", review: "#f59e0b", complete: "#10b981" };
   const priorityColors: Record<TaskPriority, string> = { low: "#484f58", medium: "#f59e0b", high: "#f43f5e" };
-
   if (loading) return <div className="space-y-2">{[1,2,3].map(i => <Skeleton key={i} className="h-16 rounded-xl" />)}</div>;
-
   return (
     <div className="space-y-3">
       {confirmDelete && <ConfirmDialog open={true} title="Delete Task" message="Are you sure you want to delete this task?" onConfirm={() => handleDelete(confirmDelete)} onCancel={() => setConfirmDelete(null)} />}
       <div className="flex items-center justify-between gap-2 flex-wrap">
-        <div className="flex items-center gap-1">
-          {(["all","todo","in-progress","review","complete"] as const).map(s => (
-            <button key={s} onClick={() => setStatusFilter(s)} className={clsx("h-7 px-2.5 rounded-lg text-[10px] font-semibold transition-all cursor-pointer active:scale-[0.97] transition-transform", statusFilter === s ? "text-white" : "text-[#484f58]")} style={statusFilter === s ? { background: "rgba(255,255,255,0.10)" } : G.btn}>{s === "all" ? "All" : s === "in-progress" ? "In Progress" : s.charAt(0).toUpperCase() + s.slice(1)}</button>
-          ))}
-        </div>
+        <div className="flex items-center gap-1">{(["all","todo","in-progress","review","complete"] as const).map(s => (<button key={s} onClick={() => setStatusFilter(s)} className={clsx("h-7 px-2.5 rounded-lg text-[10px] font-semibold transition-all cursor-pointer active:scale-[0.97] transition-transform", statusFilter === s ? "text-white" : "text-[#484f58]")} style={statusFilter === s ? { background: "rgba(255,255,255,0.10)" } : G.btn}>{s === "all" ? "All" : s === "in-progress" ? "In Progress" : s.charAt(0).toUpperCase() + s.slice(1)}</button>))}</div>
         <button onClick={() => setShowNew(!showNew)} className="flex items-center gap-1 h-7 px-2.5 rounded-lg text-[10px] font-semibold text-white cursor-pointer active:scale-[0.97] transition-transform" style={{ background: "#3b82f6" }}><Plus className="w-3 h-3" /> Add Task</button>
       </div>
-      {showNew && (
-        <div className="rounded-xl p-3 space-y-2" style={G.card}>
-          <input value={newTitle} onChange={(e) => setNewTitle(e.target.value)} placeholder="Task title..." className="w-full h-8 rounded-lg px-2.5 text-[11px] text-[#e6edf3] focus:outline-none" style={G.input} />
-          <div className="flex gap-2 flex-wrap">
-            <select value={newAssignee} onChange={(e) => setNewAssignee(e.target.value)} className="h-7 rounded-lg px-2 text-[10px] bg-transparent text-[#e6edf3] cursor-pointer" style={G.input}><option value="">Assignee</option>{TEAM.map(t => <option key={t.name} value={t.name}>{t.name}</option>)}</select>
-            <select value={newPriority} onChange={(e) => setNewPriority(e.target.value as TaskPriority)} className="h-7 rounded-lg px-2 text-[10px] bg-transparent text-[#e6edf3] cursor-pointer" style={G.input}><option value="low">Low</option><option value="medium">Medium</option><option value="high">High</option></select>
-            <input type="date" value={newDueDate} onChange={(e) => setNewDueDate(e.target.value)} className="h-7 rounded-lg px-2 text-[10px] bg-transparent text-[#e6edf3]" style={{ ...G.input, colorScheme: "dark" }} />
-            <button onClick={handleCreate} className="h-7 px-3 rounded-lg text-[10px] font-bold text-white cursor-pointer active:scale-[0.97] transition-transform" style={{ background: "#10b981" }}>Save</button>
+      {showNew && (<div className="rounded-xl p-3 space-y-2" style={G.card}><input value={newTitle} onChange={(e) => setNewTitle(e.target.value)} placeholder="Task title..." className="w-full h-8 rounded-lg px-2.5 text-[11px] text-[#e6edf3] focus:outline-none" style={G.input} /><div className="flex gap-2 flex-wrap"><select value={newAssignee} onChange={(e) => setNewAssignee(e.target.value)} className="h-7 rounded-lg px-2 text-[10px] bg-transparent text-[#e6edf3] cursor-pointer" style={G.input}><option value="">Assignee</option>{TEAM.map(t => <option key={t.name} value={t.name}>{t.name}</option>)}</select><select value={newPriority} onChange={(e) => setNewPriority(e.target.value as TaskPriority)} className="h-7 rounded-lg px-2 text-[10px] bg-transparent text-[#e6edf3] cursor-pointer" style={G.input}><option value="low">Low</option><option value="medium">Medium</option><option value="high">High</option></select><input type="date" value={newDueDate} onChange={(e) => setNewDueDate(e.target.value)} className="h-7 rounded-lg px-2 text-[10px] bg-transparent text-[#e6edf3]" style={{ ...G.input, colorScheme: "dark" }} /><button onClick={handleCreate} className="h-7 px-3 rounded-lg text-[10px] font-bold text-white cursor-pointer active:scale-[0.97] transition-transform" style={{ background: "#10b981" }}>Save</button></div></div>)}
+      {filteredTasks.length === 0 ? (<div className="text-center py-6"><p className="text-[#484f58] text-[11px]">{statusFilter === "all" ? "No tasks yet" : `No ${statusFilter} tasks`}</p></div>) : (
+        <div className="space-y-1.5">{filteredTasks.map(task => { const assignee = TEAM.find(t => t.name === task.assignee); return (
+          <div key={task.id} className="flex items-center gap-3 px-3 py-2.5 rounded-xl group hover:bg-white/[0.02] transition-colors" style={G.subtle}>
+            <button onClick={() => handleStatusChange(task.id, task.status === "complete" ? "todo" : task.status === "todo" ? "in-progress" : task.status === "in-progress" ? "review" : "complete")} className={clsx("w-5 h-5 rounded-full border-2 flex items-center justify-center flex-shrink-0 transition-all cursor-pointer", task.status === "complete" ? "bg-emerald-500 border-emerald-500" : "border-[#484f58] hover:border-white/50")}>{task.status === "complete" && <CheckCircle2 className="w-3 h-3 text-white" />}</button>
+            <div className="flex-1 min-w-0"><p className={clsx("text-[11px] font-semibold", task.status === "complete" ? "text-[#484f58] line-through" : "text-white")}>{task.title}</p><div className="flex items-center gap-2 mt-0.5">{assignee && <span className="text-[#484f58] text-[9px] flex items-center gap-1"><div className="w-3 h-3 rounded-full flex items-center justify-center text-[6px] font-bold text-white" style={{ background: assignee.color }}>{assignee.initials}</div>{assignee.name}</span>}<span className="text-[9px] font-bold" style={{ color: priorityColors[task.priority] }}>{task.priority}</span>{task.dueDate && <span className="text-[#484f58] text-[9px]">{fmtDate(task.dueDate)}</span>}</div></div>
+            <button onClick={() => setConfirmDelete(task.id)} className="opacity-0 group-hover:opacity-100 transition-opacity w-6 h-6 rounded-lg hover:bg-rose-500/10 flex items-center justify-center cursor-pointer"><Trash2 className="w-3 h-3 text-rose-400" /></button>
           </div>
-        </div>
-      )}
-      {filteredTasks.length === 0 ? (
-        <div className="text-center py-6"><p className="text-[#484f58] text-[11px]">{statusFilter === "all" ? "No tasks yet" : `No ${statusFilter} tasks`}</p></div>
-      ) : (
-        <div className="space-y-1.5">
-          {filteredTasks.map(task => {
-            const assignee = TEAM.find(t => t.name === task.assignee);
-            return (
-              <div key={task.id} className="flex items-center gap-3 px-3 py-2.5 rounded-xl group hover:bg-white/[0.02] transition-colors" style={G.subtle}>
-                <button onClick={() => handleStatusChange(task.id, task.status === "complete" ? "todo" : task.status === "todo" ? "in-progress" : task.status === "in-progress" ? "review" : "complete")} className={clsx("w-5 h-5 rounded-full border-2 flex items-center justify-center flex-shrink-0 transition-all cursor-pointer", task.status === "complete" ? "bg-emerald-500 border-emerald-500" : "border-[#484f58] hover:border-white/50")}>
-                  {task.status === "complete" && <CheckCircle2 className="w-3 h-3 text-white" />}
-                </button>
-                <div className="flex-1 min-w-0">
-                  <p className={clsx("text-[11px] font-semibold", task.status === "complete" ? "text-[#484f58] line-through" : "text-white")}>{task.title}</p>
-                  <div className="flex items-center gap-2 mt-0.5">
-                    {assignee && <span className="text-[#484f58] text-[9px] flex items-center gap-1"><div className="w-3 h-3 rounded-full flex items-center justify-center text-[6px] font-bold text-white" style={{ background: assignee.color }}>{assignee.initials}</div>{assignee.name}</span>}
-                    <span className="text-[9px] font-bold" style={{ color: priorityColors[task.priority] }}>{task.priority}</span>
-                    {task.dueDate && <span className="text-[#484f58] text-[9px]">{fmtDate(task.dueDate)}</span>}
-                  </div>
-                </div>
-                <button onClick={() => setConfirmDelete(task.id)} className="opacity-0 group-hover:opacity-100 transition-opacity w-6 h-6 rounded-lg hover:bg-rose-500/10 flex items-center justify-center cursor-pointer"><Trash2 className="w-3 h-3 text-rose-400" /></button>
-              </div>
-            );
-          })}
-        </div>
+        );})}</div>
       )}
     </div>
   );
 }
 
 function DocumentList({ projectId }: { projectId: string }) {
-  const [documents, setDocuments] = useState<Document[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [uploading, setUploading] = useState(false);
-  const [confirmDelete, setConfirmDelete] = useState<string | null>(null);
-
+  const [documents, setDocuments] = useState<Document[]>([]); const [loading, setLoading] = useState(true); const [uploading, setUploading] = useState(false); const [confirmDelete, setConfirmDelete] = useState<string | null>(null);
   const fetchDocs = useCallback(async () => { setLoading(true); try { const data = await API.documents.list(projectId); setDocuments(data); } catch { setDocuments([]); } finally { setLoading(false); } }, [projectId]);
   useEffect(() => { fetchDocs(); }, [fetchDocs]);
-
-  const handleUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0]; if (!file) return;
-    setUploading(true);
-    try { await API.documents.upload(projectId, file); fetchDocs(); toast.success("File uploaded"); } catch { toast.error("Upload failed"); }
-    setUploading(false); e.target.value = "";
-  };
-
-  const handleDelete = async (id: string) => {
-    setDocuments(prev => prev.filter(d => d.id !== id));
-    try { await API.documents.delete(projectId, id); toast.success("File deleted"); } catch { fetchDocs(); }
-    setConfirmDelete(null);
-  };
-
+  const handleUpload = async (e: React.ChangeEvent<HTMLInputElement>) => { const file = e.target.files?.[0]; if (!file) return; setUploading(true); try { await API.documents.upload(projectId, file); fetchDocs(); toast.success("File uploaded"); } catch { toast.error("Upload failed"); } setUploading(false); e.target.value = ""; };
+  const handleDelete = async (id: string) => { setDocuments(prev => prev.filter(d => d.id !== id)); try { await API.documents.delete(projectId, id); toast.success("File deleted"); } catch { fetchDocs(); } setConfirmDelete(null); };
   if (loading) return <div className="space-y-2">{[1,2].map(i => <Skeleton key={i} className="h-10 rounded-xl" />)}</div>;
-
   return (
     <div className="space-y-2">
       {confirmDelete && <ConfirmDialog open={true} title="Delete File" message="Are you sure you want to delete this file?" onConfirm={() => handleDelete(confirmDelete)} onCancel={() => setConfirmDelete(null)} />}
-      <label className="flex items-center gap-2 h-8 px-3 rounded-xl text-[#8b949e] text-[11px] font-semibold hover:text-white cursor-pointer active:scale-[0.97] transition-transform w-fit" style={G.btn}>
-        <Upload className="w-3.5 h-3.5" /> {uploading ? "Uploading..." : "Upload File"}
-        <input type="file" className="hidden" onChange={handleUpload} disabled={uploading} />
-      </label>
-      {documents.length === 0 ? <p className="text-[#484f58] text-[11px]">No files uploaded yet</p> :
-        documents.map(doc => (
-          <div key={doc.id} className="flex items-center justify-between px-3 py-2 rounded-xl group hover:bg-white/[0.02]" style={G.subtle}>
-            <div className="flex items-center gap-2 min-w-0">
-              <Paperclip className="w-3.5 h-3.5 text-[#484f58] flex-shrink-0" />
-              <a href={doc.fileUrl} target="_blank" rel="noopener noreferrer" className="text-white text-[11px] font-semibold truncate hover:text-blue-400 transition-colors">{doc.filename}</a>
-              <span className="text-[#484f58] text-[9px] flex-shrink-0">{doc.fileSize ? `${(doc.fileSize / 1024).toFixed(0)} KB` : ""}</span>
-            </div>
-            <button onClick={() => setConfirmDelete(doc.id)} className="opacity-0 group-hover:opacity-100 transition-opacity w-6 h-6 rounded-lg hover:bg-rose-500/10 flex items-center justify-center cursor-pointer flex-shrink-0"><Trash2 className="w-3 h-3 text-rose-400" /></button>
-          </div>
-        ))
-      }
+      <label className="flex items-center gap-2 h-8 px-3 rounded-xl text-[#8b949e] text-[11px] font-semibold hover:text-white cursor-pointer active:scale-[0.97] transition-transform w-fit" style={G.btn}><Upload className="w-3.5 h-3.5" /> {uploading ? "Uploading..." : "Upload File"}<input type="file" className="hidden" onChange={handleUpload} disabled={uploading} /></label>
+      {documents.length === 0 ? <p className="text-[#484f58] text-[11px]">No files uploaded yet</p> : documents.map(doc => (
+        <div key={doc.id} className="flex items-center justify-between px-3 py-2 rounded-xl group hover:bg-white/[0.02]" style={G.subtle}>
+          <div className="flex items-center gap-2 min-w-0"><Paperclip className="w-3.5 h-3.5 text-[#484f58] flex-shrink-0" /><a href={doc.fileUrl} target="_blank" rel="noopener noreferrer" className="text-white text-[11px] font-semibold truncate hover:text-blue-400 transition-colors">{doc.filename}</a><span className="text-[#484f58] text-[9px] flex-shrink-0">{doc.fileSize ? `${(doc.fileSize / 1024).toFixed(0)} KB` : ""}</span></div>
+          <button onClick={() => setConfirmDelete(doc.id)} className="opacity-0 group-hover:opacity-100 transition-opacity w-6 h-6 rounded-lg hover:bg-rose-500/10 flex items-center justify-center cursor-pointer flex-shrink-0"><Trash2 className="w-3 h-3 text-rose-400" /></button>
+        </div>
+      ))}
     </div>
   );
 }
-
 function DealModal({ project, column, onClose, navigate, onUpdate, onDelete, pipelineType }: { project: Project; column: Column | ProjectColumn; onClose: () => void; navigate: (p: Page) => void; onUpdate: (p: Project) => void; onDelete: (id: string) => void; pipelineType: PipelineType }) {
   const [activeTab, setActiveTab] = useState("info"); const { fmt } = useCurrency();
   const [editing, setEditing] = useState(false);
@@ -729,23 +541,9 @@ function DealModal({ project, column, onClose, navigate, onUpdate, onDelete, pip
   const [saving, setSaving] = useState(false);
   const ls = project.leadSource ? LEAD_SOURCE_STYLES[project.leadSource] : null;
   const team = getDeduplicatedTeam(project);
-
   const handleSave = async () => { setSaving(true); const updated: Project = { ...project, name: editName, client: editClient, location: editLocation, value: parseFloat(editValue) || project.value, risk: editRisk, dueDate: editDueDate, summary: editSummary, notes: editNotes, updatedAt: new Date().toISOString() }; onUpdate(updated); setEditing(false); setSaving(false); };
-
-  const copyProjectLink = () => {
-    const url = `${window.location.origin}/project/${project.id}`;
-    navigator.clipboard.writeText(url).then(() => toast.success("Link copied")).catch(() => toast.error("Failed to copy"));
-  };
-
-  const tabs = [
-    { id: "info", label: "Info", icon: Building2 },
-    { id: "tasks", label: "Tasks", icon: ListTodo },
-    { id: "documents", label: "Files", icon: Paperclip },
-    { id: "contact", label: "Contact", icon: Phone },
-    { id: "notes", label: "Notes", icon: StickyNote },
-    { id: "workbook", label: "Workbook", icon: FileText },
-  ];
-
+  const copyProjectLink = () => { const url = `${window.location.origin}/project/${project.id}`; navigator.clipboard.writeText(url).then(() => toast.success("Link copied")).catch(() => toast.error("Failed to copy")); };
+  const tabs = [{ id: "info", label: "Info", icon: Building2 },{ id: "tasks", label: "Tasks", icon: ListTodo },{ id: "documents", label: "Files", icon: Paperclip },{ id: "contact", label: "Contact", icon: Phone },{ id: "notes", label: "Notes", icon: StickyNote },{ id: "workbook", label: "Workbook", icon: FileText }];
   return (
     <div className="fixed inset-0 z-[200] flex items-center justify-center p-4" onClick={onClose}><div className="absolute inset-0" style={{ background: "rgba(0,0,0,0.65)", backdropFilter: "blur(8px)" }} /><motion.div initial={{ opacity: 0, scale: 0.93, y: 20 }} animate={{ opacity: 1, scale: 1, y: 0 }} transition={{ type: "spring", damping: 26, stiffness: 360 }} onClick={(e) => e.stopPropagation()} className="relative z-10 w-full max-w-[620px] max-h-[85vh] overflow-y-auto rounded-3xl" style={{ background: "rgba(7,12,26,0.78)", backdropFilter: "blur(52px) saturate(200%)", border: "1px solid rgba(255,255,255,0.13)", boxShadow: "0 32px 80px rgba(0,0,0,0.9)" }}>
       <div className="relative px-5 md:px-7 pt-5 md:pt-7 pb-3">
@@ -758,58 +556,15 @@ function DealModal({ project, column, onClose, navigate, onUpdate, onDelete, pip
         {editing && <div className="grid grid-cols-2 gap-2 mt-3"><input value={editName} onChange={(e) => setEditName(e.target.value)} placeholder="Name" className="w-full h-8 rounded-xl px-2 text-[12px] bg-transparent text-white" style={G.input} /><input value={editClient} onChange={(e) => setEditClient(e.target.value)} placeholder="Client" className="w-full h-8 rounded-xl px-2 text-[12px] bg-transparent text-white" style={G.input} /><input value={editLocation} onChange={(e) => setEditLocation(e.target.value)} placeholder="Location" className="w-full h-8 rounded-xl px-2 text-[12px] bg-transparent text-white" style={G.input} /><input type="number" value={editValue} onChange={(e) => setEditValue(e.target.value)} placeholder="Value" className="w-full h-8 rounded-xl px-2 text-[12px] bg-transparent text-white" style={G.input} /><select value={editRisk} onChange={(e) => setEditRisk(e.target.value as "low"|"medium"|"high")} className="w-full h-8 rounded-xl px-2 text-[12px] bg-transparent text-white" style={G.input}>{["low","medium","high"].map((r) => <option key={r} value={r}>{r}</option>)}</select><input type="date" value={editDueDate} onChange={(e) => setEditDueDate(e.target.value)} className="w-full h-8 rounded-xl px-2 text-[12px] bg-transparent text-white" style={{ ...G.input, colorScheme: "dark" }} /></div>}
         {editing && <div className="mt-3 flex gap-2"><button onClick={handleSave} disabled={saving} className="flex-1 h-9 rounded-xl text-white text-[13px] font-bold cursor-pointer active:scale-[0.97] transition-transform" style={{ background: "#10b981" }}><Save className="w-3.5 h-3.5 inline mr-1" />{saving ? "Saving…" : "Save"}</button><button onClick={() => setEditing(false)} className="flex-1 h-9 rounded-xl text-[#8b949e] text-[13px] font-semibold cursor-pointer active:scale-[0.97] transition-transform" style={G.btn}>Cancel</button></div>}
       </div>
-
-      <div className="flex items-center gap-0.5 px-5 md:px-7 border-b overflow-x-auto" style={{ borderColor: "rgba(255,255,255,0.07)", scrollbarWidth: "none" }}>
-        {tabs.map((tab) => (
-          <button key={tab.id} onClick={() => setActiveTab(tab.id)} className={clsx("flex items-center gap-1.5 h-9 px-3 text-[11px] font-semibold border-b-2 -mb-px transition-all whitespace-nowrap cursor-pointer active:scale-[0.97] transition-transform", activeTab === tab.id ? "border-blue-500 text-white" : "border-transparent text-[#8b949e]")}>
-            <tab.icon className="w-3 h-3" />{tab.label}
-          </button>
-        ))}
-      </div>
-
+      <div className="flex items-center gap-0.5 px-5 md:px-7 border-b overflow-x-auto" style={{ borderColor: "rgba(255,255,255,0.07)", scrollbarWidth: "none" }}>{tabs.map((tab) => (<button key={tab.id} onClick={() => setActiveTab(tab.id)} className={clsx("flex items-center gap-1.5 h-9 px-3 text-[11px] font-semibold border-b-2 -mb-px transition-all whitespace-nowrap cursor-pointer active:scale-[0.97] transition-transform", activeTab === tab.id ? "border-blue-500 text-white" : "border-transparent text-[#8b949e]")}><tab.icon className="w-3 h-3" />{tab.label}</button>))}</div>
       <div className="px-5 md:px-7 py-4">
-        {activeTab === "info" && (
-          <div className="space-y-3">
-            <div className="grid grid-cols-2 gap-2">{[{ label: "Value", value: fmt(project.value, true), color: "#3b82f6" },{ label: "Devices", value: String(project.devices), color: "#06b6d4" },{ label: "Cameras", value: String(project.cameras), color: "#8b5cf6" },{ label: "Due Date", value: fmtDateFull(project.dueDate), color: "#f59e0b" }].map((s) => (<div key={s.label} className="rounded-2xl px-3 py-3 text-center" style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)" }}><p className="text-[10px] font-bold uppercase tracking-widest mb-1" style={{ color: "rgba(139,148,158,0.85)" }}>{s.label}</p><p className="text-[1.2rem] font-bold tracking-tight leading-none" style={{ color: s.color }}>{s.value}</p></div>))}</div>
-            {project.summary && <div className="rounded-xl p-3" style={G.subtle}><p className="text-[#484f58] text-[9px] font-bold uppercase tracking-widest mb-1">Scope</p><p className="text-[#8b949e] text-[11px]">{project.summary}</p></div>}
-            <div className="space-y-2">
-              {team.map((m) => (
-                <div key={m.name} className="flex items-center gap-2">
-                  <div className="w-7 h-7 rounded-lg flex items-center justify-center text-[10px] font-bold text-white" style={{ background: m.color }}>{m.initials}</div>
-                  <span className="text-white text-[12px] font-semibold">{m.name}</span>
-                  <span className="text-[#484f58] text-[10px]">· {m.roles.join(", ")}</span>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
+        {activeTab === "info" && (<div className="space-y-3"><div className="grid grid-cols-2 gap-2">{[{ label: "Value", value: fmt(project.value, true), color: "#3b82f6" },{ label: "Devices", value: String(project.devices), color: "#06b6d4" },{ label: "Cameras", value: String(project.cameras), color: "#8b5cf6" },{ label: "Due Date", value: fmtDateFull(project.dueDate), color: "#f59e0b" }].map((s) => (<div key={s.label} className="rounded-2xl px-3 py-3 text-center" style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)" }}><p className="text-[10px] font-bold uppercase tracking-widest mb-1" style={{ color: "rgba(139,148,158,0.85)" }}>{s.label}</p><p className="text-[1.2rem] font-bold tracking-tight leading-none" style={{ color: s.color }}>{s.value}</p></div>))}</div>{project.summary && <div className="rounded-xl p-3" style={G.subtle}><p className="text-[#484f58] text-[9px] font-bold uppercase tracking-widest mb-1">Scope</p><p className="text-[#8b949e] text-[11px]">{project.summary}</p></div>}<div className="space-y-2">{team.map((m) => (<div key={m.name} className="flex items-center gap-2"><div className="w-7 h-7 rounded-lg flex items-center justify-center text-[10px] font-bold text-white" style={{ background: m.color }}>{m.initials}</div><span className="text-white text-[12px] font-semibold">{m.name}</span><span className="text-[#484f58] text-[10px]">· {m.roles.join(", ")}</span></div>))}</div></div>)}
         {activeTab === "tasks" && <TaskList projectId={project.id} />}
         {activeTab === "documents" && <DocumentList projectId={project.id} />}
-        {activeTab === "contact" && (
-          <div className="space-y-2">
-            {project.contact ? (
-              <div className="space-y-2">
-                {project.contact.name && <div className="flex items-center gap-2 text-[#e6edf3] text-[12px]"><Users className="w-3.5 h-3.5 text-[#484f58]" />{project.contact.name}{project.contact.title && <span className="text-[#484f58]">· {project.contact.title}</span>}</div>}
-                {project.contact.email && <div className="flex items-center gap-2 text-[#e6edf3] text-[12px]"><Mail className="w-3.5 h-3.5 text-[#484f58]" />{project.contact.email}</div>}
-                {project.contact.phone && <div className="flex items-center gap-2 text-[#e6edf3] text-[12px]"><Phone className="w-3.5 h-3.5 text-[#484f58]" />{project.contact.phone}</div>}
-              </div>
-            ) : <p className="text-[#484f58] text-[12px]">No contact info added yet.</p>}
-          </div>
-        )}
-        {activeTab === "notes" && (
-          <div>
-            {project.notes ? <p className="text-[#8b949e] text-[12px] whitespace-pre-wrap">{project.notes}</p> : <p className="text-[#484f58] text-[12px]">No notes yet.</p>}
-          </div>
-        )}
-        {activeTab === "workbook" && (
-          <div className="flex flex-col items-center gap-3 py-4">
-            <FileText className="w-10 h-10 text-[#484f58]" />
-            <p className="text-[#8b949e] text-[12px]">View full workbook for this project</p>
-            <button onClick={() => { navigate("workbook"); onClose(); }} className="h-9 px-5 rounded-xl text-white text-[12px] font-bold cursor-pointer active:scale-[0.97] transition-transform min-h-[44px]" style={{ background: "#3b82f6", boxShadow: "0 4px 20px rgba(59,130,246,0.4)" }}>Open Workbook <ExternalLink className="w-3 h-3 inline ml-1" /></button>
-          </div>
-        )}
+        {activeTab === "contact" && (<div className="space-y-2">{project.contact ? (<div className="space-y-2">{project.contact.name && <div className="flex items-center gap-2 text-[#e6edf3] text-[12px]"><Users className="w-3.5 h-3.5 text-[#484f58]" />{project.contact.name}{project.contact.title && <span className="text-[#484f58]">· {project.contact.title}</span>}</div>}{project.contact.email && <div className="flex items-center gap-2 text-[#e6edf3] text-[12px]"><Mail className="w-3.5 h-3.5 text-[#484f58]" />{project.contact.email}</div>}{project.contact.phone && <div className="flex items-center gap-2 text-[#e6edf3] text-[12px]"><Phone className="w-3.5 h-3.5 text-[#484f58]" />{project.contact.phone}</div>}</div>) : <p className="text-[#484f58] text-[12px]">No contact info added yet.</p>}</div>)}
+        {activeTab === "notes" && (<div>{project.notes ? <p className="text-[#8b949e] text-[12px] whitespace-pre-wrap">{project.notes}</p> : <p className="text-[#484f58] text-[12px]">No notes yet.</p>}</div>)}
+        {activeTab === "workbook" && (<div className="flex flex-col items-center gap-3 py-4"><FileText className="w-10 h-10 text-[#484f58]" /><p className="text-[#8b949e] text-[12px]">View full workbook for this project</p><button onClick={() => { navigate("workbook"); onClose(); }} className="h-9 px-5 rounded-xl text-white text-[12px] font-bold cursor-pointer active:scale-[0.97] transition-transform min-h-[44px]" style={{ background: "#3b82f6", boxShadow: "0 4px 20px rgba(59,130,246,0.4)" }}>Open Workbook <ExternalLink className="w-3 h-3 inline ml-1" /></button></div>)}
       </div>
-
       <div className="px-5 md:px-7 pb-7 flex gap-2.5"><button onClick={() => { navigate("project-detail"); onClose(); }} className="flex-1 h-10 rounded-xl flex items-center justify-center gap-2 text-white text-[13px] font-bold cursor-pointer active:scale-[0.97] transition-transform min-h-[44px]" style={{ background: "#3b82f6", boxShadow: "0 4px 20px rgba(59,130,246,0.4)" }}><ExternalLink className="w-3.5 h-3.5" />Open</button><button onClick={() => { navigate("design-canvas"); onClose(); }} className="flex-1 h-10 rounded-xl flex items-center justify-center gap-2 text-[#e6edf3] text-[13px] font-bold cursor-pointer active:scale-[0.97] transition-transform min-h-[44px]" style={G.btn}><Layers className="w-3.5 h-3.5 text-violet-400" />Design</button><button onClick={() => { onDelete(project.id); onClose(); }} className="h-10 px-3 rounded-xl text-rose-400 text-[13px] font-bold cursor-pointer active:scale-[0.97] transition-transform min-h-[44px]" style={{ background: "rgba(244,63,94,0.10)", border: "1px solid rgba(244,63,94,0.20)" }}><Trash2 className="w-3.5 h-3.5" /></button></div>
     </motion.div></div>
   );
@@ -829,8 +584,7 @@ function stageBadge(stage: Stage) { const map: Record<Stage, { label: string; cl
 function UploadFloorPlanModal({ onClose, onUpload, mode }: { onClose: () => void; onUpload: (file: File, type: "2d" | "3d") => void; mode: "2d" | "3d" }) {
   const [dragOver, setDragOver] = useState(false); const [file, setFile] = useState<File | null>(null); const [uploading, setUploading] = useState(false);
   const handleUpload = async () => { if (!file) return; setUploading(true); try { onUpload(file, mode); onClose(); } catch { toast.error("Upload failed"); } finally { setUploading(false); } };
-  const twoDAccept = "image/*,.pdf,.dwg,.dxf";
-  const threeDAccept = "image/*,.glb,.gltf,.obj,.stl,.fbx";
+  const twoDAccept = "image/*,.pdf,.dwg,.dxf"; const threeDAccept = "image/*,.glb,.gltf,.obj,.stl,.fbx";
   return (
     <div className="fixed inset-0 z-[200] flex items-center justify-center p-4" onClick={onClose}><div className="absolute inset-0" style={{ background: "rgba(0,0,0,0.65)", backdropFilter: "blur(8px)" }} /><motion.div initial={{ opacity: 0, scale: 0.94, y: 16 }} animate={{ opacity: 1, scale: 1, y: 0 }} transition={{ type: "spring", damping: 26, stiffness: 360 }} onClick={(e) => e.stopPropagation()} className="relative z-10 w-full max-w-[480px] rounded-3xl" style={{ background: "rgba(7,12,26,0.92)", backdropFilter: "blur(52px) saturate(200%)", border: "1px solid rgba(255,255,255,0.13)", boxShadow: "0 32px 80px rgba(0,0,0,0.9)" }}><div className="flex items-center justify-between px-6 pt-6 pb-5" style={{ borderBottom: "1px solid rgba(255,255,255,0.07)" }}><div><h2 className="text-white text-[1rem] font-bold">Upload {mode === "2d" ? "Floor Plan" : "3D Model / Rendering"}</h2><p className="text-[#484f58] text-[10px] mt-1">{mode === "2d" ? "PNG, JPG, PDF, DWG, DXF" : "PNG, JPG, GLB, GLTF, OBJ, STL, FBX"}</p></div><button onClick={onClose} className="w-8 h-8 rounded-xl flex items-center justify-center hover:bg-white/[0.08] cursor-pointer active:scale-[0.97] transition-transform min-w-[44px] min-h-[44px]" style={{ border: "1px solid rgba(255,255,255,0.10)" }}><X className="w-4 h-4 text-[#8b949e]" /></button></div><div className="p-6"><div onDragOver={(e) => { e.preventDefault(); setDragOver(true); }} onDragLeave={() => setDragOver(false)} onDrop={(e) => { e.preventDefault(); if (e.dataTransfer.files.length > 0) setFile(e.dataTransfer.files[0]); }} className={clsx("border-2 border-dashed rounded-2xl p-10 text-center transition-all cursor-pointer", dragOver ? "border-violet-400 bg-violet-500/[0.06]" : file ? "border-emerald-500/40 bg-emerald-500/[0.03]" : "border-white/[0.10] hover:border-white/[0.20]")} onClick={() => document.getElementById("floorplan-upload-2")?.click()}><input id="floorplan-upload-2" type="file" accept={mode === "2d" ? twoDAccept : threeDAccept} className="hidden" onChange={(e) => { if (e.target.files?.[0]) setFile(e.target.files[0]); }} />{file ? <div className="space-y-2"><div className="w-12 h-12 rounded-xl mx-auto flex items-center justify-center" style={{ background: "rgba(16,185,129,0.15)" }}><CheckCircle2 className="w-6 h-6 text-emerald-400" /></div><p className="text-white text-[13px] font-semibold">{file.name}</p><p className="text-[#484f58] text-[11px]">{(file.size / 1024).toFixed(0)} KB</p></div> : <div className="space-y-3"><div className="w-14 h-14 rounded-2xl mx-auto flex items-center justify-center" style={{ background: "rgba(139,92,246,0.12)" }}><Upload className="w-6 h-6 text-violet-400" /></div><div><p className="text-white text-[13px] font-semibold">Drag & drop your {mode === "2d" ? "floor plan" : "3D file"}</p><p className="text-[#484f58] text-[11px] mt-1">or click to browse files</p></div></div>}</div><div className="flex gap-3 mt-5"><button onClick={onClose} className="flex-1 h-10 rounded-xl text-[#8b949e] text-[13px] font-semibold cursor-pointer active:scale-[0.97] transition-transform min-h-[44px]" style={G.btn}>Cancel</button><button onClick={handleUpload} disabled={!file || uploading} className="flex-1 h-10 rounded-xl text-white text-[13px] font-bold disabled:opacity-40 flex items-center justify-center gap-2 cursor-pointer active:scale-[0.97] transition-transform min-h-[44px]" style={{ background: "#8b5cf6", boxShadow: file ? "0 4px 20px rgba(139,92,246,0.4)" : "none" }}>{uploading ? "Uploading…" : "Upload"}</button></div></div></motion.div></div>
   );
@@ -859,71 +613,34 @@ function DesignStudio({ navigate }: { navigate: (p: Page) => void }) {
   const [floorPlanOpacity, setFloorPlanOpacity] = useState(1);
   const [floorPlanScale, setFloorPlanScale] = useState(1);
   const [floorPlanRotation, setFloorPlanRotation] = useState(0);
-
   const fetchProjects = useCallback(async () => { setLoading(true); try { const data = await API.projects.list(); setProjects(data); if (data.length > 0 && !activeProjectId) setActiveProjectId(data[0].id); } catch { setProjects([]); } finally { setLoading(false); } }, []);
   useEffect(() => { fetchProjects(); }, [fetchProjects]);
-
-  const handleUpload = async (file: File, type: "2d" | "3d") => {
-    if (!activeProjectId) { toast.error("Select a project first"); return; }
-    try { const result = await API.canvas.upload(activeProjectId, file); if (type === "2d") { setCanvasImageUrl(result.url); setStudioView("canvas"); } else { setCanvas3DUrl(result.url); } toast.success(type === "2d" ? "Floor plan uploaded" : "3D file uploaded"); } catch { toast.error("Upload failed"); }
-  };
-
+  const handleUpload = async (file: File, type: "2d" | "3d") => { if (!activeProjectId) { toast.error("Select a project first"); return; } try { const result = await API.canvas.upload(activeProjectId, file); if (type === "2d") { setCanvasImageUrl(result.url); setStudioView("canvas"); } else { setCanvas3DUrl(result.url); } toast.success(type === "2d" ? "Floor plan uploaded" : "3D file uploaded"); } catch { toast.error("Upload failed"); } };
   const filtered = useMemo(() => { let result = projects; if (filter !== "all") result = result.filter((p) => p.stage === filter); if (search.trim()) { const q = search.toLowerCase(); result = result.filter((p) => p.name.toLowerCase().includes(q) || p.client.toLowerCase().includes(q) || p.location.toLowerCase().includes(q)); } return result; }, [projects, filter, search]);
   const stageFilters: { id: "all" | Stage; label: string }[] = [{ id: "all", label: "All" },{ id: "design", label: "In Design" },{ id: "proposal", label: "Proposal" },{ id: "win", label: "Won" }];
   const handleDelete = async (id: string) => { setProjects((prev) => prev.filter((p) => p.id !== id)); try { await API.projects.delete(id); toast.success("Project removed"); } catch { fetchProjects(); } };
-
   if (loading) return <div className="px-3 md:px-5 py-4 md:py-6 space-y-4"><Skeleton className="h-10 w-56" /><div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 md:gap-4">{[1,2,3,4].map(i => <Skeleton key={i} className="h-48 rounded-2xl" />)}</div></div>;
-
   return (
     <div className="px-3 md:px-5 py-4 md:py-6">
       {showUploadModal && <UploadFloorPlanModal onClose={() => setShowUploadModal(null)} onUpload={handleUpload} mode={showUploadModal} />}
       <div className="flex items-center justify-between mb-4 md:mb-6"><div><h1 className="text-white font-bold text-lg md:text-xl tracking-tight">System Design Studio</h1></div><div className="flex items-center gap-2"><div className="flex items-center rounded-xl p-0.5 gap-0.5" style={G.btn}><button onClick={() => setStudioView("projects")} className={clsx("h-7 px-3 rounded-lg text-[11px] md:text-[12px] font-semibold transition-all cursor-pointer active:scale-[0.97] transition-transform", studioView === "projects" ? "text-white" : "text-[#484f58]")} style={studioView === "projects" ? { background: "rgba(255,255,255,0.12)" } : undefined}>Projects</button><button onClick={() => setStudioView("canvas")} className={clsx("h-7 px-3 rounded-lg text-[11px] md:text-[12px] font-semibold transition-all cursor-pointer active:scale-[0.97] transition-transform", studioView === "canvas" ? "text-white" : "text-[#484f58]")} style={studioView === "canvas" ? { background: "rgba(255,255,255,0.12)" } : undefined}>Canvas</button></div>{studioView === "projects" && <div className="flex items-center rounded-xl p-0.5 gap-0.5" style={G.btn}>{(["grid","list"] as const).map((m) => (<button key={m} onClick={() => setViewMode(m)} className={clsx("w-7 h-7 rounded-lg flex items-center justify-center transition-all cursor-pointer active:scale-[0.97] transition-transform", viewMode === m ? "text-white" : "text-[#484f58]")} style={viewMode === m ? { background: "rgba(255,255,255,0.12)" } : undefined}>{m === "grid" ? <Grid3x3 className="w-3.5 h-3.5" /> : <List className="w-3.5 h-3.5" />}</button>))}</div>}</div></div>
-
       {studioView === "canvas" ? (
         <div className="space-y-3">
-          <div className="flex items-center gap-2 flex-wrap">
-            <button onClick={() => setShowUploadModal("2d")} className="flex items-center gap-1.5 h-8 px-3 rounded-xl text-white text-[11px] font-semibold cursor-pointer active:scale-[0.97] transition-transform" style={G.btn}><Upload className="w-3 h-3" /> Upload 2D Floor Plan</button>
-            <button onClick={() => setShowUploadModal("3d")} className="flex items-center gap-1.5 h-8 px-3 rounded-xl text-white text-[11px] font-semibold cursor-pointer active:scale-[0.97] transition-transform" style={G.btn}><Box className="w-3 h-3" /> Upload 3D Model/Rendering</button>
-            {(canvasImageUrl || canvas3DUrl) && (
-              <button onClick={() => setView3D(!view3D)} className={clsx("flex items-center gap-1.5 h-8 px-3 rounded-xl text-[11px] font-semibold cursor-pointer active:scale-[0.97] transition-transform", view3D ? "text-violet-400" : "text-[#8b949e]")} style={view3D ? { background: "rgba(139,92,246,0.15)", border: "1px solid rgba(139,92,246,0.35)" } : G.btn}>
-                {view3D ? "Switch to 2D" : "Switch to 3D"}
-              </button>
-            )}
-          </div>
-          {!view3D && canvasImageUrl && (
-            <div className="flex items-center gap-3 mb-2 flex-wrap">
-              <div className="flex items-center gap-2"><Sun className="w-3 h-3 text-[#484f58]" /><input type="range" min="0.1" max="1" step="0.05" value={floorPlanOpacity} onChange={(e) => setFloorPlanOpacity(parseFloat(e.target.value))} className="w-20" /><span className="text-[#8b949e] text-[10px]">{Math.round(floorPlanOpacity * 100)}%</span></div>
-              <div className="flex items-center gap-2"><ZoomIn className="w-3 h-3 text-[#484f58]" /><input type="range" min="0.5" max="3" step="0.1" value={floorPlanScale} onChange={(e) => setFloorPlanScale(parseFloat(e.target.value))} className="w-20" /><span className="text-[#8b949e] text-[10px]">{Math.round(floorPlanScale * 100)}%</span></div>
-              <div className="flex items-center gap-2"><RotateCcw className="w-3 h-3 text-[#484f58]" /><input type="range" min="-180" max="180" step="1" value={floorPlanRotation} onChange={(e) => setFloorPlanRotation(parseInt(e.target.value))} className="w-20" /><span className="text-[#8b949e] text-[10px]">{floorPlanRotation}°</span></div>
-            </div>
-          )}
-          <div className="rounded-2xl overflow-hidden relative" style={{ ...G.card, minHeight: "50vh" }}>
-            {view3D && canvas3DUrl ? (
-              <div className="relative w-full" style={{ paddingBottom: "56.25%" }}><img src={canvas3DUrl} alt="3D Rendering" className="absolute inset-0 w-full h-full object-contain" /></div>
-            ) : canvasImageUrl ? (
-              <div className="relative w-full" style={{ paddingBottom: "56.25%", overflow: "hidden" }}>
-                <img src={canvasImageUrl} alt="Floor Plan" className="absolute" style={{ opacity: floorPlanOpacity, transform: `scale(${floorPlanScale}) rotate(${floorPlanRotation}deg)`, transformOrigin: "center center", left: "50%", top: "50%", marginLeft: "-50%", marginTop: "-28.125%", maxWidth: "100%", maxHeight: "100%" }} />
-              </div>
-            ) : (
-              <svg viewBox="0 0 990 610" className="w-full" style={{ maxHeight: "70vh" }}><rect width="990" height="610" fill="#070c1a" /><defs><pattern id="cgds" width="30" height="30" patternUnits="userSpaceOnUse"><path d="M 30 0 L 0 0 0 30" fill="none" stroke="rgba(255,255,255,0.024)" strokeWidth="0.5" /></pattern></defs><rect width="990" height="610" fill="url(#cgds)" /><rect x="80" y="50" width="830" height="510" fill="rgba(255,255,255,0.015)" stroke="rgba(255,255,255,0.12)" strokeWidth="1.5" rx="2" /><rect x="80" y="50" width="220" height="150" fill="rgba(59,130,246,0.04)" /><text x="190" y="132" textAnchor="middle" fill="rgba(255,255,255,0.18)" fontSize="9" fontFamily="sans-serif">RECEPTION</text></svg>
-            )}
-            <div className="absolute bottom-4 left-4 right-4 flex items-center justify-between pointer-events-none"><div className="px-3 py-1.5 rounded-xl text-[10px] md:text-[11px] font-semibold text-white pointer-events-auto" style={G.liquidGlass}>{view3D ? "3D View" : "Floor Plan"}</div><button onClick={() => navigate("design-canvas")} className="px-3 py-1.5 rounded-xl text-[10px] md:text-[11px] font-bold text-white pointer-events-auto cursor-pointer active:scale-[0.97] transition-transform" style={{ background: "#3b82f6" }}>Open Canvas</button></div>
-          </div>
+          <div className="flex items-center gap-2 flex-wrap"><button onClick={() => setShowUploadModal("2d")} className="flex items-center gap-1.5 h-8 px-3 rounded-xl text-white text-[11px] font-semibold cursor-pointer active:scale-[0.97] transition-transform" style={G.btn}><Upload className="w-3 h-3" /> Upload 2D Floor Plan</button><button onClick={() => setShowUploadModal("3d")} className="flex items-center gap-1.5 h-8 px-3 rounded-xl text-white text-[11px] font-semibold cursor-pointer active:scale-[0.97] transition-transform" style={G.btn}><Box className="w-3 h-3" /> Upload 3D Model/Rendering</button>{(canvasImageUrl || canvas3DUrl) && (<button onClick={() => setView3D(!view3D)} className={clsx("flex items-center gap-1.5 h-8 px-3 rounded-xl text-[11px] font-semibold cursor-pointer active:scale-[0.97] transition-transform", view3D ? "text-violet-400" : "text-[#8b949e]")} style={view3D ? { background: "rgba(139,92,246,0.15)", border: "1px solid rgba(139,92,246,0.35)" } : G.btn}>{view3D ? "Switch to 2D" : "Switch to 3D"}</button>)}</div>
+          {!view3D && canvasImageUrl && (<div className="flex items-center gap-3 mb-2 flex-wrap"><div className="flex items-center gap-2"><Sun className="w-3 h-3 text-[#484f58]" /><input type="range" min="0.1" max="1" step="0.05" value={floorPlanOpacity} onChange={(e) => setFloorPlanOpacity(parseFloat(e.target.value))} className="w-20" /><span className="text-[#8b949e] text-[10px]">{Math.round(floorPlanOpacity * 100)}%</span></div><div className="flex items-center gap-2"><ZoomIn className="w-3 h-3 text-[#484f58]" /><input type="range" min="0.5" max="3" step="0.1" value={floorPlanScale} onChange={(e) => setFloorPlanScale(parseFloat(e.target.value))} className="w-20" /><span className="text-[#8b949e] text-[10px]">{Math.round(floorPlanScale * 100)}%</span></div><div className="flex items-center gap-2"><RotateCcw className="w-3 h-3 text-[#484f58]" /><input type="range" min="-180" max="180" step="1" value={floorPlanRotation} onChange={(e) => setFloorPlanRotation(parseInt(e.target.value))} className="w-20" /><span className="text-[#8b949e] text-[10px]">{floorPlanRotation}°</span></div></div>)}
+          <div className="rounded-2xl overflow-hidden relative" style={{ ...G.card, minHeight: "50vh" }}>{view3D && canvas3DUrl ? (<div className="relative w-full" style={{ paddingBottom: "56.25%" }}><img src={canvas3DUrl} alt="3D Rendering" className="absolute inset-0 w-full h-full object-contain" /></div>) : canvasImageUrl ? (<div className="relative w-full" style={{ paddingBottom: "56.25%", overflow: "hidden" }}><img src={canvasImageUrl} alt="Floor Plan" className="absolute" style={{ opacity: floorPlanOpacity, transform: `scale(${floorPlanScale}) rotate(${floorPlanRotation}deg)`, transformOrigin: "center center", left: "50%", top: "50%", marginLeft: "-50%", marginTop: "-28.125%", maxWidth: "100%", maxHeight: "100%" }} /></div>) : (<svg viewBox="0 0 990 610" className="w-full" style={{ maxHeight: "70vh" }}><rect width="990" height="610" fill="#070c1a" /><defs><pattern id="cgds" width="30" height="30" patternUnits="userSpaceOnUse"><path d="M 30 0 L 0 0 0 30" fill="none" stroke="rgba(255,255,255,0.024)" strokeWidth="0.5" /></pattern></defs><rect width="990" height="610" fill="url(#cgds)" /><rect x="80" y="50" width="830" height="510" fill="rgba(255,255,255,0.015)" stroke="rgba(255,255,255,0.12)" strokeWidth="1.5" rx="2" /><rect x="80" y="50" width="220" height="150" fill="rgba(59,130,246,0.04)" /><text x="190" y="132" textAnchor="middle" fill="rgba(255,255,255,0.18)" fontSize="9" fontFamily="sans-serif">RECEPTION</text></svg>)}<div className="absolute bottom-4 left-4 right-4 flex items-center justify-between pointer-events-none"><div className="px-3 py-1.5 rounded-xl text-[10px] md:text-[11px] font-semibold text-white pointer-events-auto" style={G.liquidGlass}>{view3D ? "3D View" : "Floor Plan"}</div><button onClick={() => navigate("design-canvas")} className="px-3 py-1.5 rounded-xl text-[10px] md:text-[11px] font-bold text-white pointer-events-auto cursor-pointer active:scale-[0.97] transition-transform" style={{ background: "#3b82f6" }}>Open Canvas</button></div></div>
         </div>
       ) : (
-        <>
-          <div className="flex items-center gap-2 mb-4 md:mb-5 flex-wrap">{stageFilters.map((f) => (<button key={f.id} onClick={() => setFilter(f.id)} className={clsx("h-7 px-3 rounded-full text-[11px] md:text-[12px] font-semibold transition-all cursor-pointer active:scale-[0.97] transition-transform", filter === f.id ? "text-white" : "text-[#8b949e]")} style={filter === f.id ? { background: "#3b82f6", boxShadow: "0 2px 12px rgba(59,130,246,0.3)" } : G.subtle}>{f.label}</button>))}<div className="relative ml-1"><Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3 h-3 text-[#484f58]" /><input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search…" className="h-7 rounded-xl pl-7 pr-3 text-[11px] md:text-[12px] text-[#e6edf3] focus:outline-none w-36 md:w-44" style={G.input} /></div><span className="text-[#484f58] text-[11px] md:text-[12px] ml-1">{filtered.length} projects</span></div>
-          {filtered.length === 0 ? <EmptyState icon={Layers} title="No projects found" description="" /> : viewMode === "grid" ? (
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 md:gap-4">{filtered.map((project) => { const badge = stageBadge(project.stage); return (<div key={project.id} className="group rounded-2xl overflow-hidden cursor-pointer transition-all duration-200 md:hover:-translate-y-1 relative" style={{ ...G.card }}><div className="relative h-[100px] md:h-[112px] bg-[#070c1a]" onClick={() => { setActiveProjectId(project.id); navigate("project-detail"); }}><MiniFloorPlan project={project} /><div className={clsx("absolute top-2 right-2 text-[10px] font-bold px-2 py-0.5 rounded-full", badge.cls)}>{badge.label}</div></div><div className="p-3 md:p-4" onClick={() => { setActiveProjectId(project.id); navigate("project-detail"); }}><h3 className="text-white text-[12px] md:text-[13px] font-semibold leading-snug mb-1 line-clamp-1">{project.name}</h3><p className="text-[#8b949e] text-[10px] md:text-[11px] font-medium mb-2 flex items-center gap-1"><Building2 className="w-3 h-3" /> {project.client}</p><div className="flex items-center justify-between"><div className="flex items-center gap-2"><span className="flex items-center gap-1 text-[#484f58] text-[10px]"><Camera className="w-3 h-3" />{project.cameras}</span></div><div className="w-5 h-5 rounded-full flex items-center justify-center text-[9px] font-bold text-white" style={{ background: project.assignee.color }}>{project.assignee.initials}</div></div></div></div>); })}</div>
-          ) : (
-            <div className="rounded-2xl overflow-hidden" style={G.card}><div className="overflow-x-auto"><div className="grid gap-3 px-3 py-2.5" style={{ gridTemplateColumns: "2fr 1fr 80px 80px 100px 80px", minWidth: "600px", borderBottom: "1px solid rgba(255,255,255,0.06)" }}>{["Project","Client","Cameras","Devices","Stage","Value"].map((h) => (<span key={h} className="text-[#484f58] text-[10px] font-bold uppercase tracking-widest">{h}</span>))}</div>{filtered.map((project) => { const badge = stageBadge(project.stage); return (<div key={project.id} className="grid gap-3 px-3 py-3.5 items-center transition-all group hover:bg-white/[0.03] cursor-pointer" style={{ gridTemplateColumns: "2fr 1fr 80px 80px 100px 80px", minWidth: "600px", borderBottom: "1px solid rgba(255,255,255,0.04)" }} onClick={() => { setActiveProjectId(project.id); navigate("project-detail"); }}><div><p className="text-white text-[12px] font-semibold truncate">{project.name}</p><p className="text-[#484f58] text-[10px] truncate">{project.location}</p></div><p className="text-[#8b949e] text-[11px] truncate">{project.client}</p><p className="text-[#8b949e] text-[11px]">{project.cameras}</p><p className="text-[#8b949e] text-[11px]">{project.devices}</p><span className={clsx("text-[10px] font-bold px-2 py-0.5 rounded-full w-fit", badge.cls)}>{badge.label}</span><p className="text-white text-[12px] font-bold">{fmt(project.value, true)}</p></div>); })}</div></div>
-          )}
-        </>
-      )}
+        <><div className="flex items-center gap-2 mb-4 md:mb-5 flex-wrap">{stageFilters.map((f) => (<button key={f.id} onClick={() => setFilter(f.id)} className={clsx("h-7 px-3 rounded-full text-[11px] md:text-[12px] font-semibold transition-all cursor-pointer active:scale-[0.97] transition-transform", filter === f.id ? "text-white" : "text-[#8b949e]")} style={filter === f.id ? { background: "#3b82f6", boxShadow: "0 2px 12px rgba(59,130,246,0.3)" } : G.subtle}>{f.label}</button>))}<div className="relative ml-1"><Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3 h-3 text-[#484f58]" /><input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search…" className="h-7 rounded-xl pl-7 pr-3 text-[11px] md:text-[12px] text-[#e6edf3] focus:outline-none w-36 md:w-44" style={G.input} /></div><span className="text-[#484f58] text-[11px] md:text-[12px] ml-1">{filtered.length} projects</span></div>
+        {filtered.length === 0 ? <EmptyState icon={Layers} title="No projects found" description="" /> : viewMode === "grid" ? (
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 md:gap-4">{filtered.map((project) => { const badge = stageBadge(project.stage); return (<div key={project.id} className="group rounded-2xl overflow-hidden cursor-pointer transition-all duration-200 md:hover:-translate-y-1 relative" style={{ ...G.card }}><div className="relative h-[100px] md:h-[112px] bg-[#070c1a]" onClick={() => { setActiveProjectId(project.id); navigate("project-detail"); }}><MiniFloorPlan project={project} /><div className={clsx("absolute top-2 right-2 text-[10px] font-bold px-2 py-0.5 rounded-full", badge.cls)}>{badge.label}</div></div><div className="p-3 md:p-4" onClick={() => { setActiveProjectId(project.id); navigate("project-detail"); }}><h3 className="text-white text-[12px] md:text-[13px] font-semibold leading-snug mb-1 line-clamp-1">{project.name}</h3><p className="text-[#8b949e] text-[10px] md:text-[11px] font-medium mb-2 flex items-center gap-1"><Building2 className="w-3 h-3" /> {project.client}</p><div className="flex items-center justify-between"><div className="flex items-center gap-2"><span className="flex items-center gap-1 text-[#484f58] text-[10px]"><Camera className="w-3 h-3" />{project.cameras}</span></div><div className="w-5 h-5 rounded-full flex items-center justify-center text-[9px] font-bold text-white" style={{ background: project.assignee.color }}>{project.assignee.initials}</div></div></div></div>); })}</div>
+        ) : (
+          <div className="rounded-2xl overflow-hidden" style={G.card}><div className="overflow-x-auto"><div className="grid gap-3 px-3 py-2.5" style={{ gridTemplateColumns: "2fr 1fr 80px 80px 100px 80px", minWidth: "600px", borderBottom: "1px solid rgba(255,255,255,0.06)" }}>{["Project","Client","Cameras","Devices","Stage","Value"].map((h) => (<span key={h} className="text-[#484f58] text-[10px] font-bold uppercase tracking-widest">{h}</span>))}</div>{filtered.map((project) => { const badge = stageBadge(project.stage); return (<div key={project.id} className="grid gap-3 px-3 py-3.5 items-center transition-all group hover:bg-white/[0.03] cursor-pointer" style={{ gridTemplateColumns: "2fr 1fr 80px 80px 100px 80px", minWidth: "600px", borderBottom: "1px solid rgba(255,255,255,0.04)" }} onClick={() => { setActiveProjectId(project.id); navigate("project-detail"); }}><div><p className="text-white text-[12px] font-semibold truncate">{project.name}</p><p className="text-[#484f58] text-[10px] truncate">{project.location}</p></div><p className="text-[#8b949e] text-[11px] truncate">{project.client}</p><p className="text-[#8b949e] text-[11px]">{project.cameras}</p><p className="text-[#8b949e] text-[11px]">{project.devices}</p><span className={clsx("text-[10px] font-bold px-2 py-0.5 rounded-full w-fit", badge.cls)}>{badge.label}</span><p className="text-white text-[12px] font-bold">{fmt(project.value, true)}</p></div>); })}</div></div>
+        )}
+      </>)}
     </div>
   );
 }
-
 function ProjectDetail({ navigate }: { navigate: (p: Page) => void }) {
   const { fmt } = useCurrency();
   const [project, setProject] = useState<Project | null>(null);
@@ -936,6 +653,8 @@ function ProjectDetail({ navigate }: { navigate: (p: Page) => void }) {
   const [newCOTitle, setNewCOTitle] = useState("");
   const [newCODesc, setNewCODesc] = useState("");
   const [newCOCost, setNewCOCost] = useState("");
+  const [showShareModal, setShowShareModal] = useState(false);
+  const [shareUrl, setShareUrl] = useState("");
 
   useEffect(() => { localStorage.setItem("pd_tab", activeTab); }, [activeTab]);
 
@@ -944,56 +663,118 @@ function ProjectDetail({ navigate }: { navigate: (p: Page) => void }) {
 
   useEffect(() => { if (project) { API.audit.list(project.id).then(setAuditLog).catch(() => setAuditLog([])); API.changeOrders.list(project.id).then(setChangeOrders).catch(() => setChangeOrders([])); } }, [project]);
 
-  const handleCreateCO = async () => {
-    if (!project || !newCOTitle.trim()) return;
-    const co: Partial<ChangeOrder> = { projectId: project.id, title: newCOTitle.trim(), description: newCODesc.trim(), costImpact: parseFloat(newCOCost) || 0, status: "draft", createdBy: CURRENT_USER.name };
-    try { const created = await API.changeOrders.create(project.id, co); setChangeOrders((prev) => [...prev, created]); setShowNewCO(false); setNewCOTitle(""); setNewCODesc(""); setNewCOCost(""); toast.success("Change order created"); } catch { toast.error("Failed to create change order"); }
-  };
+  const handleCreateCO = async () => { if (!project || !newCOTitle.trim()) return; const co: Partial<ChangeOrder> = { projectId: project.id, title: newCOTitle.trim(), description: newCODesc.trim(), costImpact: parseFloat(newCOCost) || 0, status: "draft", createdBy: CURRENT_USER.name }; try { const created = await API.changeOrders.create(project.id, co); setChangeOrders((prev) => [...prev, created]); setShowNewCO(false); setNewCOTitle(""); setNewCODesc(""); setNewCOCost(""); toast.success("Change order created"); } catch { toast.error("Failed to create change order"); } };
 
-  if (loading) return (
-    <div className="px-3 md:px-5 py-4 md:py-6 space-y-4">
-      <Skeleton className="h-8 w-64" />
-      <div className="grid grid-cols-2 md:grid-cols-5 gap-2 md:gap-3">{[1,2,3,4,5].map(i => <Skeleton key={i} className="h-24 rounded-2xl" />)}</div>
-      <Skeleton className="h-64 rounded-2xl" />
-    </div>
-  );
+  const handleGenerateShareLink = async () => { if (!project) return; try { const result = await API.share.generate(project.id, "project-view"); setShareUrl(result.url); setShowShareModal(true); } catch { toast.error("Failed to generate link"); } };
+
+  if (loading) return (<div className="px-3 md:px-5 py-4 md:py-6 space-y-4"><Skeleton className="h-8 w-64" /><div className="grid grid-cols-2 md:grid-cols-5 gap-2 md:gap-3">{[1,2,3,4,5].map(i => <Skeleton key={i} className="h-24 rounded-2xl" />)}</div><Skeleton className="h-64 rounded-2xl" /></div>);
   if (!project) return <EmptyState icon={Building2} title="No project selected" description="Select a project from the Projects tab." />;
 
   const p = project!; const badge = stageBadge(p.stage); const ls = p.leadSource ? LEAD_SOURCE_STYLES[p.leadSource] : null;
   const team = getDeduplicatedTeam(p);
-  const tabs = ["overview","tasks","documents","quotes","change-orders","audit-log"];
-  const tabLabels: Record<string, string> = { overview: "Overview", tasks: "Tasks", documents: "Files", quotes: "Quotes", "change-orders": "Change Orders", "audit-log": "Audit Log" };
+  const tabs = ["overview","tasks","documents","quotes","change-orders","audit-log","gantt","subcontractors","procurement","commissioning"];
+  const tabLabels: Record<string, string> = { overview: "Overview", tasks: "Tasks", documents: "Files", quotes: "Quotes", "change-orders": "Change Orders", "audit-log": "Audit Log", gantt: "Timeline", subcontractors: "Subcontractors", procurement: "Procurement", commissioning: "Commissioning" };
   const stageHistory = p.stageHistory || [{ stage: p.stage, date: p.createdAt?.slice(0,10) || new Date().toISOString().slice(0,10) }];
 
   return (
     <div className="px-3 md:px-5 py-4 md:py-6 max-w-[1200px]">
-      <div className="flex flex-col md:flex-row md:items-start justify-between mb-4 md:mb-6 gap-4"><div className="min-w-0"><div className="flex items-center gap-2 mb-2 flex-wrap"><span className={clsx("text-[10px] font-bold px-2 py-0.5 rounded-full", badge.cls)}>{badge.label}</span>{ls && <span className="text-[10px] font-bold px-2 py-0.5 rounded-full" style={{ background: ls.bg, color: ls.text }}>{p.leadSource}</span>}<span className="text-rose-400 text-[10px] font-bold px-2 py-0.5 rounded-full bg-rose-500/12">{p.risk.toUpperCase()} RISK</span></div><h1 className="text-white font-bold text-xl md:text-2xl tracking-tight mb-1">{p.name}</h1><p className="text-[#8b949e] text-[12px] md:text-[13px] flex items-center gap-1.5"><Building2 className="w-3.5 h-3.5" /> {p.client} · <MapPin className="w-3.5 h-3.5 ml-1" /> {p.location}</p></div><div className="flex items-center gap-2 flex-shrink-0 flex-wrap">{[{ label: "Design", icon: Layers, action: () => navigate("design-canvas") },{ label: "Install", icon: CheckSquare, action: () => navigate("install-tracker") }].map(({ label, icon: Icon, action }) => (<button key={label} onClick={action} className="flex items-center gap-1.5 h-9 px-3 md:px-4 rounded-xl text-white text-[11px] md:text-[12px] font-semibold hover:bg-white/[0.10] cursor-pointer active:scale-[0.97] transition-transform min-h-[44px]" style={G.btn}><Icon className="w-3.5 h-3.5" /> {label}</button>))}</div></div>
+      {showShareModal && (
+        <div className="fixed inset-0 z-[400] flex items-center justify-center p-4" onClick={() => setShowShareModal(false)}>
+          <div className="absolute inset-0" style={{ background: "rgba(0,0,0,0.65)", backdropFilter: "blur(8px)" }} />
+          <motion.div initial={{ opacity: 0, scale: 0.93 }} animate={{ opacity: 1, scale: 1 }} onClick={e => e.stopPropagation()} className="relative z-10 w-full max-w-[440px] rounded-2xl p-6" style={G.liquidGlass}>
+            <h3 className="text-white text-[14px] font-bold mb-2">Shareable Link</h3>
+            <p className="text-[#8b949e] text-[11px] mb-4">Clients can view project progress without logging in.</p>
+            <div className="flex items-center gap-2 mb-4"><input value={shareUrl} readOnly className="flex-1 h-9 rounded-xl px-3 text-[11px] text-white bg-transparent" style={G.input} /><button onClick={() => { navigator.clipboard.writeText(shareUrl); toast.success("Copied"); }} className="h-9 px-3 rounded-xl text-white text-[11px] font-bold cursor-pointer" style={{ background: "#3b82f6" }}><Copy className="w-3.5 h-3.5" /></button></div>
+            <button onClick={() => setShowShareModal(false)} className="w-full h-9 rounded-xl text-[#8b949e] text-[12px] font-semibold cursor-pointer" style={G.btn}>Close</button>
+          </motion.div>
+        </div>
+      )}
+      <div className="flex flex-col md:flex-row md:items-start justify-between mb-4 md:mb-6 gap-4"><div className="min-w-0"><div className="flex items-center gap-2 mb-2 flex-wrap"><span className={clsx("text-[10px] font-bold px-2 py-0.5 rounded-full", badge.cls)}>{badge.label}</span>{ls && <span className="text-[10px] font-bold px-2 py-0.5 rounded-full" style={{ background: ls.bg, color: ls.text }}>{p.leadSource}</span>}<span className="text-rose-400 text-[10px] font-bold px-2 py-0.5 rounded-full bg-rose-500/12">{p.risk.toUpperCase()} RISK</span></div><h1 className="text-white font-bold text-xl md:text-2xl tracking-tight mb-1">{p.name}</h1><p className="text-[#8b949e] text-[12px] md:text-[13px] flex items-center gap-1.5"><Building2 className="w-3.5 h-3.5" /> {p.client} · <MapPin className="w-3.5 h-3.5 ml-1" /> {p.location}</p></div><div className="flex items-center gap-2 flex-shrink-0 flex-wrap">{[{ label: "Design", icon: Layers, action: () => navigate("design-canvas") },{ label: "Install", icon: CheckSquare, action: () => navigate("install-tracker") }].map(({ label, icon: Icon, action }) => (<button key={label} onClick={action} className="flex items-center gap-1.5 h-9 px-3 md:px-4 rounded-xl text-white text-[11px] md:text-[12px] font-semibold hover:bg-white/[0.10] cursor-pointer active:scale-[0.97] transition-transform min-h-[44px]" style={G.btn}><Icon className="w-3.5 h-3.5" /> {label}</button>))}<button onClick={handleGenerateShareLink} className="flex items-center gap-1.5 h-9 px-3 rounded-xl text-white text-[11px] font-semibold cursor-pointer" style={G.btn}><Share2 className="w-3.5 h-3.5" /> Share</button></div></div>
       <div className="grid grid-cols-2 md:grid-cols-5 gap-2 md:gap-3 mb-4 md:mb-6">{[{ label: "Contract Value", value: fmt(p.value, true), icon: DollarSign, color: "#3b82f6" },{ label: "Cameras", value: String(p.cameras), icon: Camera, color: "#8b5cf6" },{ label: "Devices", value: String(p.devices), icon: Fingerprint, color: "#06b6d4" },{ label: "Due Date", value: fmtDate(p.dueDate), icon: Calendar, color: "#f59e0b" },{ label: "Progress", value: "0%", icon: Activity, color: "#10b981" }].map((s) => (<div key={s.label} className="rounded-2xl p-3 md:p-4" style={G.card}><div className="flex items-center justify-between mb-2 md:mb-3"><span className="text-[#8b949e] text-[9px] md:text-[10px] font-bold uppercase">{s.label}</span><div className="w-6 h-6 md:w-7 md:h-7 rounded-xl flex items-center justify-center" style={{ background: `${s.color}18` }}><s.icon className="w-3 h-3" style={{ color: s.color }} /></div></div><p className="text-white text-lg md:text-xl font-bold">{s.value}</p></div>))}</div>
       <div className="flex items-center gap-0.5 mb-4 md:mb-5 overflow-x-auto" style={{ borderBottom: "1px solid rgba(255,255,255,0.07)", scrollbarWidth: "none" }}>{tabs.map((tab) => (<button key={tab} onClick={() => setActiveTab(tab)} className={clsx("h-10 px-3 md:px-4 text-[12px] md:text-[13px] font-semibold border-b-2 transition-all -mb-px whitespace-nowrap cursor-pointer active:scale-[0.97] transition-transform min-h-[44px]", activeTab === tab ? "border-blue-500 text-white" : "border-transparent text-[#8b949e]")}>{tabLabels[tab]}</button>))}</div>
       {activeTab === "overview" && (<div className="grid grid-cols-1 md:grid-cols-3 gap-4"><div className="md:col-span-2 space-y-4"><div className="rounded-2xl p-4 md:p-5" style={G.card}><h3 className="text-white text-[13px] md:text-[14px] font-bold mb-3">Project Scope</h3><p className="text-[#8b949e] text-[12px] leading-relaxed">{p.summary ?? "No scope defined yet."}</p></div><div className="rounded-2xl p-4 md:p-5" style={G.card}><h3 className="text-white text-[13px] md:text-[14px] font-bold mb-4">Team</h3><div className="space-y-3">{team.map((m) => (<div key={m.name} className="flex items-center gap-3"><div className="w-8 h-8 rounded-xl flex items-center justify-center text-[11px] font-bold text-white" style={{ background: m.color }}>{m.initials}</div><div><p className="text-white text-[12px] font-semibold">{m.name}</p><p className="text-[#8b949e] text-[10px]">{m.roles.join(", ")}</p></div></div>))}</div></div></div><div className="space-y-4"><div className="rounded-2xl p-4 md:p-5" style={G.card}><h3 className="text-white text-[13px] md:text-[14px] font-bold mb-4">Timeline</h3><div className="space-y-2">{COLUMNS.filter(c => !["win","lose"].includes(c.id)).map((col) => { const entry = stageHistory.find((s: any) => s.stage === col.id); const colIndex = COLUMNS.indexOf(col); const currentIndex = COLUMNS.indexOf(COLUMNS.find((c) => c.id === p.stage)!); const isPast = colIndex < currentIndex; const isCurrent = col.id === p.stage; return (<div key={col.id} className="flex items-center gap-3"><div className={clsx("w-5 h-5 rounded-full flex items-center justify-center flex-shrink-0", isPast ? "bg-emerald-500/20" : isCurrent ? "bg-blue-500/20 ring-2 ring-blue-500/40" : "bg-white/[0.04]")}>{isPast ? <CheckCircle2 className="w-3 h-3 text-emerald-400" /> : isCurrent ? <Clock className="w-3 h-3 text-blue-400" /> : <div className="w-1.5 h-1.5 rounded-full bg-white/20" />}</div><div className="flex-1 flex items-center justify-between"><span className={clsx("text-[11px] font-semibold", isPast ? "text-[#8b949e]" : isCurrent ? "text-white" : "text-[#484f58]")}>{col.label}</span><span className="text-[#484f58] text-[10px]">{entry?.date ? fmtDateFull(entry.date) : "—"}</span></div></div>); })}</div></div></div></div>)}
       {activeTab === "tasks" && <TaskList projectId={p.id} />}
       {activeTab === "documents" && <DocumentList projectId={p.id} />}
       {activeTab === "quotes" && (quotes.length === 0 ? <EmptyState icon={DollarSign} title="No workbook yet" description="" /> : <div className="space-y-3">{quotes.map((q) => (<div key={q.id} className="flex items-center justify-between rounded-2xl p-4" style={G.card}><div className="flex items-center gap-4"><DollarSign className="w-4 h-4 text-blue-400" /><div><p className="text-white text-[13px] font-semibold">{q.refNumber}</p><p className="text-[#484f58] text-[11px]">{q.date} · {q.status}</p></div></div><button onClick={() => navigate("workbook")} className="h-8 px-3 rounded-xl text-[#8b949e] text-[12px] font-semibold hover:text-white cursor-pointer" style={G.btn}>Open</button></div>))}</div>)}
-      {activeTab === "change-orders" && (
-        <div>
-          <div className="flex items-center justify-between mb-3"><p className="text-[#8b949e] text-[11px]">{changeOrders.length} change orders</p><button onClick={() => setShowNewCO(true)} className="flex items-center gap-1.5 h-8 px-3 rounded-xl text-white text-[11px] font-bold cursor-pointer active:scale-[0.97] transition-transform" style={{ background: "#3b82f6" }}><Plus className="w-3 h-3" /> New Change Order</button></div>
-          {showNewCO && (<div className="rounded-2xl p-4 mb-3" style={G.card}><div className="space-y-2"><input value={newCOTitle} onChange={(e) => setNewCOTitle(e.target.value)} placeholder="Title" className="w-full h-9 rounded-xl px-3 text-[12px] text-[#e6edf3] focus:outline-none" style={G.input} /><textarea value={newCODesc} onChange={(e) => setNewCODesc(e.target.value)} placeholder="Description" rows={2} className="w-full rounded-xl px-3 py-2 text-[12px] text-[#e6edf3] focus:outline-none resize-none" style={G.input} /><input type="number" value={newCOCost} onChange={(e) => setNewCOCost(e.target.value)} placeholder="Cost Impact" className="w-full h-9 rounded-xl px-3 text-[12px] text-[#e6edf3] focus:outline-none" style={G.input} /><div className="flex gap-2"><button onClick={handleCreateCO} className="flex-1 h-9 rounded-xl text-white text-[12px] font-bold cursor-pointer active:scale-[0.97] transition-transform" style={{ background: "#10b981" }}>Create</button><button onClick={() => setShowNewCO(false)} className="flex-1 h-9 rounded-xl text-[#8b949e] text-[12px] font-semibold cursor-pointer active:scale-[0.97] transition-transform" style={G.btn}>Cancel</button></div></div></div>)}
-          {changeOrders.length === 0 && !showNewCO ? <EmptyState icon={AlertTriangle} title="No change orders" description="Create one to track scope changes." /> : (
-            <div className="space-y-2">{changeOrders.map((co) => (<div key={co.id} className="rounded-2xl p-4" style={G.card}><div className="flex items-center justify-between"><div><p className="text-white text-[13px] font-semibold">{co.title}</p>{co.description && <p className="text-[#8b949e] text-[11px] mt-0.5">{co.description}</p>}</div><span className={clsx("text-[10px] font-bold px-2 py-0.5 rounded-full", co.status === "approved" ? "bg-emerald-500/12 text-emerald-400" : co.status === "submitted" ? "bg-blue-500/12 text-blue-400" : co.status === "rejected" ? "bg-rose-500/12 text-rose-400" : "bg-amber-500/12 text-amber-400")}>{co.status}</span></div><div className="flex items-center justify-between mt-2"><span className="text-[#484f58] text-[10px]">{co.createdBy} · {fmtDateFull(co.createdAt)}</span>{co.costImpact !== 0 && <span className="text-white text-[12px] font-bold">{fmt(co.costImpact)}</span>}</div></div>))}</div>
-          )}
-        </div>
-      )}
-      {activeTab === "audit-log" && (
-        <div>
-          {auditLog.length === 0 ? <EmptyState icon={History} title="No audit entries" description="Activity will appear here automatically." /> : (
-            <div className="space-y-1">{auditLog.map((entry) => (<div key={entry.id} className="flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-white/[0.02]" style={{ borderBottom: "1px solid rgba(255,255,255,0.03)" }}><div className="w-7 h-7 rounded-full flex items-center justify-center text-[9px] font-bold text-white flex-shrink-0" style={{ background: TEAM.find(t => t.name === entry.user)?.color || "#3b82f6" }}>{(TEAM.find(t => t.name === entry.user)?.initials || "??")}</div><div className="flex-1 min-w-0"><p className="text-white text-[11px] font-semibold">{entry.event}</p><p className="text-[#8b949e] text-[10px]">{entry.details}</p></div><span className="text-[#484f58] text-[10px] flex-shrink-0">{new Date(entry.timestamp).toLocaleString()}</span></div>))}</div>
-          )}
-        </div>
-      )}
+      {activeTab === "change-orders" && (<div><div className="flex items-center justify-between mb-3"><p className="text-[#8b949e] text-[11px]">{changeOrders.length} change orders</p><button onClick={() => setShowNewCO(true)} className="flex items-center gap-1.5 h-8 px-3 rounded-xl text-white text-[11px] font-bold cursor-pointer active:scale-[0.97] transition-transform" style={{ background: "#3b82f6" }}><Plus className="w-3 h-3" /> New Change Order</button></div>{showNewCO && (<div className="rounded-2xl p-4 mb-3" style={G.card}><div className="space-y-2"><input value={newCOTitle} onChange={(e) => setNewCOTitle(e.target.value)} placeholder="Title" className="w-full h-9 rounded-xl px-3 text-[12px] text-[#e6edf3] focus:outline-none" style={G.input} /><textarea value={newCODesc} onChange={(e) => setNewCODesc(e.target.value)} placeholder="Description" rows={2} className="w-full rounded-xl px-3 py-2 text-[12px] text-[#e6edf3] focus:outline-none resize-none" style={G.input} /><input type="number" value={newCOCost} onChange={(e) => setNewCOCost(e.target.value)} placeholder="Cost Impact" className="w-full h-9 rounded-xl px-3 text-[12px] text-[#e6edf3] focus:outline-none" style={G.input} /><div className="flex gap-2"><button onClick={handleCreateCO} className="flex-1 h-9 rounded-xl text-white text-[12px] font-bold cursor-pointer active:scale-[0.97] transition-transform" style={{ background: "#10b981" }}>Create</button><button onClick={() => setShowNewCO(false)} className="flex-1 h-9 rounded-xl text-[#8b949e] text-[12px] font-semibold cursor-pointer active:scale-[0.97] transition-transform" style={G.btn}>Cancel</button></div></div></div>)}{changeOrders.length === 0 && !showNewCO ? <EmptyState icon={AlertTriangle} title="No change orders" description="Create one to track scope changes." /> : (<div className="space-y-2">{changeOrders.map((co) => (<div key={co.id} className="rounded-2xl p-4" style={G.card}><div className="flex items-center justify-between"><div><p className="text-white text-[13px] font-semibold">{co.title}</p>{co.description && <p className="text-[#8b949e] text-[11px] mt-0.5">{co.description}</p>}</div><span className={clsx("text-[10px] font-bold px-2 py-0.5 rounded-full", co.status === "approved" ? "bg-emerald-500/12 text-emerald-400" : co.status === "submitted" ? "bg-blue-500/12 text-blue-400" : co.status === "rejected" ? "bg-rose-500/12 text-rose-400" : "bg-amber-500/12 text-amber-400")}>{co.status}</span></div><div className="flex items-center justify-between mt-2"><span className="text-[#484f58] text-[10px]">{co.createdBy} · {fmtDateFull(co.createdAt)}</span>{co.costImpact !== 0 && <span className="text-white text-[12px] font-bold">{fmt(co.costImpact)}</span>}</div></div>))}</div>)}</div>)}
+      {activeTab === "audit-log" && (<div>{auditLog.length === 0 ? <EmptyState icon={History} title="No audit entries" description="Activity will appear here automatically." /> : (<div className="space-y-1">{auditLog.map((entry) => (<div key={entry.id} className="flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-white/[0.02]" style={{ borderBottom: "1px solid rgba(255,255,255,0.03)" }}><div className="w-7 h-7 rounded-full flex items-center justify-center text-[9px] font-bold text-white flex-shrink-0" style={{ background: TEAM.find(t => t.name === entry.user)?.color || "#3b82f6" }}>{(TEAM.find(t => t.name === entry.user)?.initials || "??")}</div><div className="flex-1 min-w-0"><p className="text-white text-[11px] font-semibold">{entry.event}</p><p className="text-[#8b949e] text-[10px]">{entry.details}</p></div><span className="text-[#484f58] text-[10px] flex-shrink-0">{new Date(entry.timestamp).toLocaleString()}</span></div>))}</div>)}</div>)}
+      {activeTab === "gantt" && <GanttView projectId={p.id} />}
+      {activeTab === "subcontractors" && <SubcontractorTab projectId={p.id} />}
+      {activeTab === "procurement" && <ProcurementTab projectId={p.id} />}
+      {activeTab === "commissioning" && <CommissioningTab projectId={p.id} />}
     </div>
   );
 }
-// ============ 3D MODEL VIEWER COMPONENTS ============
+
+function GanttView({ projectId }: { projectId: string }) {
+  const [tasks, setTasks] = useState<Task[]>([]);
+  const [loading, setLoading] = useState(true);
+  useEffect(() => { API.tasks.list(projectId).then(setTasks).catch(() => setTasks([])).finally(() => setLoading(false)); }, [projectId]);
+  if (loading) return <Skeleton className="h-64 rounded-2xl" />;
+  if (tasks.length === 0) return <EmptyState icon={GanttChartSquare} title="No tasks" description="Add tasks to see the timeline." />;
+  const months = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+  const today = new Date();
+  const startDate = new Date(Math.min(...tasks.map(t => new Date(t.createdAt).getTime()), today.getTime() - 30*24*60*60*1000));
+  const endDate = new Date(Math.max(...tasks.map(t => t.dueDate ? new Date(t.dueDate).getTime() : 0), today.getTime() + 60*24*60*60*1000));
+  const totalDays = Math.ceil((endDate.getTime() - startDate.getTime()) / (1000*60*60*24));
+  const getX = (dateStr: string) => { const d = new Date(dateStr); return ((d.getTime() - startDate.getTime()) / (1000*60*60*24) / totalDays) * 100; };
+  return (
+    <div className="rounded-2xl p-4 overflow-x-auto" style={G.card}>
+      <div style={{ minWidth: "700px" }}>
+        <div className="flex items-center mb-3"><GanttChartSquare className="w-4 h-4 text-blue-400 mr-2" /><span className="text-white text-[13px] font-bold">Project Timeline</span></div>
+        <div className="flex" style={{ marginLeft: "200px" }}>{Array.from({ length: Math.ceil(totalDays/30) }).map((_, i) => { const d = new Date(startDate); d.setDate(d.getDate() + i*30); return <div key={i} className="text-[#484f58] text-[9px] font-bold flex-1 text-center border-l border-white/5">{months[d.getMonth()]}</div>; })}</div>
+        <div className="mt-3 space-y-2">
+          {tasks.map(task => { const startPct = getX(task.createdAt); const duePct = task.dueDate ? getX(task.dueDate) : startPct + 15; const width = Math.max(duePct - startPct, 5);
+            return (<div key={task.id} className="flex items-center gap-2"><div className="w-[200px] flex-shrink-0 text-white text-[11px] font-semibold truncate">{task.title}</div><div className="flex-1 relative h-7"><div className="absolute rounded-full h-5 top-1" style={{ left: `${startPct}%`, width: `${width}%`, background: task.status === "complete" ? "rgba(16,185,129,0.4)" : task.status === "in-progress" ? "rgba(59,130,246,0.5)" : "rgba(255,255,255,0.15)", border: `1px solid ${task.status === "complete" ? "rgba(16,185,129,0.6)" : task.status === "in-progress" ? "rgba(59,130,246,0.6)" : "rgba(255,255,255,0.2)"}` }}><span className="absolute inset-0 flex items-center px-2 text-[8px] font-bold text-white truncate">{task.assignee || ""}</span></div></div></div>);
+          })}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function SubcontractorTab({ projectId }: { projectId: string }) {
+  const [subs, setSubs] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [showAdd, setShowAdd] = useState(false);
+  const [name, setName] = useState(""); const [trade, setTrade] = useState(""); const [email, setEmail] = useState("");
+  useEffect(() => { API.subcontractors.list(projectId).then(setSubs).catch(() => setSubs([])).finally(() => setLoading(false)); }, [projectId]);
+  const handleAdd = async () => { if (!name.trim()) return; try { const created = await API.subcontractors.add(projectId, { name: name.trim(), trade: trade.trim(), email: email.trim() }); setSubs(prev => [...prev, created]); setName(""); setTrade(""); setEmail(""); setShowAdd(false); toast.success("Subcontractor added"); } catch { toast.error("Failed to add"); } };
+  if (loading) return <Skeleton className="h-48 rounded-2xl" />;
+  return (
+    <div className="space-y-3">
+      <div className="flex items-center justify-between"><p className="text-[#8b949e] text-[11px]">{subs.length} subcontractors</p><button onClick={() => setShowAdd(!showAdd)} className="flex items-center gap-1 h-8 px-3 rounded-xl text-white text-[11px] font-bold cursor-pointer" style={{ background: "#3b82f6" }}><Plus className="w-3 h-3" /> Add</button></div>
+      {showAdd && (<div className="rounded-xl p-3 space-y-2" style={G.card}><input value={name} onChange={e => setName(e.target.value)} placeholder="Company name" className="w-full h-8 rounded-lg px-2 text-[11px] text-white bg-transparent" style={G.input} /><input value={trade} onChange={e => setTrade(e.target.value)} placeholder="Trade (e.g. Electrical)" className="w-full h-8 rounded-lg px-2 text-[11px] text-white bg-transparent" style={G.input} /><input value={email} onChange={e => setEmail(e.target.value)} placeholder="Email" className="w-full h-8 rounded-lg px-2 text-[11px] text-white bg-transparent" style={G.input} /><button onClick={handleAdd} className="w-full h-8 rounded-lg text-white text-[11px] font-bold cursor-pointer" style={{ background: "#10b981" }}>Save</button></div>)}
+      {subs.length === 0 && !showAdd ? <EmptyState icon={UserCheck} title="No subcontractors" description="Add subcontractors working on this project." /> : subs.map((sub, i) => (<div key={sub.id || i} className="flex items-center justify-between rounded-xl p-3" style={G.card}><div><p className="text-white text-[12px] font-semibold">{sub.name}</p><p className="text-[#484f58] text-[10px]">{sub.trade}{sub.email ? ` · ${sub.email}` : ""}</p></div><div className="flex items-center gap-1">{[1,2,3,4,5].map(s => <StarIcon key={s} className={clsx("w-3 h-3 cursor-pointer", s <= (sub.rating || 0) ? "text-amber-400 fill-amber-400" : "text-[#484f58]")} onClick={() => API.subcontractors.rate(sub.id, s).then(() => setSubs(prev => prev.map(x => x.id === sub.id ? { ...x, rating: s } : x)))} />)}</div></div>))}
+    </div>
+  );
+}
+
+function ProcurementTab({ projectId }: { projectId: string }) {
+  const [pos, setPos] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  useEffect(() => { API.procurement.listPOs(projectId).then(setPos).catch(() => setPos([])).finally(() => setLoading(false)); }, [projectId]);
+  if (loading) return <Skeleton className="h-48 rounded-2xl" />;
+  return (
+    <div className="space-y-3">
+      <div className="flex items-center justify-between"><p className="text-[#8b949e] text-[11px]">{pos.length} purchase orders</p><button onClick={async () => { try { const po = await API.procurement.createPO(projectId, { generatedFrom: "BOM" }); setPos(prev => [...prev, po]); toast.success("PO generated from BOM"); } catch { toast.error("Failed to generate PO"); } }} className="flex items-center gap-1 h-8 px-3 rounded-xl text-white text-[11px] font-bold cursor-pointer" style={{ background: "#3b82f6" }}><FileText className="w-3 h-3" /> Generate PO from BOM</button></div>
+      {pos.length === 0 ? <EmptyState icon={Truck} title="No purchase orders" description="Generate a PO from the workbook BOM." /> : pos.map((po, i) => (<div key={po.id || i} className="rounded-xl p-3" style={G.card}><div className="flex items-center justify-between"><p className="text-white text-[12px] font-semibold">PO #{po.id?.slice(0,8) || i+1}</p><span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-500/12 text-amber-400">{po.status || "Pending"}</span></div><p className="text-[#484f58] text-[10px] mt-1">{new Date(po.createdAt).toLocaleDateString()}</p></div>))}
+    </div>
+  );
+}
+
+function CommissioningTab({ projectId }: { projectId: string }) {
+  const [checklist, setChecklist] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  useEffect(() => { API.commissioning.list(projectId).then(setChecklist).catch(() => setChecklist([])).finally(() => setLoading(false)); }, [projectId]);
+  if (loading) return <Skeleton className="h-48 rounded-2xl" />;
+  return (
+    <div className="space-y-3">
+      <div className="flex items-center justify-between"><p className="text-[#8b949e] text-[11px]">{checklist.length} devices</p><button onClick={async () => { try { const result = await API.commissioning.generateReport(projectId); toast.success("Handover report generated"); window.open(result.url, "_blank"); } catch { toast.error("Failed to generate report"); } }} className="flex items-center gap-1 h-8 px-3 rounded-xl text-white text-[11px] font-bold cursor-pointer" style={{ background: "#10b981" }}><ClipboardCheck className="w-3 h-3" /> Handover Report</button></div>
+      {checklist.length === 0 ? <EmptyState icon={ClipboardCheck} title="No commissioning data" description="Devices from Install Tracker appear here for final sign-off." /> : checklist.map((item, i) => (<div key={item.id || i} className="flex items-center justify-between rounded-xl p-3" style={G.card}><div className="flex items-center gap-3"><div className={clsx("w-6 h-6 rounded-full flex items-center justify-center", item.status === "pass" ? "bg-emerald-500/20" : item.status === "fail" ? "bg-rose-500/20" : "bg-white/5")}>{item.status === "pass" ? <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" /> : item.status === "fail" ? <X className="w-3.5 h-3.5 text-rose-400" /> : <Clock className="w-3.5 h-3.5 text-[#484f58]" />}</div><div><p className="text-white text-[12px] font-semibold">{item.name || item.device}</p><p className="text-[#484f58] text-[10px]">{item.location || ""}</p></div></div><div className="flex gap-1"><button onClick={() => API.commissioning.update(projectId, item.id, { status: "pass" }).then(() => setChecklist(prev => prev.map(x => x.id === item.id ? { ...x, status: "pass" } : x)))} className="h-7 px-2 rounded-lg text-[10px] font-bold text-emerald-400 cursor-pointer" style={{ background: "rgba(16,185,129,0.12)" }}>Pass</button><button onClick={() => API.commissioning.update(projectId, item.id, { status: "fail" }).then(() => setChecklist(prev => prev.map(x => x.id === item.id ? { ...x, status: "fail" } : x)))} className="h-7 px-2 rounded-lg text-[10px] font-bold text-rose-400 cursor-pointer" style={{ background: "rgba(244,63,94,0.12)" }}>Fail</button></div></div>))}
+    </div>
+  );
+}
 
 function GLTFModel({ url }: { url: string }) {
   const { scene } = useGLTF(url);
@@ -1003,11 +784,7 @@ function GLTFModel({ url }: { url: string }) {
 
 function ThreeDViewer({ file }: { file: FloorPlanFile }) {
   if (!file.is3DModel) {
-    return (
-      <div className="w-full h-full flex items-center justify-center" style={{ background: "#070c1a" }}>
-        <img src={file.url} alt="3D Rendering" className="max-w-full max-h-full object-contain" />
-      </div>
-    );
+    return (<div className="w-full h-full flex items-center justify-center" style={{ background: "#070c1a" }}><img src={file.url} alt="3D Rendering" className="max-w-full max-h-full object-contain" /></div>);
   }
   return (
     <ThreeCanvas camera={{ position: [3, 2, 5], fov: 50 }} style={{ background: "#070c1a" }}>
@@ -1025,17 +802,11 @@ function ThreeDViewer({ file }: { file: FloorPlanFile }) {
   );
 }
 
-// ============ DESIGN CANVAS ============
-
 const CANVAS_TOOLS = [
-  { id: "select", icon: MousePointer, label: "Select" },
-  { id: "move", icon: Move, label: "Pan" },
-  { id: "camera", icon: Camera, label: "Camera" },
-  { id: "door", icon: DoorOpen, label: "Door" },
-  { id: "panel", icon: PanelRight, label: "Panel" },
-  { id: "power", icon: Zap, label: "Power" },
-  { id: "server", icon: Server, label: "NVR" },
-  { id: "cable", icon: Cable, label: "Cable" },
+  { id: "select", icon: MousePointer, label: "Select" },{ id: "move", icon: Move, label: "Pan" },
+  { id: "camera", icon: Camera, label: "Camera" },{ id: "door", icon: DoorOpen, label: "Door" },
+  { id: "panel", icon: PanelRight, label: "Panel" },{ id: "power", icon: Zap, label: "Power" },
+  { id: "server", icon: Server, label: "NVR" },{ id: "cable", icon: Cable, label: "Cable" },
   { id: "trash", icon: Trash2, label: "Delete" },
 ];
 
@@ -1085,15 +856,9 @@ function DesignCanvas({ navigate }: { navigate: (p: Page) => void }) {
     loadCanvas();
   }, []);
 
-  const saveCanvas = useCallback(async () => {
-    if (!projectId) return;
-    try { await API.canvas.save(projectId, { layoutData: { devices, imageUrl: floorPlan2D?.url || "", image3DUrl: floorPlan3D?.url || "" } }); } catch (err) { console.error("Canvas save failed:", err); }
-  }, [devices, floorPlan2D, floorPlan3D, projectId]);
+  const saveCanvas = useCallback(async () => { if (!projectId) return; try { await API.canvas.save(projectId, { layoutData: { devices, imageUrl: floorPlan2D?.url || "", image3DUrl: floorPlan3D?.url || "" } }); } catch (err) { console.error("Canvas save failed:", err); } }, [devices, floorPlan2D, floorPlan3D, projectId]);
 
-  useEffect(() => {
-    const t = setTimeout(() => { if (devices.length > 0 || floorPlan2D || floorPlan3D) saveCanvas(); }, 1000);
-    return () => clearTimeout(t);
-  }, [devices, saveCanvas]);
+  useEffect(() => { const t = setTimeout(() => { if (devices.length > 0 || floorPlan2D || floorPlan3D) saveCanvas(); }, 1000); return () => clearTimeout(t); }, [devices, saveCanvas]);
 
   const syncDeviceToWorkbook = async (device: CatalogDevice) => {
     if (!projectId) return;
@@ -1103,67 +868,29 @@ function DesignCanvas({ navigate }: { navigate: (p: Page) => void }) {
       if (!projectQuote) {
         const projects = await API.projects.list();
         const proj = projects.find((p: Project) => p.id === projectId);
-        projectQuote = await API.quotes.create({
-          clientName: proj?.client || "", refNumber: `Q-${projectId.slice(0, 8).toUpperCase()}`, date: new Date().toISOString().slice(0, 10), status: "draft", quoteType: "Both",
-          exchangeRate: parseFloat(localStorage.getItem("fx_rate") || "157.4"), projectId,
-          categories: [
-            { id: crypto.randomUUID?.() || "cat1", name: "Video Security Equipment", type: "Video Surveillance" as QuoteType, lineItems: [] },
-            { id: crypto.randomUUID?.() || "cat2", name: "Access Control Equipment", type: "Access Control" as QuoteType, lineItems: [] },
-            { id: crypto.randomUUID?.() || "cat3", name: "Software", type: "Both" as QuoteType, lineItems: [] },
-            { id: crypto.randomUUID?.() || "cat4", name: "Compute & Storage", type: "Both" as QuoteType, lineItems: [] },
-            { id: crypto.randomUUID?.() || "cat5", name: "Networking", type: "Both" as QuoteType, lineItems: [] },
-            { id: crypto.randomUUID?.() || "cat6", name: "Installation & Labor", type: "Both" as QuoteType, lineItems: [] },
-          ],
-        });
+        projectQuote = await API.quotes.create({ clientName: proj?.client || "", refNumber: `Q-${projectId.slice(0, 8).toUpperCase()}`, date: new Date().toISOString().slice(0, 10), status: "draft", quoteType: "Both", exchangeRate: parseFloat(localStorage.getItem("fx_rate") || "157.4"), projectId, categories: [{ id: crypto.randomUUID?.() || "cat1", name: "Video Security Equipment", type: "Video Surveillance" as QuoteType, lineItems: [] },{ id: crypto.randomUUID?.() || "cat2", name: "Access Control Equipment", type: "Access Control" as QuoteType, lineItems: [] },{ id: crypto.randomUUID?.() || "cat3", name: "Software", type: "Both" as QuoteType, lineItems: [] },{ id: crypto.randomUUID?.() || "cat4", name: "Compute & Storage", type: "Both" as QuoteType, lineItems: [] },{ id: crypto.randomUUID?.() || "cat5", name: "Networking", type: "Both" as QuoteType, lineItems: [] },{ id: crypto.randomUUID?.() || "cat6", name: "Installation & Labor", type: "Both" as QuoteType, lineItems: [] }] });
       }
       const targetCatName = device.category === "camera" ? "Video Security Equipment" : device.category === "access-control" ? "Access Control Equipment" : device.category === "nvr" ? "Compute & Storage" : "Video Security Equipment";
       const categories = projectQuote.categories || [];
       let targetCat = categories.find((c: QuoteCategory) => c.name === targetCatName);
       if (!targetCat) { targetCat = { id: crypto.randomUUID?.() || `cat${Date.now()}`, name: targetCatName, type: "Both" as QuoteType, lineItems: [] }; categories.push(targetCat); }
       const existingItem = targetCat.lineItems.find((li: QuoteLineItem) => li.description === `${device.manufacturer} ${device.model}`);
-      if (existingItem) {
-        existingItem.quantity += 1;
-        const sellPrice = existingItem.unitCost * (1 + existingItem.markupPercent);
-        existingItem.sellPrice = sellPrice; existingItem.costTotal = existingItem.unitCost * existingItem.quantity; existingItem.sellTotal = sellPrice * existingItem.quantity; existingItem.profit = existingItem.sellTotal - existingItem.costTotal;
-      } else {
-        const price = device.price || 0; const sellPrice = price * 1.35;
-        targetCat.lineItems.push({ id: crypto.randomUUID?.() || `li${Date.now()}`, itemNumber: String(targetCat.lineItems.length + 1).padStart(2, "0"), description: `${device.manufacturer} ${device.model}`, unitCost: price, quantity: 1, markupPercent: 0.35, sellPrice, costTotal: price, sellTotal: sellPrice, profit: sellPrice - price, jmdConversion: sellPrice * (parseFloat(localStorage.getItem("fx_rate") || "157.4")) });
-      }
+      if (existingItem) { existingItem.quantity += 1; const sellPrice = existingItem.unitCost * (1 + existingItem.markupPercent); existingItem.sellPrice = sellPrice; existingItem.costTotal = existingItem.unitCost * existingItem.quantity; existingItem.sellTotal = sellPrice * existingItem.quantity; existingItem.profit = existingItem.sellTotal - existingItem.costTotal; }
+      else { const price = device.price || 0; const sellPrice = price * 1.35; targetCat.lineItems.push({ id: crypto.randomUUID?.() || `li${Date.now()}`, itemNumber: String(targetCat.lineItems.length + 1).padStart(2, "0"), description: `${device.manufacturer} ${device.model}`, unitCost: price, quantity: 1, markupPercent: 0.35, sellPrice, costTotal: price, sellTotal: sellPrice, profit: sellPrice - price, jmdConversion: sellPrice * (parseFloat(localStorage.getItem("fx_rate") || "157.4")) }); }
       await API.quotes.update(projectQuote.id, { categories });
     } catch (err) { console.error("Workbook sync failed:", err); }
   };
 
-  const addDevice = (type: CanvasDevice["type"], x: number, y: number, storeRef?: string, imgUrl?: string) => {
-    const newDevice: CanvasDevice = { id: `dev${Date.now()}`, type, x, y, rot: 0, fov: type === "camera" ? 80 : undefined, range: type === "camera" ? 90 : undefined, label: `${type.toUpperCase()}-${String(devices.length + 1).padStart(2, "0")}`, doorConfig: type === "door" ? { swing: "inswinging", lockType: "Electric Strike", readers: [], accessType: "Card", keyOverride: true } : undefined, deviceStoreRef: storeRef, imageUrl: imgUrl };
-    setDevices((prev) => [...prev, newDevice]);
-    setSelectedId(newDevice.id);
-  };
+  const addDevice = (type: CanvasDevice["type"], x: number, y: number, storeRef?: string, imgUrl?: string) => { const newDevice: CanvasDevice = { id: `dev${Date.now()}`, type, x, y, rot: 0, fov: type === "camera" ? 80 : undefined, range: type === "camera" ? 90 : undefined, label: `${type.toUpperCase()}-${String(devices.length + 1).padStart(2, "0")}`, doorConfig: type === "door" ? { swing: "inswinging", lockType: "Electric Strike", readers: [], accessType: "Card", keyOverride: true } : undefined, deviceStoreRef: storeRef, imageUrl: imgUrl }; setDevices((prev) => [...prev, newDevice]); setSelectedId(newDevice.id); };
 
-  const placeDeviceFromStore = (device: CatalogDevice, x: number, y: number) => {
-    const typeMap: Record<string, CanvasDevice["type"]> = { camera: "camera", "access-control": "door", nvr: "server", analytics: "server", other: "camera" };
-    addDevice(typeMap[device.category] || "camera", x, y, device.id, device.imageUrl);
-    syncDeviceToWorkbook(device);
-    toast.success(`${device.model} placed`);
-  };
+  const placeDeviceFromStore = (device: CatalogDevice, x: number, y: number) => { const typeMap: Record<string, CanvasDevice["type"]> = { camera: "camera", "access-control": "door", nvr: "server", analytics: "server", other: "camera" }; addDevice(typeMap[device.category] || "camera", x, y, device.id, device.imageUrl); syncDeviceToWorkbook(device); toast.success(`${device.model} placed`); };
 
   const getDeviceColor = (type: CanvasDevice["type"]) => { const colors: Record<string, string> = { camera: "#3b82f6", door: "#f59e0b", panel: "#f97316", power: "#ef4444", server: "#ec4899", cable: "#8b5cf6" }; return colors[type] || "#3b82f6"; };
   const updateDoorConfig = (deviceId: string, config: Partial<CanvasDevice["doorConfig"]>) => { setDevices((prev) => prev.map((d) => d.id === deviceId ? { ...d, doorConfig: { ...d.doorConfig!, ...config } } : d)); };
 
-  const handleCanvasClick = (e: any) => {
-    if (activeTool === "move" || activeTool === "select" || activeTool === "trash") return;
-    const transformState = transformRef.current?.state; if (!transformState) return;
-    const scale = transformState.scale;
-    const posX = (e.clientX - transformState.positionX) / scale; const posY = (e.clientY - transformState.positionY) / scale;
-    if (activeTool === "cable") { setCablePoints((prev) => [...prev, { x: posX, y: posY }]); return; }
-    addDevice(activeTool as CanvasDevice["type"], posX, posY);
-  };
+  const handleCanvasClick = (e: any) => { if (activeTool === "move" || activeTool === "select" || activeTool === "trash") return; const transformState = transformRef.current?.state; if (!transformState) return; const scale = transformState.scale; const posX = (e.clientX - transformState.positionX) / scale; const posY = (e.clientY - transformState.positionY) / scale; if (activeTool === "cable") { setCablePoints((prev) => [...prev, { x: posX, y: posY }]); return; } addDevice(activeTool as CanvasDevice["type"], posX, posY); };
 
-  const handleDoubleClick = () => {
-    if (activeTool === "cable" && cablePoints.length >= 2) {
-      setDevices((prev) => [...prev, { id: `dev${Date.now()}`, type: "cable", x: cablePoints[0].x, y: cablePoints[0].y, rot: 0, label: `CABLE-${String(prev.filter(d => d.type === "cable").length + 1).padStart(2, "0")}`, cablePoints: [...cablePoints] }]);
-      setCablePoints([]);
-    }
-  };
+  const handleDoubleClick = () => { if (activeTool === "cable" && cablePoints.length >= 2) { setDevices((prev) => [...prev, { id: `dev${Date.now()}`, type: "cable", x: cablePoints[0].x, y: cablePoints[0].y, rot: 0, label: `CABLE-${String(prev.filter(d => d.type === "cable").length + 1).padStart(2, "0")}`, cablePoints: [...cablePoints] }]); setCablePoints([]); } };
 
   const handleDeviceClick = (deviceId: string, e: React.MouseEvent) => { e.stopPropagation(); if (activeTool === "trash") { setDevices((prev) => prev.filter((d) => d.id !== deviceId)); if (selectedId === deviceId) setSelectedId(null); return; } if (activeTool === "select") { setSelectedId(deviceId); setDraggingDevice(deviceId); } };
   const handleDeviceMouseDown = (deviceId: string, _e: React.MouseEvent) => { if (activeTool === "select") setDraggingDevice(deviceId); };
@@ -1171,7 +898,6 @@ function DesignCanvas({ navigate }: { navigate: (p: Page) => void }) {
   const handleCanvasMouseUp = () => { setDraggingDevice(null); };
 
   const filteredStoreDevices = storeSearch.trim() ? storeDevices.filter(d => d.model.toLowerCase().includes(storeSearch.toLowerCase()) || d.manufacturer.toLowerCase().includes(storeSearch.toLowerCase())) : storeDevices;
-
   const CAT_COLOR: Record<string, { bg: string; text: string; label: string }> = { camera: { bg: "rgba(59,130,246,0.12)", text: "#60a5fa", label: "Camera" }, "access-control": { bg: "rgba(139,92,246,0.12)", text: "#a78bfa", label: "Access" }, nvr: { bg: "rgba(16,185,129,0.12)", text: "#34d399", label: "NVR" }, analytics: { bg: "rgba(249,115,22,0.12)", text: "#fb923c", label: "VMS" }, other: { bg: "rgba(100,100,100,0.12)", text: "#8b949e", label: "Other" } };
 
   const uploadFile = async (type: "2d" | "3d") => {
@@ -1180,27 +906,8 @@ function DesignCanvas({ navigate }: { navigate: (p: Page) => void }) {
     input.onchange = async (e: any) => {
       const file = e.target.files?.[0]; if (!file || !projectId) return;
       const ext = file.name.split(".").pop()?.toLowerCase() || "";
-      if (type === "2d" && ext === "pdf") {
-        setPdfRendering(true);
-        try {
-          const arrayBuffer = await file.arrayBuffer(); const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
-          const page = await pdf.getPage(1); const viewport = page.getViewport({ scale: 2 });
-          const canvas = document.createElement("canvas"); canvas.width = viewport.width; canvas.height = viewport.height;
-          const ctx = canvas.getContext("2d")!;
-          await page.render({ canvasContext: ctx, viewport, canvas }).promise;
-          const dataUrl = canvas.toDataURL("image/png");
-          const result = await API.canvas.upload(projectId, new File([await (await fetch(dataUrl)).blob()], file.name.replace(".pdf", ".png"), { type: "image/png" }));
-          setFloorPlan2D({ id: "2d-" + projectId, type: "2d", url: result.url, originalName: file.name, format: "png" });
-          toast.success("PDF rendered and uploaded");
-        } catch { toast.error("Failed to render PDF"); }
-        setPdfRendering(false); return;
-      }
-      try {
-        const result = await API.canvas.upload(projectId, file);
-        if (type === "2d") setFloorPlan2D({ id: "2d-" + projectId, type: "2d", url: result.url, originalName: file.name, format: ext });
-        else { const is3DModel = /\.(glb|gltf|obj|stl|fbx)$/i.test(file.name); setFloorPlan3D({ id: "3d-" + projectId, type: "3d", url: result.url, originalName: file.name, format: ext, is3DModel }); }
-        toast.success(type === "2d" ? "Floor plan uploaded" : "3D file uploaded");
-      } catch { toast.error("Upload failed"); }
+      if (type === "2d" && ext === "pdf") { setPdfRendering(true); try { const arrayBuffer = await file.arrayBuffer(); const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise; const page = await pdf.getPage(1); const viewport = page.getViewport({ scale: 2 }); const canvas = document.createElement("canvas"); canvas.width = viewport.width; canvas.height = viewport.height; const ctx = canvas.getContext("2d")!; await page.render({ canvasContext: ctx, viewport, canvas }).promise; const dataUrl = canvas.toDataURL("image/png"); const result = await API.canvas.upload(projectId, new File([await (await fetch(dataUrl)).blob()], file.name.replace(".pdf", ".png"), { type: "image/png" })); setFloorPlan2D({ id: "2d-" + projectId, type: "2d", url: result.url, originalName: file.name, format: "png" }); toast.success("PDF rendered and uploaded"); } catch { toast.error("Failed to render PDF"); } setPdfRendering(false); return; }
+      try { const result = await API.canvas.upload(projectId, file); if (type === "2d") setFloorPlan2D({ id: "2d-" + projectId, type: "2d", url: result.url, originalName: file.name, format: ext }); else { const is3DModel = /\.(glb|gltf|obj|stl|fbx)$/i.test(file.name); setFloorPlan3D({ id: "3d-" + projectId, type: "3d", url: result.url, originalName: file.name, format: ext, is3DModel }); } toast.success(type === "2d" ? "Floor plan uploaded" : "3D file uploaded"); } catch { toast.error("Upload failed"); }
     };
     input.click();
   };
@@ -1216,79 +923,40 @@ function DesignCanvas({ navigate }: { navigate: (p: Page) => void }) {
         <button onClick={() => setView3D(!view3D)} className={clsx("flex items-center gap-1.5 h-7 px-2 rounded-xl text-[10px] font-semibold cursor-pointer active:scale-[0.97] transition-transform", view3D ? "text-violet-400" : "text-[#8b949e]")} style={view3D ? { background: "rgba(139,92,246,0.15)" } : G.btn}><Eye className="w-3 h-3" /> {view3D ? "2D" : "3D"}</button>
         <button onClick={() => setShowFov(!showFov)} className={clsx("flex items-center gap-1.5 h-7 px-2 rounded-xl text-[10px] font-semibold cursor-pointer active:scale-[0.97] transition-transform", showFov ? "text-blue-400" : "text-[#8b949e]")} style={showFov ? { background: "rgba(59,130,246,0.15)" } : G.btn}><Eye className="w-3 h-3" /> FOV</button>
         <button onClick={() => setShowDeviceTray(!showDeviceTray)} className={clsx("flex items-center gap-1.5 h-7 px-2 rounded-xl text-[10px] font-semibold cursor-pointer active:scale-[0.97] transition-transform", showDeviceTray ? "text-white" : "text-[#8b949e]")} style={G.btn}><Store className="w-3 h-3" /> Store</button>
-        {!view3D && floorPlan2D && (
-          <div className="flex items-center gap-2 ml-2">
-            <input type="range" min="0.1" max="1" step="0.05" value={floorPlanOpacity} onChange={(e) => setFloorPlanOpacity(parseFloat(e.target.value))} className="w-16 h-1" />
-            <span className="text-[#8b949e] text-[9px]">{Math.round(floorPlanOpacity * 100)}%</span>
-            <button onClick={() => setCanvasRotation((prev) => prev - 15)} className="w-6 h-6 rounded flex items-center justify-center text-[#8b949e] hover:text-white cursor-pointer" style={G.btn}><RotateCcw className="w-3 h-3" /></button>
-            <button onClick={() => setCanvasRotation((prev) => prev + 15)} className="w-6 h-6 rounded flex items-center justify-center text-[#8b949e] hover:text-white cursor-pointer" style={G.btn}><RotateCw className="w-3 h-3" /></button>
-            <span className="text-[#8b949e] text-[9px]">{canvasRotation}°</span>
-          </div>
-        )}
+        {!view3D && floorPlan2D && (<div className="flex items-center gap-2 ml-2"><input type="range" min="0.1" max="1" step="0.05" value={floorPlanOpacity} onChange={(e) => setFloorPlanOpacity(parseFloat(e.target.value))} className="w-16 h-1" /><span className="text-[#8b949e] text-[9px]">{Math.round(floorPlanOpacity * 100)}%</span><button onClick={() => setCanvasRotation((prev) => prev - 15)} className="w-6 h-6 rounded flex items-center justify-center text-[#8b949e] hover:text-white cursor-pointer" style={G.btn}><RotateCcw className="w-3 h-3" /></button><button onClick={() => setCanvasRotation((prev) => prev + 15)} className="w-6 h-6 rounded flex items-center justify-center text-[#8b949e] hover:text-white cursor-pointer" style={G.btn}><RotateCw className="w-3 h-3" /></button><span className="text-[#8b949e] text-[9px]">{canvasRotation}°</span></div>)}
       </header>
       <div className="flex-1 relative overflow-hidden" onMouseMove={handleCanvasMouseMove} onMouseUp={handleCanvasMouseUp}>
         <motion.div className="absolute left-0 top-0 bottom-0 w-80 z-30 flex flex-col" style={G.liquidGlass} animate={{ x: showDeviceTray ? 0 : -320 }} transition={{ type: "spring", stiffness: 300, damping: 30 }}>
           <div className="px-4 py-3 flex items-center justify-between" style={{ borderBottom: "1px solid rgba(255,255,255,0.07)" }}><p className="text-white text-[12px] font-bold">Device Store</p><button onClick={() => setShowDeviceTray(false)} className="w-6 h-6 rounded-lg hover:bg-white/[0.08] flex items-center justify-center cursor-pointer active:scale-[0.97] transition-transform min-w-[44px] min-h-[44px]"><X className="w-3.5 h-3.5 text-[#8b949e]" /></button></div>
           <div className="px-3 py-2.5"><div className="relative"><Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3 h-3 text-[#484f58]" /><input value={storeSearch} onChange={(e) => setStoreSearch(e.target.value)} placeholder="Search device store..." className="w-full h-7 rounded-xl pl-7 pr-2.5 text-[11px] text-[#e6edf3] focus:outline-none" style={G.input} /></div></div>
           <div className="flex-1 overflow-y-auto" style={{ scrollbarWidth: "none" }}>
-            {filteredStoreDevices.length > 0 && (
-              <div className="px-3 py-2"><p className="text-[#484f58] text-[9px] font-bold uppercase tracking-widest mb-1.5">Recently Used</p>
-                {storeDevices.slice(0, 5).map(device => {
-                  const cc = CAT_COLOR[device.category] ?? CAT_COLOR.other;
-                  return (
-                    <button key={"recent-" + device.id} onClick={() => { setActiveTool("select"); placeDeviceFromStore(device, 400, 300); }} className="w-full flex items-center gap-2 px-2 py-1.5 rounded-lg hover:bg-white/[0.04] transition-colors cursor-pointer text-left mb-0.5">
-                      <div className="w-6 h-6 rounded flex items-center justify-center flex-shrink-0" style={{ background: "rgba(255,255,255,0.04)" }}>{device.imageUrl ? <img src={device.imageUrl} alt="" className="w-full h-full object-contain p-0.5 opacity-70" /> : <Camera className="w-3 h-3 text-[#484f58]" />}</div>
-                      <div className="flex-1 min-w-0"><p className="text-white text-[10px] font-semibold truncate">{device.model}</p></div>
-                    </button>
-                  );
-                })}
-              </div>
-            )}
+            {filteredStoreDevices.length > 0 && (<div className="px-3 py-2"><p className="text-[#484f58] text-[9px] font-bold uppercase tracking-widest mb-1.5">Recently Used</p>{storeDevices.slice(0, 5).map(device => { const cc = CAT_COLOR[device.category] ?? CAT_COLOR.other; return (<button key={"recent-" + device.id} onClick={() => { setActiveTool("select"); placeDeviceFromStore(device, 400, 300); }} className="w-full flex items-center gap-2 px-2 py-1.5 rounded-lg hover:bg-white/[0.04] transition-colors cursor-pointer text-left mb-0.5"><div className="w-6 h-6 rounded flex items-center justify-center flex-shrink-0" style={{ background: "rgba(255,255,255,0.04)" }}>{device.imageUrl ? <img src={device.imageUrl} alt="" className="w-full h-full object-contain p-0.5 opacity-70" /> : <Camera className="w-3 h-3 text-[#484f58]" />}</div><div className="flex-1 min-w-0"><p className="text-white text-[10px] font-semibold truncate">{device.model}</p></div></button>); })}</div>)}
             <div className="px-3 py-1"><p className="text-[#484f58] text-[9px] font-bold uppercase tracking-widest mb-1.5">All Devices</p></div>
-            {filteredStoreDevices.map((device) => {
-              const cc = CAT_COLOR[device.category] ?? CAT_COLOR.other;
-              return (
-                <button key={device.id} onClick={() => { setActiveTool("select"); placeDeviceFromStore(device, 400, 300); }} className="w-full flex items-center gap-2.5 px-3 py-2.5 hover:bg-white/[0.04] transition-colors cursor-pointer active:scale-[0.97] transition-transform text-left" style={{ borderBottom: "1px solid rgba(255,255,255,0.04)" }}>
-                  <div className="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0" style={{ background: "rgba(255,255,255,0.04)" }}>{device.imageUrl ? <img src={device.imageUrl} alt="" className="w-full h-full object-contain p-0.5 opacity-70" /> : <Camera className="w-3.5 h-3.5 text-[#484f58]" />}</div>
-                  <div className="flex-1 min-w-0"><p className="text-white text-[11px] font-semibold truncate">{device.model}</p><p className="text-[#484f58] text-[9px]">{device.manufacturer}{device.price ? ` · $${device.price.toFixed(0)}` : ""}</p></div>
-                  <span className="inline-block px-1.5 py-0.5 rounded text-[8px] font-bold uppercase flex-shrink-0" style={{ background: cc.bg, color: cc.text }}>{cc.label}</span>
-                </button>
-              );
-            })}
+            {filteredStoreDevices.map((device) => { const cc = CAT_COLOR[device.category] ?? CAT_COLOR.other; return (<button key={device.id} onClick={() => { setActiveTool("select"); placeDeviceFromStore(device, 400, 300); }} className="w-full flex items-center gap-2.5 px-3 py-2.5 hover:bg-white/[0.04] transition-colors cursor-pointer active:scale-[0.97] transition-transform text-left" style={{ borderBottom: "1px solid rgba(255,255,255,0.04)" }}><div className="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0" style={{ background: "rgba(255,255,255,0.04)" }}>{device.imageUrl ? <img src={device.imageUrl} alt="" className="w-full h-full object-contain p-0.5 opacity-70" /> : <Camera className="w-3.5 h-3.5 text-[#484f58]" />}</div><div className="flex-1 min-w-0"><p className="text-white text-[11px] font-semibold truncate">{device.model}</p><p className="text-[#484f58] text-[9px]">{device.manufacturer}{device.price ? ` · $${device.price.toFixed(0)}` : ""}</p></div><span className="inline-block px-1.5 py-0.5 rounded text-[8px] font-bold uppercase flex-shrink-0" style={{ background: cc.bg, color: cc.text }}>{cc.label}</span></button>); })}
             {filteredStoreDevices.length === 0 && <div className="px-4 py-8 text-center"><p className="text-[#484f58] text-[11px]">No devices found</p></div>}
           </div>
         </motion.div>
-        {view3D && floorPlan3D ? (
-          <div className="absolute inset-0"><ThreeDViewer file={floorPlan3D} /><div className="absolute bottom-4 left-4 px-3 py-1.5 rounded-xl text-[10px] font-semibold text-white" style={G.liquidGlass}>3D View — {floorPlan3D.originalName}</div></div>
-        ) : (
+        {view3D && floorPlan3D ? (<div className="absolute inset-0"><ThreeDViewer file={floorPlan3D} /><div className="absolute bottom-4 left-4 px-3 py-1.5 rounded-xl text-[10px] font-semibold text-white" style={G.liquidGlass}>3D View — {floorPlan3D.originalName}</div></div>) : (
           <TransformWrapper ref={transformRef} initialScale={1} minScale={0.2} maxScale={5} centerOnInit wheel={{ step: 0.1 }} panning={{ excluded: ["device-icon"] }}>
-            {({ zoomIn, zoomOut, resetTransform }: any) => (
-              <>
-                <TransformComponent wrapperStyle={{ width: "100%", height: "100%" }} contentStyle={{ width: "100%", height: "100%" }}>
-                  <div className="relative" style={{ width: "100%", height: "100%", minWidth: "2000px", minHeight: "1500px", background: "#070c1a", backgroundImage: "radial-gradient(circle, rgba(255,255,255,0.015) 1px, transparent 1px)", backgroundSize: "20px 20px", transform: `rotate(${canvasRotation}deg)`, transformOrigin: "center center" }} onClick={handleCanvasClick} onDoubleClick={handleDoubleClick}>
-                    {floorPlan2D && <img src={floorPlan2D.url} alt="Floor Plan" className="absolute left-1/2 top-1/2" style={{ transform: "translate(-50%, -50%)", opacity: floorPlanOpacity, maxWidth: "90%", maxHeight: "90%", pointerEvents: "none", userSelect: "none" }} draggable={false} />}
-                    {activeTool === "cable" && cablePoints.length > 0 && (<svg className="absolute inset-0 w-full h-full pointer-events-none" style={{ zIndex: 10 }}><polyline points={cablePoints.map(p => `${p.x},${p.y}`).join(" ")} fill="none" stroke="#8b5cf6" strokeWidth="2" strokeDasharray="6,3" />{cablePoints.map((p, i) => (<circle key={i} cx={p.x} cy={p.y} r="4" fill="#8b5cf6" />))}</svg>)}
-                    {devices.map((dev) => { const color = getDeviceColor(dev.type); const isSelected = dev.id === selectedId; const deviceStoreItem = dev.deviceStoreRef ? storeDevices.find(d => d.id === dev.deviceStoreRef) : null;
-                      return (<div key={dev.id} className="device-icon absolute cursor-pointer" style={{ left: dev.x, top: dev.y, transform: "translate(-50%, -50%)", zIndex: 20 }} onClick={(e) => handleDeviceClick(dev.id, e)} onMouseDown={(e) => handleDeviceMouseDown(dev.id, e)}>
-                        {dev.type === "camera" && (<div className="relative">{deviceStoreItem?.imageUrl ? <img src={deviceStoreItem.imageUrl} alt="" className="w-8 h-8 object-contain rounded" style={{ border: isSelected ? "2px solid #3b82f6" : "1px solid rgba(255,255,255,0.3)", background: "rgba(0,0,0,0.6)" }} /> : <div className="w-6 h-6 rounded-full flex items-center justify-center" style={{ background: color, border: isSelected ? "2px solid #fff" : "1px solid rgba(255,255,255,0.5)", boxShadow: isSelected ? `0 0 12px ${color}` : "none" }}><Camera className="w-3 h-3 text-white" /></div>}{showFov && <svg className="absolute" style={{ left: "-45px", top: "-45px", width: "100px", height: "100px", pointerEvents: "none", transform: `rotate(${dev.rot}deg)` }}><path d={fovPath(50, 50, 0, dev.fov || 80, dev.range || 45)} fill={isSelected ? "rgba(59,130,246,0.22)" : "rgba(59,130,246,0.08)"} /></svg>}</div>)}
-                        {dev.type === "door" && (<div className="relative" style={{ transform: `rotate(${dev.rot}deg)` }}><div className="flex items-center gap-0.5 px-1.5 py-0.5 rounded" style={{ background: "rgba(245,158,11,0.2)", border: isSelected ? "2px solid #f59e0b" : "1px solid rgba(245,158,11,0.5)" }}><DoorOpen className="w-3.5 h-3.5 text-amber-400" />{dev.doorConfig?.swing === "outswinging" ? <svg width="12" height="12" viewBox="0 0 12 12"><path d="M2,10 Q2,2 10,2" fill="none" stroke="#f59e0b" strokeWidth="1" /></svg> : <svg width="12" height="12" viewBox="0 0 12 12"><path d="M2,2 Q2,10 10,10" fill="none" stroke="#f59e0b" strokeWidth="1" /></svg>}</div></div>)}
-                        {dev.type === "panel" && <div className="px-1.5 py-0.5 rounded text-[9px] font-bold flex items-center gap-1" style={{ background: "rgba(249,115,22,0.2)", border: isSelected ? "2px solid #f97316" : "1px solid rgba(249,115,22,0.5)", color: "#f97316" }}><PanelRight className="w-3 h-3" />PNL</div>}
-                        {dev.type === "power" && <div className="px-1.5 py-0.5 rounded text-[9px] font-bold flex items-center gap-1" style={{ background: "rgba(239,68,68,0.2)", border: isSelected ? "2px solid #ef4444" : "1px solid rgba(239,68,68,0.5)", color: "#ef4444" }}><Zap className="w-3 h-3" />PWR</div>}
-                        {dev.type === "server" && <div className="px-1.5 py-0.5 rounded text-[9px] font-bold flex items-center gap-1" style={{ background: "rgba(236,72,153,0.2)", border: isSelected ? "2px solid #ec4899" : "1px solid rgba(236,72,153,0.5)", color: "#ec4899" }}><Server className="w-3 h-3" />NVR</div>}
-                        {dev.type === "cable" && dev.cablePoints && <svg className="absolute pointer-events-none" style={{ left: 0, top: 0, width: "100%", height: "100%", overflow: "visible" }}><polyline points={dev.cablePoints.map(p => `${p.x - dev.x},${p.y - dev.y}`).join(" ")} fill="none" stroke={color} strokeWidth={isSelected ? 2.5 : 1.5} strokeDasharray={isSelected ? "none" : "6,3"} /></svg>}
-                        <div className="absolute -bottom-4 left-1/2 -translate-x-1/2 text-[8px] font-semibold whitespace-nowrap" style={{ color: isSelected ? "#fff" : "#484f58", textShadow: isSelected ? "0 0 6px rgba(0,0,0,0.8)" : "none" }}>{dev.label}</div>
-                      </div>);
-                    })}
-                    {!floorPlan2D && (<div className="absolute inset-0 flex items-center justify-center pointer-events-none"><div className="text-center"><Upload className="w-12 h-12 text-[#484f58] mx-auto mb-3" /><p className="text-[#484f58] text-[14px] font-semibold">Upload a floor plan or 3D model to begin</p><p className="text-[#484f58] text-[11px] mt-1">Use the toolbar buttons above</p></div></div>)}
-                  </div>
-                </TransformComponent>
-                <div className="absolute bottom-20 right-4 z-40 flex flex-col gap-1">
-                  <button onClick={() => zoomIn()} className="w-8 h-8 rounded-xl flex items-center justify-center text-white cursor-pointer active:scale-[0.97] transition-transform" style={G.btn}><ZoomIn className="w-3.5 h-3.5" /></button>
-                  <button onClick={() => zoomOut()} className="w-8 h-8 rounded-xl flex items-center justify-center text-white cursor-pointer active:scale-[0.97] transition-transform" style={G.btn}><ZoomOut className="w-3.5 h-3.5" /></button>
-                  <button onClick={() => resetTransform()} className="w-8 h-8 rounded-xl flex items-center justify-center text-white cursor-pointer active:scale-[0.97] transition-transform" style={G.btn}><Maximize2 className="w-3.5 h-3.5" /></button>
+            {({ zoomIn, zoomOut, resetTransform }: any) => (<>
+              <TransformComponent wrapperStyle={{ width: "100%", height: "100%" }} contentStyle={{ width: "100%", height: "100%" }}>
+                <div className="relative" style={{ width: "100%", height: "100%", minWidth: "2000px", minHeight: "1500px", background: "#070c1a", backgroundImage: "radial-gradient(circle, rgba(255,255,255,0.015) 1px, transparent 1px)", backgroundSize: "20px 20px", transform: `rotate(${canvasRotation}deg)`, transformOrigin: "center center" }} onClick={handleCanvasClick} onDoubleClick={handleDoubleClick}>
+                  {floorPlan2D && <img src={floorPlan2D.url} alt="Floor Plan" className="absolute left-1/2 top-1/2" style={{ transform: "translate(-50%, -50%)", opacity: floorPlanOpacity, maxWidth: "90%", maxHeight: "90%", pointerEvents: "none", userSelect: "none" }} draggable={false} />}
+                  {activeTool === "cable" && cablePoints.length > 0 && (<svg className="absolute inset-0 w-full h-full pointer-events-none" style={{ zIndex: 10 }}><polyline points={cablePoints.map(p => `${p.x},${p.y}`).join(" ")} fill="none" stroke="#8b5cf6" strokeWidth="2" strokeDasharray="6,3" />{cablePoints.map((p, i) => (<circle key={i} cx={p.x} cy={p.y} r="4" fill="#8b5cf6" />))}</svg>)}
+                  {devices.map((dev) => { const color = getDeviceColor(dev.type); const isSelected = dev.id === selectedId; const deviceStoreItem = dev.deviceStoreRef ? storeDevices.find(d => d.id === dev.deviceStoreRef) : null; return (<div key={dev.id} className="device-icon absolute cursor-pointer" style={{ left: dev.x, top: dev.y, transform: "translate(-50%, -50%)", zIndex: 20 }} onClick={(e) => handleDeviceClick(dev.id, e)} onMouseDown={(e) => handleDeviceMouseDown(dev.id, e)}>
+                    {dev.type === "camera" && (<div className="relative">{deviceStoreItem?.imageUrl ? <img src={deviceStoreItem.imageUrl} alt="" className="w-8 h-8 object-contain rounded" style={{ border: isSelected ? "2px solid #3b82f6" : "1px solid rgba(255,255,255,0.3)", background: "rgba(0,0,0,0.6)" }} /> : <div className="w-6 h-6 rounded-full flex items-center justify-center" style={{ background: color, border: isSelected ? "2px solid #fff" : "1px solid rgba(255,255,255,0.5)", boxShadow: isSelected ? `0 0 12px ${color}` : "none" }}><Camera className="w-3 h-3 text-white" /></div>}{showFov && <svg className="absolute" style={{ left: "-45px", top: "-45px", width: "100px", height: "100px", pointerEvents: "none", transform: `rotate(${dev.rot}deg)` }}><path d={fovPath(50, 50, 0, dev.fov || 80, dev.range || 45)} fill={isSelected ? "rgba(59,130,246,0.22)" : "rgba(59,130,246,0.08)"} /></svg>}</div>)}
+                    {dev.type === "door" && (<div className="relative" style={{ transform: `rotate(${dev.rot}deg)` }}><div className="flex items-center gap-0.5 px-1.5 py-0.5 rounded" style={{ background: "rgba(245,158,11,0.2)", border: isSelected ? "2px solid #f59e0b" : "1px solid rgba(245,158,11,0.5)" }}><DoorOpen className="w-3.5 h-3.5 text-amber-400" />{dev.doorConfig?.swing === "outswinging" ? <svg width="12" height="12" viewBox="0 0 12 12"><path d="M2,10 Q2,2 10,2" fill="none" stroke="#f59e0b" strokeWidth="1" /></svg> : <svg width="12" height="12" viewBox="0 0 12 12"><path d="M2,2 Q2,10 10,10" fill="none" stroke="#f59e0b" strokeWidth="1" /></svg>}</div></div>)}
+                    {dev.type === "panel" && <div className="px-1.5 py-0.5 rounded text-[9px] font-bold flex items-center gap-1" style={{ background: "rgba(249,115,22,0.2)", border: isSelected ? "2px solid #f97316" : "1px solid rgba(249,115,22,0.5)", color: "#f97316" }}><PanelRight className="w-3 h-3" />PNL</div>}
+                    {dev.type === "power" && <div className="px-1.5 py-0.5 rounded text-[9px] font-bold flex items-center gap-1" style={{ background: "rgba(239,68,68,0.2)", border: isSelected ? "2px solid #ef4444" : "1px solid rgba(239,68,68,0.5)", color: "#ef4444" }}><Zap className="w-3 h-3" />PWR</div>}
+                    {dev.type === "server" && <div className="px-1.5 py-0.5 rounded text-[9px] font-bold flex items-center gap-1" style={{ background: "rgba(236,72,153,0.2)", border: isSelected ? "2px solid #ec4899" : "1px solid rgba(236,72,153,0.5)", color: "#ec4899" }}><Server className="w-3 h-3" />NVR</div>}
+                    {dev.type === "cable" && dev.cablePoints && <svg className="absolute pointer-events-none" style={{ left: 0, top: 0, width: "100%", height: "100%", overflow: "visible" }}><polyline points={dev.cablePoints.map(p => `${p.x - dev.x},${p.y - dev.y}`).join(" ")} fill="none" stroke={color} strokeWidth={isSelected ? 2.5 : 1.5} strokeDasharray={isSelected ? "none" : "6,3"} /></svg>}
+                    <div className="absolute -bottom-4 left-1/2 -translate-x-1/2 text-[8px] font-semibold whitespace-nowrap" style={{ color: isSelected ? "#fff" : "#484f58", textShadow: isSelected ? "0 0 6px rgba(0,0,0,0.8)" : "none" }}>{dev.label}</div>
+                  </div>); })}
+                  {!floorPlan2D && (<div className="absolute inset-0 flex items-center justify-center pointer-events-none"><div className="text-center"><Upload className="w-12 h-12 text-[#484f58] mx-auto mb-3" /><p className="text-[#484f58] text-[14px] font-semibold">Upload a floor plan or 3D model to begin</p><p className="text-[#484f58] text-[11px] mt-1">Use the toolbar buttons above</p></div></div>)}
                 </div>
-              </>
-            )}
+              </TransformComponent>
+              <div className="absolute bottom-20 right-4 z-40 flex flex-col gap-1"><button onClick={() => zoomIn()} className="w-8 h-8 rounded-xl flex items-center justify-center text-white cursor-pointer active:scale-[0.97] transition-transform" style={G.btn}><ZoomIn className="w-3.5 h-3.5" /></button><button onClick={() => zoomOut()} className="w-8 h-8 rounded-xl flex items-center justify-center text-white cursor-pointer active:scale-[0.97] transition-transform" style={G.btn}><ZoomOut className="w-3.5 h-3.5" /></button><button onClick={() => resetTransform()} className="w-8 h-8 rounded-xl flex items-center justify-center text-white cursor-pointer active:scale-[0.97] transition-transform" style={G.btn}><Maximize2 className="w-3.5 h-3.5" /></button></div>
+            </>)}
           </TransformWrapper>
         )}
         {showProperties && selected && (
@@ -1315,496 +983,40 @@ function DesignCanvas({ navigate }: { navigate: (p: Page) => void }) {
   );
 }
 
-// ============ WORKBOOK ============
-
-function Workbook({ navigate }: { navigate: (p: Page) => void }) {
-  const { fmt } = useCurrency();
-  const [projects, setProjects] = useState<Project[]>([]);
-  const [quotes, setQuotes] = useState<Quote[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [selectedProjectId, setSelectedProjectId] = useState<string>(() => localStorage.getItem("wb_last_project") || "");
-  const [selectedQuoteId, setSelectedQuoteId] = useState<string>("");
-  const [showProjectSelect, setShowProjectSelect] = useState(false);
-  const [exchangeRate, setExchangeRate] = useState(parseFloat(localStorage.getItem("fx_rate") || "157.4"));
-  const [activeTab, setActiveTab] = useState<string>(() => localStorage.getItem("wb_tab") || "asset-list");
-  const [collapsedCategories, setCollapsedCategories] = useState<Set<string>>(new Set<string>());
-  const [saveStatus, setSaveStatus] = useState<"saved" | "saving" | "">("saved");
-  const [canvasDevices, setCanvasDevices] = useState<CanvasDevice[]>([]);
-  const [storeDevices, setStoreDevices] = useState<CatalogDevice[]>([]);
-  const [fieldSaveStatus, setFieldSaveStatus] = useState<Record<string, "saved" | "saving" | "">>({});
-
-  useEffect(() => { localStorage.setItem("wb_tab", activeTab); }, [activeTab]);
-  useEffect(() => { API.fx.getRate().then(r => setExchangeRate(r)); }, []);
-  useEffect(() => { API.devices.list().then(setStoreDevices).catch(() => setStoreDevices([])); }, []);
-
-  const fetchData = useCallback(async () => {
-    setLoading(true);
-    try {
-      const [projData, quoteData] = await Promise.all([API.projects.list(), API.quotes.list()]);
-      setProjects(projData);
-      setQuotes(quoteData);
-      const lastId = localStorage.getItem("wb_last_project");
-      const pid = lastId && projData.find(p => p.id === lastId) ? lastId : projData[0]?.id || "";
-      if (pid && !selectedProjectId) { setSelectedProjectId(pid); const pq = quoteData.find((q: Quote) => q.projectId === pid); if (pq) setSelectedQuoteId(pq.id); }
-    } catch { setProjects([]); setQuotes([]); } finally { setLoading(false); }
-  }, []);
-
-  useEffect(() => { fetchData(); }, [fetchData]);
-  useEffect(() => { if (!selectedProjectId && projects.length > 0) { setShowProjectSelect(true); } }, [projects, selectedProjectId]);
-
-  useEffect(() => {
-    if (selectedProjectId) {
-      localStorage.setItem("wb_last_project", selectedProjectId);
-      API.canvas.get(selectedProjectId).then(data => { if (data.layoutData?.devices) setCanvasDevices(data.layoutData.devices); else setCanvasDevices([]); }).catch(() => setCanvasDevices([]));
-    }
-  }, [selectedProjectId]);
-
-  const selectedProject = projects.find((p) => p.id === selectedProjectId);
-  const selectedQuote = quotes.find((q) => q.id === selectedQuoteId);
-
-  useEffect(() => { if (selectedProjectId && !selectedQuoteId) { const pq = quotes.find((q) => q.projectId === selectedProjectId); if (pq) setSelectedQuoteId(pq.id); } }, [selectedProjectId, quotes, selectedQuoteId]);
-
-  const quoteCategories = selectedQuote?.categories || [];
-
-  const recalcLineItem = (item: QuoteLineItem): QuoteLineItem => {
-    const sellPrice = item.unitCost * (1 + item.markupPercent);
-    const costTotal = item.unitCost * item.quantity;
-    const sellTotal = sellPrice * item.quantity;
-    const profit = sellTotal - costTotal;
-    return { ...item, sellPrice, costTotal, sellTotal, profit, jmdConversion: sellTotal * exchangeRate };
-  };
-
-  const categorySubtotals = quoteCategories.map((cat) => { const activeItems = cat.lineItems.filter((li) => li.quantity > 0); return { category: cat, subtotal: activeItems.reduce((s, li) => s + li.sellTotal, 0) }; });
-  const grandTotalPreTax = categorySubtotals.reduce((s, cs) => s + cs.subtotal, 0);
-  const gctAmount = grandTotalPreTax * GCT_RATE;
-  const grandTotal = grandTotalPreTax + gctAmount;
-
-  const autoSave = useCallback(async (q: Quote) => { setSaveStatus("saving"); try { await API.quotes.update(q.id, { categories: q.categories, exchangeRate }); setTimeout(() => setSaveStatus("saved"), 800); } catch { setSaveStatus("saved"); } }, [exchangeRate]);
-
-  const updateQuoteLineItem = (categoryId: string, itemId: string, updates: Partial<QuoteLineItem>) => {
-    const fieldKey = `${categoryId}-${itemId}`;
-    setFieldSaveStatus(prev => ({ ...prev, [fieldKey]: "saving" }));
-    setQuotes((prev) => prev.map((q) => {
-      if (q.id !== selectedQuoteId) return q;
-      const updated = { ...q, categories: q.categories.map((cat) => cat.id !== categoryId ? cat : { ...cat, lineItems: cat.lineItems.map((li) => li.id === itemId ? recalcLineItem({ ...li, ...updates }) : li) }) };
-      autoSave(updated);
-      return updated;
-    }));
-    setTimeout(() => setFieldSaveStatus(prev => ({ ...prev, [fieldKey]: "saved" })), 600);
-  };
-
-  const addLineItem = (categoryId: string) => {
-    setQuotes((prev) => prev.map((q) => { if (q.id !== selectedQuoteId) return q; const updated = { ...q, categories: q.categories.map((cat) => { if (cat.id !== categoryId) return cat; const newItem: QuoteLineItem = { id: crypto.randomUUID?.() || `li${Date.now()}`, itemNumber: String(cat.lineItems.length + 1).padStart(2, "0"), description: "", unitCost: 0, quantity: 0, markupPercent: 0.35, sellPrice: 0, costTotal: 0, sellTotal: 0, profit: 0, jmdConversion: 0 }; return { ...cat, lineItems: [...cat.lineItems, newItem] }; }) }; autoSave(updated); return updated; }));
-  };
-
-  const toggleCollapse = (id: string) => { setCollapsedCategories((prev) => { const next = new Set(prev); next.has(id) ? next.delete(id) : next.add(id); return next; }); };
-
-  if (loading) return (
-    <div className="px-3 md:px-5 py-4 md:py-6 space-y-4">
-      <Skeleton className="h-10 w-48" />
-      <div className="flex gap-2"><Skeleton className="h-8 w-24 rounded-lg" /><Skeleton className="h-8 w-24 rounded-lg" /><Skeleton className="h-8 w-24 rounded-lg" /></div>
-      <Skeleton className="h-64 rounded-2xl" /><Skeleton className="h-48 rounded-2xl" />
-    </div>
-  );
-
-  const wbTabs = [
-    { id: "asset-list", label: "Asset List" },
-    { id: "bom", label: "BOM" },
-    { id: "synthesis", label: "Synthesis" },
-  ];
-
-  const BOM_CATEGORIES = [
-    { section: 100, name: "Video Management System Software" }, { section: 200, name: "Compute and Storage" },
-    { section: 300, name: "Control Room" }, { section: 400, name: "Video Security Equipment" },
-    { section: 500, name: "Network" }, { section: 600, name: "Network Infrastructure" },
-    { section: 700, name: "Professional Services" }, { section: 800, name: "Importation" },
-  ];
-
+function InlineEditCell({ value, onChange, onSave, type = "text", disabled, placeholder, fieldKey }: { value: string | number; onChange: (val: string) => void; onSave?: () => void; type?: "text" | "number"; disabled?: boolean; placeholder?: string; fieldKey?: string; }) {
+  const [editing, setEditing] = useState(false); const [localValue, setLocalValue] = useState(String(value)); const inputRef = useRef<HTMLInputElement>(null); const [saveState, setSaveState] = useState<"idle" | "saving" | "saved">("idle");
+  useEffect(() => { if (!editing) setLocalValue(String(value)); }, [value, editing]);
+  useEffect(() => { if (editing && inputRef.current) { inputRef.current.focus(); if (type === "number") inputRef.current.select(); } }, [editing, type]);
+  const handleCommit = useCallback(() => { if (String(localValue) !== String(value)) { onChange(localValue); setSaveState("saving"); setTimeout(() => setSaveState("saved"), 600); setTimeout(() => setSaveState("idle"), 2000); onSave?.(); } setEditing(false); }, [localValue, value, onChange, onSave]);
+  const handleKeyDown = (e: React.KeyboardEvent) => { if (e.key === "Enter") { e.preventDefault(); handleCommit(); } else if (e.key === "Escape") { setLocalValue(String(value)); setEditing(false); } else if (e.key === "Tab") { e.preventDefault(); handleCommit(); const el = inputRef.current; if (el) { const cells = Array.from(el.closest("table")?.querySelectorAll('[tabindex="0"]') || []) as HTMLElement[]; const idx = cells.indexOf(el); if (idx < cells.length - 1) cells[idx + 1]?.focus(); } } };
   return (
-    <div className="flex flex-col h-[calc(100vh-56px)] overflow-hidden">
-      {showProjectSelect && <SelectProjectModal onClose={() => setShowProjectSelect(false)} onSelect={(id: string) => { setSelectedProjectId(id); setShowProjectSelect(false); }} currentId={selectedProjectId} projects={projects} />}
-      <div className="px-4 md:px-6 py-3 flex flex-col md:flex-row md:items-center justify-between flex-shrink-0 gap-2" style={{ borderBottom: "1px solid rgba(255,255,255,0.07)" }}>
-        <div>
-          <h1 className="text-white font-bold text-lg md:text-xl tracking-tight">Workbook</h1>
-          <div className="flex items-center gap-2 mt-1 flex-wrap">
-            <button onClick={() => setShowProjectSelect(true)} className="flex items-center gap-1.5 text-[#8b949e] hover:text-white text-[11px] font-semibold transition-colors cursor-pointer active:scale-[0.97] transition-transform" style={{ ...G.btn, padding: "4px 10px", borderRadius: "8px" }}><Building2 className="w-3 h-3" />{selectedProject ? selectedProject.name : "Select project"}<ChevronDown className="w-3 h-3" /></button>
-            {selectedQuote && <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-500/12 text-amber-400">{selectedQuote.refNumber} · {selectedQuote.status}</span>}
-            {saveStatus === "saving" && <span className="text-[10px] text-[#484f58] flex items-center gap-1"><Loader2 className="w-3 h-3 animate-spin" /> Saving…</span>}
-            {saveStatus === "saved" && <span className="text-[10px] text-emerald-400 flex items-center gap-1"><CheckCircle2 className="w-3 h-3" /> Saved</span>}
-          </div>
-        </div>
-        <div className="flex items-center gap-2">
-          <div className="flex items-center gap-2 px-3 py-1 rounded-xl" style={G.subtle}><span className="text-[#484f58] text-[10px] font-bold uppercase">USD→JMD</span><input type="number" value={exchangeRate} onChange={(e) => setExchangeRate(parseFloat(e.target.value) || 157.4)} className="w-20 h-7 rounded-lg bg-transparent text-white text-[12px] font-bold text-center focus:outline-none" style={G.input} /></div>
-        </div>
-      </div>
-      {!selectedQuote && canvasDevices.length === 0 ? (
-        <div className="flex-1 flex items-center justify-center"><EmptyState icon={DollarSign} title="No workbook" description="Select a project to view its workbook." action={{ label: "Select Project", onClick: () => setShowProjectSelect(true) }} /></div>
-      ) : (
-        <div className="flex-1 flex flex-col overflow-hidden">
-          <div className="flex items-center gap-1 px-4 py-2 overflow-x-auto flex-shrink-0" style={{ borderBottom: "1px solid rgba(255,255,255,0.06)", scrollbarWidth: "none" }}>
-            {wbTabs.map((tab) => (<button key={tab.id} onClick={() => setActiveTab(tab.id)} className={clsx("h-8 px-3 rounded-lg text-[11px] font-semibold whitespace-nowrap transition-all cursor-pointer active:scale-[0.97] transition-transform", activeTab === tab.id ? "text-white" : "text-[#8b949e] hover:text-white")} style={activeTab === tab.id ? { background: "rgba(59,130,246,0.20)", border: "1px solid rgba(59,130,246,0.30)" } : undefined}>{tab.label}</button>))}
-          </div>
-          <div className="flex-1 overflow-y-auto px-3 md:px-5 py-4 space-y-4" style={{ scrollbarWidth: "thin", scrollbarColor: "rgba(255,255,255,0.08) transparent" }}>
-            {activeTab === "asset-list" && (
-              <>
-                {canvasDevices.length > 0 && (
-                  <div className="rounded-2xl overflow-hidden" style={G.card}>
-                    <div className="w-full px-4 py-3 flex items-center justify-between" style={{ borderBottom: "1px solid rgba(255,255,255,0.06)", background: "rgba(255,255,255,0.02)" }}><div className="flex items-center gap-2"><h3 className="text-white text-[13px] font-bold">Canvas Devices</h3><span className="text-[#484f58] text-[10px]">({canvasDevices.length})</span></div></div>
-                    <div className="overflow-x-auto"><table className="w-full" style={{ minWidth: "500px" }}><thead><tr style={{ borderBottom: "1px solid rgba(255,255,255,0.06)" }}>{["Device","Type","Model","QTY","Unit Cost"].map(h => <th key={h} className="px-3 py-2.5 text-[#484f58] text-[9px] font-bold uppercase tracking-widest text-left">{h}</th>)}</tr></thead><tbody>{canvasDevices.map((dev) => { const sd = dev.deviceStoreRef ? storeDevices.find(d => d.id === dev.deviceStoreRef) : null; return (<tr key={dev.id} style={{ borderBottom: "1px solid rgba(255,255,255,0.03)" }}><td className="px-3 py-2.5 text-white text-[11px] font-semibold">{dev.label}</td><td className="px-3 py-2.5 text-[#8b949e] text-[10px] capitalize">{dev.type}</td><td className="px-3 py-2.5 text-white text-[11px]">{sd ? `${sd.manufacturer} ${sd.model}` : "—"}</td><td className="px-3 py-2.5 text-white text-[11px] text-center">1</td><td className="px-3 py-2.5 text-white text-[11px] font-bold text-right">{sd?.price ? fmt(sd.price) : "—"}</td></tr>); })}</tbody></table></div>
-                  </div>
-                )}
-                {quoteCategories.filter(c => ["Video Security Equipment","Access Control Equipment","Software","Compute & Storage","Networking"].includes(c.name)).map((category) => {
-                  const isCollapsed = collapsedCategories.has(category.id);
-                  const activeItems = category.lineItems.filter(li => li.quantity > 0);
-                  return (
-                    <div key={category.id} className="rounded-2xl overflow-hidden" style={G.card}>
-                      <button onClick={() => toggleCollapse(category.id)} className="w-full px-4 py-3 flex items-center justify-between hover:bg-white/[0.02] transition-colors cursor-pointer active:scale-[0.97] transition-transform min-h-[44px]" style={{ borderBottom: isCollapsed ? "none" : "1px solid rgba(255,255,255,0.06)", background: "rgba(255,255,255,0.02)" }}><div className="flex items-center gap-2"><h3 className="text-white text-[13px] font-bold">{category.name}</h3><span className="text-[#484f58] text-[10px]">({activeItems.length})</span></div><div className="flex items-center gap-3"><span className="text-[#8b949e] text-[11px] font-bold">{fmt(activeItems.reduce((s,li)=>s+li.sellTotal,0))}</span>{isCollapsed ? <ChevronDown className="w-4 h-4 text-[#484f58]" /> : <ChevronUp className="w-4 h-4 text-[#484f58]" />}</div></button>
-                      {!isCollapsed && (<div className="overflow-x-auto"><table className="w-full" style={{ minWidth: "800px" }}><thead><tr style={{ borderBottom: "1px solid rgba(255,255,255,0.06)" }}>{["Item","QTY","Cost","Mark up %","Sell","Cost Total","Total","Profit"].map((h) => (<th key={h} className="px-3 py-2.5 text-[#484f58] text-[9px] font-bold uppercase tracking-widest text-left">{h}</th>))}</tr></thead><tbody>{category.lineItems.map((item) => { const r = recalcLineItem(item); const fieldKey = `${category.id}-${item.id}`; const fs = fieldSaveStatus[fieldKey]; return (<tr key={item.id} className="hover:bg-white/[0.02]" style={{ borderBottom: "1px solid rgba(255,255,255,0.03)" }}><td className="px-3 py-2.5"><input value={item.description} onChange={(e) => updateQuoteLineItem(category.id, item.id, { description: e.target.value })} className="bg-transparent text-white text-[11px] font-semibold w-full min-w-[120px] focus:outline-none" /></td><td className="px-3 py-2.5"><input type="number" value={item.quantity} onChange={(e) => updateQuoteLineItem(category.id, item.id, { quantity: parseInt(e.target.value)||0 })} className="bg-transparent text-white text-[11px] w-16 text-center focus:outline-none" style={G.input} /></td><td className="px-3 py-2.5"><input type="number" value={item.unitCost} onChange={(e) => updateQuoteLineItem(category.id, item.id, { unitCost: parseFloat(e.target.value)||0 })} className="bg-transparent text-white text-[11px] w-20 text-right focus:outline-none" style={G.input} /></td><td className="px-3 py-2.5"><input type="number" value={Math.round(item.markupPercent*100)} onChange={(e) => updateQuoteLineItem(category.id, item.id, { markupPercent: (parseFloat(e.target.value)||0)/100 })} className="bg-transparent text-white text-[11px] w-16 text-center focus:outline-none" style={G.input} /><span className="text-[#484f58] text-[10px]">%</span></td><td className="px-3 py-2.5 text-white text-[11px] font-bold text-right">{fmt(r.sellPrice)}</td><td className="px-3 py-2.5 text-[#8b949e] text-[11px] text-right">{fmt(r.costTotal)}</td><td className="px-3 py-2.5 text-white text-[11px] font-bold text-right">{fmt(r.sellTotal)}</td><td className="px-3 py-2.5 text-[10px] font-bold text-right flex items-center justify-end gap-1" style={{ color: r.profit>=0?"#34d399":"#f87171" }}>{fmt(r.profit)}{fs === "saving" && <Loader2 className="w-2.5 h-2.5 animate-spin text-[#484f58]" />}{fs === "saved" && <CheckCircle2 className="w-2.5 h-2.5 text-emerald-400" />}</td></tr>); })}<tr><td colSpan={8} className="px-3 py-2"><button onClick={() => addLineItem(category.id)} className="text-[#484f58] hover:text-blue-400 text-[11px] font-semibold flex items-center gap-1 cursor-pointer"><Plus className="w-3 h-3" /> Add item</button></td></tr></tbody></table></div>)}
-                    </div>
-                  );
-                })}
-              </>
-            )}
-            {activeTab === "bom" && (
-              <div className="space-y-4">
-                <div className="rounded-2xl overflow-hidden" style={G.card}>
-                  <div className="overflow-x-auto">
-                    <table className="w-full" style={{ minWidth: "900px" }}>
-                      <thead><tr style={{ borderBottom: "1px solid rgba(255,255,255,0.08)", background: "rgba(255,255,255,0.03)" }}>{["Item No","Products – Description","List","Price"].map(h => <th key={h} className="px-3 py-2.5 text-[#484f58] text-[9px] font-bold uppercase tracking-widest text-left">{h}</th>)}</tr></thead>
-                      <tbody>
-                        <tr style={{ background: "rgba(59,130,246,0.06)" }}><td colSpan={4} className="px-4 py-2.5 text-white text-[12px] font-bold uppercase tracking-widest">Video Surveillance</td></tr>
-                        {BOM_CATEGORIES.map(bomCat => {
-                          const qCat = quoteCategories.find(c => { const map: Record<number,string> = {100:"Video Management System Software",200:"Compute and Storage",300:"Control Room",400:"Video Security Equipment",500:"Network",600:"Network Infrastructure",700:"Professional Services",800:"Importation"}; return c.name === map[bomCat.section]; });
-                          const catItems = qCat?.lineItems.filter(li => li.quantity > 0) || [];
-                          const catSubtotal = catItems.reduce((s, li) => s + recalcLineItem(li).sellTotal, 0);
-                          const fieldKey = `bom-${bomCat.section}`;
-                          const fs = fieldSaveStatus[fieldKey];
-                          if (catItems.length === 0) return (<tr key={bomCat.section} style={{ borderBottom: "1px solid rgba(255,255,255,0.03)" }}><td className="px-4 py-2 text-[#484f58] text-[10px] font-mono">{bomCat.section}</td><td className="px-4 py-2 text-[#8b949e] text-[11px]">{bomCat.name}</td><td className="px-4 py-2"><input type="text" defaultValue="" placeholder="0.00" className="bg-transparent text-white text-[11px] w-24 text-right focus:outline-none" style={G.input} /></td><td className="px-4 py-2 text-white text-[11px] font-bold text-right flex items-center justify-end gap-1">—</td></tr>);
-                          return catItems.map((li, i) => { const r = recalcLineItem(li); return (<tr key={li.id} style={{ borderBottom: "1px solid rgba(255,255,255,0.03)" }}><td className="px-4 py-2 text-[#484f58] text-[10px] font-mono">{bomCat.section}{catItems.length > 1 ? `.${i+1}` : ""}</td><td className="px-4 py-2 text-white text-[11px] font-semibold max-w-[400px] truncate">{li.description}</td><td className="px-4 py-2"><input type="text" value={fmt(r.unitCost)} onChange={(e) => { const val = parseFloat(e.target.value.replace(/[^0-9.]/g,""))||0; updateQuoteLineItem(qCat!.id, li.id, { unitCost: val }); }} className="bg-transparent text-white text-[11px] w-24 text-right focus:outline-none" style={G.input} /></td><td className="px-4 py-2 text-white text-[11px] font-bold text-right flex items-center justify-end gap-1">{fmt(r.sellTotal)}{fs === "saving" && <Loader2 className="w-2.5 h-2.5 animate-spin text-[#484f58]" />}{fs === "saved" && <CheckCircle2 className="w-2.5 h-2.5 text-emerald-400" />}</td></tr>); });
-                        })}
-                        <tr style={{ background: "rgba(255,255,255,0.04)" }}><td colSpan={3} className="px-4 py-2 text-[#8b949e] text-[10px] font-bold text-right uppercase">Total Video Surveillance</td><td className="px-4 py-2 text-white text-[12px] font-bold text-right">{fmt(grandTotalPreTax)}</td></tr>
-                      </tbody>
-                    </table>
-                  </div>
-                </div>
-                <div className="rounded-2xl p-4" style={{ ...G.card, background: "rgba(59,130,246,0.06)", border: "1px solid rgba(59,130,246,0.20)" }}>
-                  <div className="space-y-2">
-                    <div className="flex justify-between py-1"><span className="text-[#8b949e] text-[11px]">Grand Total Supply, Install, Configure and Commission Security Solution</span><span className="text-white text-[14px] font-bold">{fmt(grandTotalPreTax)}</span></div>
-                    <div className="flex justify-between py-1"><span className="text-[#8b949e] text-[12px]">Tax</span><span className="text-[#8b949e] text-[12px] font-bold">{fmt(gctAmount)}</span></div>
-                    <div className="flex justify-between py-2 border-t-2 border-white/10"><span className="text-white text-[14px] font-bold">Grand Total</span><span className="text-white text-[1.1rem] font-extrabold" style={{ color: "#60a5fa" }}>{fmt(grandTotal)}</span></div>
-                  </div>
-                </div>
-              </div>
-            )}
-            {activeTab === "synthesis" && (
-              <div className="space-y-0">
-                <div className="rounded-2xl overflow-hidden" style={G.card}>
-                  <div className="overflow-x-auto">
-                    <table className="w-full" style={{ minWidth: "700px" }}>
-                      <thead><tr style={{ borderBottom: "1px solid rgba(255,255,255,0.08)", background: "rgba(255,255,255,0.03)" }}>{["Item No","DESIGNATION","Unit Price"].map(h => <th key={h} className="px-3 py-2.5 text-[#484f58] text-[9px] font-bold uppercase tracking-widest text-left">{h}</th>)}</tr></thead>
-                      <tbody>
-                        <tr style={{ background: "rgba(59,130,246,0.06)" }}><td colSpan={3} className="px-4 py-2.5 text-white text-[12px] font-bold uppercase tracking-widest">Video Surveillance</td></tr>
-                        {[{ item: "100", desc: "Video Management System Software" },{ item: "200", desc: "Compute and Storage" },{ item: "300", desc: "Control Room" },{ item: "400", desc: "Video Security Equipment" },{ item: "500", desc: "Network" },{ item: "600", desc: "Network Infrastructure" },{ item: "700", desc: "Professional Services" },{ item: "700.5", desc: "Contingency plan" },{ item: "800", desc: "Importation" }].map(row => {
-                          const qCat = quoteCategories.find(c => { const map: Record<string,string> = {"100":"Video Management System Software","200":"Compute and Storage","300":"Control Room","400":"Video Security Equipment","500":"Network","600":"Network Infrastructure","700":"Professional Services","800":"Importation"}; return c.name === map[row.item]; });
-                          const catItems = qCat?.lineItems.filter(li => li.quantity > 0) || [];
-                          const subtotal = catItems.reduce((s, li) => s + recalcLineItem(li).sellTotal, 0);
-                          const fieldKey = `synth-${row.item}`;
-                          const fs = fieldSaveStatus[fieldKey];
-                          return (<tr key={row.item} style={{ borderBottom: "1px solid rgba(255,255,255,0.03)" }}><td className="px-4 py-2 text-[#484f58] text-[10px] font-mono">{row.item}</td><td className="px-4 py-2 text-white text-[11px] font-semibold">{row.desc}</td><td className="px-4 py-2 text-white text-[11px] font-bold text-right flex items-center justify-end gap-1">{subtotal > 0 ? fmt(subtotal) : "—"}{fs === "saving" && <Loader2 className="w-2.5 h-2.5 animate-spin text-[#484f58]" />}{fs === "saved" && <CheckCircle2 className="w-2.5 h-2.5 text-emerald-400" />}</td></tr>);
-                        })}
-                        <tr style={{ background: "rgba(255,255,255,0.04)" }}><td colSpan={2} className="px-4 py-2 text-[#8b949e] text-[10px] font-bold text-right uppercase">Total Video Surveillance</td><td className="px-4 py-2 text-white text-[12px] font-bold text-right">{fmt(grandTotalPreTax)}</td></tr>
-                        <tr><td colSpan={3} className="px-4 py-1"></td></tr>
-                        <tr style={{ background: "rgba(139,92,246,0.06)" }}><td colSpan={3} className="px-4 py-2.5 text-white text-[12px] font-bold uppercase tracking-widest">Access Control Systems</td></tr>
-                        {[{ item: "900", desc: "Access Control System Software" },{ item: "1000", desc: "Hardware" },{ item: "1100", desc: "Infrastructure" },{ item: "1200", desc: "Professional Services" },{ item: "1200.5", desc: "Contingency plan" },{ item: "1300", desc: "Importation" }].map(row => (<tr key={row.item} style={{ borderBottom: "1px solid rgba(255,255,255,0.03)" }}><td className="px-4 py-2 text-[#484f58] text-[10px] font-mono">{row.item}</td><td className="px-4 py-2 text-white text-[11px] font-semibold">{row.desc}</td><td className="px-4 py-2 text-[#8b949e] text-[11px] text-right">—</td></tr>))}
-                        <tr style={{ background: "rgba(255,255,255,0.04)" }}><td colSpan={2} className="px-4 py-2 text-[#8b949e] text-[10px] font-bold text-right uppercase">Total Access Control</td><td className="px-4 py-2 text-white text-[12px] font-bold text-right">—</td></tr>
-                      </tbody>
-                    </table>
-                  </div>
-                </div>
-                <div className="rounded-2xl p-4 mt-4" style={{ ...G.card, background: "rgba(59,130,246,0.06)", border: "1px solid rgba(59,130,246,0.20)" }}>
-                  <div className="space-y-2">
-                    <div className="flex justify-between py-1"><span className="text-[#8b949e] text-[11px]">Grand Total Supply, Install, Configure and Commission Security Solution</span><span className="text-white text-[14px] font-bold">{fmt(grandTotalPreTax)}</span></div>
-                    <div className="flex justify-between py-1"><span className="text-[#8b949e] text-[12px]">Tax</span><span className="text-[#8b949e] text-[12px] font-bold">{fmt(gctAmount)}</span></div>
-                    <div className="flex justify-between py-2 border-t-2 border-white/10"><span className="text-white text-[14px] font-bold">Grand Total</span><span className="text-white text-[1.1rem] font-extrabold" style={{ color: "#60a5fa" }}>{fmt(grandTotal)}</span></div>
-                  </div>
-                </div>
-              </div>
-            )}
-          </div>
-        </div>
-      )}
-    </div>
-  );
-}
-const STATUS_META: Record<InstallStatus, { label: string; color: string; bg: string; icon: IconType }> = { complete: { label: "Complete", color: "text-emerald-400", bg: "bg-emerald-500/12", icon: CheckCircle2 }, "in-progress": { label: "In Progress", color: "text-blue-400", bg: "bg-blue-500/12", icon: Clock }, failed: { label: "Failed", color: "text-rose-400", bg: "bg-rose-500/12", icon: AlertTriangle }, pending: { label: "Pending", color: "text-[#484f58]", bg: "bg-white/[0.04]", icon: AlertCircle } };
-
-function InstallTracker({ navigate: _navigate }: { navigate: (p: Page) => void }) {
-  const [projects, setProjects] = useState<Project[]>([]);
-  const [zones, setZones] = useState<InstallZone[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [expandedProject, setExpandedProject] = useState<string | null>(null);
-  const [statusFilter, setStatusFilter] = useState<InstallStatus | "all">("all");
-
-  const fetchData = useCallback(async () => {
-    setLoading(true);
-    try {
-      const [projData, zoneData] = await Promise.all([API.projects.list(), API.install.zones()]);
-      setProjects(projData.filter((p: Project) => p.stage === "win"));
-      setZones(zoneData);
-    } catch { setProjects([]); setZones([]); } finally { setLoading(false); }
-  }, []);
-  useEffect(() => { fetchData(); }, [fetchData]);
-
-  const updateStatus = async (zoneId: string, deviceId: string, status: InstallStatus) => {
-    setZones((prev) => prev.map((z) => z.id !== zoneId ? z : { ...z, devices: z.devices.map((d) => d.id !== deviceId ? d : { ...d, status }) }));
-    try { await API.install.updateStatus(zoneId, deviceId, status); } catch {}
-  };
-
-  const typeIcons: Record<string, IconType> = { camera: Camera, access: Key, nvr: Cpu, door: DoorOpen, panel: PanelRight, power: Zap, server: Server };
-
-  if (loading) return (
-    <div className="px-3 md:px-5 py-4 md:py-6 space-y-4">
-      <Skeleton className="h-10 w-48" />
-      <Skeleton className="h-32 rounded-2xl" />
-      <Skeleton className="h-48 rounded-2xl" />
-    </div>
-  );
-
-  const allDevices = zones.flatMap((z) => z.devices);
-  const complete = allDevices.filter((d) => d.status === "complete").length;
-  const total = allDevices.length;
-  const pct = total > 0 ? Math.round((complete / total) * 100) : 0;
-
-  return (
-    <div className="px-3 md:px-5 py-4 md:py-6 max-w-[1100px]">
-      <div className="mb-4 md:mb-6"><h1 className="text-white font-bold text-lg md:text-xl tracking-tight">Install Tracker</h1><p className="text-[#8b949e] text-[11px] mt-0.5">{total} devices across {zones.length} zones · {projects.length} projects</p></div>
-
-      {projects.length === 0 ? <EmptyState icon={CheckSquare} title="No active installs" description="Projects in Win stage will appear here." /> : (
-        <>
-          <div className="rounded-2xl p-4 md:p-5 mb-4" style={G.card}>
-            <div className="flex flex-col md:flex-row md:items-center justify-between mb-4 gap-3"><div><p className="text-white text-[1.6rem] md:text-[2rem] font-bold">{pct}%</p><p className="text-[#484f58] text-[10px]">{complete} of {total} complete</p></div><div className="grid grid-cols-4 gap-3">{[{ label: "Complete", count: complete, color: "text-emerald-400" },{ label: "In Progress", count: allDevices.filter(d=>d.status==="in-progress").length, color: "text-blue-400" },{ label: "Failed", count: allDevices.filter(d=>d.status==="failed").length, color: "text-rose-400" },{ label: "Pending", count: allDevices.filter(d=>d.status==="pending").length, color: "text-[#484f58]" }].map((s) => (<div key={s.label}><p className={clsx("text-[1.1rem] font-bold", s.color)}>{s.count}</p><p className="text-[#484f58] text-[9px]">{s.label}</p></div>))}</div></div>
-            <div className="relative w-full h-3 rounded-full overflow-hidden" style={{ background: "rgba(255,255,255,0.07)" }}><div className="absolute left-0 top-0 h-full bg-gradient-to-r from-blue-600 to-emerald-500 rounded-full" style={{ width: `${pct}%` }} /></div>
-          </div>
-          <div className="flex items-center gap-1 mb-3">
-            {(["all","pending","in-progress","complete","failed"] as const).map(s => (
-              <button key={s} onClick={() => setStatusFilter(s)} className={clsx("h-7 px-2.5 rounded-lg text-[10px] font-semibold transition-all cursor-pointer", statusFilter === s ? "text-white" : "text-[#484f58]")} style={statusFilter === s ? { background: "rgba(255,255,255,0.10)" } : G.btn}>{s === "all" ? "All" : s === "in-progress" ? "In Progress" : s.charAt(0).toUpperCase() + s.slice(1)}</button>
-            ))}
-          </div>
-          <div className="space-y-3">
-            {projects.map((project) => {
-              const projectZones = zones.filter((z) => z.projectId === project.id);
-              const projectDevices = projectZones.flatMap((z) => z.devices).filter(d => statusFilter === "all" || d.status === statusFilter);
-              const pComplete = projectZones.flatMap((z) => z.devices).filter((d) => d.status === "complete").length;
-              const pTotal = projectZones.flatMap((z) => z.devices).length;
-              const pPct = pTotal > 0 ? Math.round((pComplete / pTotal) * 100) : 0;
-              const isExpanded = expandedProject === project.id;
-              return (
-                <div key={project.id} className="rounded-2xl overflow-hidden" style={G.card}>
-                  <button onClick={() => setExpandedProject(isExpanded ? null : project.id)} className="w-full flex items-center gap-3 px-4 py-3 hover:bg-white/[0.02] transition-colors cursor-pointer active:scale-[0.97] transition-transform min-h-[44px]">
-                    <div className="flex-1 min-w-0"><p className="text-white text-[12px] font-bold text-left">{project.name}</p><p className="text-[#484f58] text-[10px]">{projectDevices.length} devices · {pComplete} complete</p></div>
-                    <div className="flex items-center gap-3 flex-shrink-0"><div className="w-20 h-1.5 rounded-full overflow-hidden" style={{ background: "rgba(255,255,255,0.07)" }}><div className={clsx("h-full rounded-full", pPct===100?"bg-emerald-500":"bg-blue-500")} style={{ width: `${pPct}%` }} /></div><span className={clsx("text-[11px] font-bold w-10 text-right", pPct===100?"text-emerald-400":"text-white")}>{pPct}%</span>{isExpanded ? <ChevronUp className="w-4 h-4 text-[#484f58]" /> : <ChevronDown className="w-4 h-4 text-[#484f58]" />}</div>
-                  </button>
-                  {isExpanded && projectDevices.length > 0 && (
-                    <div style={{ borderTop: "1px solid rgba(255,255,255,0.06)" }}>
-                      {projectDevices.map((device, i) => { const meta = STATUS_META[device.status]; const TypeIcon = typeIcons[device.type] ?? Camera; return (
-                        <div key={device.id} className={clsx("grid gap-2 px-3 py-3 items-center hover:bg-white/[0.015] transition-colors", i%2===1&&"bg-white/[0.01]")} style={{ gridTemplateColumns: "36px 2fr 1fr 120px", borderTop: "1px solid rgba(255,255,255,0.04)" }}>
-                          <div className="w-7 h-7 rounded-xl flex items-center justify-center" style={{ background: "rgba(255,255,255,0.04)" }}><TypeIcon className="w-3.5 h-3.5 text-[#484f58]" /></div>
-                          <div className="min-w-0"><p className="text-white text-[11px] font-semibold truncate">{device.name}</p><p className="text-[#484f58] text-[9px]">{device.location}</p></div>
-                          <span className="text-[#8b949e] text-[10px] truncate">{device.assignee}</span>
-                          <select value={device.status} onChange={(e) => { const z = projectZones.find(z => z.devices.some(d => d.id === device.id)); if (z) updateStatus(z.id, device.id, e.target.value as InstallStatus); }} className={clsx("w-full h-7 rounded-xl border px-2 text-[10px] font-bold appearance-none cursor-pointer", meta.bg, meta.color)} style={{ backgroundColor: "transparent" }}>
-                            {Object.entries(STATUS_META).map(([val, m]) => (<option key={val} value={val} style={{ background: "#0d1117", color: "#e6edf3" }}>{m.label}</option>))}
-                          </select>
-                        </div>
-                      );})}
-                    </div>
-                  )}
-                  {isExpanded && projectDevices.length === 0 && <div className="px-4 py-6 text-center"><p className="text-[#484f58] text-[11px]">No devices match this filter.</p></div>}
-                </div>
-              );
-            })}
-          </div>
-        </>
-      )}
+    <div className="relative group inline-flex items-center min-w-[40px]">
+      {editing ? (<input ref={inputRef} type={type} value={localValue} onChange={e => setLocalValue(e.target.value)} onKeyDown={handleKeyDown} onBlur={handleCommit} disabled={disabled} placeholder={placeholder} className="bg-transparent text-white text-[11px] font-semibold w-full focus:outline-none px-1 py-0.5 rounded border-0" style={{ background: "rgba(59,130,246,0.10)", border: "1px solid rgba(59,130,246,0.25)", minWidth: "60px" }} />) : (<span onClick={() => !disabled && setEditing(true)} className={clsx("px-1 py-0.5 rounded transition-colors hover:bg-white/[0.04]", disabled ? "cursor-default hover:bg-transparent" : "cursor-pointer")} tabIndex={disabled ? -1 : 0} onKeyDown={e => { if ((e.key === "Enter" || e.key === " ") && !disabled) { e.preventDefault(); setEditing(true); } }}>{String(value) || placeholder || "—"}</span>)}
+      {saveState === "saving" && <Loader2 className="w-2.5 h-2.5 animate-spin text-[#484f58] ml-1 flex-shrink-0" />}
+      {saveState === "saved" && <CheckCircle2 className="w-2.5 h-2.5 text-emerald-400 ml-1 flex-shrink-0" />}
     </div>
   );
 }
 
-const CAT_COLOR_DS: Record<string, { bg: string; text: string; label: string }> = { camera: { bg: "rgba(59,130,246,0.12)", text: "#60a5fa", label: "Camera" }, "access-control": { bg: "rgba(139,92,246,0.12)", text: "#a78bfa", label: "Access" }, nvr: { bg: "rgba(16,185,129,0.12)", text: "#34d399", label: "NVR" }, analytics: { bg: "rgba(249,115,22,0.12)", text: "#fb923c", label: "VMS" }, other: { bg: "rgba(100,100,100,0.12)", text: "#8b949e", label: "Other" } };
-
-function DeviceSpecModal({ device, onClose }: { device: CatalogDevice; onClose: () => void }) {
-  const { addToQuote } = useQuote(); const { fmt } = useCurrency(); const cc = CAT_COLOR_DS[device.category] ?? CAT_COLOR_DS.other;
-  const specs: { label: string; value?: string }[] = [
-    { label: "SKU", value: device.sku },{ label: "Category", value: cc.label },{ label: "Camera Type", value: device.cameraType },
-    { label: "Resolution", value: device.resolution },{ label: "Sensor", value: device.sensor },{ label: "Lens", value: device.lens },
-    { label: "Frame Rate", value: device.frameRate },{ label: "Compression", value: device.compression },{ label: "FOV", value: device.fov },
-    { label: "Night Vision", value: device.nightVision },{ label: "Weather Rating", value: device.weatherRating },{ label: "Power Input", value: device.powerInput },
-    { label: "Storage", value: device.storage },{ label: "Operating Temp", value: device.operatingTemp },{ label: "Authentication", value: device.authentication },
-    { label: "Channels", value: device.channels },{ label: "Readers", value: device.readers },
-  ].filter((s) => !!s.value);
-
+function OverrideConflictModal({ open, sectionName, onUpdateOverride, onKeepOverride, onCancel }: { open: boolean; sectionName: string; onUpdateOverride: () => void; onKeepOverride: () => void; onCancel: () => void; }) {
+  if (!open) return null;
   return (
-    <div className="fixed inset-0 z-[300] flex items-center justify-center p-4" onClick={onClose}><div className="absolute inset-0" style={{ background: "rgba(0,0,0,0.7)", backdropFilter: "blur(10px)" }} /><motion.div initial={{ opacity: 0, scale: 0.93, y: 18 }} animate={{ opacity: 1, scale: 1, y: 0 }} transition={{ type: "spring", damping: 26, stiffness: 340 }} onClick={(e) => e.stopPropagation()} className="relative z-10 w-full max-w-[780px] max-h-[90vh] overflow-y-auto rounded-3xl flex flex-col md:flex-row" style={{ background: "rgba(7,12,26,0.95)", backdropFilter: "blur(52px) saturate(200%)", border: "1px solid rgba(255,255,255,0.13)", boxShadow: "0 40px 100px rgba(0,0,0,0.95)" }}>
-      <div className="w-full md:w-56 flex-shrink-0 relative flex items-center justify-center" style={{ background: "rgba(255,255,255,0.03)", minHeight: "250px" }}>
-        {device.imageUrl ? <img src={device.imageUrl} alt={device.model} className="w-full h-full object-contain p-4" style={{ maxHeight: "320px" }} /> : <div className="w-full h-full flex items-center justify-center"><Camera className="w-16 h-16 text-[#484f58]" /></div>}
-        <div className="absolute bottom-4 left-4 flex flex-wrap gap-1.5">
-          <span className="inline-block px-2 py-0.5 rounded-lg text-[10px] font-bold uppercase" style={{ background: cc.bg, color: cc.text }}>{cc.label}</span>
-          {device.cameraType && <span className="inline-block px-2 py-0.5 rounded-lg text-[9px] font-bold uppercase" style={{ background: "rgba(255,255,255,0.08)", color: "#e6edf3" }}>{device.cameraType}</span>}
-          {device.tags?.map((tag) => { const ts = TAG_STYLES[tag]; return ts ? <span key={tag} className="inline-block px-2 py-0.5 rounded-lg text-[9px] font-bold uppercase" style={{ background: ts.bg, color: ts.text, border: `1px solid ${ts.border}` }}>{tag}</span> : null; })}
-        </div>
-      </div>
-      <div className="flex-1 flex flex-col overflow-hidden"><div className="px-5 md:px-6 pt-5 md:pt-6 pb-4 flex items-start justify-between flex-shrink-0" style={{ borderBottom: "1px solid rgba(255,255,255,0.07)" }}><div><p className="text-[#8b949e] text-[11px] font-semibold">{device.manufacturer}</p><h2 className="text-white text-[1.1rem] font-bold mt-0.5">{device.model}</h2>{device.price && <p className="text-[0.9rem] font-bold mt-1" style={{ color: cc.text }}>{fmt(device.price)} <span className="text-[#484f58] text-[10px] font-normal">/ unit</span></p>}</div><button onClick={onClose} className="w-8 h-8 rounded-xl flex items-center justify-center hover:bg-white/[0.08] cursor-pointer active:scale-[0.97] transition-transform min-w-[44px] min-h-[44px]" style={{ border: "1px solid rgba(255,255,255,0.10)" }}><X className="w-4 h-4 text-[#8b949e]" /></button></div>
-        <div className="flex-1 overflow-y-auto px-5 md:px-6 py-4"><div className="grid grid-cols-1 md:grid-cols-2 gap-2 md:gap-3">{specs.map((s) => (<div key={s.label} className="rounded-xl p-3" style={G.subtle}><p className="text-[#484f58] text-[9px] font-bold uppercase tracking-widest mb-1">{s.label}</p><p className="text-white text-[11px] font-semibold">{s.value}</p></div>))}</div></div>
-        <div className="px-5 md:px-6 py-4 flex items-center gap-3 flex-shrink-0" style={{ borderTop: "1px solid rgba(255,255,255,0.07)" }}><button onClick={() => { addToQuote(device); onClose(); }} className="flex items-center gap-2 h-9 px-4 rounded-xl text-white text-[11px] font-bold cursor-pointer active:scale-[0.97] transition-transform min-h-[44px]" style={{ background: "#3b82f6", boxShadow: "0 4px 16px rgba(59,130,246,0.35)" }}><Plus className="w-3.5 h-3.5" /> Add to Quote</button></div>
-      </div>
-    </motion.div></div>
+    <div className="fixed inset-0 z-[400] flex items-center justify-center p-4" onClick={onCancel}><div className="absolute inset-0" style={{ background: "rgba(0,0,0,0.65)", backdropFilter: "blur(8px)" }} /><motion.div initial={{ opacity: 0, scale: 0.93 }} animate={{ opacity: 1, scale: 1 }} onClick={e => e.stopPropagation()} className="relative z-10 w-full max-w-[440px] rounded-2xl p-6" style={G.liquidGlass}><div className="flex items-center gap-3 mb-4"><div className="w-10 h-10 rounded-xl flex items-center justify-center" style={{ background: "rgba(245,158,11,0.15)" }}><AlertTriangle className="w-5 h-5 text-amber-400" /></div><div><h3 className="text-white text-[14px] font-bold">Manual Override Detected</h3><p className="text-[#8b949e] text-[11px] mt-0.5">"{sectionName}" has a manual override in Synthesis.</p></div></div><p className="text-[#8b949e] text-[12px] mb-5">Editing the BOM will recalculate this section. Update override or keep the manual value?</p><div className="flex gap-2"><button onClick={onCancel} className="flex-1 h-10 rounded-xl text-[#8b949e] text-[12px] font-semibold cursor-pointer active:scale-[0.97] transition-transform" style={G.btn}>Cancel</button><button onClick={onKeepOverride} className="flex-1 h-10 rounded-xl text-white text-[12px] font-semibold cursor-pointer active:scale-[0.97] transition-transform" style={{ background: "rgba(255,255,255,0.08)", border: "1px solid rgba(255,255,255,0.14)" }}>Keep Override</button><button onClick={onUpdateOverride} className="flex-1 h-10 rounded-xl text-white text-[12px] font-bold cursor-pointer active:scale-[0.97] transition-transform" style={{ background: "#f59e0b", boxShadow: "0 4px 16px rgba(245,158,11,0.35)" }}>Update Override</button></div></motion.div></div>
   );
 }
 
-function DeviceStore({ navigate: _navigate }: { navigate: (p: Page) => void }) {
-  const [search, setSearch] = useState(""); const [categoryFilter, setCategoryFilter] = useState<string>("all"); const [cameraTypeFilter, setCameraTypeFilter] = useState<string>("all"); const [viewMode, setViewMode] = useState<"grid" | "table">("grid");
-  const [selectedDevice, setSelectedDevice] = useState<CatalogDevice | null>(null); const [devices, setDevices] = useState<CatalogDevice[]>([]);
-  const [loading, setLoading] = useState(true); const { addToQuote } = useQuote(); const { fmt } = useCurrency();
-  const [csvUploading, setCsvUploading] = useState(false);
+function PriceDeviationBadge({ deviation }: { deviation: number }) { if (Math.abs(deviation) <= 50) return null; const isHigh = deviation > 50; return (<span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[8px] font-bold cursor-help ml-1" style={{ background: isHigh ? "rgba(245,158,11,0.15)" : "rgba(239,68,68,0.15)", color: isHigh ? "#fbbf24" : "#f87171", border: `1px solid ${isHigh ? "rgba(245,158,11,0.30)" : "rgba(239,68,68,0.30)"}` }} title={`Price deviates ${deviation > 0 ? "+" : ""}${deviation.toFixed(0)}% from historical average`}><AlertTriangle className="w-2.5 h-2.5" />{deviation > 0 ? "+" : ""}{deviation.toFixed(0)}%</span>); }
 
-  const fetchDevices = useCallback(async () => { setLoading(true); try { const data = await API.devices.list(); setDevices(data); } catch { setDevices([]); } finally { setLoading(false); } }, []);
-  useEffect(() => { fetchDevices(); }, [fetchDevices]);
+function OverrideIndicator({ isOverridden, onReset }: { isOverridden: boolean; onReset?: () => void }) { if (!isOverridden) return null; return (<button onClick={e => { e.stopPropagation(); onReset?.(); }} className="w-5 h-5 rounded-full flex items-center justify-center cursor-pointer ml-1 flex-shrink-0" style={{ background: "rgba(245,158,11,0.20)", border: "1px solid rgba(245,158,11,0.40)" }} title="Manually overridden — click to reset"><Pencil className="w-2.5 h-2.5 text-amber-400" /></button>); }
 
-  const handleCSVUpload = async (e: React.ChangeEvent<HTMLInputElement>) => { const file = e.target.files?.[0]; if (!file) return; setCsvUploading(true); try { const text = await file.text(); const lines = text.split("\n").filter(l => l.trim()); const headers = lines[0].split(",").map(h => h.trim().replace(/"/g,"")); const parsed = lines.slice(1).map(line => { const vals = line.split(",").map(v => v.trim().replace(/"/g,"")); const obj: any = {}; headers.forEach((h,i) => { obj[h] = vals[i]; }); return { model: obj.Model||obj.model||"", manufacturer: obj.Manufacturer||obj.manufacturer||"Unknown", category: "camera" as const, cameraType: obj["Camera Type"]||undefined, resolution: obj["Max Video Resolution"]||undefined, lens: obj["Sensor/Lens/Horizontal FOV"]||undefined, price: parseFloat(obj.Price||"0")||undefined, sku: obj.SKU||obj.Model||undefined, imageUrl: obj["Image URL"]||obj.Image||undefined, tags: [] as DeviceTag[] }; }); if (parsed.length > 0) { await API.devices.bulk(parsed); toast.success(`Imported ${parsed.length} devices`); fetchDevices(); } } catch { toast.error("CSV import failed"); } finally { setCsvUploading(false); e.target.value = ""; } };
+function FieldAuditModal({ open, entries, onClose }: { open: boolean; entries: WorkbookAuditEntry[]; onClose: () => void }) { if (!open) return null; return (<div className="fixed inset-0 z-[400] flex items-center justify-center p-4" onClick={onClose}><div className="absolute inset-0" style={{ background: "rgba(0,0,0,0.55)", backdropFilter: "blur(6px)" }} /><motion.div initial={{ opacity: 0, scale: 0.93 }} animate={{ opacity: 1, scale: 1 }} onClick={e => e.stopPropagation()} className="relative z-10 w-full max-w-[500px] max-h-[70vh] overflow-y-auto rounded-2xl" style={G.liquidGlass}><div className="flex items-center justify-between px-5 py-4" style={{ borderBottom: "1px solid rgba(255,255,255,0.07)" }}><h3 className="text-white text-[14px] font-bold">Change History</h3><button onClick={onClose} className="w-8 h-8 rounded-xl flex items-center justify-center hover:bg-white/[0.08] cursor-pointer"><X className="w-4 h-4 text-[#8b949e]" /></button></div><div className="p-4 space-y-2">{entries.length === 0 ? <p className="text-[#484f58] text-[12px] text-center py-4">No changes recorded</p> : entries.map(entry => (<div key={entry.id} className="flex items-start gap-3 p-3 rounded-xl" style={{ background: "rgba(255,255,255,0.03)" }}><div className="w-7 h-7 rounded-full flex items-center justify-center text-[9px] font-bold text-white flex-shrink-0" style={{ background: TEAM.find(t => t.name === entry.changedBy)?.color || "#3b82f6" }}>{TEAM.find(t => t.name === entry.changedBy)?.initials || "??"}</div><div className="flex-1 min-w-0"><p className="text-white text-[11px] font-semibold">{entry.fieldPath}</p><div className="flex items-center gap-1.5 mt-1 text-[10px]"><span className="text-rose-400 line-through">{entry.oldValue}</span><ChevronRight className="w-3 h-3 text-[#484f58]" /><span className="text-emerald-400">{entry.newValue}</span></div><p className="text-[#484f58] text-[9px] mt-1">{new Date(entry.changedAt).toLocaleString()}</p></div></div>))}</div></motion.div></div>); }
 
-  const categories: { id: string; label: string }[] = [{ id: "all", label: "All" },{ id: "camera", label: "Cameras" },{ id: "access-control", label: "Access" },{ id: "nvr", label: "NVR" },{ id: "analytics", label: "VMS" }];
-  const filtered = useMemo(() => { let result = devices; if (categoryFilter !== "all") result = result.filter((d) => d.category === categoryFilter); if (cameraTypeFilter !== "all") result = result.filter((d) => d.cameraType === cameraTypeFilter); if (search.trim()) { const q = search.toLowerCase(); result = result.filter((d) => d.model.toLowerCase().includes(q) || d.manufacturer.toLowerCase().includes(q) || (d.sku??"").toLowerCase().includes(q) || (d.tags??[]).some(t=>t.toLowerCase().includes(q))); } return result; }, [devices, search, categoryFilter, cameraTypeFilter]);
-
-  if (loading) return (
-    <div className="px-3 md:px-5 py-4 md:py-6 space-y-4">
-      <Skeleton className="h-10 w-48" />
-      <div className="grid gap-3 md:gap-4" style={{ gridTemplateColumns: "repeat(auto-fill, minmax(200px, 1fr))" }}>{[1,2,3,4,5,6].map(i => <SkeletonCard key={i} />)}</div>
-    </div>
-  );
-
+function SummaryBar({ totalCost, totalSell, blendedMargin, fmt, onGenerateProposal }: { totalCost: number; totalSell: number; blendedMargin: number; fmt: (n: number) => string; onGenerateProposal?: () => void; }) {
   return (
-    <div className="px-3 md:px-5 py-4 md:py-6">
-      {selectedDevice && <DeviceSpecModal device={selectedDevice} onClose={() => setSelectedDevice(null)} />}
-      <div className="flex items-center justify-between mb-4 md:mb-6"><div><h1 className="text-white font-bold text-lg md:text-xl tracking-tight">Device Store</h1><p className="text-[#8b949e] text-[11px] mt-0.5">{filtered.length} products</p></div><div className="flex items-center gap-2"><label className="flex items-center gap-1.5 h-8 px-3 rounded-xl text-[#8b949e] text-[11px] font-semibold hover:text-white cursor-pointer active:scale-[0.97] transition-transform" style={G.btn}><Upload className="w-3.5 h-3.5" /> {csvUploading ? "Importing…" : "Import CSV"}<input type="file" accept=".csv" className="hidden" onChange={handleCSVUpload} disabled={csvUploading} /></label><div className="flex items-center h-8 rounded-xl overflow-hidden" style={{ background: "rgba(255,255,255,0.05)" }}><button onClick={() => setViewMode("grid")} className="h-full px-2.5 flex items-center justify-center cursor-pointer active:scale-[0.97] transition-transform" style={viewMode==="grid"?{background:"#3b82f620",color:"#60a5fa"}:{color:"#484f58"}}><Grid3x3 className="w-3.5 h-3.5" /></button><button onClick={() => setViewMode("table")} className="h-full px-2.5 flex items-center justify-center cursor-pointer active:scale-[0.97] transition-transform" style={viewMode==="table"?{background:"#3b82f620",color:"#60a5fa"}:{color:"#484f58"}}><List className="w-3.5 h-3.5" /></button></div></div></div>
-      <div className="mb-4 md:mb-5 flex items-center gap-2 flex-wrap">
-        <div className="relative flex-1 min-w-[160px] max-w-sm"><Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[#484f58]" /><input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search model, SKU, tags…" className="h-9 rounded-xl pl-9 w-full text-[12px] text-[#e6edf3] focus:outline-none" style={G.input} /></div>
-        <div className="flex gap-1.5 flex-wrap">{categories.map((c) => (<button key={c.id} onClick={() => setCategoryFilter(c.id)} className="h-8 px-2.5 rounded-xl text-[11px] font-semibold cursor-pointer active:scale-[0.97] transition-transform whitespace-nowrap" style={categoryFilter===c.id?{background:"rgba(59,130,246,0.15)",color:"#60a5fa",border:"1px solid rgba(59,130,246,0.35)"}:{...G.btn,color:"#8b949e"}}>{c.label}</button>))}</div>
-        <div className="relative"><select value={cameraTypeFilter} onChange={(e) => setCameraTypeFilter(e.target.value)} className="h-8 rounded-xl px-2.5 text-[11px] font-semibold cursor-pointer appearance-none pr-6" style={G.btn}><option value="all">All Types</option>{CAMERA_TYPES.map(ct=><option key={ct} value={ct}>{ct}</option>)}</select><ChevronDown className="absolute right-1.5 top-1/2 -translate-y-1/2 w-3 h-3 text-[#484f58] pointer-events-none" /></div>
-      </div>
-      {devices.length === 0 ? <EmptyState icon={Store} title="Device store is empty" description="Import a CSV to populate the catalog." /> : filtered.length === 0 ? <EmptyState icon={Search} title="No devices match" description="Try adjusting filters." /> : viewMode === "grid" ? (
-        <div className="grid gap-3 md:gap-4" style={{ gridTemplateColumns: "repeat(auto-fill, minmax(200px, 1fr))" }}>{filtered.map((device) => { const cc = CAT_COLOR_DS[device.category] ?? CAT_COLOR_DS.other; return (<div key={device.id} onClick={() => setSelectedDevice(device)} className="rounded-2xl overflow-hidden cursor-pointer group transition-all md:hover:-translate-y-1" style={{ ...G.card }}><div className="relative h-32 md:h-36 overflow-hidden" style={{ background: "rgba(255,255,255,0.03)" }}>{device.imageUrl ? <img src={device.imageUrl} alt={device.model} className="w-full h-full object-contain p-3 opacity-70 group-hover:opacity-90 group-hover:scale-105 transition-all duration-500" /> : <div className="w-full h-full flex items-center justify-center"><Camera className="w-12 h-12 text-[#484f58]" /></div>}<div className="absolute top-2.5 left-2.5 flex flex-wrap gap-1"><span className="inline-block px-2 py-0.5 rounded-lg text-[9px] font-bold uppercase" style={{ background: cc.bg, color: cc.text }}>{cc.label}</span>{device.cameraType && <span className="inline-block px-2 py-0.5 rounded-lg text-[8px] font-bold uppercase" style={{ background: "rgba(255,255,255,0.08)", color: "#e6edf3" }}>{device.cameraType}</span>}</div></div><div className="p-3"><p className="text-[#8b949e] text-[9px] font-semibold">{device.manufacturer}</p><p className="text-white text-[12px] font-bold mt-0.5 truncate">{device.model}</p>{device.resolution && <p className="text-[#484f58] text-[9px] mt-1 truncate">{device.resolution}</p>}<div className="flex flex-wrap gap-1 mt-2">{device.tags?.slice(0,3).map((tag) => { const ts = TAG_STYLES[tag]; return ts ? <span key={tag} className="inline-block px-1.5 py-0.5 rounded-md text-[8px] font-bold uppercase" style={{ background: ts.bg, color: ts.text }}>{tag}</span> : null; })}</div><div className="flex items-center justify-between mt-2 pt-2" style={{ borderTop: "1px solid rgba(255,255,255,0.06)" }}><span className="text-[#484f58] text-[8px] font-mono">{device.sku}</span><span className="font-bold text-[11px]" style={{ color: cc.text }}>{device.price ? fmt(device.price) : "—"}</span></div></div></div>); })}</div>
-      ) : (
-        <div className="rounded-2xl overflow-hidden" style={G.card}><div className="overflow-x-auto"><table className="w-full" style={{ minWidth: "700px" }}><thead><tr style={{ background: "rgba(255,255,255,0.03)", borderBottom: "1px solid rgba(255,255,255,0.08)" }}>{["","Model","Manufacturer","Type","Resolution","Tags","SKU","Price"].map((h) => (<th key={h} className={`${h==="Price"?"text-right":"text-left"} px-3 py-3 text-[#484f58] text-[10px] font-bold uppercase tracking-widest`}>{h}</th>))}</tr></thead><tbody>{filtered.map((device, i) => { const cc = CAT_COLOR_DS[device.category] ?? CAT_COLOR_DS.other; return (<tr key={device.id} onClick={() => setSelectedDevice(device)} className="cursor-pointer hover:bg-white/[0.02] transition-colors group" style={{ borderBottom: i<filtered.length-1?"1px solid rgba(255,255,255,0.04)":"none" }}><td className="px-3 py-2.5"><div className="w-9 h-9 rounded-xl overflow-hidden flex-shrink-0" style={{ background: "rgba(255,255,255,0.04)" }}>{device.imageUrl ? <img src={device.imageUrl} alt={device.model} className="w-full h-full object-contain p-1 opacity-70" /> : <Camera className="w-4 h-4 text-[#484f58] m-auto mt-2.5" />}</div></td><td className="px-3 py-2.5 text-white text-[11px] font-semibold">{device.model}</td><td className="px-3 py-2.5 text-[#8b949e] text-[10px]">{device.manufacturer}</td><td className="px-3 py-2.5"><span className="inline-block px-2 py-0.5 rounded-lg text-[9px] font-bold uppercase" style={{ background: cc.bg, color: cc.text }}>{device.cameraType || cc.label}</span></td><td className="px-3 py-2.5 text-[#8b949e] text-[10px]">{device.resolution||"—"}</td><td className="px-3 py-2.5"><div className="flex flex-wrap gap-1">{device.tags?.map((tag) => { const ts = TAG_STYLES[tag]; return ts ? <span key={tag} className="inline-block px-1.5 py-0.5 rounded-md text-[8px] font-bold uppercase" style={{ background: ts.bg, color: ts.text }}>{tag}</span> : null; })}</div></td><td className="px-3 py-2.5 text-[#484f58] text-[10px] font-mono">{device.sku}</td><td className="px-3 py-2.5 text-right"><span className="text-white text-[11px] font-bold">{device.price?fmt(device.price):"—"}</span></td></tr>); })}</tbody></table></div></div>
-      )}
+    <div className="sticky top-0 z-20 flex items-center gap-4 px-4 py-2.5 rounded-xl mb-3 flex-wrap" style={{ ...G.liquidGlass, borderColor: "rgba(59,130,246,0.25)" }}>
+      <div className="flex items-center gap-2"><span className="text-[#8b949e] text-[10px] font-bold uppercase">Total Cost</span><span className="text-white text-[14px] font-bold">{fmt(totalCost)}</span></div><div className="w-px h-5" style={{ background: "rgba(255,255,255,0.10)" }} /><div className="flex items-center gap-2"><span className="text-[#8b949e] text-[10px] font-bold uppercase">Total Sell</span><span className="text-emerald-400 text-[14px] font-bold">{fmt(totalSell)}</span></div><div className="w-px h-5" style={{ background: "rgba(255,255,255,0.10)" }} /><div className="flex items-center gap-2"><span className="text-[#8b949e] text-[10px] font-bold uppercase">Blended Margin</span><span className={clsx("text-[14px] font-bold", blendedMargin >= 30 ? "text-emerald-400" : blendedMargin >= 15 ? "text-amber-400" : "text-rose-400")}>{blendedMargin.toFixed(1)}%</span></div>
+      <div className="flex-1" />
+      {onGenerateProposal && <button onClick={onGenerateProposal} className="flex items-center gap-1.5 h-7 px-3 rounded-lg text-white text-[10px] font-bold cursor-pointer" style={{ background: "#3b82f6" }}><FileDown className="w-3 h-3" /> Generate Proposal</button>}
     </div>
-  );
-}
-
-function LoginPage({ onLogin }: { onLogin: () => void }) {
-  const [email, setEmail] = useState(""); const [password, setPassword] = useState(""); const [showPw, setShowPw] = useState(false); const [loading, setLoading] = useState(false);
-  const submit = (e?: React.FormEvent) => { e?.preventDefault(); setLoading(true); setTimeout(() => { setLoading(false); onLogin(); }, 1100); };
-  const inputCls = "w-full h-11 rounded-2xl px-4 text-[#e6edf3] text-[13px] placeholder:text-[#484f58] focus:outline-none transition-all";
-  return (
-    <div className="h-screen flex overflow-hidden">
-      <div className="hidden lg:flex w-[48%] flex-shrink-0 flex-col relative overflow-hidden" style={{ background: "#070c1a" }}>
-        <div className="absolute inset-0" style={{ backgroundImage: "radial-gradient(ellipse 80% 60% at 10% 10%, rgba(30,64,175,0.45) 0%, transparent 65%), radial-gradient(ellipse 60% 55% at 90% 90%, rgba(88,28,135,0.35) 0%, transparent 65%)" }} />
-        <div className="relative z-10 flex flex-col h-full p-8 md:p-12">
-          <div className="mb-auto"><img src={logoImg} alt="E-Tech Systems" className="h-8 md:h-10 object-contain object-left" style={{ filter: "brightness(1.1)" }} /></div>
-          <div className="flex flex-col justify-center flex-1 py-8">
-            <span className="text-blue-400 text-[10px] md:text-[11px] font-bold tracking-[0.15em] uppercase mb-4 block">Security System Design & Integration Platform</span>
-            <h1 className="text-white text-[2rem] md:text-[2.6rem] font-bold leading-[1.12] tracking-tight mb-4">Full-Lifecycle<br />Security Project<br /><span className="text-transparent" style={{ backgroundImage: "linear-gradient(135deg, #60a5fa, #a78bfa)", WebkitBackgroundClip: "text", backgroundClip: "text" }}>Management.</span></h1>
-            <p className="text-[#8b949e] text-[11px] md:text-[13px] leading-relaxed mb-8 max-w-[380px]">From New lead to New client, from Site Assessment to Final Installation. Track Leads, Design Site Plans, Build Financial Workbooks, Manage Installations, and Auto-Generate Reports in One Platform.</p>
-            <div className="space-y-2">{[{ icon: Camera, title: "System Design Studio", desc: "Place Cameras, Map Cable Routes, Build Floorplans", color: "#3b82f6" },{ icon: BarChart3, title: "Sales & Tech Pipeline Tracker", desc: "Track Leads, Manage Tech Projects, Generate Workbooks and Reports", color: "#8b5cf6" }].map(({ icon: Icon, title, desc, color }) => (<div key={title} className="flex items-start gap-3 p-3 rounded-2xl" style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.09)" }}><div className="w-8 h-8 rounded-xl flex items-center justify-center" style={{ background: `${color}20` }}><Icon className="w-4 h-4" style={{ color }} /></div><div><p className="text-white text-[12px] font-bold mb-0.5">{title}</p><p className="text-[#8b949e] text-[11px]">{desc}</p></div></div>))}</div>
-          </div>
-          <p className="text-[#484f58] text-[10px]">© 2026 E-Tech Systems</p>
-        </div>
-      </div>
-      <div className="flex-1 flex items-center justify-center p-6 md:p-8 relative" style={{ background: "rgba(255,255,255,0.03)", backdropFilter: "blur(40px)" }}>
-        <motion.div initial={{ opacity: 0, y: 18 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.3 }} className="relative z-10 w-full max-w-[380px]">
-          <div className="rounded-3xl p-6 md:p-8" style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.12)", backdropFilter: "blur(40px) saturate(160%)", boxShadow: "0 24px 64px rgba(0,0,0,0.6)" }}>
-            <h2 className="text-white text-[1.3rem] md:text-[1.5rem] font-bold mb-1">Welcome back</h2><p className="text-[#8b949e] text-[12px] mb-6">Sign in to your workspace</p>
-            <button onClick={submit} className="w-full flex items-center justify-center gap-3 h-11 rounded-2xl text-white text-[12px] font-bold transition-all mb-5 hover:bg-white/[0.12] cursor-pointer active:scale-[0.97] transition-transform min-h-[44px]" style={{ background: "rgba(255,255,255,0.08)", border: "1px solid rgba(255,255,255,0.14)" }}>
-              <svg width="20" height="20" viewBox="0 0 21 21" fill="none"><rect width="10" height="10" fill="#f25022" /><rect x="11" width="10" height="10" fill="#7fba00" /><rect y="11" width="10" height="10" fill="#00a4ef" /><rect x="11" y="11" width="10" height="10" fill="#ffb900" /></svg>
-              Continue with Microsoft
-            </button>
-            <div className="flex items-center gap-3 mb-5"><div className="flex-1 h-px" style={{ background: "rgba(255,255,255,0.08)" }} /><span className="text-[#484f58] text-[10px] font-semibold">or continue with email</span><div className="flex-1 h-px" style={{ background: "rgba(255,255,255,0.08)" }} /></div>
-            <form onSubmit={submit} className="space-y-3"><div><input type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="you@company.com" className={inputCls} style={G.input} /></div><div className="relative"><input type={showPw?"text":"password"} value={password} onChange={(e) => setPassword(e.target.value)} placeholder="••••••••" className={clsx(inputCls, "pr-11")} style={G.input} /><button type="button" onClick={() => setShowPw(!showPw)} className="absolute right-3.5 top-1/2 -translate-y-1/2 text-[#484f58]"><Eye className="w-4 h-4" /></button></div><button type="submit" disabled={loading} className="w-full h-11 rounded-2xl text-white font-bold text-[12px] transition-all flex items-center justify-center gap-2 disabled:opacity-60 cursor-pointer active:scale-[0.97] transition-transform min-h-[44px]" style={{ background: "linear-gradient(135deg, #3b82f6, #2563eb)", boxShadow: "0 4px 20px rgba(59,130,246,0.45)" }}>{loading && <Loader2 className="w-4 h-4 animate-spin" />}{loading?"Signing in…":"Sign in"}</button></form>
-          </div>
-        </motion.div>
-      </div>
-    </div>
-  );
-}
-
-export default function App() {
-  const [page, setPage] = useState<Page>(() => {
-    const saved = localStorage.getItem("app_page");
-    const loggedIn = localStorage.getItem("auth_token") || localStorage.getItem("app_logged_in");
-    return loggedIn && saved ? (saved as Page) : "login";
-  });
-  const [currency, setCurrency] = useState<"USD" | "JMD">("USD");
-  const [currentQuote, setCurrentQuote] = useState<Quote | null>(null);
-  const [showOnboarding, setShowOnboarding] = useState(() => !localStorage.getItem("onboarding_complete"));
-
-  useEffect(() => { if (page !== "login") localStorage.setItem("app_page", page); }, [page]);
-  useEffect(() => { API.fx.getRate(); }, []);
-
-  const handleLogin = () => { localStorage.setItem("auth_token", "stub-jwt-token"); localStorage.setItem("app_logged_in", "true"); setPage("dashboard"); };
-  const currencyCtx: CurrencyCtx = useMemo(() => ({ currency, setCurrency, fmt: makeFmt(currency) }), [currency]);
-
-  const addToQuote = (device: CatalogDevice) => {
-    const price = device.price; if (!price || !currentQuote) return;
-    setCurrentQuote((prev) => {
-      if (!prev) return prev; const firstCat = prev.categories[0]; if (!firstCat) return prev;
-      const sellPrice = price * 1.35;
-      const newItem: QuoteLineItem = { id: crypto.randomUUID?.() || `li${Date.now()}`, itemNumber: String(firstCat.lineItems.length + 1).padStart(2, "0"), description: `${device.manufacturer} ${device.model}`, unitCost: price, quantity: 1, markupPercent: 0.35, sellPrice, costTotal: price, sellTotal: sellPrice, profit: sellPrice - price, jmdConversion: sellPrice * (parseFloat(localStorage.getItem("fx_rate") || "157.4")) };
-      return { ...prev, categories: prev.categories.map((c, i) => i === 0 ? { ...c, lineItems: [...c.lineItems, newItem] } : c) };
-    });
-    toast.success(`${device.model} added to quote`);
-  };
-
-  const quoteCtx: QuoteCtx = { currentQuote, setCurrentQuote, addToQuote };
-
-  if (page === "login") return (<CurrencyContext.Provider value={currencyCtx}><LoginPage onLogin={handleLogin} /></CurrencyContext.Provider>);
-  if (page === "design-canvas") return (<CurrencyContext.Provider value={currencyCtx}><DesignCanvas navigate={setPage} /></CurrencyContext.Provider>);
-
-  const breadcrumb = page === "project-detail" ? { label: "Projects", parent: "design-studio" as Page } : undefined;
-
-  return (
-    <CurrencyContext.Provider value={currencyCtx}>
-      <QuoteContext.Provider value={quoteCtx}>
-        <div className="min-h-screen bg-background">
-          <Toaster position="bottom-right" theme="dark" toastOptions={{ style: { background: "rgba(7,12,26,0.95)", border: "1px solid rgba(255,255,255,0.12)", color: "#e6edf3", backdropFilter: "blur(20px)" } }} />
-          <AppTopbar page={page} navigate={setPage} breadcrumb={breadcrumb} />
-          <div className="pt-14">
-            <AnimatePresence mode="wait">
-              {page === "dashboard" && <Dashboard key="dashboard" navigate={setPage} />}
-              {page === "design-studio" && <DesignStudio key="design-studio" navigate={setPage} />}
-              {page === "project-detail" && <ProjectDetail key="project-detail" navigate={setPage} />}
-              {page === "workbook" && <Workbook key="workbook" navigate={setPage} />}
-              {page === "install-tracker" && <InstallTracker key="install-tracker" navigate={setPage} />}
-              {page === "device-store" && <DeviceStore key="device-store" navigate={setPage} />}
-            </AnimatePresence>
-          </div>
-        </div>
-        {showOnboarding && (
-          <div className="fixed inset-0 z-[500] flex items-center justify-center p-4" onClick={() => { setShowOnboarding(false); localStorage.setItem("onboarding_complete", "true"); }}>
-            <div className="absolute inset-0" style={{ background: "rgba(0,0,0,0.8)", backdropFilter: "blur(12px)" }} />
-            <motion.div initial={{ opacity: 0, scale: 0.93 }} animate={{ opacity: 1, scale: 1 }} onClick={(e) => e.stopPropagation()} className="relative z-10 w-full max-w-[500px] rounded-3xl p-8 text-center" style={G.liquidGlass}>
-              <div className="w-16 h-16 rounded-2xl flex items-center justify-center mx-auto mb-5" style={{ background: "rgba(59,130,246,0.15)", border: "1px solid rgba(59,130,246,0.25)" }}>
-                <Zap className="w-8 h-8 text-blue-400" />
-              </div>
-              <h2 className="text-white text-[1.2rem] font-bold mb-2">Welcome to EEST</h2>
-              <p className="text-[#8b949e] text-[12px] mb-6">Your full-lifecycle security project platform.</p>
-              <div className="space-y-3 mb-6 text-left">
-                {[{ icon: BarChart3, label: "Pipeline", desc: "Track sales leads and manage projects through every stage", color: "#3b82f6" },{ icon: Layers, label: "Design Studio", desc: "Upload floor plans, place cameras, map cable routes", color: "#8b5cf6" },{ icon: FileText, label: "Workbook", desc: "Auto-generate BOMs, cost summaries, and proposals", color: "#10b981" }].map(item => (
-                  <div key={item.label} className="flex items-start gap-3 p-3 rounded-xl" style={{ background: "rgba(255,255,255,0.03)" }}><div className="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0" style={{ background: `${item.color}20` }}><item.icon className="w-4 h-4" style={{ color: item.color }} /></div><div><p className="text-white text-[12px] font-semibold">{item.label}</p><p className="text-[#484f58] text-[10px]">{item.desc}</p></div></div>
-                ))}
-              </div>
-              <button onClick={() => { setShowOnboarding(false); localStorage.setItem("onboarding_complete", "true"); }} className="w-full h-11 rounded-xl text-white text-[13px] font-bold cursor-pointer active:scale-[0.97] transition-transform" style={{ background: "#3b82f6", boxShadow: "0 4px 20px rgba(59,130,246,0.4)" }}>Get Started</button>
-            </motion.div>
-          </div>
-        )}
-      </QuoteContext.Provider>
-    </CurrencyContext.Provider>
   );
 }
