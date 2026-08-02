@@ -399,7 +399,7 @@ function Dashboard({ navigate }: { navigate: (p: Page) => void }) {
         const oldStage = pipelineType === "sales" ? project.stage : project.projectStage;
         if (oldStage !== colId && colId !== "lose") { setProgressAnim({ id: dragging, stage: colId }); setTimeout(() => setProgressAnim(null), 1500); }
         if (pipelineType === "sales") { setProjects((prev) => prev.map((p) => p.id === dragging ? { ...p, stage: colId as Stage, stageHistory: [...(p.stageHistory || []), { stage: colId as Stage, date: new Date().toISOString().slice(0, 10) }] } : p)); try { await API.projects.update(dragging, { stage: colId as Stage }); await logAudit(dragging, "Stage Change", `Moved from ${oldStage} to ${colId}`); } catch {} }
-        else { setProjects((prev) => prev.map((p) => p.id === dragging ? { ...p, projectStage: colId as ProjectStage } : p)); try { await API.projects.update(dragging, { projectStage: colId }); await logAudit(dragging, "Project Stage Change", `Moved from ${oldStage} to ${colId}`); } catch {} }
+        else { setProjects((prev) => prev.map((p) => p.id === dragging ? { ...p, projectStage: colId as ProjectStage } : p)); try { await API.projects.update(dragging, { projectStage: colId as ProjectStage }); await logAudit(dragging, "Project Stage Change", `Moved from ${oldStage} to ${colId}`); } catch {} }
       }
     }
     setDragging(null); setDragOverCol(null);
