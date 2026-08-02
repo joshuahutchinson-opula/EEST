@@ -15,6 +15,9 @@ import {
   DoorOpen, PanelRight, Zap, Server, Cable, Box, Save,
   Sun, Moon, SlidersHorizontal, ShoppingCart, History,
   RotateCw, Maximize2, Minimize2, LogOut,
+  ListTodo, PlusCircle, GanttChart, ClipboardCheck,
+  Link2, Copy, Filter, CheckCheck, Paperclip, Image,
+  BellRing, Layout, BarChart4,
 } from "lucide-react";
 import { clsx } from "clsx";
 import { TransformWrapper, TransformComponent } from "react-zoom-pan-pinch";
@@ -78,12 +81,19 @@ function makeFmt(currency: "USD" | "JMD") {
 
 type Page = "login" | "dashboard" | "design-studio" | "project-detail" | "design-canvas" | "workbook" | "install-tracker" | "device-store";
 type Stage = "assessment-scheduled" | "assessment-completed" | "design" | "proposal" | "negotiation" | "win" | "lose";
+type ProjectStage = "quick-support" | "planning" | "procurement" | "installation" | "commissioning" | "complete";
+type PipelineType = "sales" | "project";
 type LeadSource = "Tender" | "Single Source" | "Inbound" | "Referral" | "Recurring Client" | "Outbound";
 type QuoteType = "Video Surveillance" | "Access Control" | "Both";
+type TaskStatus = "todo" | "in-progress" | "review" | "complete";
+type TaskPriority = "low" | "medium" | "high";
 
 interface AuditLogEntry { id: string; projectId: string; event: string; details: string; timestamp: string; user: string; }
 interface ChangeOrder { id: string; projectId: string; title: string; description: string; costImpact: number; status: "draft" | "submitted" | "approved" | "rejected"; createdAt: string; updatedAt: string; createdBy: string; }
-interface Project { id: string; name: string; client: string; value: number; stage: Stage; risk: "low" | "medium" | "high"; assignee: { name: string; initials: string; color: string }; dueDate: string; cameras: number; devices: number; location: string; contact?: { name: string; title: string; email: string; phone: string }; summary?: string; notes?: string; collaborators?: { name: string; initials: string; color: string; role: string }[]; leadSource?: LeadSource; stageHistory?: { stage: Stage; date: string }[]; createdAt?: string; updatedAt?: string; }
+interface Project { id: string; name: string; client: string; value: number; stage: Stage; risk: "low" | "medium" | "high"; assignee: { name: string; initials: string; color: string }; dueDate: string; cameras: number; devices: number; location: string; contact?: { name: string; title: string; email: string; phone: string }; summary?: string; notes?: string; collaborators?: { name: string; initials: string; color: string; role: string }[]; leadSource?: LeadSource; stageHistory?: { stage: Stage; date: string }[]; createdAt?: string; updatedAt?: string; pipelineType?: PipelineType; projectStage?: ProjectStage; }
+interface Task { id: string; projectId: string; title: string; description?: string; assignee?: string; status: TaskStatus; priority: TaskPriority; dueDate?: string; createdAt: string; updatedAt: string; }
+interface Document { id: string; projectId: string; filename: string; fileUrl: string; fileType?: string; fileSize?: number; uploadedBy?: string; createdAt: string; }
+interface Notification { id: string; user: string; projectId?: string; event: string; details?: string; isRead: boolean; timestamp: string; }
 interface QuoteLineItem { id: string; itemNumber: string; description: string; unitCost: number; quantity: number; markupPercent: number; sellPrice: number; costTotal: number; sellTotal: number; profit: number; jmdConversion: number; }
 interface QuoteCategory { id: string; name: string; type: QuoteType; lineItems: QuoteLineItem[]; contingency?: QuoteLineItem; }
 interface Quote { id: string; clientName: string; refNumber: string; date: string; status: "draft" | "sent" | "approved" | "rejected"; quoteType: QuoteType; categories: QuoteCategory[]; exchangeRate: number; projectId?: string; createdAt?: string; updatedAt?: string; }
@@ -99,6 +109,7 @@ type DeviceTag = "LPR" | "Night Vision" | "Thermal" | "PTZ" | "Panoramic" | "WDR
 type CameraType = "Dome" | "Bullet" | "PTZ" | "Box" | "Panoramic" | "Thermal";
 interface CatalogDevice { id: string; model: string; manufacturer: string; category: "camera" | "access-control" | "nvr" | "analytics" | "other"; cameraType?: CameraType; resolution?: string; lens?: string; sensor?: string; nightVision?: string; weatherRating?: string; powerInput?: string; storage?: string; channels?: string; readers?: string; authentication?: string; price?: number; sku?: string; discontinued?: boolean; imageUrl?: string; frameRate?: string; compression?: string; fov?: string; operatingTemp?: string; msrp?: number; tags?: DeviceTag[]; }
 interface Column { id: Stage; label: string; color: string; }
+interface ProjectColumn { id: ProjectStage; label: string; color: string; }
 
 type CanvasDevice = { id: string; type: "camera" | "door" | "panel" | "power" | "server" | "cable"; x: number; y: number; rot: number; fov?: number; range?: number; label: string; selected?: boolean; connectedTo?: string[]; doorConfig?: { swing: "inswinging" | "outswinging"; lockType: string; readers: string[]; accessType: string; keyOverride: boolean }; cablePoints?: { x: number; y: number }[]; deviceStoreRef?: string; imageUrl?: string; };
 type FloorPlanFile = { id: string; type: "2d" | "3d"; url: string; originalName: string; format: string; is3DModel?: boolean; };
@@ -112,6 +123,15 @@ const COLUMNS: Column[] = [
   { id: "negotiation", label: "Negotiation", color: "#f97316" },
   { id: "win", label: "Win", color: "#10b981" },
   { id: "lose", label: "Lose", color: "#f43f5e" },
+];
+
+const PROJECT_COLUMNS: ProjectColumn[] = [
+  { id: "quick-support", label: "Quick Support Tasks", color: "#f59e0b" },
+  { id: "planning", label: "Planning", color: "#3b82f6" },
+  { id: "procurement", label: "Procurement", color: "#8b5cf6" },
+  { id: "installation", label: "Installation", color: "#f97316" },
+  { id: "commissioning", label: "Commissioning", color: "#06b6d4" },
+  { id: "complete", label: "Complete", color: "#10b981" },
 ];
 
 const CAMERA_TYPES: CameraType[] = ["Dome", "Bullet", "PTZ", "Box", "Panoramic", "Thermal"];
@@ -154,9 +174,23 @@ const API = {
   fx: { getRate: async () => { try { const res = await fetch("https://open.er-api.com/v6/latest/USD"); const data = await res.json(); const rate = data.rates?.JMD || 157.4; localStorage.setItem("fx_rate", String(rate)); return rate; } catch { return parseFloat(localStorage.getItem("fx_rate") || "157.4"); } } },
   audit: { list: (projectId: string) => apiFetch<AuditLogEntry[]>(`/audit/${projectId}`), log: (projectId: string, event: string, details: string) => apiFetch<void>(`/audit/${projectId}`, { method: "POST", body: JSON.stringify({ event, details }) }) },
   changeOrders: { list: (projectId: string) => apiFetch<ChangeOrder[]>(`/change-orders/${projectId}`), create: (projectId: string, data: Partial<ChangeOrder>) => apiFetch<ChangeOrder>(`/change-orders/${projectId}`, { method: "POST", body: JSON.stringify(data) }), update: (projectId: string, id: string, data: Partial<ChangeOrder>) => apiFetch<ChangeOrder>(`/change-orders/${projectId}/${id}`, { method: "PATCH", body: JSON.stringify(data) }), delete: (projectId: string, id: string) => apiFetch<void>(`/change-orders/${projectId}/${id}`, { method: "DELETE" }) },
+  tasks: { list: (projectId: string) => apiFetch<Task[]>(`/tasks/${projectId}`), create: (projectId: string, data: Partial<Task>) => apiFetch<Task>(`/tasks/${projectId}`, { method: "POST", body: JSON.stringify(data) }), update: (projectId: string, id: string, data: Partial<Task>) => apiFetch<Task>(`/tasks/${projectId}/${id}`, { method: "PATCH", body: JSON.stringify(data) }), delete: (projectId: string, id: string) => apiFetch<void>(`/tasks/${projectId}/${id}`, { method: "DELETE" }) },
+  documents: { list: (projectId: string) => apiFetch<Document[]>(`/documents/${projectId}`), upload: (projectId: string, file: File) => { const fd = new FormData(); fd.append("file", file); return apiFetch<Document>(`/documents/${projectId}`, { method: "POST", body: fd }); }, delete: (projectId: string, id: string) => apiFetch<void>(`/documents/${projectId}/${id}`, { method: "DELETE" }) },
+  notifications: { list: () => apiFetch<Notification[]>("/notifications"), create: (data: Partial<Notification>) => apiFetch<void>("/notifications", { method: "POST", body: JSON.stringify(data) }), markRead: (id: string) => apiFetch<void>(`/notifications/${id}/read`, { method: "PATCH" }), markAllRead: () => apiFetch<void>("/notifications/read-all", { method: "PATCH" }) },
 };
 
 function Skeleton({ className }: { className?: string }) { return <div className={clsx("animate-pulse rounded-2xl", className)} style={{ background: "rgba(255,255,255,0.04)" }} />; }
+
+function SkeletonCard() {
+  return (
+    <div className="rounded-2xl p-4 space-y-3" style={G.card}>
+      <div className="flex items-center gap-2"><Skeleton className="w-6 h-6 rounded-full" /><Skeleton className="h-4 w-32" /></div>
+      <Skeleton className="h-3 w-24" /><Skeleton className="h-3 w-20" />
+      <div className="flex justify-between pt-2"><Skeleton className="h-3 w-16" /><Skeleton className="h-3 w-12" /></div>
+    </div>
+  );
+}
+
 function EmptyState({ icon: Icon, title, description, action }: { icon: IconType; title: string; description: string; action?: { label: string; onClick: () => void } }) {
   return (
     <div className="flex flex-col items-center justify-center py-16 px-4 text-center">
@@ -166,6 +200,21 @@ function EmptyState({ icon: Icon, title, description, action }: { icon: IconType
     </div>
   );
 }
+
+function ConfirmDialog({ open, title, message, onConfirm, onCancel }: { open: boolean; title: string; message: string; onConfirm: () => void; onCancel: () => void }) {
+  if (!open) return null;
+  return (
+    <div className="fixed inset-0 z-[400] flex items-center justify-center p-4" onClick={onCancel}>
+      <div className="absolute inset-0" style={{ background: "rgba(0,0,0,0.65)", backdropFilter: "blur(8px)" }} />
+      <motion.div initial={{ opacity: 0, scale: 0.93 }} animate={{ opacity: 1, scale: 1 }} onClick={(e) => e.stopPropagation()} className="relative z-10 w-full max-w-[380px] rounded-2xl p-6" style={G.liquidGlass}>
+        <div className="flex items-center gap-3 mb-4"><div className="w-10 h-10 rounded-xl flex items-center justify-center" style={{ background: "rgba(244,63,94,0.15)" }}><AlertTriangle className="w-5 h-5 text-rose-400" /></div><h3 className="text-white text-[14px] font-bold">{title}</h3></div>
+        <p className="text-[#8b949e] text-[12px] mb-5">{message}</p>
+        <div className="flex gap-2"><button onClick={onCancel} className="flex-1 h-9 rounded-xl text-[#8b949e] text-[12px] font-semibold cursor-pointer active:scale-[0.97] transition-transform" style={G.btn}>Cancel</button><button onClick={onConfirm} className="flex-1 h-9 rounded-xl text-white text-[12px] font-bold cursor-pointer active:scale-[0.97] transition-transform" style={{ background: "#f43f5e" }}>Delete</button></div>
+      </motion.div>
+    </div>
+  );
+}
+
 function CurrencyToggle() {
   const { currency, setCurrency } = useCurrency();
   return (
@@ -177,6 +226,49 @@ function CurrencyToggle() {
 const NAV_ITEMS: { id: Page; label: string }[] = [
   { id: "dashboard", label: "Pipeline" }, { id: "design-studio", label: "Projects" }, { id: "workbook", label: "Workbook" }, { id: "install-tracker", label: "Install Tracker" }, { id: "device-store", label: "Device Store" },
 ];
+
+function NotificationBell() {
+  const [open, setOpen] = useState(false);
+  const [notifications, setNotifications] = useState<Notification[]>([]);
+  const unreadCount = notifications.filter(n => !n.isRead).length;
+
+  useEffect(() => {
+    API.notifications.list().then(setNotifications).catch(() => {});
+    const interval = setInterval(() => { API.notifications.list().then(setNotifications).catch(() => {}); }, 30000);
+    return () => clearInterval(interval);
+  }, []);
+
+  const handleMarkAllRead = async () => { await API.notifications.markAllRead(); setNotifications(prev => prev.map(n => ({ ...n, isRead: true }))); };
+
+  return (
+    <div className="relative">
+      <button onClick={() => setOpen(!open)} className="relative w-8 h-8 rounded-xl flex items-center justify-center hover:bg-white/[0.08] transition-colors cursor-pointer active:scale-[0.97] transition-transform" style={G.btn}>
+        <Bell className="w-3.5 h-3.5 text-[#8b949e]" />
+        {unreadCount > 0 && <span className="absolute -top-0.5 -right-0.5 w-4 h-4 rounded-full bg-rose-500 text-white text-[8px] font-bold flex items-center justify-center">{unreadCount > 9 ? "9+" : unreadCount}</span>}
+      </button>
+      {open && (
+        <>
+          <div className="fixed inset-0 z-50" onClick={() => setOpen(false)} />
+          <div className="absolute right-0 top-full mt-2 z-[60] w-80 rounded-2xl overflow-hidden" style={{ background: "rgba(7,12,26,0.97)", border: "1px solid rgba(255,255,255,0.12)", boxShadow: "0 8px 32px rgba(0,0,0,0.8)", backdropFilter: "blur(20px)" }}>
+            <div className="px-4 py-3 flex items-center justify-between" style={{ borderBottom: "1px solid rgba(255,255,255,0.07)" }}>
+              <p className="text-white text-[12px] font-bold">Notifications</p>
+              {unreadCount > 0 && <button onClick={handleMarkAllRead} className="text-[10px] text-blue-400 font-semibold hover:text-blue-300 cursor-pointer">Mark all read</button>}
+            </div>
+            <div className="max-h-[320px] overflow-y-auto" style={{ scrollbarWidth: "none" }}>
+              {notifications.length === 0 ? <div className="px-4 py-6 text-center"><p className="text-[#484f58] text-[11px]">No notifications yet</p></div> :
+                notifications.map(n => (
+                  <div key={n.id} className={clsx("px-4 py-2.5 hover:bg-white/[0.03] transition-colors cursor-pointer", !n.isRead && "bg-white/[0.02]")} style={{ borderBottom: "1px solid rgba(255,255,255,0.03)" }} onClick={() => { API.notifications.markRead(n.id); setNotifications(prev => prev.map(x => x.id === n.id ? { ...x, isRead: true } : x)); }}>
+                    <div className="flex items-start gap-2"><div className={clsx("w-1.5 h-1.5 rounded-full mt-1.5 flex-shrink-0", !n.isRead ? "bg-blue-400" : "bg-transparent")} /><div className="flex-1 min-w-0"><p className="text-white text-[11px] font-semibold">{n.event}</p>{n.details && <p className="text-[#8b949e] text-[10px] mt-0.5">{n.details}</p>}<p className="text-[#484f58] text-[9px] mt-1">{new Date(n.timestamp).toLocaleString()}</p></div></div>
+                  </div>
+                ))
+              }
+            </div>
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
 
 function UserMenu() {
   const [open, setOpen] = useState(false);
@@ -207,6 +299,33 @@ function UserMenu() {
   );
 }
 
+// Breadcrumb component
+function Breadcrumb({ page, projectName }: { page: Page; projectName?: string }) {
+  const crumbs: { label: string; page?: Page }[] = [];
+  if (page === "dashboard") crumbs.push({ label: "Pipeline", page: "dashboard" });
+  else if (page === "design-studio") crumbs.push({ label: "Projects", page: "design-studio" });
+  else if (page === "workbook") crumbs.push({ label: "Workbook", page: "workbook" });
+  else if (page === "install-tracker") crumbs.push({ label: "Install Tracker", page: "install-tracker" });
+  else if (page === "device-store") crumbs.push({ label: "Device Store", page: "device-store" });
+  else if (page === "design-canvas") crumbs.push({ label: "Projects", page: "design-studio" }, { label: "Design Canvas" });
+  else if (page === "project-detail") crumbs.push({ label: "Projects", page: "design-studio" }, { label: projectName || "Project Detail" });
+
+  return (
+    <div className="flex items-center gap-1.5 text-[11px]">
+      {crumbs.map((crumb, i) => (
+        <span key={i} className="flex items-center gap-1.5">
+          {i > 0 && <ChevronRight className="w-3 h-3 text-[#484f58]" />}
+          {crumb.page ? (
+            <button className="text-[#8b949e] hover:text-white font-semibold transition-colors cursor-pointer">{crumb.label}</button>
+          ) : (
+            <span className="text-white font-semibold">{crumb.label}</span>
+          )}
+        </span>
+      ))}
+    </div>
+  );
+}
+
 function AppTopbar({ page, navigate, breadcrumb }: { page: Page; navigate: (p: Page) => void; breadcrumb?: { label: string; parent: Page } }) {
   const activeTab = NAV_ITEMS.find((n) => n.id === page)?.id ?? null;
   return (
@@ -226,44 +345,86 @@ function AppTopbar({ page, navigate, breadcrumb }: { page: Page; navigate: (p: P
       <div className="flex-1" />
       <div className="flex items-center gap-1 md:gap-1.5">
         <div className="hidden md:block"><CurrencyToggle /></div>
+        <NotificationBell />
         <UserMenu />
       </div>
     </header>
   );
 }
-function KanbanCard({ project, column, dragging, onDragStart, onDragEnd, onClick, onDelete }: { project: Project; column: Column; dragging: string | null; onDragStart: (e: React.DragEvent<HTMLDivElement>, id: string) => void; onDragEnd: () => void; onClick: () => void; onDelete: (id: string) => void; }) {
-  const { fmt } = useCurrency(); const isDragging = dragging === project.id; const [menuOpen, setMenuOpen] = useState(false);
+function KanbanCard({ project, column, dragging, onDragStart, onDragEnd, onClick, onDelete }: { project: Project; column: Column | ProjectColumn; dragging: string | null; onDragStart: (e: React.DragEvent<HTMLDivElement>, id: string) => void; onDragEnd: () => void; onClick: () => void; onDelete: (id: string) => void; }) {
+  const { fmt } = useCurrency(); const isDragging = dragging === project.id; const [menuOpen, setMenuOpen] = useState(false); const [confirmDelete, setConfirmDelete] = useState(false);
   const ls = project.leadSource ? LEAD_SOURCE_STYLES[project.leadSource] : null;
+  const isOverdue = project.dueDate ? new Date(project.dueDate) < new Date() && !["win","lose","complete"].includes(project.stage) : false;
+  const isDueSoon = project.dueDate && !isOverdue ? (new Date(project.dueDate).getTime() - new Date().getTime()) < 7 * 24 * 60 * 60 * 1000 && !["win","lose","complete"].includes(project.stage) : false;
+  const [showNotes, setShowNotes] = useState(false);
+  const allCollaborators = project.collaborators || [];
+  const hasCollaborators = allCollaborators.length > 0;
+
   return (
-    <div draggable onDragStart={(e) => { e.stopPropagation(); onDragStart(e, project.id); }} onDragEnd={onDragEnd} onClick={onClick} className={clsx("group relative rounded-2xl cursor-pointer select-none transition-all duration-200", isDragging ? "opacity-25 scale-[0.96]" : "md:hover:-translate-y-1")} style={{ background: "rgba(255,255,255,0.055)", backdropFilter: "blur(24px)", border: isDragging ? "1px solid rgba(255,255,255,0.05)" : "1px solid rgba(255,255,255,0.11)", borderLeft: `3px solid ${column.color}`, boxShadow: isDragging ? "none" : "0 2px 16px rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,255,255,0.09)" }}>
-      <div className="p-3 md:p-4 md:pl-5">
-        <div className="flex items-start justify-between gap-2 mb-2"><h3 className="text-white text-[12px] md:text-[13px] font-semibold leading-snug flex-1 min-w-0">{project.name}</h3>
-          <div className="relative flex-shrink-0"><button onClick={(e) => { e.stopPropagation(); setMenuOpen(!menuOpen); }} className="opacity-0 group-hover:opacity-100 transition-opacity w-8 h-8 rounded-lg hover:bg-white/10 flex items-center justify-center mt-0.5 cursor-pointer active:scale-[0.97] transition-transform min-w-[44px] min-h-[44px] md:min-w-0 md:min-h-0"><MoreHorizontal className="w-3.5 h-3.5 text-[#8b949e]" /></button>
-            {menuOpen && <><div className="fixed inset-0 z-10" onClick={(e) => { e.stopPropagation(); setMenuOpen(false); }} /><div className="absolute right-0 top-7 z-20 w-40 rounded-xl overflow-hidden py-1" style={{ background: "rgba(7,12,26,0.97)", border: "1px solid rgba(255,255,255,0.12)", boxShadow: "0 8px 32px rgba(0,0,0,0.8)", backdropFilter: "blur(20px)" }}><button onClick={(e) => { e.stopPropagation(); onDelete(project.id); setMenuOpen(false); toast.success("Project deleted"); }} className="w-full flex items-center gap-2.5 px-3 py-2.5 text-rose-400 text-[12px] font-semibold hover:bg-rose-500/10 transition-colors text-left cursor-pointer active:scale-[0.97] transition-transform min-h-[44px]"><Trash2 className="w-3.5 h-3.5" /> Delete</button></div></>}
+    <>
+      {confirmDelete && <ConfirmDialog open={confirmDelete} title="Delete Project" message={`Are you sure you want to delete "${project.name}"? This action cannot be undone.`} onConfirm={() => { onDelete(project.id); setConfirmDelete(false); toast.success("Project deleted"); }} onCancel={() => setConfirmDelete(false)} />}
+      <div draggable onDragStart={(e) => { e.stopPropagation(); onDragStart(e, project.id); }} onDragEnd={onDragEnd} onClick={onClick} className={clsx("group relative rounded-2xl cursor-pointer select-none transition-all duration-200", isDragging ? "opacity-25 scale-[0.96]" : "md:hover:-translate-y-1")} style={{ background: "rgba(255,255,255,0.055)", backdropFilter: "blur(24px)", border: isDragging ? "1px solid rgba(255,255,255,0.05)" : "1px solid rgba(255,255,255,0.11)", borderLeft: `3px solid ${column.color}`, boxShadow: isDragging ? "none" : "0 2px 16px rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,255,255,0.09)" }}>
+        <div className="p-3 md:p-4 md:pl-5">
+          <div className="flex items-start justify-between gap-2 mb-2">
+            <div className="flex items-center gap-1.5 flex-1 min-w-0">
+              {isOverdue && <span className="w-2 h-2 rounded-full bg-rose-500 flex-shrink-0" title="Overdue" />}
+              {isDueSoon && !isOverdue && <span className="w-2 h-2 rounded-full bg-amber-500 flex-shrink-0" title="Due soon" />}
+              <h3 className="text-white text-[12px] md:text-[13px] font-semibold leading-snug truncate">{project.name}</h3>
+            </div>
+            <div className="relative flex-shrink-0"><button onClick={(e) => { e.stopPropagation(); setMenuOpen(!menuOpen); }} className="opacity-0 group-hover:opacity-100 transition-opacity w-8 h-8 rounded-lg hover:bg-white/10 flex items-center justify-center mt-0.5 cursor-pointer active:scale-[0.97] transition-transform min-w-[44px] min-h-[44px] md:min-w-0 md:min-h-0"><MoreHorizontal className="w-3.5 h-3.5 text-[#8b949e]" /></button>
+              {menuOpen && <><div className="fixed inset-0 z-10" onClick={(e) => { e.stopPropagation(); setMenuOpen(false); }} /><div className="absolute right-0 top-7 z-20 w-40 rounded-xl overflow-hidden py-1" style={{ background: "rgba(7,12,26,0.97)", border: "1px solid rgba(255,255,255,0.12)", boxShadow: "0 8px 32px rgba(0,0,0,0.8)", backdropFilter: "blur(20px)" }}><button onClick={(e) => { e.stopPropagation(); setConfirmDelete(true); setMenuOpen(false); }} className="w-full flex items-center gap-2.5 px-3 py-2.5 text-rose-400 text-[12px] font-semibold hover:bg-rose-500/10 transition-colors text-left cursor-pointer active:scale-[0.97] transition-transform min-h-[44px]"><Trash2 className="w-3.5 h-3.5" /> Delete</button></div></>}
+            </div>
+          </div>
+          <div className="flex items-center gap-1.5 mb-1"><Building2 className="w-3 h-3 text-[#8b949e] flex-shrink-0" /><span className="text-[#8b949e] text-[10px] md:text-[11px] font-semibold truncate">{project.client}</span></div>
+          <div className="flex items-center flex-wrap gap-1.5 mb-2">
+            {ls && <span className="text-[9px] font-bold px-1.5 py-0.5 rounded-full" style={{ background: ls.bg, color: ls.text }}>{project.leadSource}</span>}
+            <span className={clsx("text-[9px] md:text-[10px] font-bold px-1.5 py-0.5 rounded-full uppercase tracking-wide", project.risk === "high" ? "bg-rose-500/20 text-rose-400" : project.risk === "medium" ? "bg-amber-500/20 text-amber-400" : "bg-emerald-500/20 text-emerald-400")}>{project.risk}</span>
+          </div>
+          <div className="flex items-center gap-2 mb-2.5"><span className="text-white font-bold text-[14px] md:text-[15px] tracking-tight">{fmt(project.value, true)}</span></div>
+          <div className="flex items-center gap-3 mb-3"><span className="flex items-center gap-1 text-[#484f58] text-[10px] md:text-[11px]"><Camera className="w-3 h-3" />{project.cameras} cams</span><span className="flex items-center gap-1 text-[#484f58] text-[10px] md:text-[11px]"><Fingerprint className="w-3 h-3" />{project.devices} devices</span></div>
+          {project.notes && (
+            <div className="relative mb-2">
+              <button onClick={(e) => { e.stopPropagation(); setShowNotes(!showNotes); }} className="text-[10px] text-[#484f58] hover:text-[#8b949e] font-semibold cursor-pointer flex items-center gap-1"><StickyNote className="w-3 h-3" /> Notes</button>
+              {showNotes && <div className="absolute top-full left-0 mt-1 w-48 rounded-xl p-2 z-30 text-[10px] text-[#8b949e]" style={{ background: "rgba(7,12,26,0.97)", border: "1px solid rgba(255,255,255,0.10)", boxShadow: "0 4px 16px rgba(0,0,0,0.6)" }}>{project.notes}</div>}
+            </div>
+          )}
+          <div className="flex items-center justify-between pt-2.5" style={{ borderTop: "1px solid rgba(255,255,255,0.06)" }}>
+            <div className="flex items-center gap-1">
+              <div className="w-5 h-5 rounded-full flex items-center justify-center text-[9px] font-bold text-white flex-shrink-0" style={{ background: project.assignee.color, boxShadow: `0 0 8px ${project.assignee.color}60` }}>{project.assignee.initials}</div>
+              <span className="text-[#8b949e] text-[10px] md:text-[11px] font-medium truncate max-w-[60px]">{project.assignee.name}</span>
+              {hasCollaborators && (
+                <div className="flex items-center -space-x-1.5 ml-0.5">
+                  {allCollaborators.slice(0, 3).map((c, i) => (
+                    <div key={i} className="w-4 h-4 rounded-full flex items-center justify-center text-[7px] font-bold text-white ring-1 ring-black/30" style={{ background: c.color }} title={c.name}>{c.initials}</div>
+                  ))}
+                  {allCollaborators.length > 3 && <span className="text-[#484f58] text-[8px] ml-1">+{allCollaborators.length - 3}</span>}
+                </div>
+              )}
+            </div>
+            <span className={clsx("flex items-center gap-1 text-[10px] md:text-[11px]", isOverdue ? "text-rose-400" : isDueSoon ? "text-amber-400" : "text-[#484f58]")}><Calendar className="w-3 h-3" />{fmtDate(project.dueDate)}</span>
           </div>
         </div>
-        <div className="flex items-center gap-1.5 mb-1"><Building2 className="w-3 h-3 text-[#8b949e] flex-shrink-0" /><span className="text-[#8b949e] text-[10px] md:text-[11px] font-semibold truncate">{project.client}</span></div>
-        <div className="flex items-center flex-wrap gap-1.5 mb-2">
-          {ls && <span className="text-[9px] font-bold px-1.5 py-0.5 rounded-full" style={{ background: ls.bg, color: ls.text }}>{project.leadSource}</span>}
-          <span className={clsx("text-[9px] md:text-[10px] font-bold px-1.5 py-0.5 rounded-full uppercase tracking-wide", project.risk === "high" ? "bg-rose-500/20 text-rose-400" : project.risk === "medium" ? "bg-amber-500/20 text-amber-400" : "bg-emerald-500/20 text-emerald-400")}>{project.risk}</span>
-        </div>
-        <div className="flex items-center gap-2 mb-2.5"><span className="text-white font-bold text-[14px] md:text-[15px] tracking-tight">{fmt(project.value, true)}</span></div>
-        <div className="flex items-center gap-3 mb-3"><span className="flex items-center gap-1 text-[#484f58] text-[10px] md:text-[11px]"><Camera className="w-3 h-3" />{project.cameras} cams</span><span className="flex items-center gap-1 text-[#484f58] text-[10px] md:text-[11px]"><Fingerprint className="w-3 h-3" />{project.devices} devices</span></div>
-        <div className="flex items-center justify-between pt-2.5" style={{ borderTop: "1px solid rgba(255,255,255,0.06)" }}>
-          <div className="flex items-center gap-1.5"><div className="w-5 h-5 rounded-full flex items-center justify-center text-[9px] font-bold text-white flex-shrink-0" style={{ background: project.assignee.color, boxShadow: `0 0 8px ${project.assignee.color}60` }}>{project.assignee.initials}</div><span className="text-[#8b949e] text-[10px] md:text-[11px] font-medium">{project.assignee.name}</span>{project.collaborators && project.collaborators.length > 0 && <span className="text-[#484f58] text-[10px]">+{project.collaborators.length}</span>}</div>
-          <span className="flex items-center gap-1 text-[#484f58] text-[10px] md:text-[11px]"><Calendar className="w-3 h-3" />{fmtDate(project.dueDate)}</span>
-        </div>
       </div>
-    </div>
+    </>
   );
 }
 
-function KanbanColumn({ column, projects, totalValue, dragging, isOver, onDragStart, onDragEnd, onDragOver, onDragLeave, onDrop, onCardClick, onDelete }: { column: Column; projects: Project[]; totalValue: number; dragging: string | null; isOver: boolean; onDragStart: (e: React.DragEvent<HTMLDivElement>, id: string) => void; onDragEnd: () => void; onDragOver: (e: React.DragEvent<HTMLDivElement>) => void; onDragLeave: () => void; onDrop: () => void; onCardClick: (p: Project) => void; onDelete: (id: string) => void; }) {
+function KanbanColumn({ column, projects, totalValue, dragging, isOver, onDragStart, onDragEnd, onDragOver, onDragLeave, onDrop, onCardClick, onDelete }: { column: Column | ProjectColumn; projects: Project[]; totalValue: number; dragging: string | null; isOver: boolean; onDragStart: (e: React.DragEvent<HTMLDivElement>, id: string) => void; onDragEnd: () => void; onDragOver: (e: React.DragEvent<HTMLDivElement>) => void; onDragLeave: () => void; onDrop: () => void; onCardClick: (p: Project) => void; onDelete: (id: string) => void; }) {
   const { fmt } = useCurrency();
   return (
     <div onDragOver={onDragOver} onDragLeave={onDragLeave} onDrop={onDrop} className="w-[260px] md:w-[272px] flex-shrink-0 flex flex-col rounded-2xl transition-all duration-200" style={isOver ? { background: "rgba(59,130,246,0.08)", backdropFilter: "blur(24px)", border: "1px solid rgba(59,130,246,0.35)" } : { background: "rgba(255,255,255,0.032)", backdropFilter: "blur(24px)", border: "1px solid rgba(255,255,255,0.07)", boxShadow: "0 2px 20px rgba(0,0,0,0.3)" }}>
-      <div className="px-3.5 pt-3.5 pb-3 flex-shrink-0" style={{ borderBottom: "1px solid rgba(255,255,255,0.06)" }}><div className="flex items-center justify-between mb-1"><div className="flex items-center gap-2 min-w-0"><div className="w-2 h-2 rounded-full flex-shrink-0" style={{ background: column.color, boxShadow: `0 0 10px ${column.color}88` }} /><span className="text-white text-[11px] md:text-[12px] font-bold truncate leading-tight">{column.label}</span></div><span className="text-[#8b949e] text-[10px] md:text-[11px] px-1.5 py-0.5 rounded-full font-bold" style={{ background: "rgba(255,255,255,0.08)" }}>{projects.length}</span></div><p className="text-[#484f58] text-[10px] md:text-[11px] font-semibold ml-4">{fmt(totalValue, true)}</p></div>
-      <div className="flex-1 p-2 space-y-2 overflow-y-auto" style={{ scrollbarWidth: "none", scrollBehavior: "smooth", WebkitOverflowScrolling: "touch", minHeight: "120px", maxHeight: "calc(100vh - 250px)" }}>{projects.map((p) => (<KanbanCard key={p.id} project={p} column={column} dragging={dragging} onDragStart={onDragStart} onDragEnd={onDragEnd} onClick={() => onCardClick(p)} onDelete={onDelete} />))}{isOver && <div className="h-14 rounded-xl border-2 border-dashed border-blue-500/35 bg-blue-500/[0.04] flex items-center justify-center"><p className="text-blue-400/60 text-[11px] font-semibold">Drop here</p></div>}{projects.length === 0 && !isOver && <div className="h-14 rounded-xl border border-dashed border-white/[0.04] flex items-center justify-center"><p className="text-[#484f58] text-[11px]">No projects</p></div>}</div>
+      <div className="px-3.5 pt-3.5 pb-3 flex-shrink-0" style={{ borderBottom: "1px solid rgba(255,255,255,0.06)" }}>
+        <div className="flex items-center justify-between mb-1">
+          <div className="flex items-center gap-2 min-w-0"><div className="w-2 h-2 rounded-full flex-shrink-0" style={{ background: column.color, boxShadow: `0 0 10px ${column.color}88` }} /><span className="text-white text-[11px] md:text-[12px] font-bold truncate leading-tight">{column.label}</span></div>
+          <span className="text-[#8b949e] text-[10px] md:text-[11px] px-1.5 py-0.5 rounded-full font-bold" style={{ background: "rgba(255,255,255,0.08)" }}>{projects.length}</span>
+        </div>
+        <p className="text-[#484f58] text-[10px] md:text-[11px] font-semibold ml-4">{fmt(totalValue, true)}</p>
+      </div>
+      <div className="flex-1 p-2 space-y-2 overflow-y-auto" style={{ scrollbarWidth: "none", scrollBehavior: "smooth", WebkitOverflowScrolling: "touch", minHeight: "120px", maxHeight: "calc(100vh - 250px)" }}>
+        {projects.map((p) => (<KanbanCard key={p.id} project={p} column={column} dragging={dragging} onDragStart={onDragStart} onDragEnd={onDragEnd} onClick={() => onCardClick(p)} onDelete={onDelete} />))}
+        {isOver && <div className="h-14 rounded-xl border-2 border-dashed border-blue-500/35 bg-blue-500/[0.04] flex items-center justify-center"><p className="text-blue-400/60 text-[11px] font-semibold">Drop here</p></div>}
+        {projects.length === 0 && !isOver && <div className="h-14 rounded-xl border border-dashed border-white/[0.04] flex items-center justify-center"><p className="text-[#484f58] text-[11px]">No projects</p></div>}
+      </div>
     </div>
   );
 }
@@ -271,82 +432,136 @@ function KanbanColumn({ column, projects, totalValue, dragging, isOver, onDragSt
 function Dashboard({ navigate }: { navigate: (p: Page) => void }) {
   const { fmt } = useCurrency();
   const [projects, setProjects] = useState<Project[]>([]); const [loading, setLoading] = useState(true);
-  const [dragging, setDragging] = useState<string | null>(null); const [dragOverCol, setDragOverCol] = useState<Stage | null>(null);
+  const [dragging, setDragging] = useState<string | null>(null); const [dragOverCol, setDragOverCol] = useState<string | null>(null);
   const [selectedDeal, setSelectedDeal] = useState<Project | null>(null); const [showNewProject, setShowNewProject] = useState(false);
-  const [progressAnim, setProgressAnim] = useState<{ id: string; stage: Stage } | null>(null);
+  const [progressAnim, setProgressAnim] = useState<{ id: string; stage: string } | null>(null);
+  const [pipelineType, setPipelineType] = useState<PipelineType>(() => (localStorage.getItem("pipeline_type") as PipelineType) || "sales");
+  const [confirmDelete, setConfirmDelete] = useState<string | null>(null);
+
+  useEffect(() => { localStorage.setItem("pipeline_type", pipelineType); }, [pipelineType]);
 
   const fetchProjects = useCallback(async () => { setLoading(true); try { const data = await API.projects.list(); setProjects(data); } catch { setProjects([]); } finally { setLoading(false); } }, []);
   useEffect(() => { fetchProjects(); }, [fetchProjects]);
 
-  const active = projects.filter((p) => !["win", "lose"].includes(p.stage));
+  const salesProjects = projects.filter(p => !p.pipelineType || p.pipelineType === "sales");
+  const projectProjects = projects.filter(p => p.pipelineType === "project");
+  const currentProjects = pipelineType === "sales" ? salesProjects : projectProjects;
+
+  const active = salesProjects.filter((p) => !["win", "lose"].includes(p.stage));
   const pipeline = active.reduce((s, p) => s + p.value, 0);
-  const won = projects.filter((p) => p.stage === "win"); const closed = projects.filter((p) => ["win", "lose"].includes(p.stage));
+  const won = salesProjects.filter((p) => p.stage === "win"); const closed = salesProjects.filter((p) => ["win", "lose"].includes(p.stage));
   const winRate = closed.length ? Math.round((won.length / closed.length) * 100) : 0;
-  const negotiation = projects.filter((p) => p.stage === "negotiation"); const negoValue = negotiation.reduce((s, p) => s + p.value, 0);
+  const negotiation = salesProjects.filter((p) => p.stage === "negotiation"); const negoValue = negotiation.reduce((s, p) => s + p.value, 0);
   const avgDeal = active.length ? Math.round(pipeline / active.length) : 0;
 
   const logAudit = async (projectId: string, event: string, details: string) => { try { await API.audit.log(projectId, event, details); } catch {} };
 
   const handleDragStart = (e: React.DragEvent<HTMLDivElement>, id: string) => { setDragging(id); e.dataTransfer.effectAllowed = "move"; };
   const handleDragEnd = () => { setDragging(null); setDragOverCol(null); };
-  const handleDrop = async (colId: Stage) => {
+  const handleDrop = async (colId: string) => {
     if (dragging) {
       const project = projects.find((p) => p.id === dragging);
-      if (project && project.stage !== colId && colId !== "lose") { setProgressAnim({ id: dragging, stage: colId }); setTimeout(() => setProgressAnim(null), 1500); }
-      const oldStage = project?.stage;
-      setProjects((prev) => prev.map((p) => p.id === dragging ? { ...p, stage: colId, stageHistory: [...(p.stageHistory || []), { stage: colId, date: new Date().toISOString().slice(0, 10) }] } : p));
-      try { await API.projects.update(dragging, { stage: colId }); await logAudit(dragging, "Stage Change", `Moved from ${oldStage} to ${colId}`); } catch {}
+      if (project) {
+        const oldStage = pipelineType === "sales" ? project.stage : project.projectStage;
+        if (oldStage !== colId && colId !== "lose") { setProgressAnim({ id: dragging, stage: colId }); setTimeout(() => setProgressAnim(null), 1500); }
+        if (pipelineType === "sales") {
+          setProjects((prev) => prev.map((p) => p.id === dragging ? { ...p, stage: colId as Stage, stageHistory: [...(p.stageHistory || []), { stage: colId as Stage, date: new Date().toISOString().slice(0, 10) }] } : p));
+          try { await API.projects.update(dragging, { stage: colId as Stage }); await logAudit(dragging, "Stage Change", `Moved from ${oldStage} to ${colId}`); } catch {}
+        } else {
+          setProjects((prev) => prev.map((p) => p.id === dragging ? { ...p, projectStage: colId as ProjectStage } : p));
+          try { await API.projects.update(dragging, { projectStage: colId }); await logAudit(dragging, "Project Stage Change", `Moved from ${oldStage} to ${colId}`); } catch {}
+        }
+      }
     }
     setDragging(null); setDragOverCol(null);
   };
   const handleDelete = async (id: string) => { setProjects((prev) => prev.filter((p) => p.id !== id)); try { await API.projects.delete(id); toast.success("Project deleted"); } catch { fetchProjects(); } };
   const handleUpdate = async (updated: Project) => { setProjects((prev) => prev.map((p) => p.id === updated.id ? updated : p)); setSelectedDeal(updated); try { await API.projects.update(updated.id, updated); await logAudit(updated.id, "Project Edited", "Project details updated"); toast.success("Updated"); } catch { fetchProjects(); } };
 
-  const selectedColumn = selectedDeal ? COLUMNS.find((c) => c.id === selectedDeal.stage)! : null;
+  const selectedColumn = selectedDeal ? [...COLUMNS, ...PROJECT_COLUMNS].find((c) => (pipelineType === "sales" ? c.id === selectedDeal.stage : c.id === selectedDeal.projectStage))! : null;
   const STAT_COLORS = ["#3b82f6", "#10b981", "#f97316", "#8b5cf6"];
 
-  if (loading) return <div className="px-3 md:px-5 py-4 md:py-6 space-y-4"><Skeleton className="h-10 w-48" /><div className="grid grid-cols-2 md:grid-cols-4 gap-2 md:gap-3">{[1,2,3,4].map(i => <Skeleton key={i} className="h-24 rounded-2xl" />)}</div></div>;
+  if (loading) return (
+    <div className="px-3 md:px-5 py-4 md:py-6 space-y-4">
+      <Skeleton className="h-10 w-48" />
+      <div className="flex gap-2 mb-4"><Skeleton className="h-8 w-32 rounded-full" /><Skeleton className="h-8 w-32 rounded-full" /></div>
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-2 md:gap-3">{[1,2,3,4].map(i => <Skeleton key={i} className="h-24 rounded-2xl" />)}</div>
+      <div className="flex gap-2 md:gap-3 overflow-hidden">{[1,2,3,4,5,6,7].map(i => <Skeleton key={i} className="w-[272px] h-[400px] rounded-2xl flex-shrink-0" />)}</div>
+    </div>
+  );
+
+  const columns = pipelineType === "sales" ? COLUMNS : PROJECT_COLUMNS;
 
   return (
     <div>
-      {selectedDeal && selectedColumn && <DealModal project={selectedDeal} column={selectedColumn} onClose={() => setSelectedDeal(null)} navigate={navigate} onUpdate={handleUpdate} onDelete={(id) => { handleDelete(id); setSelectedDeal(null); }} />}
-      {showNewProject && <NewProjectModal onClose={() => setShowNewProject(false)} onAdd={async (p) => { setProjects((prev) => [p, ...prev]); try { await API.projects.create(p); await logAudit(p.id, "Project Created", `Project "${p.name}" created`); } catch { fetchProjects(); } }} />}
-      {progressAnim && <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -20 }} className="fixed bottom-6 left-1/2 -translate-x-1/2 z-[250] px-5 py-3 rounded-2xl flex items-center gap-3" style={{ background: "rgba(16,185,129,0.95)", backdropFilter: "blur(20px)", boxShadow: "0 8px 32px rgba(16,185,129,0.4)" }}><CheckCircle2 className="w-5 h-5 text-white" /><span className="text-white text-[13px] font-bold">Project advanced to {COLUMNS.find((c) => c.id === progressAnim.stage)?.label}</span></motion.div>}
+      {selectedDeal && selectedColumn && <DealModal project={selectedDeal} column={selectedColumn} onClose={() => setSelectedDeal(null)} navigate={navigate} onUpdate={handleUpdate} onDelete={(id) => { handleDelete(id); setSelectedDeal(null); }} pipelineType={pipelineType} />}
+      {showNewProject && <NewProjectModal onClose={() => setShowNewProject(false)} onAdd={async (p) => { setProjects((prev) => [p, ...prev]); try { await API.projects.create(p); await logAudit(p.id, "Project Created", `Project "${p.name}" created`); } catch { fetchProjects(); } }} pipelineType={pipelineType} />}
+      {progressAnim && <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -20 }} className="fixed bottom-6 left-1/2 -translate-x-1/2 z-[250] px-5 py-3 rounded-2xl flex items-center gap-3" style={{ background: "rgba(16,185,129,0.95)", backdropFilter: "blur(20px)", boxShadow: "0 8px 32px rgba(16,185,129,0.4)" }}><CheckCircle2 className="w-5 h-5 text-white" /><span className="text-white text-[13px] font-bold">Project advanced to {columns.find((c) => c.id === progressAnim.stage)?.label}</span></motion.div>}
       <div className="px-3 md:px-5 pt-4 md:pt-6 pb-4 md:pb-5 flex-shrink-0" style={{ borderBottom: "1px solid rgba(255,255,255,0.06)" }}>
-        <div className="flex items-center justify-between mb-4 md:mb-5"><div><h1 className="text-white font-bold text-lg md:text-xl tracking-tight">Project Pipeline</h1><p className="text-[#8b949e] text-[11px] md:text-[13px] mt-0.5">{projects.length} projects</p></div><button onClick={() => setShowNewProject(true)} className="flex items-center gap-1.5 h-8 px-3 md:px-4 rounded-xl text-white text-[11px] md:text-[12px] font-bold cursor-pointer active:scale-[0.97] transition-transform min-h-[44px]" style={{ background: "#3b82f6", boxShadow: "0 4px 16px rgba(59,130,246,0.35)" }}><Plus className="w-3.5 h-3.5" /> New Project</button></div>
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-2 md:gap-3">
-          {[{ label: "Active Pipeline", value: pipeline, icon: TrendingUp },{ label: "Win Rate", value: winRate, icon: Star, isPct: true },{ label: "In Negotiation", value: negoValue, icon: BarChart3 },{ label: "Avg Deal Size", value: avgDeal, icon: DollarSign }].map((stat, i) => (
-            <div key={stat.label} className="rounded-2xl p-3 md:p-4 transition-all duration-200 md:hover:-translate-y-0.5" style={G.card}><div className="flex items-center justify-between mb-2 md:mb-3"><span className="text-[#8b949e] text-[10px] md:text-[12px] font-extrabold uppercase tracking-[0.08em]">{stat.label}</span><div className="w-7 h-7 md:w-8 md:h-8 rounded-xl flex items-center justify-center" style={{ background: `${STAT_COLORS[i]}18`, border: `1px solid ${STAT_COLORS[i]}30` }}><stat.icon className="w-3 h-3 md:w-3.5 md:h-3.5" style={{ color: STAT_COLORS[i] }} /></div></div><p className="text-white text-[1.4rem] md:text-[2rem] font-extrabold tracking-tight leading-none mb-1">{stat.isPct ? `${stat.value}%` : fmt(stat.value as number, true)}</p></div>
-          ))}
+        <div className="flex items-center justify-between mb-4 md:mb-5">
+          <div>
+            <div className="flex items-center gap-3 mb-1">
+              <h1 className="text-white font-bold text-lg md:text-xl tracking-tight">{pipelineType === "sales" ? "Sales Pipeline" : "Project Pipeline"}</h1>
+              <div className="flex items-center h-7 rounded-xl overflow-hidden" style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.10)" }}>
+                <button onClick={() => setPipelineType("sales")} className={clsx("h-full px-3 text-[10px] font-bold transition-all cursor-pointer active:scale-[0.97] transition-transform", pipelineType === "sales" ? "text-white" : "text-[#484f58]")} style={pipelineType === "sales" ? { background: "#3b82f6" } : undefined}>Sales</button>
+                <button onClick={() => setPipelineType("project")} className={clsx("h-full px-3 text-[10px] font-bold transition-all cursor-pointer active:scale-[0.97] transition-transform", pipelineType === "project" ? "text-white" : "text-[#484f58]")} style={pipelineType === "project" ? { background: "#8b5cf6" } : undefined}>Projects</button>
+              </div>
+            </div>
+            <p className="text-[#8b949e] text-[11px] md:text-[13px] mt-0.5">{currentProjects.length} projects</p>
+          </div>
+          <button onClick={() => setShowNewProject(true)} className="flex items-center gap-1.5 h-8 px-3 md:px-4 rounded-xl text-white text-[11px] md:text-[12px] font-bold cursor-pointer active:scale-[0.97] transition-transform min-h-[44px]" style={{ background: "#3b82f6", boxShadow: "0 4px 16px rgba(59,130,246,0.35)" }}><Plus className="w-3.5 h-3.5" /> New Project</button>
         </div>
+        {pipelineType === "sales" && (
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-2 md:gap-3">
+            {[{ label: "Active Pipeline", value: pipeline, icon: TrendingUp },{ label: "Win Rate", value: winRate, icon: Star, isPct: true },{ label: "In Negotiation", value: negoValue, icon: BarChart3 },{ label: "Avg Deal Size", value: avgDeal, icon: DollarSign }].map((stat, i) => (
+              <div key={stat.label} className="rounded-2xl p-3 md:p-4 transition-all duration-200 md:hover:-translate-y-0.5" style={G.card}><div className="flex items-center justify-between mb-2 md:mb-3"><span className="text-[#8b949e] text-[10px] md:text-[12px] font-extrabold uppercase tracking-[0.08em]">{stat.label}</span><div className="w-7 h-7 md:w-8 md:h-8 rounded-xl flex items-center justify-center" style={{ background: `${STAT_COLORS[i]}18`, border: `1px solid ${STAT_COLORS[i]}30` }}><stat.icon className="w-3 h-3 md:w-3.5 md:h-3.5" style={{ color: STAT_COLORS[i] }} /></div></div><p className="text-white text-[1.4rem] md:text-[2rem] font-extrabold tracking-tight leading-none mb-1">{stat.isPct ? `${stat.value}%` : fmt(stat.value as number, true)}</p></div>
+            ))}
+          </div>
+        )}
       </div>
-      {projects.length === 0 ? <EmptyState icon={Layers} title="No projects yet" description="Create your first project." action={{ label: "New Project", onClick: () => setShowNewProject(true) }} /> : (
-        <div className="overflow-x-auto px-3 md:px-5 py-4 md:py-5" style={{ scrollbarWidth: "thin", scrollbarColor: "rgba(255,255,255,0.08) transparent", scrollBehavior: "smooth", WebkitOverflowScrolling: "touch" }}><div className="flex gap-2 md:gap-3 min-w-max pb-3">{COLUMNS.map((col) => { const colProjects = projects.filter((p) => p.stage === col.id); return <KanbanColumn key={col.id} column={col} projects={colProjects} totalValue={colProjects.reduce((s, p) => s + p.value, 0)} dragging={dragging} isOver={dragOverCol === col.id} onDragStart={handleDragStart} onDragEnd={handleDragEnd} onDragOver={(e) => { e.preventDefault(); setDragOverCol(col.id); }} onDragLeave={() => setDragOverCol(null)} onDrop={() => handleDrop(col.id)} onCardClick={(p) => setSelectedDeal(p)} onDelete={handleDelete} />; })}</div></div>
+      {currentProjects.length === 0 ? <EmptyState icon={Layers} title="No projects yet" description={`Create your first ${pipelineType === "sales" ? "sales" : "project"} pipeline item.`} action={{ label: "New Project", onClick: () => setShowNewProject(true) }} /> : (
+        <div className="overflow-x-auto px-3 md:px-5 py-4 md:py-5" style={{ scrollbarWidth: "thin", scrollbarColor: "rgba(255,255,255,0.08) transparent", scrollBehavior: "smooth", WebkitOverflowScrolling: "touch" }}>
+          <div className="flex gap-2 md:gap-3 min-w-max pb-3">
+            {columns.map((col) => {
+              const colProjects = currentProjects.filter((p) => pipelineType === "sales" ? p.stage === col.id : p.projectStage === col.id);
+              const totalValue = colProjects.reduce((s, p) => s + p.value, 0);
+              return <KanbanColumn key={col.id} column={col} projects={colProjects} totalValue={totalValue} dragging={dragging} isOver={dragOverCol === col.id} onDragStart={handleDragStart} onDragEnd={handleDragEnd} onDragOver={(e) => { e.preventDefault(); setDragOverCol(col.id); }} onDragLeave={() => setDragOverCol(null)} onDrop={() => handleDrop(col.id)} onCardClick={(p) => setSelectedDeal(p)} onDelete={handleDelete} />;
+            })}
+          </div>
+        </div>
       )}
     </div>
   );
 }
 
-function NewProjectModal({ onClose, onAdd }: { onClose: () => void; onAdd: (p: Project) => void }) {
-  const [name, setName] = useState(""); const [client, setClient] = useState(""); const [location, setLocation] = useState(""); const [value, setValue] = useState(""); const [stage, setStage] = useState<Stage>("assessment-scheduled"); const [risk, setRisk] = useState<"low" | "medium" | "high">("low"); const [dueDate, setDueDate] = useState(""); const [summary, setSummary] = useState(""); const [leadSource, setLeadSource] = useState<LeadSource>("Inbound"); const [contactName, setContactName] = useState(""); const [contactTitle, setContactTitle] = useState(""); const [contactEmail, setContactEmail] = useState(""); const [contactPhone, setContactPhone] = useState(""); const [notes, setNotes] = useState(""); const [submitting, setSubmitting] = useState(false);
+function NewProjectModal({ onClose, onAdd, pipelineType }: { onClose: () => void; onAdd: (p: Project) => void; pipelineType: PipelineType }) {
+  const [name, setName] = useState(""); const [client, setClient] = useState(""); const [location, setLocation] = useState(""); const [value, setValue] = useState(""); const [stage, setStage] = useState<Stage>("assessment-scheduled"); const [projectStage, setProjectStage] = useState<ProjectStage>("planning"); const [risk, setRisk] = useState<"low" | "medium" | "high">("low"); const [dueDate, setDueDate] = useState(""); const [summary, setSummary] = useState(""); const [leadSource, setLeadSource] = useState<LeadSource>("Inbound"); const [contactName, setContactName] = useState(""); const [contactTitle, setContactTitle] = useState(""); const [contactEmail, setContactEmail] = useState(""); const [contactPhone, setContactPhone] = useState(""); const [notes, setNotes] = useState(""); const [submitting, setSubmitting] = useState(false);
   const [collabSelect, setCollabSelect] = useState(""); const [collabRole, setCollabRole] = useState(""); const [collaborators, setCollaborators] = useState<{ name: string; initials: string; color: string; role: string }[]>([]);
   const canSubmit = name.trim() && client.trim();
 
   const addCollaborator = () => { if (!collabSelect) return; const member = TEAM.find(t => t.name === collabSelect); if (!member || collaborators.find(c => c.name === member.name)) return; setCollaborators((prev) => [...prev, { name: member.name, initials: member.initials, color: member.color, role: collabRole.trim() || "Team Member" }]); setCollabSelect(""); setCollabRole(""); };
 
-  const handleSubmit = async (e: React.FormEvent) => { e.preventDefault(); if (!canSubmit || submitting) return; setSubmitting(true); const now = new Date().toISOString(); const newProject: Project = { id: crypto.randomUUID?.() || `p${Date.now()}`, name: name.trim(), client: client.trim(), location: location.trim() || "TBD", value: Math.round(parseFloat(value.replace(/[^0-9.]/g, "")) * (value.includes("M") ? 1_000_000 : value.includes("K") ? 1000 : 1)) || 0, cameras: 0, devices: 0, stage, risk, assignee: CURRENT_USER, dueDate: dueDate || new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10), summary: summary.trim() || undefined, notes: notes.trim() || undefined, leadSource, collaborators: collaborators.length > 0 ? collaborators : undefined, stageHistory: [{ stage, date: new Date().toISOString().slice(0, 10) }], contact: contactName.trim() ? { name: contactName.trim(), title: contactTitle.trim(), email: contactEmail.trim(), phone: contactPhone.trim() } : undefined, createdAt: now, updatedAt: now }; onAdd(newProject); setSubmitting(false); onClose(); };
+  const handleSubmit = async (e: React.FormEvent) => { e.preventDefault(); if (!canSubmit || submitting) return; setSubmitting(true); const now = new Date().toISOString(); const newProject: Project = { id: crypto.randomUUID?.() || `p${Date.now()}`, name: name.trim(), client: client.trim(), location: location.trim() || "TBD", value: Math.round(parseFloat(value.replace(/[^0-9.]/g, "")) * (value.includes("M") ? 1_000_000 : value.includes("K") ? 1000 : 1)) || 0, cameras: 0, devices: 0, stage, risk, assignee: CURRENT_USER, dueDate: dueDate || new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10), summary: summary.trim() || undefined, notes: notes.trim() || undefined, leadSource, collaborators: collaborators.length > 0 ? collaborators : undefined, stageHistory: [{ stage, date: new Date().toISOString().slice(0, 10) }], contact: contactName.trim() ? { name: contactName.trim(), title: contactTitle.trim(), email: contactEmail.trim(), phone: contactPhone.trim() } : undefined, createdAt: now, updatedAt: now, pipelineType, projectStage: pipelineType === "project" ? projectStage : undefined }; onAdd(newProject); setSubmitting(false); onClose(); };
 
   const inputCls = "w-full h-9 rounded-xl px-3 text-[#e6edf3] text-[12px] placeholder:text-[#484f58] focus:outline-none focus:ring-1 focus:ring-blue-500/50 transition-all";
   const labelCls = "block text-[#8b949e] text-[10px] font-bold uppercase tracking-widest mb-1.5";
 
   return (
     <div className="fixed inset-0 z-[200] flex items-center justify-center p-4" onClick={onClose}><div className="absolute inset-0" style={{ background: "rgba(0,0,0,0.65)", backdropFilter: "blur(8px)" }} /><motion.div initial={{ opacity: 0, scale: 0.94, y: 16 }} animate={{ opacity: 1, scale: 1, y: 0 }} transition={{ type: "spring", damping: 26, stiffness: 360 }} onClick={(e) => e.stopPropagation()} className="relative z-10 w-full max-w-[600px] max-h-[90vh] overflow-y-auto rounded-3xl" style={{ background: "rgba(7,12,26,0.92)", backdropFilter: "blur(52px) saturate(200%)", border: "1px solid rgba(255,255,255,0.13)", boxShadow: "0 32px 80px rgba(0,0,0,0.9)" }}>
-      <div className="flex items-center justify-between px-5 md:px-7 pt-5 md:pt-7 pb-5" style={{ borderBottom: "1px solid rgba(255,255,255,0.07)" }}><div><h2 className="text-white text-[1rem] md:text-[1.1rem] font-bold">New Project</h2><p className="text-[#8b949e] text-[12px] mt-0.5">Account Owner: {CURRENT_USER.name}</p></div><button onClick={onClose} className="w-8 h-8 rounded-xl flex items-center justify-center hover:bg-white/[0.08] cursor-pointer active:scale-[0.97] transition-transform min-w-[44px] min-h-[44px]" style={{ border: "1px solid rgba(255,255,255,0.10)" }}><X className="w-4 h-4 text-[#8b949e]" /></button></div>
+      <div className="flex items-center justify-between px-5 md:px-7 pt-5 md:pt-7 pb-5" style={{ borderBottom: "1px solid rgba(255,255,255,0.07)" }}><div><h2 className="text-white text-[1rem] md:text-[1.1rem] font-bold">New {pipelineType === "sales" ? "Sales" : "Project"} Project</h2><p className="text-[#8b949e] text-[12px] mt-0.5">Account Owner: {CURRENT_USER.name}</p></div><button onClick={onClose} className="w-8 h-8 rounded-xl flex items-center justify-center hover:bg-white/[0.08] cursor-pointer active:scale-[0.97] transition-transform min-w-[44px] min-h-[44px]" style={{ border: "1px solid rgba(255,255,255,0.10)" }}><X className="w-4 h-4 text-[#8b949e]" /></button></div>
       <form onSubmit={handleSubmit}><div className="px-5 md:px-7 py-5 space-y-4">
         <div className="grid grid-cols-2 gap-4"><div className="col-span-2"><label className={labelCls}>Project Name *</label><input value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g. HQ — CCTV Upgrade" className={inputCls} style={G.input} /></div></div>
         <div className="grid grid-cols-2 gap-4"><div><label className={labelCls}>Client *</label><input value={client} onChange={(e) => setClient(e.target.value)} placeholder="Company name" className={inputCls} style={G.input} /></div><div><label className={labelCls}>Location</label><input value={location} onChange={(e) => setLocation(e.target.value)} placeholder="Site address" className={inputCls} style={G.input} /></div></div>
         <div className="grid grid-cols-2 gap-4"><div><label className={labelCls}>Estimated Value</label><input value={value} onChange={(e) => setValue(e.target.value)} placeholder="e.g. 95000" className={inputCls} style={G.input} /></div><div><label className={labelCls}>Lead Source</label><div className="relative"><select value={leadSource} onChange={(e) => setLeadSource(e.target.value as LeadSource)} className={`${inputCls} appearance-none cursor-pointer pr-7`} style={G.input}>{(["Tender","Single Source","Inbound","Referral","Recurring Client","Outbound"] as LeadSource[]).map((ls) => (<option key={ls} value={ls} style={{ background: "#0d1117" }}>{ls}</option>))}</select><ChevronDown className="absolute right-2.5 top-1/2 -translate-y-1/2 w-3 h-3 text-[#484f58]" /></div></div></div>
-        <div className="grid grid-cols-3 gap-4"><div><label className={labelCls}>Stage</label><div className="relative"><select value={stage} onChange={(e) => setStage(e.target.value as Stage)} className={`${inputCls} appearance-none cursor-pointer pr-7`} style={G.input}>{COLUMNS.map((c) => (<option key={c.id} value={c.id} style={{ background: "#0d1117" }}>{c.label}</option>))}</select><ChevronDown className="absolute right-2.5 top-1/2 -translate-y-1/2 w-3 h-3 text-[#484f58]" /></div></div><div><label className={labelCls}>Risk</label><div className="relative"><select value={risk} onChange={(e) => setRisk(e.target.value as "low"|"medium"|"high")} className={`${inputCls} appearance-none cursor-pointer pr-7`} style={G.input}>{["low","medium","high"].map((r) => (<option key={r} value={r} style={{ background: "#0d1117" }}>{r.charAt(0).toUpperCase()+r.slice(1)}</option>))}</select><ChevronDown className="absolute right-2.5 top-1/2 -translate-y-1/2 w-3 h-3 text-[#484f58]" /></div></div><div><label className={labelCls}>Due Date</label><input type="date" value={dueDate} onChange={(e) => setDueDate(e.target.value)} className={inputCls} style={{ ...G.input, colorScheme: "dark" }} /></div></div>
+        <div className="grid grid-cols-3 gap-4">
+          {pipelineType === "sales" ? (
+            <div><label className={labelCls}>Stage</label><div className="relative"><select value={stage} onChange={(e) => setStage(e.target.value as Stage)} className={`${inputCls} appearance-none cursor-pointer pr-7`} style={G.input}>{COLUMNS.map((c) => (<option key={c.id} value={c.id} style={{ background: "#0d1117" }}>{c.label}</option>))}</select><ChevronDown className="absolute right-2.5 top-1/2 -translate-y-1/2 w-3 h-3 text-[#484f58]" /></div></div>
+          ) : (
+            <div><label className={labelCls}>Stage</label><div className="relative"><select value={projectStage} onChange={(e) => setProjectStage(e.target.value as ProjectStage)} className={`${inputCls} appearance-none cursor-pointer pr-7`} style={G.input}>{PROJECT_COLUMNS.map((c) => (<option key={c.id} value={c.id} style={{ background: "#0d1117" }}>{c.label}</option>))}</select><ChevronDown className="absolute right-2.5 top-1/2 -translate-y-1/2 w-3 h-3 text-[#484f58]" /></div></div>
+          )}
+          <div><label className={labelCls}>Risk</label><div className="relative"><select value={risk} onChange={(e) => setRisk(e.target.value as "low"|"medium"|"high")} className={`${inputCls} appearance-none cursor-pointer pr-7`} style={G.input}>{["low","medium","high"].map((r) => (<option key={r} value={r} style={{ background: "#0d1117" }}>{r.charAt(0).toUpperCase()+r.slice(1)}</option>))}</select><ChevronDown className="absolute right-2.5 top-1/2 -translate-y-1/2 w-3 h-3 text-[#484f58]" /></div></div>
+          <div><label className={labelCls}>Due Date</label><input type="date" value={dueDate} onChange={(e) => setDueDate(e.target.value)} className={inputCls} style={{ ...G.input, colorScheme: "dark" }} /></div>
+        </div>
         <div style={{ borderTop: "1px solid rgba(255,255,255,0.07)", paddingTop: "12px" }}><label className={labelCls}>Collaborators</label><div className="flex gap-2 mb-2"><div className="relative flex-1"><select value={collabSelect} onChange={(e) => setCollabSelect(e.target.value)} className={`${inputCls} appearance-none cursor-pointer`} style={G.input}><option value="">Select team member</option>{TEAM.filter(t => !collaborators.find(c => c.name === t.name)).map((t) => (<option key={t.name} value={t.name} style={{ background: "#0d1117" }}>{t.name}</option>))}</select></div><input value={collabRole} onChange={(e) => setCollabRole(e.target.value)} placeholder="Role" className={`${inputCls} flex-1`} style={G.input} /><button type="button" onClick={addCollaborator} className="h-9 px-3 rounded-xl text-white text-[12px] font-bold cursor-pointer active:scale-[0.97] transition-transform" style={{ background: "#3b82f6" }}><Plus className="w-3.5 h-3.5" /></button></div>{collaborators.length > 0 && <div className="flex flex-wrap gap-2">{collaborators.map((c, i) => (<span key={i} className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl text-[11px] font-semibold" style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.10)" }}><span className="w-5 h-5 rounded-full flex items-center justify-center text-[9px] font-bold text-white" style={{ background: c.color }}>{c.initials}</span>{c.name} · {c.role}<button type="button" onClick={() => setCollaborators((prev) => prev.filter((_, j) => j !== i))} className="ml-1 text-[#484f58] hover:text-rose-400"><X className="w-3 h-3" /></button></span>))}</div>}</div>
         <div style={{ borderTop: "1px solid rgba(255,255,255,0.07)", paddingTop: "12px" }}><p className="text-[#484f58] text-[10px] font-bold uppercase tracking-widest mb-3">Contact (optional)</p><div className="grid grid-cols-2 gap-3"><div><label className={labelCls}>Name</label><input value={contactName} onChange={(e) => setContactName(e.target.value)} placeholder="Full name" className={inputCls} style={G.input} /></div><div><label className={labelCls}>Title</label><input value={contactTitle} onChange={(e) => setContactTitle(e.target.value)} placeholder="Job title" className={inputCls} style={G.input} /></div><div><label className={labelCls}>Email</label><input type="email" value={contactEmail} onChange={(e) => setContactEmail(e.target.value)} placeholder="email@company.com" className={inputCls} style={G.input} /></div><div><label className={labelCls}>Phone</label><input value={contactPhone} onChange={(e) => setContactPhone(e.target.value)} placeholder="+1 (876) 555-0000" className={inputCls} style={G.input} /></div></div></div>
         <div><label className={labelCls}>Project Scope</label><textarea value={summary} onChange={(e) => setSummary(e.target.value)} placeholder="Brief description…" rows={3} className="w-full rounded-xl px-3 py-2.5 text-[#e6edf3] text-[12px] placeholder:text-[#484f58] focus:outline-none resize-none transition-all" style={G.input} /></div>
@@ -355,7 +570,6 @@ function NewProjectModal({ onClose, onAdd }: { onClose: () => void; onAdd: (p: P
     </motion.div></div>
   );
 }
-
 function getDeduplicatedTeam(project: Project): { name: string; initials: string; color: string; roles: string[] }[] {
   const members: { name: string; initials: string; color: string; roles: string[] }[] = [];
   members.push({ name: project.assignee.name, initials: project.assignee.initials, color: project.assignee.color, roles: ["Account Owner"] });
@@ -369,7 +583,146 @@ function getDeduplicatedTeam(project: Project): { name: string; initials: string
   return members;
 }
 
-function DealModal({ project, column, onClose, navigate, onUpdate, onDelete }: { project: Project; column: Column; onClose: () => void; navigate: (p: Page) => void; onUpdate: (p: Project) => void; onDelete: (id: string) => void }) {
+function TaskList({ projectId }: { projectId: string }) {
+  const [tasks, setTasks] = useState<Task[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [showNew, setShowNew] = useState(false);
+  const [newTitle, setNewTitle] = useState("");
+  const [newAssignee, setNewAssignee] = useState("");
+  const [newPriority, setNewPriority] = useState<TaskPriority>("medium");
+  const [newDueDate, setNewDueDate] = useState("");
+  const [statusFilter, setStatusFilter] = useState<TaskStatus | "all">("all");
+  const [confirmDelete, setConfirmDelete] = useState<string | null>(null);
+
+  const fetchTasks = useCallback(async () => { setLoading(true); try { const data = await API.tasks.list(projectId); setTasks(data); } catch { setTasks([]); } finally { setLoading(false); } }, [projectId]);
+  useEffect(() => { fetchTasks(); }, [fetchTasks]);
+
+  const handleCreate = async () => {
+    if (!newTitle.trim()) return;
+    try {
+      const created = await API.tasks.create(projectId, { title: newTitle.trim(), assignee: newAssignee || undefined, priority: newPriority, dueDate: newDueDate || undefined, status: "todo" });
+      setTasks(prev => [created, ...prev]);
+      setNewTitle(""); setNewAssignee(""); setNewPriority("medium"); setNewDueDate(""); setShowNew(false);
+      toast.success("Task added");
+    } catch { toast.error("Failed to create task"); }
+  };
+
+  const handleStatusChange = async (taskId: string, status: TaskStatus) => {
+    setTasks(prev => prev.map(t => t.id === taskId ? { ...t, status } : t));
+    try { await API.tasks.update(projectId, taskId, { status }); } catch { fetchTasks(); }
+  };
+
+  const handleDelete = async (taskId: string) => {
+    setTasks(prev => prev.filter(t => t.id !== taskId));
+    try { await API.tasks.delete(projectId, taskId); toast.success("Task deleted"); } catch { fetchTasks(); }
+    setConfirmDelete(null);
+  };
+
+  const filteredTasks = statusFilter === "all" ? tasks : tasks.filter(t => t.status === statusFilter);
+  const statusColors: Record<TaskStatus, string> = { todo: "#484f58", "in-progress": "#3b82f6", review: "#f59e0b", complete: "#10b981" };
+  const priorityColors: Record<TaskPriority, string> = { low: "#484f58", medium: "#f59e0b", high: "#f43f5e" };
+
+  if (loading) return <div className="space-y-2">{[1,2,3].map(i => <Skeleton key={i} className="h-16 rounded-xl" />)}</div>;
+
+  return (
+    <div className="space-y-3">
+      {confirmDelete && <ConfirmDialog open={true} title="Delete Task" message="Are you sure you want to delete this task?" onConfirm={() => handleDelete(confirmDelete)} onCancel={() => setConfirmDelete(null)} />}
+      <div className="flex items-center justify-between gap-2 flex-wrap">
+        <div className="flex items-center gap-1">
+          {(["all","todo","in-progress","review","complete"] as const).map(s => (
+            <button key={s} onClick={() => setStatusFilter(s)} className={clsx("h-7 px-2.5 rounded-lg text-[10px] font-semibold transition-all cursor-pointer active:scale-[0.97] transition-transform", statusFilter === s ? "text-white" : "text-[#484f58]")} style={statusFilter === s ? { background: "rgba(255,255,255,0.10)" } : G.btn}>{s === "all" ? "All" : s === "in-progress" ? "In Progress" : s.charAt(0).toUpperCase() + s.slice(1)}</button>
+          ))}
+        </div>
+        <button onClick={() => setShowNew(!showNew)} className="flex items-center gap-1 h-7 px-2.5 rounded-lg text-[10px] font-semibold text-white cursor-pointer active:scale-[0.97] transition-transform" style={{ background: "#3b82f6" }}><Plus className="w-3 h-3" /> Add Task</button>
+      </div>
+      {showNew && (
+        <div className="rounded-xl p-3 space-y-2" style={G.card}>
+          <input value={newTitle} onChange={(e) => setNewTitle(e.target.value)} placeholder="Task title..." className="w-full h-8 rounded-lg px-2.5 text-[11px] text-[#e6edf3] focus:outline-none" style={G.input} />
+          <div className="flex gap-2 flex-wrap">
+            <select value={newAssignee} onChange={(e) => setNewAssignee(e.target.value)} className="h-7 rounded-lg px-2 text-[10px] bg-transparent text-[#e6edf3] cursor-pointer" style={G.input}><option value="">Assignee</option>{TEAM.map(t => <option key={t.name} value={t.name}>{t.name}</option>)}</select>
+            <select value={newPriority} onChange={(e) => setNewPriority(e.target.value as TaskPriority)} className="h-7 rounded-lg px-2 text-[10px] bg-transparent text-[#e6edf3] cursor-pointer" style={G.input}><option value="low">Low</option><option value="medium">Medium</option><option value="high">High</option></select>
+            <input type="date" value={newDueDate} onChange={(e) => setNewDueDate(e.target.value)} className="h-7 rounded-lg px-2 text-[10px] bg-transparent text-[#e6edf3]" style={{ ...G.input, colorScheme: "dark" }} />
+            <button onClick={handleCreate} className="h-7 px-3 rounded-lg text-[10px] font-bold text-white cursor-pointer active:scale-[0.97] transition-transform" style={{ background: "#10b981" }}>Save</button>
+          </div>
+        </div>
+      )}
+      {filteredTasks.length === 0 ? (
+        <div className="text-center py-6"><p className="text-[#484f58] text-[11px]">{statusFilter === "all" ? "No tasks yet" : `No ${statusFilter} tasks`}</p></div>
+      ) : (
+        <div className="space-y-1.5">
+          {filteredTasks.map(task => {
+            const assignee = TEAM.find(t => t.name === task.assignee);
+            return (
+              <div key={task.id} className="flex items-center gap-3 px-3 py-2.5 rounded-xl group hover:bg-white/[0.02] transition-colors" style={G.subtle}>
+                <button onClick={() => handleStatusChange(task.id, task.status === "complete" ? "todo" : task.status === "todo" ? "in-progress" : task.status === "in-progress" ? "review" : "complete")} className={clsx("w-5 h-5 rounded-full border-2 flex items-center justify-center flex-shrink-0 transition-all cursor-pointer", task.status === "complete" ? "bg-emerald-500 border-emerald-500" : "border-[#484f58] hover:border-white/50")}>
+                  {task.status === "complete" && <CheckCircle2 className="w-3 h-3 text-white" />}
+                </button>
+                <div className="flex-1 min-w-0">
+                  <p className={clsx("text-[11px] font-semibold", task.status === "complete" ? "text-[#484f58] line-through" : "text-white")}>{task.title}</p>
+                  <div className="flex items-center gap-2 mt-0.5">
+                    {assignee && <span className="text-[#484f58] text-[9px] flex items-center gap-1"><div className="w-3 h-3 rounded-full flex items-center justify-center text-[6px] font-bold text-white" style={{ background: assignee.color }}>{assignee.initials}</div>{assignee.name}</span>}
+                    <span className="text-[9px] font-bold" style={{ color: priorityColors[task.priority] }}>{task.priority}</span>
+                    {task.dueDate && <span className="text-[#484f58] text-[9px]">{fmtDate(task.dueDate)}</span>}
+                  </div>
+                </div>
+                <button onClick={() => setConfirmDelete(task.id)} className="opacity-0 group-hover:opacity-100 transition-opacity w-6 h-6 rounded-lg hover:bg-rose-500/10 flex items-center justify-center cursor-pointer"><Trash2 className="w-3 h-3 text-rose-400" /></button>
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function DocumentList({ projectId }: { projectId: string }) {
+  const [documents, setDocuments] = useState<Document[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [uploading, setUploading] = useState(false);
+  const [confirmDelete, setConfirmDelete] = useState<string | null>(null);
+
+  const fetchDocs = useCallback(async () => { setLoading(true); try { const data = await API.documents.list(projectId); setDocuments(data); } catch { setDocuments([]); } finally { setLoading(false); } }, [projectId]);
+  useEffect(() => { fetchDocs(); }, [fetchDocs]);
+
+  const handleUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]; if (!file) return;
+    setUploading(true);
+    try { await API.documents.upload(projectId, file); fetchDocs(); toast.success("File uploaded"); } catch { toast.error("Upload failed"); }
+    setUploading(false); e.target.value = "";
+  };
+
+  const handleDelete = async (id: string) => {
+    setDocuments(prev => prev.filter(d => d.id !== id));
+    try { await API.documents.delete(projectId, id); toast.success("File deleted"); } catch { fetchDocs(); }
+    setConfirmDelete(null);
+  };
+
+  if (loading) return <div className="space-y-2">{[1,2].map(i => <Skeleton key={i} className="h-10 rounded-xl" />)}</div>;
+
+  return (
+    <div className="space-y-2">
+      {confirmDelete && <ConfirmDialog open={true} title="Delete File" message="Are you sure you want to delete this file?" onConfirm={() => handleDelete(confirmDelete)} onCancel={() => setConfirmDelete(null)} />}
+      <label className="flex items-center gap-2 h-8 px-3 rounded-xl text-[#8b949e] text-[11px] font-semibold hover:text-white cursor-pointer active:scale-[0.97] transition-transform w-fit" style={G.btn}>
+        <Upload className="w-3.5 h-3.5" /> {uploading ? "Uploading..." : "Upload File"}
+        <input type="file" className="hidden" onChange={handleUpload} disabled={uploading} />
+      </label>
+      {documents.length === 0 ? <p className="text-[#484f58] text-[11px]">No files uploaded yet</p> :
+        documents.map(doc => (
+          <div key={doc.id} className="flex items-center justify-between px-3 py-2 rounded-xl group hover:bg-white/[0.02]" style={G.subtle}>
+            <div className="flex items-center gap-2 min-w-0">
+              <Paperclip className="w-3.5 h-3.5 text-[#484f58] flex-shrink-0" />
+              <a href={doc.fileUrl} target="_blank" rel="noopener noreferrer" className="text-white text-[11px] font-semibold truncate hover:text-blue-400 transition-colors">{doc.filename}</a>
+              <span className="text-[#484f58] text-[9px] flex-shrink-0">{doc.fileSize ? `${(doc.fileSize / 1024).toFixed(0)} KB` : ""}</span>
+            </div>
+            <button onClick={() => setConfirmDelete(doc.id)} className="opacity-0 group-hover:opacity-100 transition-opacity w-6 h-6 rounded-lg hover:bg-rose-500/10 flex items-center justify-center cursor-pointer flex-shrink-0"><Trash2 className="w-3 h-3 text-rose-400" /></button>
+          </div>
+        ))
+      }
+    </div>
+  );
+}
+
+function DealModal({ project, column, onClose, navigate, onUpdate, onDelete, pipelineType }: { project: Project; column: Column | ProjectColumn; onClose: () => void; navigate: (p: Page) => void; onUpdate: (p: Project) => void; onDelete: (id: string) => void; pipelineType: PipelineType }) {
   const [activeTab, setActiveTab] = useState("info"); const { fmt } = useCurrency();
   const [editing, setEditing] = useState(false);
   const [editName, setEditName] = useState(project.name); const [editClient, setEditClient] = useState(project.client); const [editLocation, setEditLocation] = useState(project.location); const [editValue, setEditValue] = useState(String(project.value)); const [editRisk, setEditRisk] = useState(project.risk); const [editDueDate, setEditDueDate] = useState(project.dueDate); const [editSummary, setEditSummary] = useState(project.summary || ""); const [editNotes, setEditNotes] = useState(project.notes || "");
@@ -379,29 +732,36 @@ function DealModal({ project, column, onClose, navigate, onUpdate, onDelete }: {
 
   const handleSave = async () => { setSaving(true); const updated: Project = { ...project, name: editName, client: editClient, location: editLocation, value: parseFloat(editValue) || project.value, risk: editRisk, dueDate: editDueDate, summary: editSummary, notes: editNotes, updatedAt: new Date().toISOString() }; onUpdate(updated); setEditing(false); setSaving(false); };
 
+  const copyProjectLink = () => {
+    const url = `${window.location.origin}/project/${project.id}`;
+    navigator.clipboard.writeText(url).then(() => toast.success("Link copied")).catch(() => toast.error("Failed to copy"));
+  };
+
   const tabs = [
     { id: "info", label: "Info", icon: Building2 },
+    { id: "tasks", label: "Tasks", icon: ListTodo },
+    { id: "documents", label: "Files", icon: Paperclip },
     { id: "contact", label: "Contact", icon: Phone },
     { id: "notes", label: "Notes", icon: StickyNote },
     { id: "workbook", label: "Workbook", icon: FileText },
   ];
 
   return (
-    <div className="fixed inset-0 z-[200] flex items-center justify-center p-4" onClick={onClose}><div className="absolute inset-0" style={{ background: "rgba(0,0,0,0.65)", backdropFilter: "blur(8px)" }} /><motion.div initial={{ opacity: 0, scale: 0.93, y: 20 }} animate={{ opacity: 1, scale: 1, y: 0 }} transition={{ type: "spring", damping: 26, stiffness: 360 }} onClick={(e) => e.stopPropagation()} className="relative z-10 w-full max-w-[560px] max-h-[85vh] overflow-y-auto rounded-3xl" style={{ background: "rgba(7,12,26,0.78)", backdropFilter: "blur(52px) saturate(200%)", border: "1px solid rgba(255,255,255,0.13)", boxShadow: "0 32px 80px rgba(0,0,0,0.9)" }}>
+    <div className="fixed inset-0 z-[200] flex items-center justify-center p-4" onClick={onClose}><div className="absolute inset-0" style={{ background: "rgba(0,0,0,0.65)", backdropFilter: "blur(8px)" }} /><motion.div initial={{ opacity: 0, scale: 0.93, y: 20 }} animate={{ opacity: 1, scale: 1, y: 0 }} transition={{ type: "spring", damping: 26, stiffness: 360 }} onClick={(e) => e.stopPropagation()} className="relative z-10 w-full max-w-[620px] max-h-[85vh] overflow-y-auto rounded-3xl" style={{ background: "rgba(7,12,26,0.78)", backdropFilter: "blur(52px) saturate(200%)", border: "1px solid rgba(255,255,255,0.13)", boxShadow: "0 32px 80px rgba(0,0,0,0.9)" }}>
       <div className="relative px-5 md:px-7 pt-5 md:pt-7 pb-3">
         <div className="flex items-start justify-between gap-4"><div className="flex-1 min-w-0">
           <div className="flex flex-wrap items-center gap-1.5 mb-2.5"><span className="inline-flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-[0.14em] px-2.5 py-1 rounded-full" style={{ background: `${column.color}22`, color: column.color, border: `1px solid ${column.color}44` }}><span className="w-1.5 h-1.5 rounded-full" style={{ background: column.color }} />{column.label}</span>{ls && <span className="text-[9px] font-bold px-2 py-0.5 rounded-full" style={{ background: ls.bg, color: ls.text }}>{project.leadSource}</span>}</div>
           <h2 className="text-white text-[1rem] md:text-[1.1rem] font-bold leading-snug">{project.name}</h2>
           <p className="text-[#8b949e] text-[12px] md:text-[13px] font-semibold mt-1 flex items-center gap-1.5"><Building2 className="w-3.5 h-3.5 flex-shrink-0" />{project.client}</p>
         </div>
-        <div className="flex gap-2 flex-shrink-0"><button onClick={() => setEditing(!editing)} className="w-8 h-8 rounded-xl flex items-center justify-center hover:bg-white/[0.08] cursor-pointer active:scale-[0.97] transition-transform" style={{ border: "1px solid rgba(255,255,255,0.10)" }}><Pencil className="w-4 h-4 text-[#8b949e]" /></button><button onClick={onClose} className="w-8 h-8 rounded-xl flex items-center justify-center hover:bg-white/[0.08] cursor-pointer active:scale-[0.97] transition-transform" style={{ border: "1px solid rgba(255,255,255,0.10)" }}><X className="w-4 h-4 text-[#8b949e]" /></button></div></div>
+        <div className="flex gap-1 flex-shrink-0"><button onClick={copyProjectLink} className="w-8 h-8 rounded-xl flex items-center justify-center hover:bg-white/[0.08] cursor-pointer active:scale-[0.97] transition-transform" style={{ border: "1px solid rgba(255,255,255,0.10)" }} title="Copy link"><Link2 className="w-3.5 h-3.5 text-[#8b949e]" /></button><button onClick={() => setEditing(!editing)} className="w-8 h-8 rounded-xl flex items-center justify-center hover:bg-white/[0.08] cursor-pointer active:scale-[0.97] transition-transform" style={{ border: "1px solid rgba(255,255,255,0.10)" }}><Pencil className="w-4 h-4 text-[#8b949e]" /></button><button onClick={onClose} className="w-8 h-8 rounded-xl flex items-center justify-center hover:bg-white/[0.08] cursor-pointer active:scale-[0.97] transition-transform" style={{ border: "1px solid rgba(255,255,255,0.10)" }}><X className="w-4 h-4 text-[#8b949e]" /></button></div></div>
         {editing && <div className="grid grid-cols-2 gap-2 mt-3"><input value={editName} onChange={(e) => setEditName(e.target.value)} placeholder="Name" className="w-full h-8 rounded-xl px-2 text-[12px] bg-transparent text-white" style={G.input} /><input value={editClient} onChange={(e) => setEditClient(e.target.value)} placeholder="Client" className="w-full h-8 rounded-xl px-2 text-[12px] bg-transparent text-white" style={G.input} /><input value={editLocation} onChange={(e) => setEditLocation(e.target.value)} placeholder="Location" className="w-full h-8 rounded-xl px-2 text-[12px] bg-transparent text-white" style={G.input} /><input type="number" value={editValue} onChange={(e) => setEditValue(e.target.value)} placeholder="Value" className="w-full h-8 rounded-xl px-2 text-[12px] bg-transparent text-white" style={G.input} /><select value={editRisk} onChange={(e) => setEditRisk(e.target.value as "low"|"medium"|"high")} className="w-full h-8 rounded-xl px-2 text-[12px] bg-transparent text-white" style={G.input}>{["low","medium","high"].map((r) => <option key={r} value={r}>{r}</option>)}</select><input type="date" value={editDueDate} onChange={(e) => setEditDueDate(e.target.value)} className="w-full h-8 rounded-xl px-2 text-[12px] bg-transparent text-white" style={{ ...G.input, colorScheme: "dark" }} /></div>}
         {editing && <div className="mt-3 flex gap-2"><button onClick={handleSave} disabled={saving} className="flex-1 h-9 rounded-xl text-white text-[13px] font-bold cursor-pointer active:scale-[0.97] transition-transform" style={{ background: "#10b981" }}><Save className="w-3.5 h-3.5 inline mr-1" />{saving ? "Saving…" : "Save"}</button><button onClick={() => setEditing(false)} className="flex-1 h-9 rounded-xl text-[#8b949e] text-[13px] font-semibold cursor-pointer active:scale-[0.97] transition-transform" style={G.btn}>Cancel</button></div>}
       </div>
 
-      <div className="flex items-center gap-0.5 px-5 md:px-7 border-b" style={{ borderColor: "rgba(255,255,255,0.07)" }}>
+      <div className="flex items-center gap-0.5 px-5 md:px-7 border-b overflow-x-auto" style={{ borderColor: "rgba(255,255,255,0.07)", scrollbarWidth: "none" }}>
         {tabs.map((tab) => (
-          <button key={tab.id} onClick={() => setActiveTab(tab.id)} className={clsx("flex items-center gap-1.5 h-9 px-3 text-[11px] font-semibold border-b-2 -mb-px transition-all cursor-pointer active:scale-[0.97] transition-transform", activeTab === tab.id ? "border-blue-500 text-white" : "border-transparent text-[#8b949e]")}>
+          <button key={tab.id} onClick={() => setActiveTab(tab.id)} className={clsx("flex items-center gap-1.5 h-9 px-3 text-[11px] font-semibold border-b-2 -mb-px transition-all whitespace-nowrap cursor-pointer active:scale-[0.97] transition-transform", activeTab === tab.id ? "border-blue-500 text-white" : "border-transparent text-[#8b949e]")}>
             <tab.icon className="w-3 h-3" />{tab.label}
           </button>
         ))}
@@ -423,6 +783,8 @@ function DealModal({ project, column, onClose, navigate, onUpdate, onDelete }: {
             </div>
           </div>
         )}
+        {activeTab === "tasks" && <TaskList projectId={project.id} />}
+        {activeTab === "documents" && <DocumentList projectId={project.id} />}
         {activeTab === "contact" && (
           <div className="space-y-2">
             {project.contact ? (
@@ -566,7 +928,7 @@ function ProjectDetail({ navigate }: { navigate: (p: Page) => void }) {
   const { fmt } = useCurrency();
   const [project, setProject] = useState<Project | null>(null);
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState("overview");
+  const [activeTab, setActiveTab] = useState(() => localStorage.getItem("pd_tab") || "overview");
   const [quotes, setQuotes] = useState<Quote[]>([]);
   const [auditLog, setAuditLog] = useState<AuditLogEntry[]>([]);
   const [changeOrders, setChangeOrders] = useState<ChangeOrder[]>([]);
@@ -575,15 +937,12 @@ function ProjectDetail({ navigate }: { navigate: (p: Page) => void }) {
   const [newCODesc, setNewCODesc] = useState("");
   const [newCOCost, setNewCOCost] = useState("");
 
+  useEffect(() => { localStorage.setItem("pd_tab", activeTab); }, [activeTab]);
+
   const fetchProject = useCallback(async () => { setLoading(true); try { const data = await API.projects.list(); if (data.length > 0) setProject(data[0]); else setProject(null); const qData = await API.quotes.list(); setQuotes(qData.filter((q: Quote) => q.projectId === data[0]?.id)); } catch { setProject(null); } finally { setLoading(false); } }, []);
   useEffect(() => { fetchProject(); }, [fetchProject]);
 
-  useEffect(() => {
-    if (project) {
-      API.audit.list(project.id).then(setAuditLog).catch(() => setAuditLog([]));
-      API.changeOrders.list(project.id).then(setChangeOrders).catch(() => setChangeOrders([]));
-    }
-  }, [project]);
+  useEffect(() => { if (project) { API.audit.list(project.id).then(setAuditLog).catch(() => setAuditLog([])); API.changeOrders.list(project.id).then(setChangeOrders).catch(() => setChangeOrders([])); } }, [project]);
 
   const handleCreateCO = async () => {
     if (!project || !newCOTitle.trim()) return;
@@ -591,13 +950,19 @@ function ProjectDetail({ navigate }: { navigate: (p: Page) => void }) {
     try { const created = await API.changeOrders.create(project.id, co); setChangeOrders((prev) => [...prev, created]); setShowNewCO(false); setNewCOTitle(""); setNewCODesc(""); setNewCOCost(""); toast.success("Change order created"); } catch { toast.error("Failed to create change order"); }
   };
 
-  if (loading) return <div className="px-3 md:px-5 py-4 md:py-6 space-y-4"><Skeleton className="h-8 w-64" /><div className="grid grid-cols-2 md:grid-cols-5 gap-2 md:gap-3">{[1,2,3,4,5].map(i => <Skeleton key={i} className="h-24 rounded-2xl" />)}</div></div>;
+  if (loading) return (
+    <div className="px-3 md:px-5 py-4 md:py-6 space-y-4">
+      <Skeleton className="h-8 w-64" />
+      <div className="grid grid-cols-2 md:grid-cols-5 gap-2 md:gap-3">{[1,2,3,4,5].map(i => <Skeleton key={i} className="h-24 rounded-2xl" />)}</div>
+      <Skeleton className="h-64 rounded-2xl" />
+    </div>
+  );
   if (!project) return <EmptyState icon={Building2} title="No project selected" description="Select a project from the Projects tab." />;
 
   const p = project!; const badge = stageBadge(p.stage); const ls = p.leadSource ? LEAD_SOURCE_STYLES[p.leadSource] : null;
   const team = getDeduplicatedTeam(p);
-  const tabs = ["overview","quotes","change-orders","audit-log"];
-  const tabLabels: Record<string, string> = { overview: "Overview", quotes: "Quotes", "change-orders": "Change Orders", "audit-log": "Audit Log" };
+  const tabs = ["overview","tasks","documents","quotes","change-orders","audit-log"];
+  const tabLabels: Record<string, string> = { overview: "Overview", tasks: "Tasks", documents: "Files", quotes: "Quotes", "change-orders": "Change Orders", "audit-log": "Audit Log" };
   const stageHistory = p.stageHistory || [{ stage: p.stage, date: p.createdAt?.slice(0,10) || new Date().toISOString().slice(0,10) }];
 
   return (
@@ -606,6 +971,8 @@ function ProjectDetail({ navigate }: { navigate: (p: Page) => void }) {
       <div className="grid grid-cols-2 md:grid-cols-5 gap-2 md:gap-3 mb-4 md:mb-6">{[{ label: "Contract Value", value: fmt(p.value, true), icon: DollarSign, color: "#3b82f6" },{ label: "Cameras", value: String(p.cameras), icon: Camera, color: "#8b5cf6" },{ label: "Devices", value: String(p.devices), icon: Fingerprint, color: "#06b6d4" },{ label: "Due Date", value: fmtDate(p.dueDate), icon: Calendar, color: "#f59e0b" },{ label: "Progress", value: "0%", icon: Activity, color: "#10b981" }].map((s) => (<div key={s.label} className="rounded-2xl p-3 md:p-4" style={G.card}><div className="flex items-center justify-between mb-2 md:mb-3"><span className="text-[#8b949e] text-[9px] md:text-[10px] font-bold uppercase">{s.label}</span><div className="w-6 h-6 md:w-7 md:h-7 rounded-xl flex items-center justify-center" style={{ background: `${s.color}18` }}><s.icon className="w-3 h-3" style={{ color: s.color }} /></div></div><p className="text-white text-lg md:text-xl font-bold">{s.value}</p></div>))}</div>
       <div className="flex items-center gap-0.5 mb-4 md:mb-5 overflow-x-auto" style={{ borderBottom: "1px solid rgba(255,255,255,0.07)", scrollbarWidth: "none" }}>{tabs.map((tab) => (<button key={tab} onClick={() => setActiveTab(tab)} className={clsx("h-10 px-3 md:px-4 text-[12px] md:text-[13px] font-semibold border-b-2 transition-all -mb-px whitespace-nowrap cursor-pointer active:scale-[0.97] transition-transform min-h-[44px]", activeTab === tab ? "border-blue-500 text-white" : "border-transparent text-[#8b949e]")}>{tabLabels[tab]}</button>))}</div>
       {activeTab === "overview" && (<div className="grid grid-cols-1 md:grid-cols-3 gap-4"><div className="md:col-span-2 space-y-4"><div className="rounded-2xl p-4 md:p-5" style={G.card}><h3 className="text-white text-[13px] md:text-[14px] font-bold mb-3">Project Scope</h3><p className="text-[#8b949e] text-[12px] leading-relaxed">{p.summary ?? "No scope defined yet."}</p></div><div className="rounded-2xl p-4 md:p-5" style={G.card}><h3 className="text-white text-[13px] md:text-[14px] font-bold mb-4">Team</h3><div className="space-y-3">{team.map((m) => (<div key={m.name} className="flex items-center gap-3"><div className="w-8 h-8 rounded-xl flex items-center justify-center text-[11px] font-bold text-white" style={{ background: m.color }}>{m.initials}</div><div><p className="text-white text-[12px] font-semibold">{m.name}</p><p className="text-[#8b949e] text-[10px]">{m.roles.join(", ")}</p></div></div>))}</div></div></div><div className="space-y-4"><div className="rounded-2xl p-4 md:p-5" style={G.card}><h3 className="text-white text-[13px] md:text-[14px] font-bold mb-4">Timeline</h3><div className="space-y-2">{COLUMNS.filter(c => !["win","lose"].includes(c.id)).map((col) => { const entry = stageHistory.find((s: any) => s.stage === col.id); const colIndex = COLUMNS.indexOf(col); const currentIndex = COLUMNS.indexOf(COLUMNS.find((c) => c.id === p.stage)!); const isPast = colIndex < currentIndex; const isCurrent = col.id === p.stage; return (<div key={col.id} className="flex items-center gap-3"><div className={clsx("w-5 h-5 rounded-full flex items-center justify-center flex-shrink-0", isPast ? "bg-emerald-500/20" : isCurrent ? "bg-blue-500/20 ring-2 ring-blue-500/40" : "bg-white/[0.04]")}>{isPast ? <CheckCircle2 className="w-3 h-3 text-emerald-400" /> : isCurrent ? <Clock className="w-3 h-3 text-blue-400" /> : <div className="w-1.5 h-1.5 rounded-full bg-white/20" />}</div><div className="flex-1 flex items-center justify-between"><span className={clsx("text-[11px] font-semibold", isPast ? "text-[#8b949e]" : isCurrent ? "text-white" : "text-[#484f58]")}>{col.label}</span><span className="text-[#484f58] text-[10px]">{entry?.date ? fmtDateFull(entry.date) : "—"}</span></div></div>); })}</div></div></div></div>)}
+      {activeTab === "tasks" && <TaskList projectId={p.id} />}
+      {activeTab === "documents" && <DocumentList projectId={p.id} />}
       {activeTab === "quotes" && (quotes.length === 0 ? <EmptyState icon={DollarSign} title="No workbook yet" description="" /> : <div className="space-y-3">{quotes.map((q) => (<div key={q.id} className="flex items-center justify-between rounded-2xl p-4" style={G.card}><div className="flex items-center gap-4"><DollarSign className="w-4 h-4 text-blue-400" /><div><p className="text-white text-[13px] font-semibold">{q.refNumber}</p><p className="text-[#484f58] text-[11px]">{q.date} · {q.status}</p></div></div><button onClick={() => navigate("workbook")} className="h-8 px-3 rounded-xl text-[#8b949e] text-[12px] font-semibold hover:text-white cursor-pointer" style={G.btn}>Open</button></div>))}</div>)}
       {activeTab === "change-orders" && (
         <div>
@@ -768,7 +1135,7 @@ function DesignCanvas({ navigate }: { navigate: (p: Page) => void }) {
 
   const addDevice = (type: CanvasDevice["type"], x: number, y: number, storeRef?: string, imgUrl?: string) => {
     const newDevice: CanvasDevice = { id: `dev${Date.now()}`, type, x, y, rot: 0, fov: type === "camera" ? 80 : undefined, range: type === "camera" ? 90 : undefined, label: `${type.toUpperCase()}-${String(devices.length + 1).padStart(2, "0")}`, doorConfig: type === "door" ? { swing: "inswinging", lockType: "Electric Strike", readers: [], accessType: "Card", keyOverride: true } : undefined, deviceStoreRef: storeRef, imageUrl: imgUrl };
-    setDevices((prev) => { const updated = [...prev, newDevice]; return updated; });
+    setDevices((prev) => [...prev, newDevice]);
     setSelectedId(newDevice.id);
   };
 
@@ -798,22 +1165,9 @@ function DesignCanvas({ navigate }: { navigate: (p: Page) => void }) {
     }
   };
 
-  const handleDeviceClick = (deviceId: string, e: React.MouseEvent) => {
-    e.stopPropagation();
-    if (activeTool === "trash") { setDevices((prev) => prev.filter((d) => d.id !== deviceId)); if (selectedId === deviceId) setSelectedId(null); return; }
-    if (activeTool === "select") { setSelectedId(deviceId); setDraggingDevice(deviceId); }
-  };
-
+  const handleDeviceClick = (deviceId: string, e: React.MouseEvent) => { e.stopPropagation(); if (activeTool === "trash") { setDevices((prev) => prev.filter((d) => d.id !== deviceId)); if (selectedId === deviceId) setSelectedId(null); return; } if (activeTool === "select") { setSelectedId(deviceId); setDraggingDevice(deviceId); } };
   const handleDeviceMouseDown = (deviceId: string, _e: React.MouseEvent) => { if (activeTool === "select") setDraggingDevice(deviceId); };
-
-  const handleCanvasMouseMove = (e: React.MouseEvent) => {
-    if (!draggingDevice || activeTool !== "select") return;
-    const transformState = transformRef.current?.state; if (!transformState) return;
-    const scale = transformState.scale;
-    const posX = (e.clientX - transformState.positionX) / scale; const posY = (e.clientY - transformState.positionY) / scale;
-    setDevices((prev) => prev.map((d) => d.id === draggingDevice ? { ...d, x: posX, y: posY } : d));
-  };
-
+  const handleCanvasMouseMove = (e: React.MouseEvent) => { if (!draggingDevice || activeTool !== "select") return; const transformState = transformRef.current?.state; if (!transformState) return; const scale = transformState.scale; const posX = (e.clientX - transformState.positionX) / scale; const posY = (e.clientY - transformState.positionY) / scale; setDevices((prev) => prev.map((d) => d.id === draggingDevice ? { ...d, x: posX, y: posY } : d)); };
   const handleCanvasMouseUp = () => { setDraggingDevice(null); };
 
   const filteredStoreDevices = storeSearch.trim() ? storeDevices.filter(d => d.model.toLowerCase().includes(storeSearch.toLowerCase()) || d.manufacturer.toLowerCase().includes(storeSearch.toLowerCase())) : storeDevices;
@@ -877,6 +1231,20 @@ function DesignCanvas({ navigate }: { navigate: (p: Page) => void }) {
           <div className="px-4 py-3 flex items-center justify-between" style={{ borderBottom: "1px solid rgba(255,255,255,0.07)" }}><p className="text-white text-[12px] font-bold">Device Store</p><button onClick={() => setShowDeviceTray(false)} className="w-6 h-6 rounded-lg hover:bg-white/[0.08] flex items-center justify-center cursor-pointer active:scale-[0.97] transition-transform min-w-[44px] min-h-[44px]"><X className="w-3.5 h-3.5 text-[#8b949e]" /></button></div>
           <div className="px-3 py-2.5"><div className="relative"><Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3 h-3 text-[#484f58]" /><input value={storeSearch} onChange={(e) => setStoreSearch(e.target.value)} placeholder="Search device store..." className="w-full h-7 rounded-xl pl-7 pr-2.5 text-[11px] text-[#e6edf3] focus:outline-none" style={G.input} /></div></div>
           <div className="flex-1 overflow-y-auto" style={{ scrollbarWidth: "none" }}>
+            {filteredStoreDevices.length > 0 && (
+              <div className="px-3 py-2"><p className="text-[#484f58] text-[9px] font-bold uppercase tracking-widest mb-1.5">Recently Used</p>
+                {storeDevices.slice(0, 5).map(device => {
+                  const cc = CAT_COLOR[device.category] ?? CAT_COLOR.other;
+                  return (
+                    <button key={"recent-" + device.id} onClick={() => { setActiveTool("select"); placeDeviceFromStore(device, 400, 300); }} className="w-full flex items-center gap-2 px-2 py-1.5 rounded-lg hover:bg-white/[0.04] transition-colors cursor-pointer text-left mb-0.5">
+                      <div className="w-6 h-6 rounded flex items-center justify-center flex-shrink-0" style={{ background: "rgba(255,255,255,0.04)" }}>{device.imageUrl ? <img src={device.imageUrl} alt="" className="w-full h-full object-contain p-0.5 opacity-70" /> : <Camera className="w-3 h-3 text-[#484f58]" />}</div>
+                      <div className="flex-1 min-w-0"><p className="text-white text-[10px] font-semibold truncate">{device.model}</p></div>
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+            <div className="px-3 py-1"><p className="text-[#484f58] text-[9px] font-bold uppercase tracking-widest mb-1.5">All Devices</p></div>
             {filteredStoreDevices.map((device) => {
               const cc = CAT_COLOR[device.category] ?? CAT_COLOR.other;
               return (
@@ -899,23 +1267,17 @@ function DesignCanvas({ navigate }: { navigate: (p: Page) => void }) {
                 <TransformComponent wrapperStyle={{ width: "100%", height: "100%" }} contentStyle={{ width: "100%", height: "100%" }}>
                   <div className="relative" style={{ width: "100%", height: "100%", minWidth: "2000px", minHeight: "1500px", background: "#070c1a", backgroundImage: "radial-gradient(circle, rgba(255,255,255,0.015) 1px, transparent 1px)", backgroundSize: "20px 20px", transform: `rotate(${canvasRotation}deg)`, transformOrigin: "center center" }} onClick={handleCanvasClick} onDoubleClick={handleDoubleClick}>
                     {floorPlan2D && <img src={floorPlan2D.url} alt="Floor Plan" className="absolute left-1/2 top-1/2" style={{ transform: "translate(-50%, -50%)", opacity: floorPlanOpacity, maxWidth: "90%", maxHeight: "90%", pointerEvents: "none", userSelect: "none" }} draggable={false} />}
-                    {activeTool === "cable" && cablePoints.length > 0 && (
-                      <svg className="absolute inset-0 w-full h-full pointer-events-none" style={{ zIndex: 10 }}><polyline points={cablePoints.map(p => `${p.x},${p.y}`).join(" ")} fill="none" stroke="#8b5cf6" strokeWidth="2" strokeDasharray="6,3" />{cablePoints.map((p, i) => (<circle key={i} cx={p.x} cy={p.y} r="4" fill="#8b5cf6" />))}</svg>
-                    )}
-                    {devices.map((dev) => {
-                      const color = getDeviceColor(dev.type); const isSelected = dev.id === selectedId;
-                      const deviceStoreItem = dev.deviceStoreRef ? storeDevices.find(d => d.id === dev.deviceStoreRef) : null;
-                      return (
-                        <div key={dev.id} className="device-icon absolute cursor-pointer" style={{ left: dev.x, top: dev.y, transform: "translate(-50%, -50%)", zIndex: 20 }} onClick={(e) => handleDeviceClick(dev.id, e)} onMouseDown={(e) => handleDeviceMouseDown(dev.id, e)}>
-                          {dev.type === "camera" && (<div className="relative">{deviceStoreItem?.imageUrl ? <img src={deviceStoreItem.imageUrl} alt="" className="w-8 h-8 object-contain rounded" style={{ border: isSelected ? "2px solid #3b82f6" : "1px solid rgba(255,255,255,0.3)", background: "rgba(0,0,0,0.6)" }} /> : <div className="w-6 h-6 rounded-full flex items-center justify-center" style={{ background: color, border: isSelected ? "2px solid #fff" : "1px solid rgba(255,255,255,0.5)", boxShadow: isSelected ? `0 0 12px ${color}` : "none" }}><Camera className="w-3 h-3 text-white" /></div>}{showFov && <svg className="absolute" style={{ left: "-45px", top: "-45px", width: "100px", height: "100px", pointerEvents: "none", transform: `rotate(${dev.rot}deg)` }}><path d={fovPath(50, 50, 0, dev.fov || 80, dev.range || 45)} fill={isSelected ? "rgba(59,130,246,0.22)" : "rgba(59,130,246,0.08)"} /></svg>}</div>)}
-                          {dev.type === "door" && (<div className="relative" style={{ transform: `rotate(${dev.rot}deg)` }}><div className="flex items-center gap-0.5 px-1.5 py-0.5 rounded" style={{ background: "rgba(245,158,11,0.2)", border: isSelected ? "2px solid #f59e0b" : "1px solid rgba(245,158,11,0.5)" }}><DoorOpen className="w-3.5 h-3.5 text-amber-400" />{dev.doorConfig?.swing === "outswinging" ? <svg width="12" height="12" viewBox="0 0 12 12"><path d="M2,10 Q2,2 10,2" fill="none" stroke="#f59e0b" strokeWidth="1" /></svg> : <svg width="12" height="12" viewBox="0 0 12 12"><path d="M2,2 Q2,10 10,10" fill="none" stroke="#f59e0b" strokeWidth="1" /></svg>}</div></div>)}
-                          {dev.type === "panel" && <div className="px-1.5 py-0.5 rounded text-[9px] font-bold flex items-center gap-1" style={{ background: "rgba(249,115,22,0.2)", border: isSelected ? "2px solid #f97316" : "1px solid rgba(249,115,22,0.5)", color: "#f97316" }}><PanelRight className="w-3 h-3" />PNL</div>}
-                          {dev.type === "power" && <div className="px-1.5 py-0.5 rounded text-[9px] font-bold flex items-center gap-1" style={{ background: "rgba(239,68,68,0.2)", border: isSelected ? "2px solid #ef4444" : "1px solid rgba(239,68,68,0.5)", color: "#ef4444" }}><Zap className="w-3 h-3" />PWR</div>}
-                          {dev.type === "server" && <div className="px-1.5 py-0.5 rounded text-[9px] font-bold flex items-center gap-1" style={{ background: "rgba(236,72,153,0.2)", border: isSelected ? "2px solid #ec4899" : "1px solid rgba(236,72,153,0.5)", color: "#ec4899" }}><Server className="w-3 h-3" />NVR</div>}
-                          {dev.type === "cable" && dev.cablePoints && <svg className="absolute pointer-events-none" style={{ left: 0, top: 0, width: "100%", height: "100%", overflow: "visible" }}><polyline points={dev.cablePoints.map(p => `${p.x - dev.x},${p.y - dev.y}`).join(" ")} fill="none" stroke={color} strokeWidth={isSelected ? 2.5 : 1.5} strokeDasharray={isSelected ? "none" : "6,3"} /></svg>}
-                          <div className="absolute -bottom-4 left-1/2 -translate-x-1/2 text-[8px] font-semibold whitespace-nowrap" style={{ color: isSelected ? "#fff" : "#484f58", textShadow: isSelected ? "0 0 6px rgba(0,0,0,0.8)" : "none" }}>{dev.label}</div>
-                        </div>
-                      );
+                    {activeTool === "cable" && cablePoints.length > 0 && (<svg className="absolute inset-0 w-full h-full pointer-events-none" style={{ zIndex: 10 }}><polyline points={cablePoints.map(p => `${p.x},${p.y}`).join(" ")} fill="none" stroke="#8b5cf6" strokeWidth="2" strokeDasharray="6,3" />{cablePoints.map((p, i) => (<circle key={i} cx={p.x} cy={p.y} r="4" fill="#8b5cf6" />))}</svg>)}
+                    {devices.map((dev) => { const color = getDeviceColor(dev.type); const isSelected = dev.id === selectedId; const deviceStoreItem = dev.deviceStoreRef ? storeDevices.find(d => d.id === dev.deviceStoreRef) : null;
+                      return (<div key={dev.id} className="device-icon absolute cursor-pointer" style={{ left: dev.x, top: dev.y, transform: "translate(-50%, -50%)", zIndex: 20 }} onClick={(e) => handleDeviceClick(dev.id, e)} onMouseDown={(e) => handleDeviceMouseDown(dev.id, e)}>
+                        {dev.type === "camera" && (<div className="relative">{deviceStoreItem?.imageUrl ? <img src={deviceStoreItem.imageUrl} alt="" className="w-8 h-8 object-contain rounded" style={{ border: isSelected ? "2px solid #3b82f6" : "1px solid rgba(255,255,255,0.3)", background: "rgba(0,0,0,0.6)" }} /> : <div className="w-6 h-6 rounded-full flex items-center justify-center" style={{ background: color, border: isSelected ? "2px solid #fff" : "1px solid rgba(255,255,255,0.5)", boxShadow: isSelected ? `0 0 12px ${color}` : "none" }}><Camera className="w-3 h-3 text-white" /></div>}{showFov && <svg className="absolute" style={{ left: "-45px", top: "-45px", width: "100px", height: "100px", pointerEvents: "none", transform: `rotate(${dev.rot}deg)` }}><path d={fovPath(50, 50, 0, dev.fov || 80, dev.range || 45)} fill={isSelected ? "rgba(59,130,246,0.22)" : "rgba(59,130,246,0.08)"} /></svg>}</div>)}
+                        {dev.type === "door" && (<div className="relative" style={{ transform: `rotate(${dev.rot}deg)` }}><div className="flex items-center gap-0.5 px-1.5 py-0.5 rounded" style={{ background: "rgba(245,158,11,0.2)", border: isSelected ? "2px solid #f59e0b" : "1px solid rgba(245,158,11,0.5)" }}><DoorOpen className="w-3.5 h-3.5 text-amber-400" />{dev.doorConfig?.swing === "outswinging" ? <svg width="12" height="12" viewBox="0 0 12 12"><path d="M2,10 Q2,2 10,2" fill="none" stroke="#f59e0b" strokeWidth="1" /></svg> : <svg width="12" height="12" viewBox="0 0 12 12"><path d="M2,2 Q2,10 10,10" fill="none" stroke="#f59e0b" strokeWidth="1" /></svg>}</div></div>)}
+                        {dev.type === "panel" && <div className="px-1.5 py-0.5 rounded text-[9px] font-bold flex items-center gap-1" style={{ background: "rgba(249,115,22,0.2)", border: isSelected ? "2px solid #f97316" : "1px solid rgba(249,115,22,0.5)", color: "#f97316" }}><PanelRight className="w-3 h-3" />PNL</div>}
+                        {dev.type === "power" && <div className="px-1.5 py-0.5 rounded text-[9px] font-bold flex items-center gap-1" style={{ background: "rgba(239,68,68,0.2)", border: isSelected ? "2px solid #ef4444" : "1px solid rgba(239,68,68,0.5)", color: "#ef4444" }}><Zap className="w-3 h-3" />PWR</div>}
+                        {dev.type === "server" && <div className="px-1.5 py-0.5 rounded text-[9px] font-bold flex items-center gap-1" style={{ background: "rgba(236,72,153,0.2)", border: isSelected ? "2px solid #ec4899" : "1px solid rgba(236,72,153,0.5)", color: "#ec4899" }}><Server className="w-3 h-3" />NVR</div>}
+                        {dev.type === "cable" && dev.cablePoints && <svg className="absolute pointer-events-none" style={{ left: 0, top: 0, width: "100%", height: "100%", overflow: "visible" }}><polyline points={dev.cablePoints.map(p => `${p.x - dev.x},${p.y - dev.y}`).join(" ")} fill="none" stroke={color} strokeWidth={isSelected ? 2.5 : 1.5} strokeDasharray={isSelected ? "none" : "6,3"} /></svg>}
+                        <div className="absolute -bottom-4 left-1/2 -translate-x-1/2 text-[8px] font-semibold whitespace-nowrap" style={{ color: isSelected ? "#fff" : "#484f58", textShadow: isSelected ? "0 0 6px rgba(0,0,0,0.8)" : "none" }}>{dev.label}</div>
+                      </div>);
                     })}
                     {!floorPlan2D && (<div className="absolute inset-0 flex items-center justify-center pointer-events-none"><div className="text-center"><Upload className="w-12 h-12 text-[#484f58] mx-auto mb-3" /><p className="text-[#484f58] text-[14px] font-semibold">Upload a floor plan or 3D model to begin</p><p className="text-[#484f58] text-[11px] mt-1">Use the toolbar buttons above</p></div></div>)}
                   </div>
@@ -969,6 +1331,7 @@ function Workbook({ navigate }: { navigate: (p: Page) => void }) {
   const [saveStatus, setSaveStatus] = useState<"saved" | "saving" | "">("saved");
   const [canvasDevices, setCanvasDevices] = useState<CanvasDevice[]>([]);
   const [storeDevices, setStoreDevices] = useState<CatalogDevice[]>([]);
+  const [fieldSaveStatus, setFieldSaveStatus] = useState<Record<string, "saved" | "saving" | "">>({});
 
   useEffect(() => { localStorage.setItem("wb_tab", activeTab); }, [activeTab]);
   useEffect(() => { API.fx.getRate().then(r => setExchangeRate(r)); }, []);
@@ -982,11 +1345,7 @@ function Workbook({ navigate }: { navigate: (p: Page) => void }) {
       setQuotes(quoteData);
       const lastId = localStorage.getItem("wb_last_project");
       const pid = lastId && projData.find(p => p.id === lastId) ? lastId : projData[0]?.id || "";
-      if (pid && !selectedProjectId) {
-        setSelectedProjectId(pid);
-        const pq = quoteData.find((q: Quote) => q.projectId === pid);
-        if (pq) setSelectedQuoteId(pq.id);
-      }
+      if (pid && !selectedProjectId) { setSelectedProjectId(pid); const pq = quoteData.find((q: Quote) => q.projectId === pid); if (pq) setSelectedQuoteId(pq.id); }
     } catch { setProjects([]); setQuotes([]); } finally { setLoading(false); }
   }, []);
 
@@ -996,22 +1355,14 @@ function Workbook({ navigate }: { navigate: (p: Page) => void }) {
   useEffect(() => {
     if (selectedProjectId) {
       localStorage.setItem("wb_last_project", selectedProjectId);
-      API.canvas.get(selectedProjectId).then(data => {
-        if (data.layoutData?.devices) setCanvasDevices(data.layoutData.devices);
-        else setCanvasDevices([]);
-      }).catch(() => setCanvasDevices([]));
+      API.canvas.get(selectedProjectId).then(data => { if (data.layoutData?.devices) setCanvasDevices(data.layoutData.devices); else setCanvasDevices([]); }).catch(() => setCanvasDevices([]));
     }
   }, [selectedProjectId]);
 
   const selectedProject = projects.find((p) => p.id === selectedProjectId);
   const selectedQuote = quotes.find((q) => q.id === selectedQuoteId);
 
-  useEffect(() => {
-    if (selectedProjectId && !selectedQuoteId) {
-      const pq = quotes.find((q) => q.projectId === selectedProjectId);
-      if (pq) setSelectedQuoteId(pq.id);
-    }
-  }, [selectedProjectId, quotes, selectedQuoteId]);
+  useEffect(() => { if (selectedProjectId && !selectedQuoteId) { const pq = quotes.find((q) => q.projectId === selectedProjectId); if (pq) setSelectedQuoteId(pq.id); } }, [selectedProjectId, quotes, selectedQuoteId]);
 
   const quoteCategories = selectedQuote?.categories || [];
 
@@ -1023,49 +1374,50 @@ function Workbook({ navigate }: { navigate: (p: Page) => void }) {
     return { ...item, sellPrice, costTotal, sellTotal, profit, jmdConversion: sellTotal * exchangeRate };
   };
 
-  const categorySubtotals = quoteCategories.map((cat) => {
-    const activeItems = cat.lineItems.filter((li) => li.quantity > 0);
-    return { category: cat, subtotal: activeItems.reduce((s, li) => s + li.sellTotal, 0) };
-  });
+  const categorySubtotals = quoteCategories.map((cat) => { const activeItems = cat.lineItems.filter((li) => li.quantity > 0); return { category: cat, subtotal: activeItems.reduce((s, li) => s + li.sellTotal, 0) }; });
   const grandTotalPreTax = categorySubtotals.reduce((s, cs) => s + cs.subtotal, 0);
   const gctAmount = grandTotalPreTax * GCT_RATE;
   const grandTotal = grandTotalPreTax + gctAmount;
 
-  const autoSave = useCallback(async (q: Quote) => {
-    setSaveStatus("saving");
-    try { await API.quotes.update(q.id, { categories: q.categories, exchangeRate }); setTimeout(() => setSaveStatus("saved"), 800); } catch { setSaveStatus("saved"); }
-  }, [exchangeRate]);
+  const autoSave = useCallback(async (q: Quote) => { setSaveStatus("saving"); try { await API.quotes.update(q.id, { categories: q.categories, exchangeRate }); setTimeout(() => setSaveStatus("saved"), 800); } catch { setSaveStatus("saved"); } }, [exchangeRate]);
 
   const updateQuoteLineItem = (categoryId: string, itemId: string, updates: Partial<QuoteLineItem>) => {
+    const fieldKey = `${categoryId}-${itemId}`;
+    setFieldSaveStatus(prev => ({ ...prev, [fieldKey]: "saving" }));
     setQuotes((prev) => prev.map((q) => {
       if (q.id !== selectedQuoteId) return q;
       const updated = { ...q, categories: q.categories.map((cat) => cat.id !== categoryId ? cat : { ...cat, lineItems: cat.lineItems.map((li) => li.id === itemId ? recalcLineItem({ ...li, ...updates }) : li) }) };
       autoSave(updated);
       return updated;
     }));
+    setTimeout(() => setFieldSaveStatus(prev => ({ ...prev, [fieldKey]: "saved" })), 600);
   };
 
   const addLineItem = (categoryId: string) => {
-    setQuotes((prev) => prev.map((q) => {
-      if (q.id !== selectedQuoteId) return q;
-      const updated = { ...q, categories: q.categories.map((cat) => {
-        if (cat.id !== categoryId) return cat;
-        const newItem: QuoteLineItem = { id: crypto.randomUUID?.() || `li${Date.now()}`, itemNumber: String(cat.lineItems.length + 1).padStart(2, "0"), description: "", unitCost: 0, quantity: 0, markupPercent: 0.35, sellPrice: 0, costTotal: 0, sellTotal: 0, profit: 0, jmdConversion: 0 };
-        return { ...cat, lineItems: [...cat.lineItems, newItem] };
-      }) };
-      autoSave(updated);
-      return updated;
-    }));
+    setQuotes((prev) => prev.map((q) => { if (q.id !== selectedQuoteId) return q; const updated = { ...q, categories: q.categories.map((cat) => { if (cat.id !== categoryId) return cat; const newItem: QuoteLineItem = { id: crypto.randomUUID?.() || `li${Date.now()}`, itemNumber: String(cat.lineItems.length + 1).padStart(2, "0"), description: "", unitCost: 0, quantity: 0, markupPercent: 0.35, sellPrice: 0, costTotal: 0, sellTotal: 0, profit: 0, jmdConversion: 0 }; return { ...cat, lineItems: [...cat.lineItems, newItem] }; }) }; autoSave(updated); return updated; }));
   };
 
   const toggleCollapse = (id: string) => { setCollapsedCategories((prev) => { const next = new Set(prev); next.has(id) ? next.delete(id) : next.add(id); return next; }); };
 
-  if (loading) return <div className="px-3 md:px-5 py-4 md:py-6 space-y-4"><Skeleton className="h-10 w-48" /><Skeleton className="h-64 rounded-2xl" /></div>;
+  if (loading) return (
+    <div className="px-3 md:px-5 py-4 md:py-6 space-y-4">
+      <Skeleton className="h-10 w-48" />
+      <div className="flex gap-2"><Skeleton className="h-8 w-24 rounded-lg" /><Skeleton className="h-8 w-24 rounded-lg" /><Skeleton className="h-8 w-24 rounded-lg" /></div>
+      <Skeleton className="h-64 rounded-2xl" /><Skeleton className="h-48 rounded-2xl" />
+    </div>
+  );
 
   const wbTabs = [
     { id: "asset-list", label: "Asset List" },
     { id: "bom", label: "BOM" },
     { id: "synthesis", label: "Synthesis" },
+  ];
+
+  const BOM_CATEGORIES = [
+    { section: 100, name: "Video Management System Software" }, { section: 200, name: "Compute and Storage" },
+    { section: 300, name: "Control Room" }, { section: 400, name: "Video Security Equipment" },
+    { section: 500, name: "Network" }, { section: 600, name: "Network Infrastructure" },
+    { section: 700, name: "Professional Services" }, { section: 800, name: "Importation" },
   ];
 
   return (
@@ -1097,15 +1449,8 @@ function Workbook({ navigate }: { navigate: (p: Page) => void }) {
               <>
                 {canvasDevices.length > 0 && (
                   <div className="rounded-2xl overflow-hidden" style={G.card}>
-                    <div className="w-full px-4 py-3 flex items-center justify-between" style={{ borderBottom: "1px solid rgba(255,255,255,0.06)", background: "rgba(255,255,255,0.02)" }}>
-                      <div className="flex items-center gap-2"><h3 className="text-white text-[13px] font-bold">Canvas Devices</h3><span className="text-[#484f58] text-[10px]">({canvasDevices.length})</span></div>
-                    </div>
-                    <div className="overflow-x-auto">
-                      <table className="w-full" style={{ minWidth: "500px" }}>
-                        <thead><tr style={{ borderBottom: "1px solid rgba(255,255,255,0.06)" }}>{["Device","Type","Model","QTY","Unit Cost"].map(h => <th key={h} className="px-3 py-2.5 text-[#484f58] text-[9px] font-bold uppercase tracking-widest text-left">{h}</th>)}</tr></thead>
-                        <tbody>{canvasDevices.map((dev) => { const sd = dev.deviceStoreRef ? storeDevices.find(d => d.id === dev.deviceStoreRef) : null; return (<tr key={dev.id} style={{ borderBottom: "1px solid rgba(255,255,255,0.03)" }}><td className="px-3 py-2.5 text-white text-[11px] font-semibold">{dev.label}</td><td className="px-3 py-2.5 text-[#8b949e] text-[10px] capitalize">{dev.type}</td><td className="px-3 py-2.5 text-white text-[11px]">{sd ? `${sd.manufacturer} ${sd.model}` : "—"}</td><td className="px-3 py-2.5 text-white text-[11px] text-center">1</td><td className="px-3 py-2.5 text-white text-[11px] font-bold text-right">{sd?.price ? fmt(sd.price) : "—"}</td></tr>); })}</tbody>
-                      </table>
-                    </div>
+                    <div className="w-full px-4 py-3 flex items-center justify-between" style={{ borderBottom: "1px solid rgba(255,255,255,0.06)", background: "rgba(255,255,255,0.02)" }}><div className="flex items-center gap-2"><h3 className="text-white text-[13px] font-bold">Canvas Devices</h3><span className="text-[#484f58] text-[10px]">({canvasDevices.length})</span></div></div>
+                    <div className="overflow-x-auto"><table className="w-full" style={{ minWidth: "500px" }}><thead><tr style={{ borderBottom: "1px solid rgba(255,255,255,0.06)" }}>{["Device","Type","Model","QTY","Unit Cost"].map(h => <th key={h} className="px-3 py-2.5 text-[#484f58] text-[9px] font-bold uppercase tracking-widest text-left">{h}</th>)}</tr></thead><tbody>{canvasDevices.map((dev) => { const sd = dev.deviceStoreRef ? storeDevices.find(d => d.id === dev.deviceStoreRef) : null; return (<tr key={dev.id} style={{ borderBottom: "1px solid rgba(255,255,255,0.03)" }}><td className="px-3 py-2.5 text-white text-[11px] font-semibold">{dev.label}</td><td className="px-3 py-2.5 text-[#8b949e] text-[10px] capitalize">{dev.type}</td><td className="px-3 py-2.5 text-white text-[11px]">{sd ? `${sd.manufacturer} ${sd.model}` : "—"}</td><td className="px-3 py-2.5 text-white text-[11px] text-center">1</td><td className="px-3 py-2.5 text-white text-[11px] font-bold text-right">{sd?.price ? fmt(sd.price) : "—"}</td></tr>); })}</tbody></table></div>
                   </div>
                 )}
                 {quoteCategories.filter(c => ["Video Security Equipment","Access Control Equipment","Software","Compute & Storage","Networking"].includes(c.name)).map((category) => {
@@ -1113,18 +1458,8 @@ function Workbook({ navigate }: { navigate: (p: Page) => void }) {
                   const activeItems = category.lineItems.filter(li => li.quantity > 0);
                   return (
                     <div key={category.id} className="rounded-2xl overflow-hidden" style={G.card}>
-                      <button onClick={() => toggleCollapse(category.id)} className="w-full px-4 py-3 flex items-center justify-between hover:bg-white/[0.02] transition-colors cursor-pointer active:scale-[0.97] transition-transform min-h-[44px]" style={{ borderBottom: isCollapsed ? "none" : "1px solid rgba(255,255,255,0.06)", background: "rgba(255,255,255,0.02)" }}>
-                        <div className="flex items-center gap-2"><h3 className="text-white text-[13px] font-bold">{category.name}</h3><span className="text-[#484f58] text-[10px]">({activeItems.length})</span></div>
-                        <div className="flex items-center gap-3"><span className="text-[#8b949e] text-[11px] font-bold">{fmt(activeItems.reduce((s,li)=>s+li.sellTotal,0))}</span>{isCollapsed ? <ChevronDown className="w-4 h-4 text-[#484f58]" /> : <ChevronUp className="w-4 h-4 text-[#484f58]" />}</div>
-                      </button>
-                      {!isCollapsed && (
-                        <div className="overflow-x-auto">
-                          <table className="w-full" style={{ minWidth: "800px" }}>
-                            <thead><tr style={{ borderBottom: "1px solid rgba(255,255,255,0.06)" }}>{["Item","QTY","Cost","Mark up %","Sell","Cost Total","Total","Profit"].map((h) => (<th key={h} className="px-3 py-2.5 text-[#484f58] text-[9px] font-bold uppercase tracking-widest text-left">{h}</th>))}</tr></thead>
-                            <tbody>{category.lineItems.map((item) => { const r = recalcLineItem(item); return (<tr key={item.id} className="hover:bg-white/[0.02]" style={{ borderBottom: "1px solid rgba(255,255,255,0.03)" }}><td className="px-3 py-2.5"><input value={item.description} onChange={(e) => updateQuoteLineItem(category.id, item.id, { description: e.target.value })} className="bg-transparent text-white text-[11px] font-semibold w-full min-w-[120px] focus:outline-none" /></td><td className="px-3 py-2.5"><input type="number" value={item.quantity} onChange={(e) => updateQuoteLineItem(category.id, item.id, { quantity: parseInt(e.target.value)||0 })} className="bg-transparent text-white text-[11px] w-16 text-center focus:outline-none" style={G.input} /></td><td className="px-3 py-2.5"><input type="number" value={item.unitCost} onChange={(e) => updateQuoteLineItem(category.id, item.id, { unitCost: parseFloat(e.target.value)||0 })} className="bg-transparent text-white text-[11px] w-20 text-right focus:outline-none" style={G.input} /></td><td className="px-3 py-2.5"><input type="number" value={Math.round(item.markupPercent*100)} onChange={(e) => updateQuoteLineItem(category.id, item.id, { markupPercent: (parseFloat(e.target.value)||0)/100 })} className="bg-transparent text-white text-[11px] w-16 text-center focus:outline-none" style={G.input} /><span className="text-[#484f58] text-[10px]">%</span></td><td className="px-3 py-2.5 text-white text-[11px] font-bold text-right">{fmt(r.sellPrice)}</td><td className="px-3 py-2.5 text-[#8b949e] text-[11px] text-right">{fmt(r.costTotal)}</td><td className="px-3 py-2.5 text-white text-[11px] font-bold text-right">{fmt(r.sellTotal)}</td><td className="px-3 py-2.5 text-[10px] font-bold text-right" style={{ color: r.profit>=0?"#34d399":"#f87171" }}>{fmt(r.profit)}</td></tr>); })}<tr><td colSpan={8} className="px-3 py-2"><button onClick={() => addLineItem(category.id)} className="text-[#484f58] hover:text-blue-400 text-[11px] font-semibold flex items-center gap-1 cursor-pointer"><Plus className="w-3 h-3" /> Add item</button></td></tr></tbody>
-                          </table>
-                        </div>
-                      )}
+                      <button onClick={() => toggleCollapse(category.id)} className="w-full px-4 py-3 flex items-center justify-between hover:bg-white/[0.02] transition-colors cursor-pointer active:scale-[0.97] transition-transform min-h-[44px]" style={{ borderBottom: isCollapsed ? "none" : "1px solid rgba(255,255,255,0.06)", background: "rgba(255,255,255,0.02)" }}><div className="flex items-center gap-2"><h3 className="text-white text-[13px] font-bold">{category.name}</h3><span className="text-[#484f58] text-[10px]">({activeItems.length})</span></div><div className="flex items-center gap-3"><span className="text-[#8b949e] text-[11px] font-bold">{fmt(activeItems.reduce((s,li)=>s+li.sellTotal,0))}</span>{isCollapsed ? <ChevronDown className="w-4 h-4 text-[#484f58]" /> : <ChevronUp className="w-4 h-4 text-[#484f58]" />}</div></button>
+                      {!isCollapsed && (<div className="overflow-x-auto"><table className="w-full" style={{ minWidth: "800px" }}><thead><tr style={{ borderBottom: "1px solid rgba(255,255,255,0.06)" }}>{["Item","QTY","Cost","Mark up %","Sell","Cost Total","Total","Profit"].map((h) => (<th key={h} className="px-3 py-2.5 text-[#484f58] text-[9px] font-bold uppercase tracking-widest text-left">{h}</th>))}</tr></thead><tbody>{category.lineItems.map((item) => { const r = recalcLineItem(item); const fieldKey = `${category.id}-${item.id}`; const fs = fieldSaveStatus[fieldKey]; return (<tr key={item.id} className="hover:bg-white/[0.02]" style={{ borderBottom: "1px solid rgba(255,255,255,0.03)" }}><td className="px-3 py-2.5"><input value={item.description} onChange={(e) => updateQuoteLineItem(category.id, item.id, { description: e.target.value })} className="bg-transparent text-white text-[11px] font-semibold w-full min-w-[120px] focus:outline-none" /></td><td className="px-3 py-2.5"><input type="number" value={item.quantity} onChange={(e) => updateQuoteLineItem(category.id, item.id, { quantity: parseInt(e.target.value)||0 })} className="bg-transparent text-white text-[11px] w-16 text-center focus:outline-none" style={G.input} /></td><td className="px-3 py-2.5"><input type="number" value={item.unitCost} onChange={(e) => updateQuoteLineItem(category.id, item.id, { unitCost: parseFloat(e.target.value)||0 })} className="bg-transparent text-white text-[11px] w-20 text-right focus:outline-none" style={G.input} /></td><td className="px-3 py-2.5"><input type="number" value={Math.round(item.markupPercent*100)} onChange={(e) => updateQuoteLineItem(category.id, item.id, { markupPercent: (parseFloat(e.target.value)||0)/100 })} className="bg-transparent text-white text-[11px] w-16 text-center focus:outline-none" style={G.input} /><span className="text-[#484f58] text-[10px]">%</span></td><td className="px-3 py-2.5 text-white text-[11px] font-bold text-right">{fmt(r.sellPrice)}</td><td className="px-3 py-2.5 text-[#8b949e] text-[11px] text-right">{fmt(r.costTotal)}</td><td className="px-3 py-2.5 text-white text-[11px] font-bold text-right">{fmt(r.sellTotal)}</td><td className="px-3 py-2.5 text-[10px] font-bold text-right flex items-center justify-end gap-1" style={{ color: r.profit>=0?"#34d399":"#f87171" }}>{fmt(r.profit)}{fs === "saving" && <Loader2 className="w-2.5 h-2.5 animate-spin text-[#484f58]" />}{fs === "saved" && <CheckCircle2 className="w-2.5 h-2.5 text-emerald-400" />}</td></tr>); })}<tr><td colSpan={8} className="px-3 py-2"><button onClick={() => addLineItem(category.id)} className="text-[#484f58] hover:text-blue-400 text-[11px] font-semibold flex items-center gap-1 cursor-pointer"><Plus className="w-3 h-3" /> Add item</button></td></tr></tbody></table></div>)}
                     </div>
                   );
                 })}
@@ -1135,22 +1470,19 @@ function Workbook({ navigate }: { navigate: (p: Page) => void }) {
                 <div className="rounded-2xl overflow-hidden" style={G.card}>
                   <div className="overflow-x-auto">
                     <table className="w-full" style={{ minWidth: "900px" }}>
-                      <thead><tr style={{ borderBottom: "1px solid rgba(255,255,255,0.08)", background: "rgba(255,255,255,0.03)" }}>{["Item No","Products – Description","List","Qty","Extended"].map(h => <th key={h} className="px-3 py-2.5 text-[#484f58] text-[9px] font-bold uppercase tracking-widest text-left">{h}</th>)}</tr></thead>
+                      <thead><tr style={{ borderBottom: "1px solid rgba(255,255,255,0.08)", background: "rgba(255,255,255,0.03)" }}>{["Item No","Products – Description","List","Price"].map(h => <th key={h} className="px-3 py-2.5 text-[#484f58] text-[9px] font-bold uppercase tracking-widest text-left">{h}</th>)}</tr></thead>
                       <tbody>
-                        <tr style={{ background: "rgba(59,130,246,0.06)" }}><td colSpan={5} className="px-4 py-2.5 text-white text-[12px] font-bold uppercase tracking-widest">Video Surveillance</td></tr>
-                        {[{ item: "100", desc: "Video Management System Software", list: 0, qty: 0 },{ item: "200", desc: "Compute and Storage", list: 0, qty: 0 },{ item: "300", desc: "Control Room", list: 0, qty: 0 },{ item: "400", desc: "Video Security Equipment", list: 0, qty: 0 },{ item: "500", desc: "Network", list: 0, qty: 0 },{ item: "600", desc: "Network Infrastructure", list: 0, qty: 0 },{ item: "700", desc: "Professional Services", list: 0, qty: 0 },{ item: "700.5", desc: "Contingency plan", list: 0, qty: 0 },{ item: "800", desc: "Importation", list: 0, qty: 0 }].map(row => {
-                          const qCat = quoteCategories.find(c => { const map: Record<string,string> = {"100":"Video Management System Software","200":"Compute and Storage","300":"Control Room","400":"Video Security Equipment","500":"Network","600":"Network Infrastructure","700":"Professional Services","800":"Importation"}; return c.name === map[row.item]; });
+                        <tr style={{ background: "rgba(59,130,246,0.06)" }}><td colSpan={4} className="px-4 py-2.5 text-white text-[12px] font-bold uppercase tracking-widest">Video Surveillance</td></tr>
+                        {BOM_CATEGORIES.map(bomCat => {
+                          const qCat = quoteCategories.find(c => { const map: Record<number,string> = {100:"Video Management System Software",200:"Compute and Storage",300:"Control Room",400:"Video Security Equipment",500:"Network",600:"Network Infrastructure",700:"Professional Services",800:"Importation"}; return c.name === map[bomCat.section]; });
                           const catItems = qCat?.lineItems.filter(li => li.quantity > 0) || [];
-                          if (catItems.length === 0) return (<tr key={row.item} style={{ borderBottom: "1px solid rgba(255,255,255,0.03)" }}><td className="px-4 py-2 text-[#484f58] text-[10px] font-mono">{row.item}</td><td className="px-4 py-2 text-[#8b949e] text-[11px]">{row.desc}</td><td className="px-4 py-2 text-[#8b949e] text-[11px] text-right">—</td><td className="px-4 py-2"><input type="number" defaultValue={row.qty} className="bg-transparent text-white text-[11px] w-16 text-center focus:outline-none" style={G.input} /></td><td className="px-4 py-2 text-[#8b949e] text-[11px] font-bold text-right">—</td></tr>);
-                          return catItems.map((li, i) => { const r = recalcLineItem(li); return (<tr key={li.id} style={{ borderBottom: "1px solid rgba(255,255,255,0.03)" }}><td className="px-4 py-2 text-[#484f58] text-[10px] font-mono">{row.item}{catItems.length > 1 ? `.${i+1}` : ""}</td><td className="px-4 py-2 text-white text-[11px] font-semibold max-w-[400px] truncate">{li.description}</td><td className="px-4 py-2 text-white text-[11px] text-right">{fmt(r.unitCost)}</td><td className="px-4 py-2"><input type="number" value={li.quantity} onChange={(e) => updateQuoteLineItem(qCat!.id, li.id, { quantity: parseInt(e.target.value)||0 })} className="bg-transparent text-white text-[11px] w-16 text-center focus:outline-none" style={G.input} /></td><td className="px-4 py-2 text-white text-[11px] font-bold text-right">{fmt(r.sellTotal)}</td></tr>); });
+                          const catSubtotal = catItems.reduce((s, li) => s + recalcLineItem(li).sellTotal, 0);
+                          const fieldKey = `bom-${bomCat.section}`;
+                          const fs = fieldSaveStatus[fieldKey];
+                          if (catItems.length === 0) return (<tr key={bomCat.section} style={{ borderBottom: "1px solid rgba(255,255,255,0.03)" }}><td className="px-4 py-2 text-[#484f58] text-[10px] font-mono">{bomCat.section}</td><td className="px-4 py-2 text-[#8b949e] text-[11px]">{bomCat.name}</td><td className="px-4 py-2"><input type="text" defaultValue="" placeholder="0.00" className="bg-transparent text-white text-[11px] w-24 text-right focus:outline-none" style={G.input} /></td><td className="px-4 py-2 text-white text-[11px] font-bold text-right flex items-center justify-end gap-1">—</td></tr>);
+                          return catItems.map((li, i) => { const r = recalcLineItem(li); return (<tr key={li.id} style={{ borderBottom: "1px solid rgba(255,255,255,0.03)" }}><td className="px-4 py-2 text-[#484f58] text-[10px] font-mono">{bomCat.section}{catItems.length > 1 ? `.${i+1}` : ""}</td><td className="px-4 py-2 text-white text-[11px] font-semibold max-w-[400px] truncate">{li.description}</td><td className="px-4 py-2"><input type="text" value={fmt(r.unitCost)} onChange={(e) => { const val = parseFloat(e.target.value.replace(/[^0-9.]/g,""))||0; updateQuoteLineItem(qCat!.id, li.id, { unitCost: val }); }} className="bg-transparent text-white text-[11px] w-24 text-right focus:outline-none" style={G.input} /></td><td className="px-4 py-2 text-white text-[11px] font-bold text-right flex items-center justify-end gap-1">{fmt(r.sellTotal)}{fs === "saving" && <Loader2 className="w-2.5 h-2.5 animate-spin text-[#484f58]" />}{fs === "saved" && <CheckCircle2 className="w-2.5 h-2.5 text-emerald-400" />}</td></tr>); });
                         })}
-                        <tr style={{ background: "rgba(255,255,255,0.04)" }}><td colSpan={4} className="px-4 py-2 text-[#8b949e] text-[10px] font-bold text-right uppercase">Total Video Surveillance</td><td className="px-4 py-2 text-white text-[12px] font-bold text-right">{fmt(grandTotalPreTax)}</td></tr>
-                        <tr><td colSpan={5} className="px-4 py-1"></td></tr>
-                        <tr style={{ background: "rgba(139,92,246,0.06)" }}><td colSpan={5} className="px-4 py-2.5 text-white text-[12px] font-bold uppercase tracking-widest">Access Control Systems</td></tr>
-                        {[{ item: "900", desc: "Access Control System Software", list: 0, qty: 0 },{ item: "1000", desc: "Hardware", list: 0, qty: 0 },{ item: "1100", desc: "Infrastructure", list: 0, qty: 0 },{ item: "1200", desc: "Professional Services", list: 0, qty: 0 },{ item: "1200.5", desc: "Contingency plan", list: 0, qty: 0 },{ item: "1300", desc: "Importation", list: 0, qty: 0 }].map(row => (
-                          <tr key={row.item} style={{ borderBottom: "1px solid rgba(255,255,255,0.03)" }}><td className="px-4 py-2 text-[#484f58] text-[10px] font-mono">{row.item}</td><td className="px-4 py-2 text-[#8b949e] text-[11px]">{row.desc}</td><td className="px-4 py-2 text-[#8b949e] text-[11px] text-right">—</td><td className="px-4 py-2"><input type="number" defaultValue={row.qty} className="bg-transparent text-white text-[11px] w-16 text-center focus:outline-none" style={G.input} /></td><td className="px-4 py-2 text-[#8b949e] text-[11px] font-bold text-right">—</td></tr>
-                        ))}
-                        <tr style={{ background: "rgba(255,255,255,0.04)" }}><td colSpan={4} className="px-4 py-2 text-[#8b949e] text-[10px] font-bold text-right uppercase">Total Access Control</td><td className="px-4 py-2 text-white text-[12px] font-bold text-right">—</td></tr>
+                        <tr style={{ background: "rgba(255,255,255,0.04)" }}><td colSpan={3} className="px-4 py-2 text-[#8b949e] text-[10px] font-bold text-right uppercase">Total Video Surveillance</td><td className="px-4 py-2 text-white text-[12px] font-bold text-right">{fmt(grandTotalPreTax)}</td></tr>
                       </tbody>
                     </table>
                   </div>
@@ -1169,20 +1501,22 @@ function Workbook({ navigate }: { navigate: (p: Page) => void }) {
                 <div className="rounded-2xl overflow-hidden" style={G.card}>
                   <div className="overflow-x-auto">
                     <table className="w-full" style={{ minWidth: "700px" }}>
-                      <thead><tr style={{ borderBottom: "1px solid rgba(255,255,255,0.08)", background: "rgba(255,255,255,0.03)" }}>{["Item No","DESIGNATION","Qty","Unit Price in US Dollar (JMD)","TOTAL COST US Dollar (JMD)"].map(h => <th key={h} className="px-3 py-2.5 text-[#484f58] text-[9px] font-bold uppercase tracking-widest text-left">{h}</th>)}</tr></thead>
+                      <thead><tr style={{ borderBottom: "1px solid rgba(255,255,255,0.08)", background: "rgba(255,255,255,0.03)" }}>{["Item No","DESIGNATION","Unit Price"].map(h => <th key={h} className="px-3 py-2.5 text-[#484f58] text-[9px] font-bold uppercase tracking-widest text-left">{h}</th>)}</tr></thead>
                       <tbody>
-                        <tr style={{ background: "rgba(59,130,246,0.06)" }}><td colSpan={5} className="px-4 py-2.5 text-white text-[12px] font-bold uppercase tracking-widest">Video Surveillance</td></tr>
-                        {[{ item: "100", desc: "Video Management System Software" },{ item: "200", desc: "Compute and Storage" },{ item: "300", desc: "Control Room" },{ item: "400", desc: "Video Security Equipment" },{ item: "500", desc: "Network" },{ item: "600", desc: "Network Infrastructure" },{ item: "700", desc: "Professional Services" },{ item: "700.5", desc: "Contingency plan", qty: 0 },{ item: "800", desc: "Importation" }].map(row => {
+                        <tr style={{ background: "rgba(59,130,246,0.06)" }}><td colSpan={3} className="px-4 py-2.5 text-white text-[12px] font-bold uppercase tracking-widest">Video Surveillance</td></tr>
+                        {[{ item: "100", desc: "Video Management System Software" },{ item: "200", desc: "Compute and Storage" },{ item: "300", desc: "Control Room" },{ item: "400", desc: "Video Security Equipment" },{ item: "500", desc: "Network" },{ item: "600", desc: "Network Infrastructure" },{ item: "700", desc: "Professional Services" },{ item: "700.5", desc: "Contingency plan" },{ item: "800", desc: "Importation" }].map(row => {
                           const qCat = quoteCategories.find(c => { const map: Record<string,string> = {"100":"Video Management System Software","200":"Compute and Storage","300":"Control Room","400":"Video Security Equipment","500":"Network","600":"Network Infrastructure","700":"Professional Services","800":"Importation"}; return c.name === map[row.item]; });
                           const catItems = qCat?.lineItems.filter(li => li.quantity > 0) || [];
                           const subtotal = catItems.reduce((s, li) => s + recalcLineItem(li).sellTotal, 0);
-                          return (<tr key={row.item} style={{ borderBottom: "1px solid rgba(255,255,255,0.03)" }}><td className="px-4 py-2 text-[#484f58] text-[10px] font-mono">{row.item}</td><td className="px-4 py-2 text-white text-[11px] font-semibold">{row.desc}</td><td className="px-4 py-2 text-white text-[11px] text-center">{row.qty ?? 1}</td><td className="px-4 py-2 text-white text-[11px] text-right">{subtotal > 0 ? fmt(subtotal) : "—"}</td><td className="px-4 py-2 text-white text-[11px] font-bold text-right">{subtotal > 0 ? fmt(subtotal) : "—"}</td></tr>);
+                          const fieldKey = `synth-${row.item}`;
+                          const fs = fieldSaveStatus[fieldKey];
+                          return (<tr key={row.item} style={{ borderBottom: "1px solid rgba(255,255,255,0.03)" }}><td className="px-4 py-2 text-[#484f58] text-[10px] font-mono">{row.item}</td><td className="px-4 py-2 text-white text-[11px] font-semibold">{row.desc}</td><td className="px-4 py-2 text-white text-[11px] font-bold text-right flex items-center justify-end gap-1">{subtotal > 0 ? fmt(subtotal) : "—"}{fs === "saving" && <Loader2 className="w-2.5 h-2.5 animate-spin text-[#484f58]" />}{fs === "saved" && <CheckCircle2 className="w-2.5 h-2.5 text-emerald-400" />}</td></tr>);
                         })}
-                        <tr style={{ background: "rgba(255,255,255,0.04)" }}><td colSpan={4} className="px-4 py-2 text-[#8b949e] text-[10px] font-bold text-right uppercase">Total Video Surveillance</td><td className="px-4 py-2 text-white text-[12px] font-bold text-right">{fmt(grandTotalPreTax)}</td></tr>
-                        <tr><td colSpan={5} className="px-4 py-1"></td></tr>
-                        <tr style={{ background: "rgba(139,92,246,0.06)" }}><td colSpan={5} className="px-4 py-2.5 text-white text-[12px] font-bold uppercase tracking-widest">Access Control Systems</td></tr>
-                        {[{ item: "900", desc: "Access Control System Software" },{ item: "1000", desc: "Hardware" },{ item: "1100", desc: "Infrastructure" },{ item: "1200", desc: "Professional Services" },{ item: "1200.5", desc: "Contingency plan", qty: 0 },{ item: "1300", desc: "Importation" }].map(row => (<tr key={row.item} style={{ borderBottom: "1px solid rgba(255,255,255,0.03)" }}><td className="px-4 py-2 text-[#484f58] text-[10px] font-mono">{row.item}</td><td className="px-4 py-2 text-white text-[11px] font-semibold">{row.desc}</td><td className="px-4 py-2 text-white text-[11px] text-center">{row.qty ?? 1}</td><td className="px-4 py-2 text-[#8b949e] text-[11px] text-right">—</td><td className="px-4 py-2 text-[#8b949e] text-[11px] font-bold text-right">—</td></tr>))}
-                        <tr style={{ background: "rgba(255,255,255,0.04)" }}><td colSpan={4} className="px-4 py-2 text-[#8b949e] text-[10px] font-bold text-right uppercase">Total Access Control</td><td className="px-4 py-2 text-white text-[12px] font-bold text-right">—</td></tr>
+                        <tr style={{ background: "rgba(255,255,255,0.04)" }}><td colSpan={2} className="px-4 py-2 text-[#8b949e] text-[10px] font-bold text-right uppercase">Total Video Surveillance</td><td className="px-4 py-2 text-white text-[12px] font-bold text-right">{fmt(grandTotalPreTax)}</td></tr>
+                        <tr><td colSpan={3} className="px-4 py-1"></td></tr>
+                        <tr style={{ background: "rgba(139,92,246,0.06)" }}><td colSpan={3} className="px-4 py-2.5 text-white text-[12px] font-bold uppercase tracking-widest">Access Control Systems</td></tr>
+                        {[{ item: "900", desc: "Access Control System Software" },{ item: "1000", desc: "Hardware" },{ item: "1100", desc: "Infrastructure" },{ item: "1200", desc: "Professional Services" },{ item: "1200.5", desc: "Contingency plan" },{ item: "1300", desc: "Importation" }].map(row => (<tr key={row.item} style={{ borderBottom: "1px solid rgba(255,255,255,0.03)" }}><td className="px-4 py-2 text-[#484f58] text-[10px] font-mono">{row.item}</td><td className="px-4 py-2 text-white text-[11px] font-semibold">{row.desc}</td><td className="px-4 py-2 text-[#8b949e] text-[11px] text-right">—</td></tr>))}
+                        <tr style={{ background: "rgba(255,255,255,0.04)" }}><td colSpan={2} className="px-4 py-2 text-[#8b949e] text-[10px] font-bold text-right uppercase">Total Access Control</td><td className="px-4 py-2 text-white text-[12px] font-bold text-right">—</td></tr>
                       </tbody>
                     </table>
                   </div>
@@ -1209,6 +1543,7 @@ function InstallTracker({ navigate: _navigate }: { navigate: (p: Page) => void }
   const [zones, setZones] = useState<InstallZone[]>([]);
   const [loading, setLoading] = useState(true);
   const [expandedProject, setExpandedProject] = useState<string | null>(null);
+  const [statusFilter, setStatusFilter] = useState<InstallStatus | "all">("all");
 
   const fetchData = useCallback(async () => {
     setLoading(true);
@@ -1227,7 +1562,13 @@ function InstallTracker({ navigate: _navigate }: { navigate: (p: Page) => void }
 
   const typeIcons: Record<string, IconType> = { camera: Camera, access: Key, nvr: Cpu, door: DoorOpen, panel: PanelRight, power: Zap, server: Server };
 
-  if (loading) return <div className="px-3 md:px-5 py-4 md:py-6 space-y-4"><Skeleton className="h-10 w-48" /><Skeleton className="h-32 rounded-2xl" /><Skeleton className="h-48 rounded-2xl" /></div>;
+  if (loading) return (
+    <div className="px-3 md:px-5 py-4 md:py-6 space-y-4">
+      <Skeleton className="h-10 w-48" />
+      <Skeleton className="h-32 rounded-2xl" />
+      <Skeleton className="h-48 rounded-2xl" />
+    </div>
+  );
 
   const allDevices = zones.flatMap((z) => z.devices);
   const complete = allDevices.filter((d) => d.status === "complete").length;
@@ -1237,18 +1578,25 @@ function InstallTracker({ navigate: _navigate }: { navigate: (p: Page) => void }
   return (
     <div className="px-3 md:px-5 py-4 md:py-6 max-w-[1100px]">
       <div className="mb-4 md:mb-6"><h1 className="text-white font-bold text-lg md:text-xl tracking-tight">Install Tracker</h1><p className="text-[#8b949e] text-[11px] mt-0.5">{total} devices across {zones.length} zones · {projects.length} projects</p></div>
+
       {projects.length === 0 ? <EmptyState icon={CheckSquare} title="No active installs" description="Projects in Win stage will appear here." /> : (
         <>
           <div className="rounded-2xl p-4 md:p-5 mb-4" style={G.card}>
             <div className="flex flex-col md:flex-row md:items-center justify-between mb-4 gap-3"><div><p className="text-white text-[1.6rem] md:text-[2rem] font-bold">{pct}%</p><p className="text-[#484f58] text-[10px]">{complete} of {total} complete</p></div><div className="grid grid-cols-4 gap-3">{[{ label: "Complete", count: complete, color: "text-emerald-400" },{ label: "In Progress", count: allDevices.filter(d=>d.status==="in-progress").length, color: "text-blue-400" },{ label: "Failed", count: allDevices.filter(d=>d.status==="failed").length, color: "text-rose-400" },{ label: "Pending", count: allDevices.filter(d=>d.status==="pending").length, color: "text-[#484f58]" }].map((s) => (<div key={s.label}><p className={clsx("text-[1.1rem] font-bold", s.color)}>{s.count}</p><p className="text-[#484f58] text-[9px]">{s.label}</p></div>))}</div></div>
             <div className="relative w-full h-3 rounded-full overflow-hidden" style={{ background: "rgba(255,255,255,0.07)" }}><div className="absolute left-0 top-0 h-full bg-gradient-to-r from-blue-600 to-emerald-500 rounded-full" style={{ width: `${pct}%` }} /></div>
           </div>
+          <div className="flex items-center gap-1 mb-3">
+            {(["all","pending","in-progress","complete","failed"] as const).map(s => (
+              <button key={s} onClick={() => setStatusFilter(s)} className={clsx("h-7 px-2.5 rounded-lg text-[10px] font-semibold transition-all cursor-pointer", statusFilter === s ? "text-white" : "text-[#484f58]")} style={statusFilter === s ? { background: "rgba(255,255,255,0.10)" } : G.btn}>{s === "all" ? "All" : s === "in-progress" ? "In Progress" : s.charAt(0).toUpperCase() + s.slice(1)}</button>
+            ))}
+          </div>
           <div className="space-y-3">
             {projects.map((project) => {
               const projectZones = zones.filter((z) => z.projectId === project.id);
-              const projectDevices = projectZones.flatMap((z) => z.devices);
-              const pComplete = projectDevices.filter((d) => d.status === "complete").length;
-              const pPct = projectDevices.length > 0 ? Math.round((pComplete / projectDevices.length) * 100) : 0;
+              const projectDevices = projectZones.flatMap((z) => z.devices).filter(d => statusFilter === "all" || d.status === statusFilter);
+              const pComplete = projectZones.flatMap((z) => z.devices).filter((d) => d.status === "complete").length;
+              const pTotal = projectZones.flatMap((z) => z.devices).length;
+              const pPct = pTotal > 0 ? Math.round((pComplete / pTotal) * 100) : 0;
               const isExpanded = expandedProject === project.id;
               return (
                 <div key={project.id} className="rounded-2xl overflow-hidden" style={G.card}>
@@ -1270,7 +1618,7 @@ function InstallTracker({ navigate: _navigate }: { navigate: (p: Page) => void }
                       );})}
                     </div>
                   )}
-                  {isExpanded && projectDevices.length === 0 && <div className="px-4 py-6 text-center"><p className="text-[#484f58] text-[11px]">No devices assigned yet.</p></div>}
+                  {isExpanded && projectDevices.length === 0 && <div className="px-4 py-6 text-center"><p className="text-[#484f58] text-[11px]">No devices match this filter.</p></div>}
                 </div>
               );
             })}
@@ -1326,7 +1674,12 @@ function DeviceStore({ navigate: _navigate }: { navigate: (p: Page) => void }) {
   const categories: { id: string; label: string }[] = [{ id: "all", label: "All" },{ id: "camera", label: "Cameras" },{ id: "access-control", label: "Access" },{ id: "nvr", label: "NVR" },{ id: "analytics", label: "VMS" }];
   const filtered = useMemo(() => { let result = devices; if (categoryFilter !== "all") result = result.filter((d) => d.category === categoryFilter); if (cameraTypeFilter !== "all") result = result.filter((d) => d.cameraType === cameraTypeFilter); if (search.trim()) { const q = search.toLowerCase(); result = result.filter((d) => d.model.toLowerCase().includes(q) || d.manufacturer.toLowerCase().includes(q) || (d.sku??"").toLowerCase().includes(q) || (d.tags??[]).some(t=>t.toLowerCase().includes(q))); } return result; }, [devices, search, categoryFilter, cameraTypeFilter]);
 
-  if (loading) return <div className="px-3 md:px-5 py-4 md:py-6 space-y-4"><Skeleton className="h-10 w-48" /><div className="grid gap-3 md:gap-4" style={{ gridTemplateColumns: "repeat(auto-fill, minmax(200px, 1fr))" }}>{[1,2,3,4,5,6].map(i => <Skeleton key={i} className="h-56 rounded-2xl" />)}</div></div>;
+  if (loading) return (
+    <div className="px-3 md:px-5 py-4 md:py-6 space-y-4">
+      <Skeleton className="h-10 w-48" />
+      <div className="grid gap-3 md:gap-4" style={{ gridTemplateColumns: "repeat(auto-fill, minmax(200px, 1fr))" }}>{[1,2,3,4,5,6].map(i => <SkeletonCard key={i} />)}</div>
+    </div>
+  );
 
   return (
     <div className="px-3 md:px-5 py-4 md:py-6">
@@ -1390,6 +1743,7 @@ export default function App() {
   });
   const [currency, setCurrency] = useState<"USD" | "JMD">("USD");
   const [currentQuote, setCurrentQuote] = useState<Quote | null>(null);
+  const [showOnboarding, setShowOnboarding] = useState(() => !localStorage.getItem("onboarding_complete"));
 
   useEffect(() => { if (page !== "login") localStorage.setItem("app_page", page); }, [page]);
   useEffect(() => { API.fx.getRate(); }, []);
@@ -1432,6 +1786,24 @@ export default function App() {
             </AnimatePresence>
           </div>
         </div>
+        {showOnboarding && (
+          <div className="fixed inset-0 z-[500] flex items-center justify-center p-4" onClick={() => { setShowOnboarding(false); localStorage.setItem("onboarding_complete", "true"); }}>
+            <div className="absolute inset-0" style={{ background: "rgba(0,0,0,0.8)", backdropFilter: "blur(12px)" }} />
+            <motion.div initial={{ opacity: 0, scale: 0.93 }} animate={{ opacity: 1, scale: 1 }} onClick={(e) => e.stopPropagation()} className="relative z-10 w-full max-w-[500px] rounded-3xl p-8 text-center" style={G.liquidGlass}>
+              <div className="w-16 h-16 rounded-2xl flex items-center justify-center mx-auto mb-5" style={{ background: "rgba(59,130,246,0.15)", border: "1px solid rgba(59,130,246,0.25)" }}>
+                <Zap className="w-8 h-8 text-blue-400" />
+              </div>
+              <h2 className="text-white text-[1.2rem] font-bold mb-2">Welcome to EEST</h2>
+              <p className="text-[#8b949e] text-[12px] mb-6">Your full-lifecycle security project platform.</p>
+              <div className="space-y-3 mb-6 text-left">
+                {[{ icon: BarChart3, label: "Pipeline", desc: "Track sales leads and manage projects through every stage", color: "#3b82f6" },{ icon: Layers, label: "Design Studio", desc: "Upload floor plans, place cameras, map cable routes", color: "#8b5cf6" },{ icon: FileText, label: "Workbook", desc: "Auto-generate BOMs, cost summaries, and proposals", color: "#10b981" }].map(item => (
+                  <div key={item.label} className="flex items-start gap-3 p-3 rounded-xl" style={{ background: "rgba(255,255,255,0.03)" }}><div className="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0" style={{ background: `${item.color}20` }}><item.icon className="w-4 h-4" style={{ color: item.color }} /></div><div><p className="text-white text-[12px] font-semibold">{item.label}</p><p className="text-[#484f58] text-[10px]">{item.desc}</p></div></div>
+                ))}
+              </div>
+              <button onClick={() => { setShowOnboarding(false); localStorage.setItem("onboarding_complete", "true"); }} className="w-full h-11 rounded-xl text-white text-[13px] font-bold cursor-pointer active:scale-[0.97] transition-transform" style={{ background: "#3b82f6", boxShadow: "0 4px 20px rgba(59,130,246,0.4)" }}>Get Started</button>
+            </motion.div>
+          </div>
+        )}
       </QuoteContext.Provider>
     </CurrencyContext.Provider>
   );
