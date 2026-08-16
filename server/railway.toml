@@ -1,7 +1,7 @@
 [build]
 builder = "nixpacks"
-buildCommand = "npm run build && cd server && npm run build"
+buildCommand = "npm run build"
 
 [deploy]
-startCommand = "node server/dist/index.js"
+startCommand = "node dist/index.js"
 port = 3001
