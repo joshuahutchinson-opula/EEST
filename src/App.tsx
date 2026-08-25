@@ -505,7 +505,7 @@ function Dashboard({ navigate }: { navigate: (p: Page) => void }) {
     const updated: Project = { ...project, pipelineType: "project", projectStage: "planning", leadSource: undefined, stageHistory, updatedAt: new Date().toISOString() };
     setProjects(prev => prev.map(p => p.id === projectId ? updated : p));
     try {
-      await API.projects.update(projectId, { pipelineType: "project", projectStage: "planning", leadSource: null, stageHistory });
+      await API.projects.update(projectId, { pipelineType: "project", projectStage: "planning", leadSource: undefined, stageHistory });
       await API.audit.log(projectId, "Moved to Projects", "Moved from Sales Win to Projects Planning");
       toast.success("Moved to Projects Pipeline");
     } catch { fetchProjects(); }
