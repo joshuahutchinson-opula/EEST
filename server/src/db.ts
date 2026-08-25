@@ -17,7 +17,7 @@ export async function initDB() {
         name TEXT NOT NULL,
         client TEXT NOT NULL,
         value NUMERIC DEFAULT 0,
-        stage TEXT DEFAULT 'assessment-scheduled',
+        stage TEXT DEFAULT 'lead',
         risk TEXT DEFAULT 'low',
         assignee_name TEXT,
         assignee_initials TEXT,
@@ -35,6 +35,9 @@ export async function initDB() {
         collaborators JSONB DEFAULT '[]',
         lead_source TEXT,
         stage_history JSONB DEFAULT '[]',
+        pipeline_type TEXT DEFAULT 'sales',
+        project_stage TEXT DEFAULT 'planning',
+        support_type TEXT,
         created_at TIMESTAMPTZ DEFAULT NOW(),
         updated_at TIMESTAMPTZ DEFAULT NOW(),
         deleted_at TIMESTAMPTZ
@@ -102,6 +105,7 @@ export async function initDB() {
         id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
         project_id UUID REFERENCES projects(id),
         name TEXT NOT NULL,
+        is_quick_support BOOLEAN DEFAULT FALSE,
         sort_order INTEGER DEFAULT 0
       );
 
@@ -141,17 +145,126 @@ export async function initDB() {
         event TEXT NOT NULL,
         details TEXT,
         user_name TEXT,
+        is_read BOOLEAN DEFAULT FALSE,
+        created_at TIMESTAMPTZ DEFAULT NOW()
+      );
+
+      CREATE TABLE IF NOT EXISTS synthesis_overrides (
+        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+        project_id UUID NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+        section_number VARCHAR(20) NOT NULL,
+        override_value DECIMAL(12,2),
+        is_overridden BOOLEAN DEFAULT false,
+        overridden_by VARCHAR(100),
+        overridden_at TIMESTAMP DEFAULT NOW(),
+        UNIQUE(project_id, section_number)
+      );
+
+      CREATE TABLE IF NOT EXISTS workbook_audit (
+        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+        project_id UUID NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+        field_path VARCHAR(255) NOT NULL,
+        old_value TEXT,
+        new_value TEXT,
+        changed_by VARCHAR(100),
+        changed_at TIMESTAMP DEFAULT NOW()
+      );
+
+      CREATE TABLE IF NOT EXISTS device_price_history (
+        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+        device_id UUID REFERENCES devices(id) ON DELETE CASCADE,
+        price DECIMAL(12,2) NOT NULL,
+        recorded_at TIMESTAMP DEFAULT NOW()
+      );
+
+      CREATE TABLE IF NOT EXISTS subcontractors (
+        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+        project_id UUID REFERENCES projects(id) ON DELETE CASCADE,
+        name TEXT NOT NULL,
+        trade TEXT,
+        email TEXT,
+        rating NUMERIC DEFAULT 0,
+        created_at TIMESTAMPTZ DEFAULT NOW()
+      );
+
+      CREATE TABLE IF NOT EXISTS subcontractor_documents (
+        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+        subcontractor_id UUID REFERENCES subcontractors(id) ON DELETE CASCADE,
+        filename TEXT NOT NULL,
+        file_url TEXT NOT NULL,
+        uploaded_by TEXT,
+        created_at TIMESTAMPTZ DEFAULT NOW()
+      );
+
+      CREATE TABLE IF NOT EXISTS procurement_orders (
+        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+        project_id UUID REFERENCES projects(id),
+        supplier_name TEXT,
+        status TEXT DEFAULT 'pending',
+        total_cost NUMERIC DEFAULT 0,
+        generated_from TEXT,
+        created_at TIMESTAMPTZ DEFAULT NOW(),
+        updated_at TIMESTAMPTZ DEFAULT NOW()
+      );
+
+      CREATE TABLE IF NOT EXISTS procurement_items (
+        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+        order_id UUID REFERENCES procurement_orders(id) ON DELETE CASCADE,
+        description TEXT,
+        quantity INTEGER DEFAULT 0,
+        unit_cost NUMERIC DEFAULT 0,
+        total_cost NUMERIC DEFAULT 0,
+        lead_time_days INTEGER,
+        tracking_number TEXT,
+        received BOOLEAN DEFAULT FALSE
+      );
+
+      CREATE TABLE IF NOT EXISTS commissioning_checklists (
+        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+        project_id UUID REFERENCES projects(id),
+        device_id TEXT,
+        device_name TEXT,
+        location TEXT,
+        status TEXT DEFAULT 'pending',
+        notes TEXT,
+        photos JSONB DEFAULT '[]',
+        created_at TIMESTAMPTZ DEFAULT NOW(),
+        updated_at TIMESTAMPTZ DEFAULT NOW()
+      );
+
+      CREATE TABLE IF NOT EXISTS inventory_items (
+        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+        device_id UUID REFERENCES devices(id),
+        name TEXT NOT NULL,
+        quantity_on_hand INTEGER DEFAULT 0,
+        location TEXT,
+        notes TEXT,
+        created_at TIMESTAMPTZ DEFAULT NOW(),
+        updated_at TIMESTAMPTZ DEFAULT NOW()
+      );
+
+      CREATE TABLE IF NOT EXISTS inventory_transactions (
+        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+        item_id UUID REFERENCES inventory_items(id) ON DELETE CASCADE,
+        user_name TEXT,
+        action TEXT NOT NULL,
+        quantity INTEGER,
+        purpose TEXT,
+        notes TEXT,
         created_at TIMESTAMPTZ DEFAULT NOW()
       );
     `);
 
-    // Add columns if they don't exist (for existing tables)
     await client.query(`ALTER TABLE projects ADD COLUMN IF NOT EXISTS lead_source TEXT`);
     await client.query(`ALTER TABLE projects ADD COLUMN IF NOT EXISTS stage_history JSONB DEFAULT '[]'`);
+    await client.query(`ALTER TABLE projects ADD COLUMN IF NOT EXISTS pipeline_type TEXT DEFAULT 'sales'`);
+    await client.query(`ALTER TABLE projects ADD COLUMN IF NOT EXISTS project_stage TEXT DEFAULT 'planning'`);
+    await client.query(`ALTER TABLE projects ADD COLUMN IF NOT EXISTS support_type TEXT`);
     await client.query(`ALTER TABLE quotes ADD COLUMN IF NOT EXISTS project_id UUID`);
     await client.query(`ALTER TABLE devices ADD COLUMN IF NOT EXISTS tags TEXT[] DEFAULT '{}'`);
-    
-    // Add unique constraint on sku if not exists
+    await client.query(`ALTER TABLE install_zones ADD COLUMN IF NOT EXISTS is_quick_support BOOLEAN DEFAULT FALSE`);
+    await client.query(`ALTER TABLE audit_logs ADD COLUMN IF NOT EXISTS is_read BOOLEAN DEFAULT FALSE`);
+
     try {
       await client.query(`ALTER TABLE devices ADD CONSTRAINT devices_sku_unique UNIQUE (sku)`);
     } catch {}

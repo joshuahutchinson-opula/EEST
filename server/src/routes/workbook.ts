@@ -1,6 +1,5 @@
-// server/routes/workbook.ts
 import { Router, Request, Response } from "express";
-import pool from "../db"; // your PostgreSQL pool
+import pool from "../db";
 
 const router = Router();
 
@@ -143,11 +142,10 @@ router.post("/:projectId/audit", async (req: Request, res: Response) => {
 
 // ============ PRICE HISTORY ============
 
-// GET /api/devices/:deviceId/price-history
+// GET /api/workbook/devices/:deviceId/price-history
 router.get("/devices/:deviceId/price-history", async (req: Request, res: Response) => {
   try {
     const { deviceId } = req.params;
-
     const result = await pool.query(
       `SELECT id, device_id AS "deviceId", price, recorded_at AS "recordedAt"
        FROM device_price_history
@@ -156,35 +154,108 @@ router.get("/devices/:deviceId/price-history", async (req: Request, res: Respons
        LIMIT 20`,
       [deviceId]
     );
-
     res.json(result.rows);
   } catch (err) {
-    console.error("GET /devices/:deviceId/price-history error:", err);
+    console.error("GET /workbook/devices/:deviceId/price-history error:", err);
     res.status(500).json({ error: "Failed to fetch price history" });
   }
 });
 
-// POST /api/devices/:deviceId/price-history
+// POST /api/workbook/devices/:deviceId/price-history
 router.post("/devices/:deviceId/price-history", async (req: Request, res: Response) => {
   try {
     const { deviceId } = req.params;
     const { price } = req.body;
-
     if (price === undefined || price === null) {
       return res.status(400).json({ error: "price is required" });
     }
-
     const result = await pool.query(
       `INSERT INTO device_price_history (device_id, price)
        VALUES ($1, $2)
        RETURNING id, device_id AS "deviceId", price, recorded_at AS "recordedAt"`,
       [deviceId, price]
     );
-
     res.status(201).json(result.rows[0]);
   } catch (err) {
-    console.error("POST /devices/:deviceId/price-history error:", err);
+    console.error("POST /workbook/devices/:deviceId/price-history error:", err);
     res.status(500).json({ error: "Failed to record price history" });
+  }
+});
+
+// ============ PROPOSAL GENERATION ============
+
+// POST /api/workbook/:projectId/proposal
+router.post("/:projectId/proposal", async (req: Request, res: Response) => {
+  try {
+    const { projectId } = req.params;
+
+    const projectResult = await pool.query(
+      `SELECT id, name, client, summary, location, value FROM projects WHERE id = $1`,
+      [projectId]
+    );
+
+    if (projectResult.rows.length === 0) {
+      return res.status(404).json({ error: "Project not found" });
+    }
+
+    const quoteResult = await pool.query(
+      `SELECT q.id, q.ref_number AS "refNumber", q.date, q.status, 
+              qc.name AS "categoryName", qc.type AS "categoryType",
+              qli.id AS "itemId", qli.item_number AS "itemNumber", qli.description,
+              qli.unit_cost AS "unitCost", qli.quantity, qli.markup_percent AS "markupPercent"
+       FROM quotes q
+       LEFT JOIN quote_categories qc ON qc.quote_id = q.id
+       LEFT JOIN quote_line_items qli ON qli.category_id = qc.id
+       WHERE q.project_id = $1
+       ORDER BY qc.sort_order, qli.item_number`,
+      [projectId]
+    );
+
+    const project = projectResult.rows[0];
+
+    const categories: Record<string, { name: string; type: string; items: any[] }> = {};
+    let grandTotal = 0;
+
+    for (const row of quoteResult.rows) {
+      if (!row.categoryName) continue;
+      if (!categories[row.categoryName]) {
+        categories[row.categoryName] = { name: row.categoryName, type: row.categoryType, items: [] };
+      }
+      if (row.description) {
+        const unitCost = parseFloat(row.unitCost) || 0;
+        const quantity = parseInt(row.quantity) || 0;
+        const markupPercent = parseFloat(row.markupPercent) || 0;
+        const sellPrice = unitCost * (1 + markupPercent);
+        const total = sellPrice * quantity;
+        grandTotal += total;
+        categories[row.categoryName].items.push({
+          itemNumber: row.itemNumber,
+          description: row.description,
+          unitCost,
+          quantity,
+          markupPercent,
+          sellPrice,
+          total,
+        });
+      }
+    }
+
+    const gctRate = 0.15;
+    const gctAmount = grandTotal * gctRate;
+    const grandTotalWithTax = grandTotal + gctAmount;
+
+    res.json({
+      url: `/api/workbook/${projectId}/proposal/download`,
+      project,
+      categories: Object.values(categories),
+      grandTotal,
+      gctAmount,
+      grandTotalWithTax,
+      generatedAt: new Date().toISOString(),
+    });
+  } catch (err) {
+    console.error("POST /workbook/:projectId/proposal error:", err);
+    res.status(500).json({ error: "Failed to generate proposal" });
   }
 });
 

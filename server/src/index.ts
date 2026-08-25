@@ -15,6 +15,10 @@ import tasksRouter from "./routes/tasks";
 import documentsRouter from "./routes/documents";
 import notificationsRouter from "./routes/notifications";
 import workbookRouter from "./routes/workbook";
+import inventoryRouter from "./routes/inventory";
+import procurementRouter from "./routes/procurement";
+import commissioningRouter from "./routes/commissioning";
+import subcontractorsRouter from "./routes/subcontractors";
 
 dotenv.config();
 
@@ -40,6 +44,10 @@ app.use("/api/tasks", tasksRouter);
 app.use("/api/documents", documentsRouter);
 app.use("/api/notifications", notificationsRouter);
 app.use("/api/workbook", workbookRouter);
+app.use("/api/inventory", inventoryRouter);
+app.use("/api/procurement", procurementRouter);
+app.use("/api/commissioning", commissioningRouter);
+app.use("/api/subcontractors", subcontractorsRouter);
 
 app.get("/api/health", (_req, res) => {
   res.json({ status: "ok", timestamp: new Date().toISOString() });
