@@ -22,7 +22,7 @@ import {
   UserCheck, Send, EyeOff, GanttChartSquare, Boxes, PackageOpen,
 } from "lucide-react";
 import { clsx } from "clsx";
-import { Stage, Layer, Rect, Circle, Line, Text, Image as KonvaImage, Group, Arc } from "react-konva";
+import { Stage as KonvaStage, Layer as KonvaLayer, Rect as KonvaRect, Circle as KonvaCircle, Line as KonvaLine, Text as KonvaText, Image as KonvaImage, Group as KonvaGroup, Arc as KonvaArc } from "react-konva";
 import { Canvas as ThreeCanvas } from "@react-three/fiber";
 import { OrbitControls, useGLTF, Environment, ContactShadows } from "@react-three/drei";
 import * as pdfjsLib from "pdfjs-dist";
