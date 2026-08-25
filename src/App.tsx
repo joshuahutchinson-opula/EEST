@@ -1300,7 +1300,7 @@ function DesignCanvas({ navigate }: { navigate: (p: Page) => void }) {
             draggable={activeTool === "select"}
             onClick={handleStageClick}
             onDblClick={handleCableDoubleClick}
-            onWheel={(e) => { const scaleBy = 1.05; const stage = e.target.getStage(); const oldScale = stage.scaleX(); const pointer = stage.getPointerPosition(); if (!pointer) return; const mousePointTo = { x: (pointer.x - stage.x()) / oldScale, y: (pointer.y - stage.y()) / oldScale }; const newScale = e.evt.deltaY < 0 ? oldScale * scaleBy : oldScale / scaleBy; setScale(newScale); setPosition({ x: pointer.x - mousePointTo.x * newScale, y: pointer.y - mousePointTo.y * newScale }); }}
+            onWheel={(e) => { const scaleBy = 1.05; const stage = e.target.getStage(); if (!stage) return; const oldScale = stage.scaleX(); const pointer = stage.getPointerPosition(); if (!pointer) return; const mousePointTo = { x: (pointer.x - stage.x()) / oldScale, y: (pointer.y - stage.y()) / oldScale }; const newScale = e.evt.deltaY < 0 ? oldScale * scaleBy : oldScale / scaleBy; setScale(newScale); setPosition({ x: pointer.x - mousePointTo.x * newScale, y: pointer.y - mousePointTo.y * newScale }); }}
             style={{ background: "#070c1a" }}
           >
             <KonvaLayer>
