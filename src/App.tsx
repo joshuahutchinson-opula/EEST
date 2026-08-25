@@ -198,8 +198,8 @@ const TAG_STYLES: Record<DeviceTag, { bg: string; text: string; border: string }
   "Outdoor": { bg: "rgba(71,85,105,0.15)", text: "#64748b", border: "rgba(71,85,105,0.30)" },
 };
 
-function stageBadge(stage: Stage) {
-  const map: Record<Stage, { label: string; cls: string }> = {
+function stageBadge(stage: Stage | string) {
+  const map: Record<string, { label: string; cls: string }> = {
     "lead": { label: "Lead", cls: "bg-rose-500/12 text-rose-400" },
     "opportunity": { label: "Opportunity", cls: "bg-orange-500/12 text-orange-400" },
     "assessment-scheduled": { label: "Assessment", cls: "bg-amber-500/12 text-amber-400" },
@@ -208,8 +208,9 @@ function stageBadge(stage: Stage) {
     "negotiation": { label: "Negotiating", cls: "bg-violet-500/12 text-violet-400" },
     "win": { label: "Won", cls: "bg-emerald-500/12 text-emerald-400" },
     "lose": { label: "Lost", cls: "bg-rose-500/12 text-rose-400" },
+    "design": { label: "Design", cls: "bg-violet-500/12 text-violet-400" },
   };
-  return map[stage];
+  return map[stage] || map["lead"];
 }
 
 function projectStageBadge(stage: ProjectStage | string) {
