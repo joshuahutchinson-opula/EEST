@@ -50,8 +50,8 @@ export async function initDB() {
         ref_number TEXT,
         date DATE DEFAULT CURRENT_DATE,
         status TEXT DEFAULT 'draft',
-        quote_type TEXT DEFAULT 'Both',
-        exchange_rate NUMERIC DEFAULT 157.4,
+        quote_type TEXT DEFAULT 'Multiple',
+        exchange_rate NUMERIC DEFAULT 163,
         created_at TIMESTAMPTZ DEFAULT NOW(),
         updated_at TIMESTAMPTZ DEFAULT NOW()
       );
@@ -60,7 +60,10 @@ export async function initDB() {
         id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
         quote_id UUID REFERENCES quotes(id) ON DELETE CASCADE,
         name TEXT NOT NULL,
-        type TEXT DEFAULT 'Both',
+        type TEXT DEFAULT 'Multiple',
+        system TEXT DEFAULT 'VSS',
+        section_number INTEGER DEFAULT 0,
+        import_rate_percent NUMERIC DEFAULT 0,
         sort_order INTEGER DEFAULT 0
       );
 
@@ -80,6 +83,7 @@ export async function initDB() {
         model TEXT NOT NULL,
         manufacturer TEXT,
         category TEXT DEFAULT 'camera',
+        system TEXT DEFAULT 'VSS',
         resolution TEXT,
         lens TEXT,
         sensor TEXT,
@@ -145,6 +149,8 @@ export async function initDB() {
         event TEXT NOT NULL,
         details TEXT,
         user_name TEXT,
+        notification_type TEXT,
+        action_url TEXT,
         is_read BOOLEAN DEFAULT FALSE,
         created_at TIMESTAMPTZ DEFAULT NOW()
       );
@@ -261,9 +267,16 @@ export async function initDB() {
     await client.query(`ALTER TABLE projects ADD COLUMN IF NOT EXISTS project_stage TEXT DEFAULT 'planning'`);
     await client.query(`ALTER TABLE projects ADD COLUMN IF NOT EXISTS support_type TEXT`);
     await client.query(`ALTER TABLE quotes ADD COLUMN IF NOT EXISTS project_id UUID`);
+    await client.query(`ALTER TABLE quotes ADD COLUMN IF NOT EXISTS exchange_rate NUMERIC DEFAULT 163`);
+    await client.query(`ALTER TABLE quote_categories ADD COLUMN IF NOT EXISTS system TEXT DEFAULT 'VSS'`);
+    await client.query(`ALTER TABLE quote_categories ADD COLUMN IF NOT EXISTS section_number INTEGER DEFAULT 0`);
+    await client.query(`ALTER TABLE quote_categories ADD COLUMN IF NOT EXISTS import_rate_percent NUMERIC DEFAULT 0`);
     await client.query(`ALTER TABLE devices ADD COLUMN IF NOT EXISTS tags TEXT[] DEFAULT '{}'`);
+    await client.query(`ALTER TABLE devices ADD COLUMN IF NOT EXISTS system TEXT DEFAULT 'VSS'`);
     await client.query(`ALTER TABLE install_zones ADD COLUMN IF NOT EXISTS is_quick_support BOOLEAN DEFAULT FALSE`);
     await client.query(`ALTER TABLE audit_logs ADD COLUMN IF NOT EXISTS is_read BOOLEAN DEFAULT FALSE`);
+    await client.query(`ALTER TABLE audit_logs ADD COLUMN IF NOT EXISTS notification_type TEXT`);
+    await client.query(`ALTER TABLE audit_logs ADD COLUMN IF NOT EXISTS action_url TEXT`);
 
     try {
       await client.query(`ALTER TABLE devices ADD CONSTRAINT devices_sku_unique UNIQUE (sku)`);

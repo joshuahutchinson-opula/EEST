@@ -32,6 +32,10 @@ pdfjsLib.GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs
 
 const API_BASE = import.meta.env.VITE_API_URL || "/api";
 const GCT_RATE = 0.15;
+const DEFAULT_EXCHANGE_RATE = 163;
+const PM_REFERENCE_RATE = 0.05;
+const CONTINGENCY_REFERENCE_RATE = 0.10;
+
 const TEAM = [
   { name: "Joshua", initials: "JS", color: "#3b82f6" },
   { name: "Roger", initials: "RG", color: "#06b6d4" },
@@ -39,13 +43,21 @@ const TEAM = [
   { name: "Michael", initials: "MC", color: "#f59e0b" },
   { name: "Denise", initials: "DN", color: "#f97316" },
   { name: "Rochelle", initials: "RC", color: "#10b981" },
+  { name: "Shanice", initials: "SC", color: "#ef4444" },
+  { name: "Shavene", initials: "SV", color: "#ec4899" },
+  { name: "Marvin", initials: "MV", color: "#14b8a6" },
+  { name: "Akeem", initials: "AK", color: "#f97316" },
 ];
 const CURRENT_USER = TEAM[0];
 
 function downloadCSV(filename: string, rows: string[][]) {
   const csv = rows.map(r => r.map(c => `"${String(c ?? "").replace(/"/g, '""')}"`).join(",")).join("\n");
   const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
-  const url = URL.createObjectURL(blob); const a = document.createElement("a"); a.href = url; a.download = filename; a.click();
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = filename;
+  a.click();
   URL.revokeObjectURL(url);
 }
 
@@ -53,9 +65,12 @@ function fmtDate(d: string) { return new Date(d).toLocaleDateString("en-US", { m
 function fmtDateFull(d: string) { return new Date(d).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }); }
 
 function fovPath(cx: number, cy: number, rotDeg: number, fovDeg: number, r: number) {
-  const rot = (rotDeg * Math.PI) / 180; const half = (fovDeg / 2 * Math.PI) / 180;
-  const x1 = cx + r * Math.cos(rot - half), y1 = cy + r * Math.sin(rot - half);
-  const x2 = cx + r * Math.cos(rot + half), y2 = cy + r * Math.sin(rot + half);
+  const rot = (rotDeg * Math.PI) / 180;
+  const half = (fovDeg / 2 * Math.PI) / 180;
+  const x1 = cx + r * Math.cos(rot - half);
+  const y1 = cy + r * Math.sin(rot - half);
+  const x2 = cx + r * Math.cos(rot + half);
+  const y2 = cy + r * Math.sin(rot + half);
   return `M${cx},${cy} L${x1.toFixed(1)},${y1.toFixed(1)} A${r},${r} 0 0,1 ${x2.toFixed(1)},${y2.toFixed(1)} Z`;
 }
 
@@ -68,13 +83,21 @@ const G = {
   liquidGlass: { background: "rgba(255,255,255,0.06)", backdropFilter: "blur(28px) saturate(180%)", WebkitBackdropFilter: "blur(28px) saturate(180%)", border: "1px solid rgba(255,255,255,0.14)", boxShadow: "0 8px 32px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.10)", borderRadius: "16px" } as React.CSSProperties,
 };
 
-interface CurrencyCtx { currency: "USD" | "JMD"; setCurrency: (c: "USD" | "JMD") => void; fmt: (usdAmt: number, compact?: boolean) => string; }
-const CurrencyContext = createContext<CurrencyCtx>({ currency: "USD", setCurrency: () => {}, fmt: (n) => `$${n.toLocaleString("en-US", { minimumFractionDigits: 0, maximumFractionDigits: 0 })}` });
+interface CurrencyCtx {
+  currency: "USD" | "JMD";
+  setCurrency: (c: "USD" | "JMD") => void;
+  fmt: (usdAmt: number, compact?: boolean) => string;
+}
+const CurrencyContext = createContext<CurrencyCtx>({
+  currency: "USD",
+  setCurrency: () => {},
+  fmt: (n) => `$${n.toLocaleString("en-US", { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`,
+});
 const useCurrency = () => useContext(CurrencyContext);
 
 function makeFmt(currency: "USD" | "JMD") {
   return (usdAmt: number, compact = false): string => {
-    const amt = currency === "JMD" ? usdAmt * (parseFloat(localStorage.getItem("fx_rate") || "157.4")) : usdAmt;
+    const amt = currency === "JMD" ? usdAmt * (parseFloat(localStorage.getItem("fx_rate") || String(DEFAULT_EXCHANGE_RATE))) : usdAmt;
     const sym = currency === "JMD" ? "J$" : "$";
     if (compact) {
       if (amt >= 1_000_000_000) return `${sym}${(amt / 1_000_000_000).toFixed(2)}B`;
@@ -86,71 +109,205 @@ function makeFmt(currency: "USD" | "JMD") {
   };
 }
 
-type Page = "login" | "dashboard" | "design-studio" | "project-detail" | "design-canvas" | "workbook" | "install-tracker" | "device-library" | "site-assessment" | "client-portal";
+type Page = "login" | "dashboard" | "design-studio" | "project-detail" | "design-canvas" | "workbook" | "install-tracker" | "device-library";
 type Stage = "lead" | "opportunity" | "assessment-scheduled" | "assessment-completed" | "proposal" | "negotiation" | "win" | "lose";
 type ProjectStage = "support" | "planning" | "procurement" | "installation" | "commissioning" | "complete";
 type PipelineType = "sales" | "project";
 type LeadSource = "Tender" | "Single Source" | "Inbound" | "Referral" | "Recurring Client" | "Outbound";
-type QuoteType = "Video Surveillance" | "Access Control" | "Both";
+type QuoteType = "Video Surveillance" | "Access Control" | "Intercom" | "Multiple";
+type SystemType = "VSS" | "EAC" | "Intercom";
 type TaskStatus = "todo" | "in-progress" | "review" | "complete";
 type TaskPriority = "low" | "medium" | "high";
 type SupportType = "contract-support" | "pre-paid" | "post-paid" | "sla";
+type DeviceLibraryTab = "store" | "inventory";
+type WorkbookTab = "asset-list" | "cost-margin" | "bom" | "synthesis";
 
-interface AuditLogEntry { id: string; projectId: string; event: string; details: string; timestamp: string; user: string; }
+interface AuditLogEntry { id: string; projectId: string; event: string; details: string; timestamp: string; user: string; notificationType?: string; actionUrl?: string; }
 interface ChangeOrder { id: string; projectId: string; title: string; description: string; costImpact: number; status: "draft" | "submitted" | "approved" | "rejected"; createdAt: string; updatedAt: string; createdBy: string; }
-interface Project { id: string; name: string; client: string; value: number; stage: Stage; risk: "low" | "medium" | "high"; assignee: { name: string; initials: string; color: string }; dueDate: string; cameras: number; devices: number; location: string; contact?: { name: string; title: string; email: string; phone: string }; summary?: string; notes?: string; collaborators?: { name: string; initials: string; color: string; role: string }[]; leadSource?: LeadSource; stageHistory?: { stage: Stage | ProjectStage; date: string }[]; createdAt?: string; updatedAt?: string; pipelineType?: PipelineType; projectStage?: ProjectStage | string; supportType?: SupportType; }
+interface Project {
+  id: string;
+  name: string;
+  client: string;
+  value: number;
+  stage: Stage;
+  risk: "low" | "medium" | "high";
+  assignee: { name: string; initials: string; color: string };
+  dueDate: string;
+  cameras: number;
+  devices: number;
+  location: string;
+  contact?: { name: string; title: string; email: string; phone: string };
+  summary?: string;
+  notes?: string;
+  collaborators?: { name: string; initials: string; color: string; role: string }[];
+  leadSource?: LeadSource;
+  stageHistory?: { stage: Stage | ProjectStage; date: string }[];
+  createdAt?: string;
+  updatedAt?: string;
+  pipelineType?: PipelineType;
+  projectStage?: ProjectStage | string;
+  supportType?: SupportType;
+}
 interface Task { id: string; projectId: string; title: string; description?: string; assignee?: string; status: TaskStatus; priority: TaskPriority; dueDate?: string; createdAt: string; updatedAt: string; }
-interface Document { id: string; projectId: string; filename: string; fileUrl: string; fileType?: string; fileSize?: number; uploadedBy?: string; createdAt: string; }
-interface Notification { id: string; user: string; projectId?: string; event: string; details?: string; isRead: boolean; timestamp: string; }
-interface QuoteLineItem { id: string; itemNumber: string; description: string; unitCost: number; quantity: number; markupPercent: number; sellPrice: number; costTotal: number; sellTotal: number; profit: number; jmdConversion: number; }
-interface QuoteCategory { id: string; name: string; type: QuoteType; lineItems: QuoteLineItem[]; contingency?: QuoteLineItem; }
-interface Quote { id: string; clientName: string; refNumber: string; date: string; status: "draft" | "sent" | "approved" | "rejected"; quoteType: QuoteType; categories: QuoteCategory[]; exchangeRate: number; projectId?: string; createdAt?: string; updatedAt?: string; }
-interface QuoteCtx { currentQuote: Quote | null; setCurrentQuote: (q: Quote | null) => void; addToQuote: (device: CatalogDevice) => void; }
+interface DocumentItem { id: string; projectId: string; filename: string; fileUrl: string; fileType?: string; fileSize?: number; uploadedBy?: string; createdAt: string; }
+interface NotificationItem { id: string; user: string; projectId?: string; event: string; details?: string; isRead: boolean; timestamp: string; notificationType?: string; actionUrl?: string; }
+interface QuoteLineItem {
+  id: string;
+  itemNumber: string;
+  description: string;
+  unitCost: number;
+  quantity: number;
+  markupPercent: number;
+  sellPrice: number;
+  costTotal: number;
+  sellTotal: number;
+  profit: number;
+  jmdConversion: number;
+}
+interface QuoteCategory {
+  id: string;
+  name: string;
+  type: QuoteType;
+  system: SystemType;
+  sectionNumber: number;
+  importRatePercent: number;
+  lineItems: QuoteLineItem[];
+  contingency?: QuoteLineItem;
+}
+interface Quote {
+  id: string;
+  clientName: string;
+  refNumber: string;
+  date: string;
+  status: "draft" | "sent" | "approved" | "rejected";
+  quoteType: QuoteType;
+  categories: QuoteCategory[];
+  exchangeRate: number;
+  projectId?: string;
+  createdAt?: string;
+  updatedAt?: string;
+}
+interface QuoteCtx {
+  currentQuote: Quote | null;
+  setCurrentQuote: (q: Quote | null) => void;
+  addToQuote: (device: CatalogDevice) => void;
+}
 const QuoteContext = createContext<QuoteCtx>({ currentQuote: null, setCurrentQuote: () => {}, addToQuote: () => {} });
 const useQuote = () => useContext(QuoteContext);
 
 type InstallStatus = "pending" | "in-progress" | "complete" | "failed";
-interface InstallDevice { id: string; name: string; type: "camera" | "access" | "nvr" | "door" | "panel" | "power" | "server"; location: string; status: InstallStatus; assignee: string; notes?: string; }
+interface InstallDevice { id: string; name: string; type: "camera" | "access" | "nvr" | "door" | "panel" | "power" | "server" | "intercom"; location: string; status: InstallStatus; assignee: string; notes?: string; }
 interface InstallZone { id: string; name: string; devices: InstallDevice[]; projectId?: string; isQuickSupport?: boolean; }
 
 type DeviceTag = "LPR" | "Night Vision" | "Thermal" | "PTZ" | "Panoramic" | "WDR" | "Lightfinder" | "IR" | "4K" | "8MP" | "Indoor" | "Outdoor";
 type CameraType = "Dome" | "Bullet" | "PTZ" | "Box" | "Panoramic" | "Thermal";
-interface CatalogDevice { id: string; model: string; manufacturer: string; category: "camera" | "access-control" | "nvr" | "analytics" | "other"; cameraType?: CameraType; resolution?: string; lens?: string; sensor?: string; nightVision?: string; weatherRating?: string; powerInput?: string; storage?: string; channels?: string; readers?: string; authentication?: string; price?: number; sku?: string; discontinued?: boolean; imageUrl?: string; frameRate?: string; compression?: string; fov?: string; operatingTemp?: string; msrp?: number; tags?: DeviceTag[]; }
+interface CatalogDevice {
+  id: string;
+  model: string;
+  manufacturer: string;
+  category: "camera" | "access-control" | "nvr" | "analytics" | "intercom" | "other";
+  system: SystemType;
+  cameraType?: CameraType;
+  resolution?: string;
+  lens?: string;
+  sensor?: string;
+  nightVision?: string;
+  weatherRating?: string;
+  powerInput?: string;
+  storage?: string;
+  channels?: string;
+  readers?: string;
+  authentication?: string;
+  price?: number;
+  sku?: string;
+  discontinued?: boolean;
+  imageUrl?: string;
+  frameRate?: string;
+  compression?: string;
+  fov?: string;
+  operatingTemp?: string;
+  msrp?: number;
+  tags?: DeviceTag[];
+}
 interface Column { id: Stage; label: string; color: string; }
 interface ProjectColumn { id: ProjectStage; label: string; color: string; }
 
-type CanvasDevice = { id: string; type: "camera" | "door" | "panel" | "power" | "server" | "cable"; x: number; y: number; rot: number; fov?: number; range?: number; label: string; selected?: boolean; connectedTo?: string[]; doorConfig?: { swing: "inswinging" | "outswinging"; lockType: string; readers: string[]; accessType: string; keyOverride: boolean }; cablePoints?: { x: number; y: number }[]; deviceStoreRef?: string; imageUrl?: string; };
+type CanvasDevice = {
+  id: string;
+  type: "camera" | "door" | "panel" | "power" | "server" | "intercom" | "cable";
+  x: number;
+  y: number;
+  rot: number;
+  fov?: number;
+  range?: number;
+  label: string;
+  selected?: boolean;
+  connectedTo?: string[];
+  doorConfig?: { swing: "inswinging" | "outswinging"; lockType: string; readers: string[]; accessType: string; keyOverride: boolean };
+  cablePoints?: { x: number; y: number }[];
+  deviceStoreRef?: string;
+  imageUrl?: string;
+};
 type FloorPlanFile = { id: string; type: "2d" | "3d"; url: string; originalName: string; format: string; is3DModel?: boolean; };
 type IconType = React.ComponentType<{ className?: string }>;
 
 interface SynthesisOverride { id: string; projectId: string; sectionNumber: string; overrideValue: number | null; isOverridden: boolean; overriddenBy?: string; overriddenAt?: string; }
 interface WorkbookAuditEntry { id: string; projectId: string; fieldPath: string; oldValue: string; newValue: string; changedBy: string; changedAt: string; }
-interface AssetListItem { id: string; item: string; qty: number; cost: number; markupPercent: number; sell: number; costTotal: number; total: number; profit: number; isCanvasDevice?: boolean; deviceType?: string; sourceCategory?: string; sourceItemId?: string; }
-type WorkbookTab = "asset-list" | "bom" | "synthesis";
-type DeviceLibraryTab = "store" | "inventory";
-
+interface AssetListItem { id: string; item: string; qty: number; cost: number; markupPercent: number; sell: number; costTotal: number; total: number; profit: number; isCanvasDevice?: boolean; deviceType?: string; system?: SystemType; sourceCategory?: string; sourceItemId?: string; }
 interface InventoryItem { id: string; name: string; quantityOnHand: number; location?: string; notes?: string; deviceId?: string; model?: string; manufacturer?: string; sku?: string; }
 interface InventoryTransaction { id: string; itemId: string; itemName: string; userName: string; action: string; quantity: number; purpose?: string; notes?: string; createdAt: string; }
 interface Subcontractor { id: string; projectId: string; name: string; trade?: string; email?: string; rating: number; createdAt: string; documents: { id: string; filename: string; fileUrl: string; uploadedBy?: string; createdAt: string; }[]; }
 interface ProcurementOrder { id: string; projectId: string; supplierName?: string; status: string; totalCost: number; generatedFrom?: string; createdAt: string; items: { id: string; description: string; quantity: number; unitCost: number; totalCost: number; leadTimeDays?: number; trackingNumber?: string; received: boolean; }[]; }
 interface CommissioningItem { id: string; projectId: string; deviceId?: string; deviceName: string; location?: string; status: "pending" | "pass" | "fail"; notes?: string; photos?: string[]; }
 
-const BOM_SECTIONS = [
-  { section: 100, name: "Video Management System Software" }, { section: 200, name: "Compute and Storage" },
-  { section: 300, name: "Control Room" }, { section: 400, name: "Video Security Equipment" },
-  { section: 500, name: "Network" }, { section: 600, name: "Network Infrastructure" },
-  { section: 700, name: "Professional Services" }, { section: 800, name: "Importation" },
-] as const;
+const SYSTEM_CATEGORIES: Record<SystemType, { sectionNumber: number; name: string; defaultMarkup: number; importRatePercent: number; importBasis: "sellTotal" | "costTotal"; }[]> = {
+  VSS: [
+    { sectionNumber: 100, name: "Video Management System Software", defaultMarkup: 0.35, importRatePercent: 0, importBasis: "costTotal" },
+    { sectionNumber: 200, name: "Compute and Storage", defaultMarkup: 0.35, importRatePercent: 0.22, importBasis: "costTotal" },
+    { sectionNumber: 300, name: "Control Room", defaultMarkup: 0.30, importRatePercent: 0, importBasis: "costTotal" },
+    { sectionNumber: 400, name: "Video Security Equipment", defaultMarkup: 0.30, importRatePercent: 0.44, importBasis: "costTotal" },
+    { sectionNumber: 500, name: "Network", defaultMarkup: 0.30, importRatePercent: 0.44, importBasis: "costTotal" },
+    { sectionNumber: 600, name: "Network Infrastructure", defaultMarkup: 0.30, importRatePercent: 0.44, importBasis: "costTotal" },
+    { sectionNumber: 700, name: "Professional Services", defaultMarkup: 0.50, importRatePercent: 0, importBasis: "costTotal" },
+    { sectionNumber: 800, name: "Importation", defaultMarkup: 0, importRatePercent: 0, importBasis: "costTotal" },
+  ],
+  EAC: [
+    { sectionNumber: 900, name: "Access Control System Software", defaultMarkup: 0.35, importRatePercent: 0, importBasis: "costTotal" },
+    { sectionNumber: 1000, name: "Hardware", defaultMarkup: 0.35, importRatePercent: 0.44, importBasis: "costTotal" },
+    { sectionNumber: 1100, name: "Infrastructure", defaultMarkup: 0.35, importRatePercent: 0.44, importBasis: "costTotal" },
+    { sectionNumber: 1200, name: "Professional Services", defaultMarkup: 0.50, importRatePercent: 0, importBasis: "costTotal" },
+    { sectionNumber: 1300, name: "Importation", defaultMarkup: 0, importRatePercent: 0, importBasis: "costTotal" },
+  ],
+  Intercom: [
+    { sectionNumber: 1400, name: "Intercom System Software", defaultMarkup: 0.25, importRatePercent: 0, importBasis: "costTotal" },
+    { sectionNumber: 1500, name: "Hardware", defaultMarkup: 0.25, importRatePercent: 0.50, importBasis: "costTotal" },
+    { sectionNumber: 1600, name: "Infrastructure", defaultMarkup: 0.25, importRatePercent: 0, importBasis: "costTotal" },
+    { sectionNumber: 1700, name: "Professional Services", defaultMarkup: 0.50, importRatePercent: 0, importBasis: "costTotal" },
+    { sectionNumber: 1800, name: "Importation", defaultMarkup: 0, importRatePercent: 0, importBasis: "costTotal" },
+  ],
+};
 
 const SYNTHESIS_SECTIONS = [
   { section: "100", name: "Video Management System Software", group: "video" },
-  { section: "200", name: "Compute and Storage", group: "video" }, { section: "300", name: "Control Room", group: "video" },
-  { section: "400", name: "Video Security Equipment", group: "video" }, { section: "500", name: "Network", group: "video" },
-  { section: "600", name: "Network Infrastructure", group: "video" }, { section: "700", name: "Professional Services", group: "video" },
-  { section: "700.5", name: "Contingency Plan", group: "video" }, { section: "800", name: "Importation", group: "video" },
-  { section: "900", name: "Access Control System Software", group: "access" }, { section: "1000", name: "Hardware", group: "access" },
-  { section: "1100", name: "Infrastructure", group: "access" }, { section: "1200", name: "Professional Services", group: "access" },
-  { section: "1200.5", name: "Contingency Plan", group: "access" }, { section: "1300", name: "Importation", group: "access" },
+  { section: "200", name: "Compute and Storage", group: "video" },
+  { section: "300", name: "Control Room", group: "video" },
+  { section: "400", name: "Video Security Equipment", group: "video" },
+  { section: "500", name: "Network", group: "video" },
+  { section: "600", name: "Network Infrastructure", group: "video" },
+  { section: "700", name: "Professional Services", group: "video" },
+  { section: "700.5", name: "Contingency Plan", group: "video" },
+  { section: "800", name: "Importation", group: "video" },
+  { section: "900", name: "Access Control System Software", group: "access" },
+  { section: "1000", name: "Hardware", group: "access" },
+  { section: "1100", name: "Infrastructure", group: "access" },
+  { section: "1200", name: "Professional Services", group: "access" },
+  { section: "1200.5", name: "Contingency Plan", group: "access" },
+  { section: "1300", name: "Importation", group: "access" },
+  { section: "1400", name: "Intercom System Software", group: "intercom" },
+  { section: "1500", name: "Hardware", group: "intercom" },
+  { section: "1600", name: "Infrastructure", group: "intercom" },
+  { section: "1700", name: "Professional Services", group: "intercom" },
+  { section: "1800", name: "Importation", group: "intercom" },
 ] as const;
 
 const COLUMNS: Column[] = [
@@ -189,9 +346,12 @@ const SUPPORT_TYPE_LABELS: Record<SupportType, string> = {
 
 const CAMERA_TYPES: CameraType[] = ["Dome", "Bullet", "PTZ", "Box", "Panoramic", "Thermal"];
 const LEAD_SOURCE_STYLES: Record<LeadSource, { bg: string; text: string }> = {
-  "Tender": { bg: "rgba(59,130,246,0.15)", text: "#60a5fa" }, "Single Source": { bg: "rgba(16,185,129,0.15)", text: "#34d399" },
-  "Inbound": { bg: "rgba(139,92,246,0.15)", text: "#a78bfa" }, "Referral": { bg: "rgba(245,158,11,0.15)", text: "#fbbf24" },
-  "Recurring Client": { bg: "rgba(236,72,153,0.15)", text: "#f472b6" }, "Outbound": { bg: "rgba(239,68,68,0.15)", text: "#f87171" },
+  "Tender": { bg: "rgba(59,130,246,0.15)", text: "#60a5fa" },
+  "Single Source": { bg: "rgba(16,185,129,0.15)", text: "#34d399" },
+  "Inbound": { bg: "rgba(139,92,246,0.15)", text: "#a78bfa" },
+  "Referral": { bg: "rgba(245,158,11,0.15)", text: "#fbbf24" },
+  "Recurring Client": { bg: "rgba(236,72,153,0.15)", text: "#f472b6" },
+  "Outbound": { bg: "rgba(239,68,68,0.15)", text: "#f87171" },
 };
 const TAG_STYLES: Record<DeviceTag, { bg: string; text: string; border: string }> = {
   "LPR": { bg: "rgba(59,130,246,0.15)", text: "#60a5fa", border: "rgba(59,130,246,0.30)" },
@@ -246,25 +406,113 @@ async function apiFetch<T>(path: string, options?: RequestInit): Promise<T> {
 }
 
 const API = {
-  projects: { list: () => apiFetch<Project[]>("/projects"), get: (id: string) => apiFetch<Project>(`/projects/${id}`), create: (data: Partial<Project>) => apiFetch<Project>("/projects", { method: "POST", body: JSON.stringify(data) }), update: (id: string, data: Partial<Project>) => apiFetch<Project>(`/projects/${id}`, { method: "PATCH", body: JSON.stringify(data) }), delete: (id: string) => apiFetch<void>(`/projects/${id}`, { method: "DELETE" }) },
-  quotes: { list: () => apiFetch<Quote[]>("/quotes"), get: (id: string) => apiFetch<Quote>(`/quotes/${id}`), create: (data: Partial<Quote>) => apiFetch<Quote>("/quotes", { method: "POST", body: JSON.stringify(data) }), update: (id: string, data: Partial<Quote>) => apiFetch<Quote>(`/quotes/${id}`, { method: "PATCH", body: JSON.stringify(data) }), delete: (id: string) => apiFetch<void>(`/quotes/${id}`, { method: "DELETE" }) },
-  devices: { list: () => apiFetch<CatalogDevice[]>("/devices"), get: (id: string) => apiFetch<CatalogDevice>(`/devices/${id}`), create: (data: Partial<CatalogDevice>) => apiFetch<CatalogDevice>("/devices", { method: "POST", body: JSON.stringify(data) }), bulk: (devices: Partial<CatalogDevice>[]) => apiFetch<{ imported: number }>("/devices/bulk", { method: "POST", body: JSON.stringify({ devices }) }) },
-  install: { zones: () => apiFetch<InstallZone[]>("/install/zones"), createZone: (data: { name: string; projectId?: string; isQuickSupport?: boolean }) => apiFetch<InstallZone>("/install/zones", { method: "POST", body: JSON.stringify(data) }), addDevice: (zoneId: string, data: Partial<InstallDevice>) => apiFetch<InstallDevice>(`/install/zones/${zoneId}/devices`, { method: "POST", body: JSON.stringify(data) }), updateStatus: (zoneId: string, deviceId: string, status: InstallStatus) => apiFetch<void>(`/install/zones/${zoneId}/devices/${deviceId}`, { method: "PATCH", body: JSON.stringify({ status }) }) },
-  canvas: { get: (projectId: string) => apiFetch<{ projectId: string; layoutData: any }>(`/canvas/${projectId}`), save: (projectId: string, data: any) => apiFetch<void>(`/canvas/${projectId}`, { method: "PUT", body: JSON.stringify(data) }), upload: (projectId: string, file: File) => { const fd = new FormData(); fd.append("file", file); return apiFetch<{ url: string }>(`/canvas/${projectId}/upload`, { method: "POST", body: fd }); } },
-  fx: { getRate: async () => { try { const res = await fetch("https://open.er-api.com/v6/latest/USD"); const data = await res.json(); const rate = data.rates?.JMD || 157.4; localStorage.setItem("fx_rate", String(rate)); localStorage.setItem("fx_rate_updated", new Date().toISOString()); return rate; } catch { return parseFloat(localStorage.getItem("fx_rate") || "157.4"); } } },
-  audit: { list: (projectId: string) => apiFetch<AuditLogEntry[]>(`/audit/${projectId}`), log: (projectId: string, event: string, details: string) => apiFetch<void>(`/audit/${projectId}`, { method: "POST", body: JSON.stringify({ event, details }) }) },
-  changeOrders: { list: (projectId: string) => apiFetch<ChangeOrder[]>(`/change-orders/${projectId}`), create: (projectId: string, data: Partial<ChangeOrder>) => apiFetch<ChangeOrder>(`/change-orders/${projectId}`, { method: "POST", body: JSON.stringify(data) }), update: (projectId: string, id: string, data: Partial<ChangeOrder>) => apiFetch<ChangeOrder>(`/change-orders/${projectId}/${id}`, { method: "PATCH", body: JSON.stringify(data) }), delete: (projectId: string, id: string) => apiFetch<void>(`/change-orders/${projectId}/${id}`, { method: "DELETE" }) },
-  tasks: { list: (projectId: string) => apiFetch<Task[]>(`/tasks/${projectId}`), create: (projectId: string, data: Partial<Task>) => apiFetch<Task>(`/tasks/${projectId}`, { method: "POST", body: JSON.stringify(data) }), update: (projectId: string, id: string, data: Partial<Task>) => apiFetch<Task>(`/tasks/${projectId}/${id}`, { method: "PATCH", body: JSON.stringify(data) }), delete: (projectId: string, id: string) => apiFetch<void>(`/tasks/${projectId}/${id}`, { method: "DELETE" }) },
-  documents: { list: (projectId: string) => apiFetch<Document[]>(`/documents/${projectId}`), upload: (projectId: string, file: File) => { const fd = new FormData(); fd.append("file", file); return apiFetch<Document>(`/documents/${projectId}`, { method: "POST", body: fd }); }, delete: (projectId: string, id: string) => apiFetch<void>(`/documents/${projectId}/${id}`, { method: "DELETE" }) },
-  notifications: { list: () => apiFetch<Notification[]>("/notifications"), create: (data: Partial<Notification>) => apiFetch<void>("/notifications", { method: "POST", body: JSON.stringify(data) }), markRead: (id: string) => apiFetch<void>(`/notifications/${id}/read`, { method: "PATCH" }), markAllRead: () => apiFetch<void>("/notifications/read-all", { method: "PATCH" }), salesWin: (data: { projectId: string; projectName: string; clientName?: string }) => apiFetch<void>("/notifications/sales-win", { method: "POST", body: JSON.stringify(data) }) },
-  workbook: { getOverrides: (projectId: string) => apiFetch<SynthesisOverride[]>(`/workbook/${projectId}/overrides`), saveOverrides: (projectId: string, overrides: Partial<SynthesisOverride>[]) => apiFetch<void>(`/workbook/${projectId}/overrides`, { method: "PUT", body: JSON.stringify({ overrides }) }), getAudit: (projectId: string, fieldPath?: string) => apiFetch<WorkbookAuditEntry[]>(`/workbook/${projectId}/audit${fieldPath ? `?fieldPath=${encodeURIComponent(fieldPath)}` : ""}`), logAudit: (projectId: string, fieldPath: string, oldValue: string, newValue: string) => apiFetch<void>(`/workbook/${projectId}/audit`, { method: "POST", body: JSON.stringify({ fieldPath, oldValue, newValue, changedBy: CURRENT_USER.name }) }), getPriceHistory: (deviceId: string) => apiFetch<{ price: number; recordedAt: string }[]>(`/workbook/devices/${deviceId}/price-history`) },
+  projects: {
+    list: () => apiFetch<Project[]>("/projects"),
+    get: (id: string) => apiFetch<Project>(`/projects/${id}`),
+    create: (data: Partial<Project>) => apiFetch<Project>("/projects", { method: "POST", body: JSON.stringify(data) }),
+    update: (id: string, data: Partial<Project>) => apiFetch<Project>(`/projects/${id}`, { method: "PATCH", body: JSON.stringify(data) }),
+    delete: (id: string) => apiFetch<void>(`/projects/${id}`, { method: "DELETE" }),
+  },
+  quotes: {
+    list: () => apiFetch<Quote[]>("/quotes"),
+    get: (id: string) => apiFetch<Quote>(`/quotes/${id}`),
+    create: (data: Partial<Quote>) => apiFetch<Quote>("/quotes", { method: "POST", body: JSON.stringify(data) }),
+    update: (id: string, data: Partial<Quote>) => apiFetch<Quote>(`/quotes/${id}`, { method: "PATCH", body: JSON.stringify(data) }),
+    delete: (id: string) => apiFetch<void>(`/quotes/${id}`, { method: "DELETE" }),
+  },
+  devices: {
+    list: () => apiFetch<CatalogDevice[]>("/devices"),
+    get: (id: string) => apiFetch<CatalogDevice>(`/devices/${id}`),
+    create: (data: Partial<CatalogDevice>) => apiFetch<CatalogDevice>("/devices", { method: "POST", body: JSON.stringify(data) }),
+    bulk: (devices: Partial<CatalogDevice>[]) => apiFetch<{ imported: number }>("/devices/bulk", { method: "POST", body: JSON.stringify({ devices }) }),
+  },
+  install: {
+    zones: () => apiFetch<InstallZone[]>("/install/zones"),
+    createZone: (data: { name: string; projectId?: string; isQuickSupport?: boolean }) => apiFetch<InstallZone>("/install/zones", { method: "POST", body: JSON.stringify(data) }),
+    addDevice: (zoneId: string, data: Partial<InstallDevice>) => apiFetch<InstallDevice>(`/install/zones/${zoneId}/devices`, { method: "POST", body: JSON.stringify(data) }),
+    updateStatus: (zoneId: string, deviceId: string, status: InstallStatus) => apiFetch<void>(`/install/zones/${zoneId}/devices/${deviceId}`, { method: "PATCH", body: JSON.stringify({ status }) }),
+  },
+  canvas: {
+    get: (projectId: string) => apiFetch<{ projectId: string; layoutData: any }>(`/canvas/${projectId}`),
+    save: (projectId: string, data: any) => apiFetch<void>(`/canvas/${projectId}`, { method: "PUT", body: JSON.stringify(data) }),
+    upload: (projectId: string, file: File) => { const fd = new FormData(); fd.append("file", file); return apiFetch<{ url: string }>(`/canvas/${projectId}/upload`, { method: "POST", body: fd }); },
+  },
+  fx: {
+    getRate: async () => {
+      try {
+        const res = await fetch("https://open.er-api.com/v6/latest/USD");
+        const data = await res.json();
+        const rate = data.rates?.JMD || DEFAULT_EXCHANGE_RATE;
+        localStorage.setItem("fx_rate", String(rate));
+        localStorage.setItem("fx_rate_updated", new Date().toISOString());
+        return rate;
+      } catch { return parseFloat(localStorage.getItem("fx_rate") || String(DEFAULT_EXCHANGE_RATE)); }
+    },
+  },
+  audit: {
+    list: (projectId: string) => apiFetch<AuditLogEntry[]>(`/audit/${projectId}`),
+    log: (projectId: string, event: string, details: string) => apiFetch<void>(`/audit/${projectId}`, { method: "POST", body: JSON.stringify({ event, details }) }),
+  },
+  changeOrders: {
+    list: (projectId: string) => apiFetch<ChangeOrder[]>(`/change-orders/${projectId}`),
+    create: (projectId: string, data: Partial<ChangeOrder>) => apiFetch<ChangeOrder>(`/change-orders/${projectId}`, { method: "POST", body: JSON.stringify(data) }),
+    update: (projectId: string, id: string, data: Partial<ChangeOrder>) => apiFetch<ChangeOrder>(`/change-orders/${projectId}/${id}`, { method: "PATCH", body: JSON.stringify(data) }),
+    delete: (projectId: string, id: string) => apiFetch<void>(`/change-orders/${projectId}/${id}`, { method: "DELETE" }),
+  },
+  tasks: {
+    list: (projectId: string) => apiFetch<Task[]>(`/tasks/${projectId}`),
+    create: (projectId: string, data: Partial<Task>) => apiFetch<Task>(`/tasks/${projectId}`, { method: "POST", body: JSON.stringify(data) }),
+    update: (projectId: string, id: string, data: Partial<Task>) => apiFetch<Task>(`/tasks/${projectId}/${id}`, { method: "PATCH", body: JSON.stringify(data) }),
+    delete: (projectId: string, id: string) => apiFetch<void>(`/tasks/${projectId}/${id}`, { method: "DELETE" }),
+  },
+  documents: {
+    list: (projectId: string) => apiFetch<DocumentItem[]>(`/documents/${projectId}`),
+    upload: (projectId: string, file: File) => { const fd = new FormData(); fd.append("file", file); return apiFetch<DocumentItem>(`/documents/${projectId}`, { method: "POST", body: fd }); },
+    delete: (projectId: string, id: string) => apiFetch<void>(`/documents/${projectId}/${id}`, { method: "DELETE" }),
+  },
+  notifications: {
+    list: () => apiFetch<NotificationItem[]>("/notifications"),
+    create: (data: Partial<NotificationItem>) => apiFetch<void>("/notifications", { method: "POST", body: JSON.stringify(data) }),
+    markRead: (id: string) => apiFetch<void>(`/notifications/${id}/read`, { method: "PATCH" }),
+    markAllRead: () => apiFetch<void>("/notifications/read-all", { method: "PATCH" }),
+    salesWin: (data: { projectId: string; projectName: string; clientName?: string }) => apiFetch<void>("/notifications/sales-win", { method: "POST", body: JSON.stringify(data) }),
+  },
+  workbook: {
+    getOverrides: (projectId: string) => apiFetch<SynthesisOverride[]>(`/workbook/${projectId}/overrides`),
+    saveOverrides: (projectId: string, overrides: Partial<SynthesisOverride>[]) => apiFetch<void>(`/workbook/${projectId}/overrides`, { method: "PUT", body: JSON.stringify({ overrides }) }),
+    getAudit: (projectId: string, fieldPath?: string) => apiFetch<WorkbookAuditEntry[]>(`/workbook/${projectId}/audit${fieldPath ? `?fieldPath=${encodeURIComponent(fieldPath)}` : ""}`),
+    logAudit: (projectId: string, fieldPath: string, oldValue: string, newValue: string) => apiFetch<void>(`/workbook/${projectId}/audit`, { method: "POST", body: JSON.stringify({ fieldPath, oldValue, newValue, changedBy: CURRENT_USER.name }) }),
+    getPriceHistory: (deviceId: string) => apiFetch<{ price: number; recordedAt: string }[]>(`/workbook/devices/${deviceId}/price-history`),
+  },
   proposals: { generate: (projectId: string) => apiFetch<{ url: string }>(`/workbook/${projectId}/proposal`, { method: "POST" }) },
   share: { generate: (projectId: string, type: string) => apiFetch<{ token: string; url: string }>("/share/generate", { method: "POST", body: JSON.stringify({ projectId, type }) }) },
-  inventory: { items: () => apiFetch<InventoryItem[]>("/inventory/items"), createItem: (data: Partial<InventoryItem>) => apiFetch<InventoryItem>("/inventory/items", { method: "POST", body: JSON.stringify(data) }), updateItem: (id: string, data: Partial<InventoryItem>) => apiFetch<InventoryItem>(`/inventory/items/${id}`, { method: "PATCH", body: JSON.stringify(data) }), transactions: () => apiFetch<InventoryTransaction[]>("/inventory/transactions"), createTransaction: (data: Partial<InventoryTransaction>) => apiFetch<InventoryTransaction>("/inventory/transactions", { method: "POST", body: JSON.stringify(data) }) },
-  procurement: { list: (projectId: string) => apiFetch<ProcurementOrder[]>(`/procurement/${projectId}`), createPO: (projectId: string, data: any) => apiFetch<ProcurementOrder>(`/procurement/${projectId}`, { method: "POST", body: JSON.stringify(data) }), updateItem: (itemId: string, data: any) => apiFetch<void>(`/procurement/items/${itemId}`, { method: "PATCH", body: JSON.stringify(data) }) },
-  commissioning: { list: (projectId: string) => apiFetch<CommissioningItem[]>(`/commissioning/${projectId}`), add: (projectId: string, data: any) => apiFetch<CommissioningItem>(`/commissioning/${projectId}`, { method: "POST", body: JSON.stringify(data) }), update: (projectId: string, deviceId: string, data: any) => apiFetch<void>(`/commissioning/${projectId}/${deviceId}`, { method: "PATCH", body: JSON.stringify(data) }), generateReport: (projectId: string) => apiFetch<{ url: string }>(`/commissioning/${projectId}/report`, { method: "POST" }) },
-  subcontractors: { list: (projectId: string) => apiFetch<Subcontractor[]>(`/subcontractors/${projectId}`), add: (projectId: string, data: any) => apiFetch<Subcontractor>(`/subcontractors/${projectId}`, { method: "POST", body: JSON.stringify(data) }), rate: (subId: string, rating: number) => apiFetch<void>(`/subcontractors/${subId}/rate`, { method: "POST", body: JSON.stringify({ rating }) }), delete: (subId: string) => apiFetch<void>(`/subcontractors/${subId}`, { method: "DELETE" }), addDoc: (subId: string, data: any) => apiFetch<void>(`/subcontractors/${subId}/documents`, { method: "POST", body: JSON.stringify(data) }) },
-  clientPortal: { getRequests: (projectId: string) => apiFetch<any[]>(`/client-portal/${projectId}/requests`), createRequest: (projectId: string, data: any) => apiFetch<any>(`/client-portal/${projectId}/requests`, { method: "POST", body: JSON.stringify(data) }), approveQuote: (requestId: string) => apiFetch<void>(`/client-portal/requests/${requestId}/approve`, { method: "POST" }) },
+  inventory: {
+    items: () => apiFetch<InventoryItem[]>("/inventory/items"),
+    createItem: (data: Partial<InventoryItem>) => apiFetch<InventoryItem>("/inventory/items", { method: "POST", body: JSON.stringify(data) }),
+    updateItem: (id: string, data: Partial<InventoryItem>) => apiFetch<InventoryItem>(`/inventory/items/${id}`, { method: "PATCH", body: JSON.stringify(data) }),
+    transactions: () => apiFetch<InventoryTransaction[]>("/inventory/transactions"),
+    createTransaction: (data: Partial<InventoryTransaction>) => apiFetch<InventoryTransaction>("/inventory/transactions", { method: "POST", body: JSON.stringify(data) }),
+  },
+  procurement: {
+    list: (projectId: string) => apiFetch<ProcurementOrder[]>(`/procurement/${projectId}`),
+    createPO: (projectId: string, data: any) => apiFetch<ProcurementOrder>(`/procurement/${projectId}`, { method: "POST", body: JSON.stringify(data) }),
+    updateItem: (itemId: string, data: any) => apiFetch<void>(`/procurement/items/${itemId}`, { method: "PATCH", body: JSON.stringify(data) }),
+  },
+  commissioning: {
+    list: (projectId: string) => apiFetch<CommissioningItem[]>(`/commissioning/${projectId}`),
+    sync: (projectId: string) => apiFetch<void>(`/commissioning/${projectId}/sync`, { method: "POST" }),
+    add: (projectId: string, data: any) => apiFetch<CommissioningItem>(`/commissioning/${projectId}`, { method: "POST", body: JSON.stringify(data) }),
+    update: (projectId: string, deviceId: string, data: any) => apiFetch<void>(`/commissioning/${projectId}/${deviceId}`, { method: "PATCH", body: JSON.stringify(data) }),
+    bulk: (projectId: string, deviceIds: string[], status: string) => apiFetch<void>(`/commissioning/${projectId}/bulk`, { method: "POST", body: JSON.stringify({ deviceIds, status }) }),
+    generateReport: (projectId: string) => apiFetch<{ url: string }>(`/commissioning/${projectId}/report`, { method: "POST" }),
+  },
+  subcontractors: {
+    list: (projectId: string) => apiFetch<Subcontractor[]>(`/subcontractors/${projectId}`),
+    add: (projectId: string, data: any) => apiFetch<Subcontractor>(`/subcontractors/${projectId}`, { method: "POST", body: JSON.stringify(data) }),
+    rate: (subId: string, rating: number) => apiFetch<void>(`/subcontractors/${subId}/rate`, { method: "POST", body: JSON.stringify({ rating }) }),
+    delete: (subId: string) => apiFetch<void>(`/subcontractors/${subId}`, { method: "DELETE" }),
+    addDoc: (subId: string, data: any) => apiFetch<void>(`/subcontractors/${subId}/documents`, { method: "POST", body: JSON.stringify(data) }),
+  },
 };
 
 function recalcLineItem(item: QuoteLineItem, exchangeRate: number): QuoteLineItem {
@@ -291,7 +539,7 @@ function EmptyState({ icon: Icon, title, description, action }: { icon: IconType
     <div className="flex flex-col items-center justify-center py-16 px-4 text-center">
       <div className="w-16 h-16 rounded-2xl flex items-center justify-center mb-4" style={{ background: "rgba(59,130,246,0.10)", border: "1px solid rgba(59,130,246,0.18)" }}><Icon className="w-8 h-8 text-blue-400" /></div>
       <h3 className="text-white text-[15px] font-bold mb-1.5">{title}</h3><p className="text-[#8b949e] text-[13px] max-w-sm mb-5">{description}</p>
-      {action && <button onClick={action.onClick} className="h-9 px-5 rounded-xl text-white text-[13px] font-bold cursor-pointer active:scale-[0.97] transition-transform min-h-[44px]" style={{ background: "#3b82f6", boxShadow: "0 4px 16px rgba(59,130,246,0.35)" }}>{action.label}</button>}
+      {action && <button onClick={action.onClick} className="h-9 px-5 rounded-xl text-white text-[13px] font-bold cursor-pointer min-h-[44px]" style={{ background: "#3b82f6", boxShadow: "0 4px 16px rgba(59,130,246,0.35)" }}>{action.label}</button>}
     </div>
   );
 }
@@ -301,7 +549,7 @@ function ConfirmDialog({ open, title, message, onConfirm, onCancel }: { open: bo
   return (
     <div className="fixed inset-0 z-[400] flex items-center justify-center p-4" onClick={onCancel}>
       <div className="absolute inset-0" style={{ background: "rgba(0,0,0,0.65)", backdropFilter: "blur(8px)" }} />
-      <motion.div initial={{ opacity: 0, scale: 0.93 }} animate={{ opacity: 1, scale: 1 }} onClick={(e) => e.stopPropagation()} className="relative z-10 w-full max-w-[380px] rounded-2xl p-6" style={G.liquidGlass}>
+      <motion.div initial={{ opacity: 0, scale: 0.93 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.93 }} transition={{ type: "spring", damping: 26, stiffness: 360 }} onClick={(e) => e.stopPropagation()} className="relative z-10 w-full max-w-[380px] rounded-2xl p-6" style={G.liquidGlass}>
         <div className="flex items-center gap-3 mb-4"><div className="w-10 h-10 rounded-xl flex items-center justify-center" style={{ background: "rgba(244,63,94,0.15)" }}><AlertTriangle className="w-5 h-5 text-rose-400" /></div><h3 className="text-white text-[14px] font-bold">{title}</h3></div>
         <p className="text-[#8b949e] text-[12px] mb-5">{message}</p>
         <div className="flex gap-2"><button onClick={onCancel} className="flex-1 h-9 rounded-xl text-[#8b949e] text-[12px] font-semibold cursor-pointer" style={G.btn}>Cancel</button><button onClick={onConfirm} className="flex-1 h-9 rounded-xl text-white text-[12px] font-bold cursor-pointer" style={{ background: "#f43f5e" }}>Delete</button></div>
@@ -320,14 +568,93 @@ function CurrencyToggle() {
 }
 function NotificationBell() {
   const [open, setOpen] = useState(false);
-  const [notifications, setNotifications] = useState<Notification[]>([]);
+  const [notifications, setNotifications] = useState<NotificationItem[]>([]);
+  const [filter, setFilter] = useState<"all" | "unread">("all");
   const unreadCount = notifications.filter(n => !n.isRead).length;
-  useEffect(() => { API.notifications.list().then(setNotifications).catch(() => {}); const interval = setInterval(() => { API.notifications.list().then(setNotifications).catch(() => {}); }, 30000); return () => clearInterval(interval); }, []);
+
+  useEffect(() => {
+    API.notifications.list().then(setNotifications).catch(() => {});
+    const interval = setInterval(() => { API.notifications.list().then(setNotifications).catch(() => {}); }, 30000);
+    return () => clearInterval(interval);
+  }, []);
+
   const handleMarkAllRead = async () => { await API.notifications.markAllRead(); setNotifications(prev => prev.map(n => ({ ...n, isRead: true }))); };
+
+  const handleNotificationClick = (n: NotificationItem) => {
+    API.notifications.markRead(n.id).catch(() => {});
+    setNotifications(prev => prev.map(x => x.id === n.id ? { ...x, isRead: true } : x));
+    if (n.actionUrl) {
+      const page = localStorage.getItem("app_page") || "dashboard";
+      if (n.actionUrl.includes("/project/")) {
+        const projectId = n.actionUrl.split("/project/")[1];
+        localStorage.setItem("active_project_id", projectId);
+        window.location.href = "/";
+      }
+    }
+  };
+
+  const filtered = filter === "unread" ? notifications.filter(n => !n.isRead) : notifications;
+
+  const grouped = useMemo(() => {
+    const today = new Date().toDateString();
+    const yesterday = new Date(Date.now() - 86400000).toDateString();
+    const groups: { label: string; items: NotificationItem[] }[] = [
+      { label: "Today", items: [] },
+      { label: "Yesterday", items: [] },
+      { label: "Earlier", items: [] },
+    ];
+    for (const n of filtered) {
+      const d = new Date(n.timestamp).toDateString();
+      if (d === today) groups[0].items.push(n);
+      else if (d === yesterday) groups[1].items.push(n);
+      else groups[2].items.push(n);
+    }
+    return groups.filter(g => g.items.length > 0);
+  }, [filtered]);
+
   return (
     <div className="relative">
-      <button onClick={() => setOpen(!open)} className="relative w-8 h-8 rounded-xl flex items-center justify-center hover:bg-white/[0.08] transition-colors cursor-pointer" style={G.btn}><Bell className="w-3.5 h-3.5 text-[#8b949e]" />{unreadCount > 0 && <span className="absolute -top-0.5 -right-0.5 w-4 h-4 rounded-full bg-rose-500 text-white text-[8px] font-bold flex items-center justify-center">{unreadCount > 9 ? "9+" : unreadCount}</span>}</button>
-      {open && (<><div className="fixed inset-0 z-50" onClick={() => setOpen(false)} /><div className="absolute right-0 top-full mt-2 z-[60] w-80 rounded-2xl overflow-hidden" style={{ background: "rgba(7,12,26,0.97)", border: "1px solid rgba(255,255,255,0.12)", boxShadow: "0 8px 32px rgba(0,0,0,0.8)", backdropFilter: "blur(20px)" }}><div className="px-4 py-3 flex items-center justify-between" style={{ borderBottom: "1px solid rgba(255,255,255,0.07)" }}><p className="text-white text-[12px] font-bold">Notifications</p>{unreadCount > 0 && <button onClick={handleMarkAllRead} className="text-[10px] text-blue-400 font-semibold hover:text-blue-300 cursor-pointer">Mark all read</button>}</div><div className="max-h-[320px] overflow-y-auto" style={{ scrollbarWidth: "none" }}>{notifications.length === 0 ? <div className="px-4 py-6 text-center"><p className="text-[#484f58] text-[11px]">No notifications yet</p></div> : notifications.map(n => (<div key={n.id} className={clsx("px-4 py-2.5 hover:bg-white/[0.03] transition-colors cursor-pointer", !n.isRead && "bg-white/[0.02]")} style={{ borderBottom: "1px solid rgba(255,255,255,0.03)" }} onClick={() => { API.notifications.markRead(n.id); setNotifications(prev => prev.map(x => x.id === n.id ? { ...x, isRead: true } : x)); }}><div className="flex items-start gap-2"><div className={clsx("w-1.5 h-1.5 rounded-full mt-1.5 flex-shrink-0", !n.isRead ? "bg-blue-400" : "bg-transparent")} /><div className="flex-1 min-w-0"><p className="text-white text-[11px] font-semibold">{n.event}</p>{n.details && <p className="text-[#8b949e] text-[10px] mt-0.5">{n.details}</p>}<p className="text-[#484f58] text-[9px] mt-1">{new Date(n.timestamp).toLocaleString()}</p></div></div></div>))}</div></div></>)}
+      <button onClick={() => setOpen(!open)} className="relative w-8 h-8 rounded-xl flex items-center justify-center hover:bg-white/[0.08] transition-colors cursor-pointer" style={G.btn}>
+        <Bell className="w-3.5 h-3.5 text-[#8b949e]" />
+        {unreadCount > 0 && <span className="absolute -top-0.5 -right-0.5 w-4 h-4 rounded-full bg-rose-500 text-white text-[8px] font-bold flex items-center justify-center">{unreadCount > 9 ? "9+" : unreadCount}</span>}
+      </button>
+      {open && (
+        <>
+          <div className="fixed inset-0 z-50" onClick={() => setOpen(false)} />
+          <motion.div initial={{ opacity: 0, scale: 0.95, y: -8 }} animate={{ opacity: 1, scale: 1, y: 0 }} exit={{ opacity: 0, scale: 0.95, y: -8 }} transition={{ type: "spring", damping: 26, stiffness: 360 }} className="absolute right-0 top-full mt-2 z-[60] w-80 rounded-2xl overflow-hidden" style={{ background: "rgba(7,12,26,0.97)", border: "1px solid rgba(255,255,255,0.12)", boxShadow: "0 8px 32px rgba(0,0,0,0.8)", backdropFilter: "blur(20px)" }}>
+            <div className="px-4 py-3 flex items-center justify-between" style={{ borderBottom: "1px solid rgba(255,255,255,0.07)" }}>
+              <p className="text-white text-[12px] font-bold">Notifications</p>
+              <div className="flex items-center gap-2">
+                {unreadCount > 0 && <button onClick={handleMarkAllRead} className="text-[10px] text-blue-400 font-semibold hover:text-blue-300 cursor-pointer">Mark all read</button>}
+                <button onClick={() => setFilter(filter === "all" ? "unread" : "all")} className="text-[10px] text-[#8b949e] font-semibold cursor-pointer">{filter === "all" ? "Unread" : "All"}</button>
+              </div>
+            </div>
+            <div className="max-h-[360px] overflow-y-auto" style={{ scrollbarWidth: "none" }}>
+              {filtered.length === 0 ? (
+                <div className="px-4 py-10 text-center"><Bell className="w-8 h-8 text-[#484f58] mx-auto mb-2" /><p className="text-[#484f58] text-[11px]">No notifications</p></div>
+              ) : (
+                grouped.map(group => (
+                  <div key={group.label}>
+                    <div className="px-4 py-2 text-[#484f58] text-[9px] font-bold uppercase tracking-widest" style={{ background: "rgba(255,255,255,0.02)" }}>{group.label}</div>
+                    {group.items.map(n => (
+                      <div key={n.id} className={clsx("px-4 py-3 hover:bg-white/[0.03] transition-colors cursor-pointer", !n.isRead && "bg-white/[0.02]")} style={{ borderBottom: "1px solid rgba(255,255,255,0.03)" }} onClick={() => handleNotificationClick(n)}>
+                        <div className="flex items-start gap-2">
+                          <div className={clsx("w-1.5 h-1.5 rounded-full mt-1.5 flex-shrink-0", !n.isRead ? "bg-blue-400" : "bg-transparent")} />
+                          <div className="flex-1 min-w-0">
+                            <p className="text-white text-[11px] font-semibold">{n.event}</p>
+                            {n.details && <p className="text-[#8b949e] text-[10px] mt-0.5">{n.details}</p>}
+                            <p className="text-[#484f58] text-[9px] mt-1">{new Date(n.timestamp).toLocaleString()}</p>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ))
+              )}
+            </div>
+          </motion.div>
+        </>
+      )}
     </div>
   );
 }
@@ -336,14 +663,35 @@ function UserMenu() {
   const [open, setOpen] = useState(false);
   return (
     <div className="relative">
-      <button onClick={() => setOpen(!open)} className="flex items-center gap-2 h-8 pl-1.5 pr-2.5 rounded-xl hover:bg-white/[0.06] transition-colors cursor-pointer min-h-[44px] md:min-h-0"><div className="w-6 h-6 rounded-full flex items-center justify-center text-white text-[9px] font-bold flex-shrink-0" style={{ background: "linear-gradient(135deg, #3b82f6, #8b5cf6)", boxShadow: "0 0 12px rgba(139,92,246,0.5)" }}>{CURRENT_USER.initials}</div><span className="text-white text-[12px] font-semibold hidden md:inline">{CURRENT_USER.name}</span><ChevronDown className="w-3 h-3 text-[#8b949e] hidden md:block" /></button>
-      {open && (<><div className="fixed inset-0 z-50" onClick={() => setOpen(false)} /><div className="absolute right-0 top-full mt-2 z-[60] w-56 rounded-2xl overflow-hidden" style={{ background: "rgba(7,12,26,0.97)", border: "1px solid rgba(255,255,255,0.12)", boxShadow: "0 8px 32px rgba(0,0,0,0.8)", backdropFilter: "blur(20px)" }}><div className="px-4 py-3 flex items-center gap-3" style={{ borderBottom: "1px solid rgba(255,255,255,0.07)" }}><div className="w-8 h-8 rounded-full flex items-center justify-center text-white text-[11px] font-bold flex-shrink-0" style={{ background: "linear-gradient(135deg, #3b82f6, #8b5cf6)", boxShadow: "0 0 12px rgba(139,92,246,0.5)" }}>{CURRENT_USER.initials}</div><div><p className="text-white text-[12px] font-semibold">{CURRENT_USER.name}</p><p className="text-[#484f58] text-[10px]">Administrator</p></div></div><div className="py-1"><button onClick={() => { setOpen(false); localStorage.removeItem("auth_token"); localStorage.removeItem("app_logged_in"); localStorage.removeItem("app_page"); window.location.href = "/"; }} className="w-full flex items-center gap-2.5 px-4 py-2.5 text-[#8b949e] hover:text-white hover:bg-white/[0.05] transition-colors text-left cursor-pointer min-h-[44px] text-[12px] font-semibold"><LogOut className="w-3.5 h-3.5 text-rose-400" /> Sign Out</button></div></div></>)}
+      <button onClick={() => setOpen(!open)} className="flex items-center gap-2 h-8 pl-1.5 pr-2.5 rounded-xl hover:bg-white/[0.06] transition-colors cursor-pointer min-h-[44px] md:min-h-0">
+        <div className="w-6 h-6 rounded-full flex items-center justify-center text-white text-[9px] font-bold flex-shrink-0" style={{ background: "linear-gradient(135deg, #3b82f6, #8b5cf6)", boxShadow: "0 0 12px rgba(139,92,246,0.5)" }}>{CURRENT_USER.initials}</div>
+        <span className="text-white text-[12px] font-semibold hidden md:inline">{CURRENT_USER.name}</span>
+        <ChevronDown className="w-3 h-3 text-[#8b949e] hidden md:block" />
+      </button>
+      {open && (
+        <>
+          <div className="fixed inset-0 z-50" onClick={() => setOpen(false)} />
+          <motion.div initial={{ opacity: 0, scale: 0.95, y: -8 }} animate={{ opacity: 1, scale: 1, y: 0 }} exit={{ opacity: 0, scale: 0.95, y: -8 }} transition={{ type: "spring", damping: 26, stiffness: 360 }} className="absolute right-0 top-full mt-2 z-[60] w-56 rounded-2xl overflow-hidden" style={{ background: "rgba(7,12,26,0.97)", border: "1px solid rgba(255,255,255,0.12)", boxShadow: "0 8px 32px rgba(0,0,0,0.8)", backdropFilter: "blur(20px)" }}>
+            <div className="px-4 py-3 flex items-center gap-3" style={{ borderBottom: "1px solid rgba(255,255,255,0.07)" }}>
+              <div className="w-8 h-8 rounded-full flex items-center justify-center text-white text-[11px] font-bold flex-shrink-0" style={{ background: "linear-gradient(135deg, #3b82f6, #8b5cf6)", boxShadow: "0 0 12px rgba(139,92,246,0.5)" }}>{CURRENT_USER.initials}</div>
+              <div><p className="text-white text-[12px] font-semibold">{CURRENT_USER.name}</p><p className="text-[#484f58] text-[10px]">Administrator</p></div>
+            </div>
+            <div className="py-1">
+              <button onClick={() => { setOpen(false); localStorage.removeItem("auth_token"); localStorage.removeItem("app_logged_in"); localStorage.removeItem("app_page"); window.location.href = "/"; }} className="w-full flex items-center gap-2.5 px-4 py-2.5 text-[#8b949e] hover:text-white hover:bg-white/[0.05] transition-colors text-left cursor-pointer min-h-[44px] text-[12px] font-semibold"><LogOut className="w-3.5 h-3.5 text-rose-400" /> Sign Out</button>
+            </div>
+          </motion.div>
+        </>
+      )}
     </div>
   );
 }
 
 const NAV_ITEMS: { id: Page; label: string }[] = [
-  { id: "dashboard", label: "Pipeline" }, { id: "design-studio", label: "Projects" }, { id: "workbook", label: "Workbook" }, { id: "install-tracker", label: "Install Tracker" }, { id: "device-library", label: "Device Library" },
+  { id: "dashboard", label: "Pipeline" },
+  { id: "design-studio", label: "Projects" },
+  { id: "workbook", label: "Workbook" },
+  { id: "install-tracker", label: "Install Tracker" },
+  { id: "device-library", label: "Device Library" },
 ];
 
 function Breadcrumb({ page, projectName }: { page: Page; projectName?: string }) {
@@ -357,7 +705,12 @@ function Breadcrumb({ page, projectName }: { page: Page; projectName?: string })
   else if (page === "project-detail") crumbs.push({ label: "Projects", page: "design-studio" }, { label: projectName || "Project Detail" });
   return (
     <div className="flex items-center gap-1.5 text-[11px]">
-      {crumbs.map((crumb, i) => (<span key={i} className="flex items-center gap-1.5">{i > 0 && <ChevronRight className="w-3 h-3 text-[#484f58]" />}{crumb.page ? <button className="text-[#8b949e] hover:text-white font-semibold transition-colors cursor-pointer">{crumb.label}</button> : <span className="text-white font-semibold">{crumb.label}</span>}</span>))}
+      {crumbs.map((crumb, i) => (
+        <span key={i} className="flex items-center gap-1.5">
+          {i > 0 && <ChevronRight className="w-3 h-3 text-[#484f58]" />}
+          {crumb.page ? <button className="text-[#8b949e] hover:text-white font-semibold transition-colors cursor-pointer">{crumb.label}</button> : <span className="text-white font-semibold">{crumb.label}</span>}
+        </span>
+      ))}
     </div>
   );
 }
@@ -366,61 +719,115 @@ function AppTopbar({ page, navigate, breadcrumb }: { page: Page; navigate: (p: P
   const activeTab = NAV_ITEMS.find((n) => n.id === page)?.id ?? null;
   return (
     <header className="fixed top-0 inset-x-0 z-50 h-14 flex items-center gap-3 md:gap-5 px-3 md:px-5" style={{ background: "rgba(7,12,26,0.65)", backdropFilter: "blur(40px) saturate(180%)", borderBottom: "1px solid rgba(255,255,255,0.08)", boxShadow: "0 1px 0 rgba(255,255,255,0.04), 0 8px 32px rgba(0,0,0,0.5)" }}>
-      <button onClick={() => navigate("dashboard")} className="flex items-center gap-2.5 flex-shrink-0 cursor-pointer min-h-[44px]"><img src={logoImg} alt="E-Tech Systems" className="h-8 md:h-10 object-contain" style={{ filter: "brightness(1.1)", marginTop: "-2px", marginBottom: "-2px" }} /></button>
+      <button onClick={() => navigate("dashboard")} className="flex items-center gap-2.5 flex-shrink-0 cursor-pointer min-h-[44px]">
+        <img src={logoImg} alt="E-Tech Systems" className="h-8 md:h-10 object-contain" style={{ filter: "brightness(1.1)", marginTop: "-2px", marginBottom: "-2px" }} />
+      </button>
       <div className="w-px h-4 flex-shrink-0 hidden md:block" style={{ background: "rgba(255,255,255,0.12)" }} />
-      {breadcrumb ? (<div className="flex items-center gap-2"><button onClick={() => navigate(breadcrumb.parent)} className="flex items-center gap-1.5 text-[#8b949e] hover:text-white text-[12px] font-semibold cursor-pointer"><ArrowLeft className="w-3.5 h-3.5" />{breadcrumb.label}</button><ChevronRight className="w-3.5 h-3.5 text-[#484f58]" /><span className="text-white text-[12px] font-semibold">Project Detail</span></div>) : (
-        <nav className="flex items-center gap-0.5 overflow-x-auto" style={{ scrollbarWidth: "none" }}>{NAV_ITEMS.map((item) => (<button key={item.id} onClick={() => navigate(item.id)} className={clsx("h-8 px-2.5 md:px-3.5 rounded-xl text-[11px] md:text-[13px] font-semibold transition-all duration-150 whitespace-nowrap cursor-pointer", activeTab === item.id ? "text-white" : "text-[#8b949e] hover:text-white")} style={activeTab === item.id ? { background: "rgba(255,255,255,0.10)", border: "1px solid rgba(255,255,255,0.13)", boxShadow: "inset 0 1px 0 rgba(255,255,255,0.08)" } : undefined}>{item.label}</button>))}</nav>
+      {breadcrumb ? (
+        <div className="flex items-center gap-2">
+          <button onClick={() => navigate(breadcrumb.parent)} className="flex items-center gap-1.5 text-[#8b949e] hover:text-white text-[12px] font-semibold transition-colors cursor-pointer"><ArrowLeft className="w-3.5 h-3.5" />{breadcrumb.label}</button>
+          <ChevronRight className="w-3.5 h-3.5 text-[#484f58]" />
+          <span className="text-white text-[12px] font-semibold">Project Detail</span>
+        </div>
+      ) : (
+        <nav className="flex items-center gap-0.5 overflow-x-auto" style={{ scrollbarWidth: "none" }}>
+          {NAV_ITEMS.map((item) => (
+            <button key={item.id} onClick={() => navigate(item.id)} className={clsx("h-8 px-2.5 md:px-3.5 rounded-xl text-[11px] md:text-[13px] font-semibold transition-all duration-150 whitespace-nowrap cursor-pointer", activeTab === item.id ? "text-white" : "text-[#8b949e] hover:text-white")} style={activeTab === item.id ? { background: "rgba(255,255,255,0.10)", border: "1px solid rgba(255,255,255,0.13)", boxShadow: "inset 0 1px 0 rgba(255,255,255,0.08)" } : undefined}>{item.label}</button>
+          ))}
+        </nav>
       )}
       <div className="flex-1" />
-      <div className="flex items-center gap-1 md:gap-1.5"><div className="hidden md:block"><CurrencyToggle /></div><NotificationBell /><UserMenu /></div>
+      <div className="flex items-center gap-1 md:gap-1.5">
+        <div className="hidden md:block"><CurrencyToggle /></div>
+        <NotificationBell />
+        <UserMenu />
+      </div>
     </header>
   );
 }
 
 function KanbanCard({ project, column, dragging, onDragStart, onDragEnd, onClick, onDelete, onMoveToProjects }: { project: Project; column: Column | ProjectColumn; dragging: string | null; onDragStart: (e: React.DragEvent<HTMLDivElement>, id: string) => void; onDragEnd: () => void; onClick: () => void; onDelete: (id: string) => void; onMoveToProjects?: (id: string) => void; }) {
-  const { fmt } = useCurrency(); const isDragging = dragging === project.id; const [menuOpen, setMenuOpen] = useState(false); const [confirmDelete, setConfirmDelete] = useState(false);
+  const { fmt } = useCurrency();
+  const isDragging = dragging === project.id;
+  const [menuOpen, setMenuOpen] = useState(false);
+  const [confirmDelete, setConfirmDelete] = useState(false);
   const ls = project.leadSource ? LEAD_SOURCE_STYLES[project.leadSource] : null;
   const isProjectPipeline = project.pipelineType === "project";
-  const isOverdue = project.dueDate ? new Date(project.dueDate) < new Date() && !["win","lose","complete"].includes(project.stage) && !["complete"].includes(project.projectStage as string) : false;
-  const isDueSoon = project.dueDate && !isOverdue ? (new Date(project.dueDate).getTime() - new Date().getTime()) < 7 * 24 * 60 * 60 * 1000 && !["win","lose","complete"].includes(project.stage) && !["complete"].includes(project.projectStage as string) : false;
+  const isOverdue = project.dueDate ? new Date(project.dueDate) < new Date() && !["win","lose","complete"].includes(project.stage) && project.projectStage !== "complete" : false;
+  const isDueSoon = project.dueDate && !isOverdue ? (new Date(project.dueDate).getTime() - new Date().getTime()) < 7 * 24 * 60 * 60 * 1000 && !["win","lose","complete"].includes(project.stage) && project.projectStage !== "complete" : false;
   const [showNotes, setShowNotes] = useState(false);
   const allCollaborators = project.collaborators || [];
-  const hasCollaborators = allCollaborators.length > 0;
   const psBadge = isProjectPipeline ? projectStageBadge(project.projectStage || "planning") : null;
+
   return (
-    <>{confirmDelete && <ConfirmDialog open={confirmDelete} title="Delete Project" message={`Are you sure you want to delete "${project.name}"? This action cannot be undone.`} onConfirm={() => { onDelete(project.id); setConfirmDelete(false); toast.success("Project deleted"); }} onCancel={() => setConfirmDelete(false)} />}
-    <div draggable onDragStart={(e) => { e.stopPropagation(); onDragStart(e, project.id); }} onDragEnd={onDragEnd} onClick={onClick} className={clsx("group relative rounded-2xl cursor-pointer select-none transition-all duration-200", isDragging ? "opacity-25 scale-[0.96]" : "md:hover:-translate-y-1")} style={{ background: "rgba(255,255,255,0.055)", backdropFilter: "blur(24px)", border: isDragging ? "1px solid rgba(255,255,255,0.05)" : "1px solid rgba(255,255,255,0.11)", borderLeft: `3px solid ${isProjectPipeline ? (psBadge?.color || "#3b82f6") : column.color}`, boxShadow: isDragging ? "none" : "0 2px 16px rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,255,255,0.09)" }}>
-      <div className="p-3 md:p-4 md:pl-5">
-        <div className="flex items-start justify-between gap-2 mb-2"><div className="flex items-center gap-1.5 flex-1 min-w-0">{isOverdue && <span className="w-2 h-2 rounded-full bg-rose-500 flex-shrink-0" title="Overdue" />}{isDueSoon && !isOverdue && <span className="w-2 h-2 rounded-full bg-amber-500 flex-shrink-0" title="Due soon" />}<h3 className="text-white text-[12px] md:text-[13px] font-semibold leading-snug truncate">{project.name}</h3></div>
-        <div className="relative flex-shrink-0"><button onClick={(e) => { e.stopPropagation(); setMenuOpen(!menuOpen); }} className="opacity-0 group-hover:opacity-100 transition-opacity w-8 h-8 rounded-lg hover:bg-white/10 flex items-center justify-center mt-0.5 cursor-pointer min-w-[44px] min-h-[44px] md:min-w-0 md:min-h-0"><MoreHorizontal className="w-3.5 h-3.5 text-[#8b949e]" /></button>
-        {menuOpen && <><div className="fixed inset-0 z-10" onClick={(e) => { e.stopPropagation(); setMenuOpen(false); }} /><div className="absolute right-0 top-7 z-20 w-40 rounded-xl overflow-hidden py-1" style={{ background: "rgba(7,12,26,0.97)", border: "1px solid rgba(255,255,255,0.12)", boxShadow: "0 8px 32px rgba(0,0,0,0.8)", backdropFilter: "blur(20px)" }}><button onClick={(e) => { e.stopPropagation(); setConfirmDelete(true); setMenuOpen(false); }} className="w-full flex items-center gap-2.5 px-3 py-2.5 text-rose-400 text-[12px] font-semibold hover:bg-rose-500/10 transition-colors text-left cursor-pointer min-h-[44px]"><Trash2 className="w-3.5 h-3.5" /> Delete</button></div></>}</div></div>
-        <div className="flex items-center gap-1.5 mb-1"><Building2 className="w-3 h-3 text-[#8b949e] flex-shrink-0" /><span className="text-[#8b949e] text-[10px] md:text-[11px] font-semibold truncate">{project.client}</span></div>
-        <div className="flex items-center flex-wrap gap-1.5 mb-2">
-          {isProjectPipeline ? (
-            <>
-              {psBadge && <span className={clsx("text-[9px] font-bold px-1.5 py-0.5 rounded-full", psBadge.cls)}>{psBadge.label}</span>}
-              {project.supportType && <span className="text-[9px] font-bold px-1.5 py-0.5 rounded-full" style={{ background: "rgba(139,92,246,0.15)", color: "#a78bfa" }}>{SUPPORT_TYPE_LABELS[project.supportType]}</span>}
-            </>
-          ) : (
-            <>
-              {ls && <span className="text-[9px] font-bold px-1.5 py-0.5 rounded-full" style={{ background: ls.bg, color: ls.text }}>{project.leadSource}</span>}
-              <span className={clsx("text-[9px] md:text-[10px] font-bold px-1.5 py-0.5 rounded-full uppercase tracking-wide", project.risk === "high" ? "bg-rose-500/20 text-rose-400" : project.risk === "medium" ? "bg-amber-500/20 text-amber-400" : "bg-emerald-500/20 text-emerald-400")}>{project.risk}</span>
-            </>
+    <>
+      {confirmDelete && <ConfirmDialog open={confirmDelete} title="Delete Project" message={`Are you sure you want to delete "${project.name}"? This action cannot be undone.`} onConfirm={() => { onDelete(project.id); setConfirmDelete(false); toast.success("Project deleted"); }} onCancel={() => setConfirmDelete(false)} />}
+      <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, scale: 0.95 }} draggable onDragStart={(e) => { e.stopPropagation(); onDragStart(e, project.id); }} onDragEnd={onDragEnd} onClick={onClick} className={clsx("group relative rounded-2xl cursor-pointer select-none transition-all duration-200", isDragging ? "opacity-25 scale-[0.96]" : "md:hover:-translate-y-1")} style={{ background: "rgba(255,255,255,0.055)", backdropFilter: "blur(24px)", border: isDragging ? "1px solid rgba(255,255,255,0.05)" : "1px solid rgba(255,255,255,0.11)", borderLeft: `3px solid ${isProjectPipeline ? (psBadge?.color || "#3b82f6") : column.color}`, boxShadow: isDragging ? "none" : "0 2px 16px rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,255,255,0.09)" }}>
+        <div className="p-3 md:p-4 md:pl-5">
+          <div className="flex items-start justify-between gap-2 mb-2">
+            <div className="flex items-center gap-1.5 flex-1 min-w-0">
+              {isOverdue && <span className="w-2 h-2 rounded-full bg-rose-500 flex-shrink-0" title="Overdue" />}
+              {isDueSoon && !isOverdue && <span className="w-2 h-2 rounded-full bg-amber-500 flex-shrink-0" title="Due soon" />}
+              <h3 className="text-white text-[12px] md:text-[13px] font-semibold leading-snug truncate">{project.name}</h3>
+            </div>
+            <div className="relative flex-shrink-0">
+              <button onClick={(e) => { e.stopPropagation(); setMenuOpen(!menuOpen); }} className="opacity-0 group-hover:opacity-100 transition-opacity w-8 h-8 rounded-lg hover:bg-white/10 flex items-center justify-center mt-0.5 cursor-pointer min-w-[44px] min-h-[44px] md:min-w-0 md:min-h-0"><MoreHorizontal className="w-3.5 h-3.5 text-[#8b949e]" /></button>
+              {menuOpen && (
+                <>
+                  <div className="fixed inset-0 z-10" onClick={(e) => { e.stopPropagation(); setMenuOpen(false); }} />
+                  <div className="absolute right-0 top-7 z-20 w-40 rounded-xl overflow-hidden py-1" style={{ background: "rgba(7,12,26,0.97)", border: "1px solid rgba(255,255,255,0.12)", boxShadow: "0 8px 32px rgba(0,0,0,0.8)", backdropFilter: "blur(20px)" }}>
+                    <button onClick={(e) => { e.stopPropagation(); setConfirmDelete(true); setMenuOpen(false); }} className="w-full flex items-center gap-2.5 px-3 py-2.5 text-rose-400 text-[12px] font-semibold hover:bg-rose-500/10 transition-colors text-left cursor-pointer min-h-[44px]"><Trash2 className="w-3.5 h-3.5" /> Delete</button>
+                  </div>
+                </>
+              )}
+            </div>
+          </div>
+          <div className="flex items-center gap-1.5 mb-1"><Building2 className="w-3 h-3 text-[#8b949e] flex-shrink-0" /><span className="text-[#8b949e] text-[10px] md:text-[11px] font-semibold truncate">{project.client}</span></div>
+          <div className="flex items-center flex-wrap gap-1.5 mb-2">
+            {isProjectPipeline ? (
+              <>
+                {psBadge && <span className={clsx("text-[9px] font-bold px-1.5 py-0.5 rounded-full", psBadge.cls)}>{psBadge.label}</span>}
+                {project.supportType && <span className="text-[9px] font-bold px-1.5 py-0.5 rounded-full" style={{ background: "rgba(139,92,246,0.15)", color: "#a78bfa" }}>{SUPPORT_TYPE_LABELS[project.supportType]}</span>}
+              </>
+            ) : (
+              <>
+                {ls && <span className="text-[9px] font-bold px-1.5 py-0.5 rounded-full" style={{ background: ls.bg, color: ls.text }}>{project.leadSource}</span>}
+                <span className={clsx("text-[9px] md:text-[10px] font-bold px-1.5 py-0.5 rounded-full uppercase tracking-wide", project.risk === "high" ? "bg-rose-500/20 text-rose-400" : project.risk === "medium" ? "bg-amber-500/20 text-amber-400" : "bg-emerald-500/20 text-emerald-400")}>{project.risk}</span>
+              </>
+            )}
+          </div>
+          {!isProjectPipeline && <div className="flex items-center gap-2 mb-2.5"><span className="text-white font-bold text-[14px] md:text-[15px] tracking-tight">{fmt(project.value, true)}</span></div>}
+          <div className="flex items-center gap-3 mb-3">
+            <span className="flex items-center gap-1 text-[#8b949e] text-[10px] md:text-[11px]"><Camera className="w-3 h-3" />{project.cameras} cams</span>
+            <span className="flex items-center gap-1 text-[#8b949e] text-[10px] md:text-[11px]"><Fingerprint className="w-3 h-3" />{project.devices} devices</span>
+          </div>
+          {project.notes && (
+            <div className="relative mb-2">
+              <button onClick={(e) => { e.stopPropagation(); setShowNotes(!showNotes); }} className="text-[10px] text-[#8b949e] hover:text-[#e6edf3] font-semibold cursor-pointer flex items-center gap-1"><StickyNote className="w-3 h-3" /> Notes</button>
+              {showNotes && <div className="absolute top-full left-0 mt-1 w-48 rounded-xl p-2 z-30 text-[10px] text-[#8b949e]" style={{ background: "rgba(7,12,26,0.97)", border: "1px solid rgba(255,255,255,0.10)", boxShadow: "0 4px 16px rgba(0,0,0,0.6)" }}>{project.notes}</div>}
+            </div>
+          )}
+          <div className="flex items-center justify-between pt-2.5" style={{ borderTop: "1px solid rgba(255,255,255,0.06)" }}>
+            <div className="flex items-center gap-1">
+              <div className="w-5 h-5 rounded-full flex items-center justify-center text-[9px] font-bold text-white flex-shrink-0" style={{ background: project.assignee.color, boxShadow: `0 0 8px ${project.assignee.color}60` }}>{project.assignee.initials}</div>
+              <span className="text-[#8b949e] text-[10px] md:text-[11px] font-medium truncate max-w-[60px]">{project.assignee.name}</span>
+              {allCollaborators.length > 0 && (
+                <div className="flex items-center -space-x-1.5 ml-0.5">
+                  {allCollaborators.slice(0, 3).map((c, i) => (
+                    <div key={i} className="w-4 h-4 rounded-full flex items-center justify-center text-[7px] font-bold text-white ring-1 ring-black/30" style={{ background: c.color }} title={c.name}>{c.initials}</div>
+                  ))}
+                  {allCollaborators.length > 3 && <span className="text-[#8b949e] text-[8px] ml-1">+{allCollaborators.length - 3}</span>}
+                </div>
+              )}
+            </div>
+            <span className={clsx("flex items-center gap-1 text-[10px] md:text-[11px]", isOverdue ? "text-rose-400" : isDueSoon ? "text-amber-400" : "text-[#484f58]")}><Calendar className="w-3 h-3" />{fmtDate(project.dueDate)}</span>
+          </div>
+          {project.stage === "win" && !isProjectPipeline && onMoveToProjects && (
+            <button onClick={(e) => { e.stopPropagation(); onMoveToProjects(project.id); }} className="mt-2 w-full h-7 rounded-lg text-[10px] font-bold text-white cursor-pointer" style={{ background: "#8b5cf6" }}>Move to Projects</button>
           )}
         </div>
-        {!isProjectPipeline && <div className="flex items-center gap-2 mb-2.5"><span className="text-white font-bold text-[14px] md:text-[15px] tracking-tight">{fmt(project.value, true)}</span></div>}
-        <div className="flex items-center gap-3 mb-3"><span className="flex items-center gap-1 text-[#484f58] text-[10px] md:text-[11px]"><Camera className="w-3 h-3" />{project.cameras} cams</span><span className="flex items-center gap-1 text-[#484f58] text-[10px] md:text-[11px]"><Fingerprint className="w-3 h-3" />{project.devices} devices</span></div>
-        {project.notes && (<div className="relative mb-2"><button onClick={(e) => { e.stopPropagation(); setShowNotes(!showNotes); }} className="text-[10px] text-[#484f58] hover:text-[#8b949e] font-semibold cursor-pointer flex items-center gap-1"><StickyNote className="w-3 h-3" /> Notes</button>{showNotes && <div className="absolute top-full left-0 mt-1 w-48 rounded-xl p-2 z-30 text-[10px] text-[#8b949e]" style={{ background: "rgba(7,12,26,0.97)", border: "1px solid rgba(255,255,255,0.10)", boxShadow: "0 4px 16px rgba(0,0,0,0.6)" }}>{project.notes}</div>}</div>)}
-        <div className="flex items-center justify-between pt-2.5" style={{ borderTop: "1px solid rgba(255,255,255,0.06)" }}>
-          <div className="flex items-center gap-1"><div className="w-5 h-5 rounded-full flex items-center justify-center text-[9px] font-bold text-white flex-shrink-0" style={{ background: project.assignee.color, boxShadow: `0 0 8px ${project.assignee.color}60` }}>{project.assignee.initials}</div><span className="text-[#8b949e] text-[10px] md:text-[11px] font-medium truncate max-w-[60px]">{project.assignee.name}</span>
-          {hasCollaborators && (<div className="flex items-center -space-x-1.5 ml-0.5">{allCollaborators.slice(0, 3).map((c, i) => (<div key={i} className="w-4 h-4 rounded-full flex items-center justify-center text-[7px] font-bold text-white ring-1 ring-black/30" style={{ background: c.color }} title={c.name}>{c.initials}</div>))}{allCollaborators.length > 3 && <span className="text-[#484f58] text-[8px] ml-1">+{allCollaborators.length - 3}</span>}</div>)}</div>
-          <span className={clsx("flex items-center gap-1 text-[10px] md:text-[11px]", isOverdue ? "text-rose-400" : isDueSoon ? "text-amber-400" : "text-[#484f58]")}><Calendar className="w-3 h-3" />{fmtDate(project.dueDate)}</span>
-        </div>
-        {project.stage === "win" && !isProjectPipeline && onMoveToProjects && (
-          <button onClick={(e) => { e.stopPropagation(); onMoveToProjects(project.id); }} className="mt-2 w-full h-7 rounded-lg text-[10px] font-bold text-white cursor-pointer" style={{ background: "#8b5cf6" }}>Move to Projects</button>
-        )}
-      </div>
-    </div></>
+      </motion.div>
+    </>
   );
 }
 
@@ -430,11 +837,21 @@ function KanbanColumn({ column, projects, totalValue, dragging, isOver, onDragSt
   return (
     <div onDragOver={onDragOver} onDragLeave={onDragLeave} onDrop={onDrop} className="w-[260px] md:w-[272px] flex-shrink-0 flex flex-col rounded-2xl transition-all duration-200" style={isOver ? { background: "rgba(59,130,246,0.08)", backdropFilter: "blur(24px)", border: "1px solid rgba(59,130,246,0.35)" } : { background: "rgba(255,255,255,0.032)", backdropFilter: "blur(24px)", border: "1px solid rgba(255,255,255,0.07)", boxShadow: "0 2px 20px rgba(0,0,0,0.3)" }}>
       <div className="px-3.5 pt-3.5 pb-3 flex-shrink-0" style={{ borderBottom: "1px solid rgba(255,255,255,0.06)" }}>
-        <div className="flex items-center justify-between mb-1"><div className="flex items-center gap-2 min-w-0"><div className="w-2 h-2 rounded-full flex-shrink-0" style={{ background: column.color, boxShadow: `0 0 10px ${column.color}88` }} /><span className="text-white text-[11px] md:text-[12px] font-bold truncate leading-tight">{column.label}</span></div><span className="text-[#8b949e] text-[10px] md:text-[11px] px-1.5 py-0.5 rounded-full font-bold" style={{ background: "rgba(255,255,255,0.08)" }}>{projects.length}</span></div>
+        <div className="flex items-center justify-between mb-1">
+          <div className="flex items-center gap-2 min-w-0">
+            <div className="w-2 h-2 rounded-full flex-shrink-0" style={{ background: column.color, boxShadow: `0 0 10px ${column.color}88` }} />
+            <span className="text-white text-[11px] md:text-[12px] font-bold truncate leading-tight">{column.label}</span>
+          </div>
+          <span className="text-[#8b949e] text-[10px] md:text-[11px] px-1.5 py-0.5 rounded-full font-bold" style={{ background: "rgba(255,255,255,0.08)" }}>{projects.length}</span>
+        </div>
         {!isProjectColumn && <p className="text-[#484f58] text-[10px] md:text-[11px] font-semibold ml-4">{fmt(totalValue, true)}</p>}
       </div>
       <div className="flex-1 p-2 space-y-2 overflow-y-auto" style={{ scrollbarWidth: "none", scrollBehavior: "smooth", WebkitOverflowScrolling: "touch", minHeight: "120px", maxHeight: "calc(100vh - 250px)" }}>
-        {projects.map((p) => (<KanbanCard key={p.id} project={p} column={column} dragging={dragging} onDragStart={onDragStart} onDragEnd={onDragEnd} onClick={() => onCardClick(p)} onDelete={onDelete} onMoveToProjects={onMoveToProjects} />))}
+        <AnimatePresence mode="popLayout">
+          {projects.map((p) => (
+            <KanbanCard key={p.id} project={p} column={column} dragging={dragging} onDragStart={onDragStart} onDragEnd={onDragEnd} onClick={() => onCardClick(p)} onDelete={onDelete} onMoveToProjects={onMoveToProjects} />
+          ))}
+        </AnimatePresence>
         {isOver && <div className="h-14 rounded-xl border-2 border-dashed border-blue-500/35 bg-blue-500/[0.04] flex items-center justify-center"><p className="text-blue-400/60 text-[11px] font-semibold">Drop here</p></div>}
         {projects.length === 0 && !isOver && <div className="h-14 rounded-xl border border-dashed border-white/[0.04] flex items-center justify-center"><p className="text-[#484f58] text-[11px]">No projects</p></div>}
       </div>
@@ -443,11 +860,16 @@ function KanbanColumn({ column, projects, totalValue, dragging, isOver, onDragSt
 }
 function Dashboard({ navigate }: { navigate: (p: Page) => void }) {
   const { fmt } = useCurrency();
-  const [projects, setProjects] = useState<Project[]>([]); const [loading, setLoading] = useState(true);
-  const [dragging, setDragging] = useState<string | null>(null); const [dragOverCol, setDragOverCol] = useState<string | null>(null);
-  const [selectedDeal, setSelectedDeal] = useState<Project | null>(null); const [showNewProject, setShowNewProject] = useState(false);
+  const [projects, setProjects] = useState<Project[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [dragging, setDragging] = useState<string | null>(null);
+  const [dragOverCol, setDragOverCol] = useState<string | null>(null);
+  const [selectedDeal, setSelectedDeal] = useState<Project | null>(null);
+  const [showNewProject, setShowNewProject] = useState(false);
   const [progressAnim, setProgressAnim] = useState<{ id: string; stage: string } | null>(null);
   const [pipelineType, setPipelineType] = useState<PipelineType>(() => (localStorage.getItem("pipeline_type") as PipelineType) || "sales");
+  const boardScrollRef = useRef<HTMLDivElement>(null);
+  const scrollBarRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => { localStorage.setItem("pipeline_type", pipelineType); }, [pipelineType]);
 
@@ -486,7 +908,11 @@ function Dashboard({ navigate }: { navigate: (p: Page) => void }) {
           const newStage = colId as Stage;
           const stageHistory = [...(project.stageHistory || []), { stage: newStage, date: new Date().toISOString().slice(0, 10) }];
           setProjects((prev) => prev.map((p) => p.id === dragging ? { ...p, stage: newStage, stageHistory } : p));
-          try { await API.projects.update(dragging, { stage: newStage, stageHistory }); await logAudit(dragging, "Stage Change", `Moved from ${oldStage} to ${newStage}`); if (newStage === "win") { API.notifications.salesWin({ projectId: dragging, projectName: project.name, clientName: project.client }).catch(() => {}); } } catch {}
+          try {
+            await API.projects.update(dragging, { stage: newStage, stageHistory });
+            await logAudit(dragging, "Stage Change", `Moved from ${oldStage} to ${newStage}`);
+            if (newStage === "win") { API.notifications.salesWin({ projectId: dragging, projectName: project.name, clientName: project.client }).catch(() => {}); }
+          } catch {}
         } else {
           const newStage = colId as ProjectStage;
           const stageHistory = [...(project.stageHistory || []), { stage: newStage, date: new Date().toISOString().slice(0, 10) }];
@@ -505,7 +931,7 @@ function Dashboard({ navigate }: { navigate: (p: Page) => void }) {
     const updated: Project = { ...project, pipelineType: "project", projectStage: "planning", leadSource: undefined, stageHistory, updatedAt: new Date().toISOString() };
     setProjects(prev => prev.map(p => p.id === projectId ? updated : p));
     try {
-      await API.projects.update(projectId, { pipelineType: "project", projectStage: "planning", leadSource: undefined, stageHistory });
+      await API.projects.update(projectId, { pipelineType: "project", projectStage: "planning", leadSource: null, stageHistory });
       await API.audit.log(projectId, "Moved to Projects", "Moved from Sales Win to Projects Planning");
       toast.success("Moved to Projects Pipeline");
     } catch { fetchProjects(); }
@@ -516,6 +942,14 @@ function Dashboard({ navigate }: { navigate: (p: Page) => void }) {
 
   const selectedColumn = selectedDeal ? [...COLUMNS, ...PROJECT_COLUMNS].find((c) => (pipelineType === "sales" ? c.id === selectedDeal.stage : c.id === selectedDeal.projectStage))! : null;
   const STAT_COLORS = ["#3b82f6", "#10b981", "#f97316", "#8b5cf6"];
+
+  // Scrollbar sync
+  const syncScrollFromBar = (e: React.UIEvent<HTMLDivElement>) => {
+    if (boardScrollRef.current) boardScrollRef.current.scrollLeft = (e.target as HTMLDivElement).scrollLeft;
+  };
+  const syncScrollFromBoard = (e: React.UIEvent<HTMLDivElement>) => {
+    if (scrollBarRef.current) scrollBarRef.current.scrollLeft = (e.target as HTMLDivElement).scrollLeft;
+  };
 
   if (loading) return (
     <div className="px-3 md:px-5 py-4 md:py-6 space-y-4">
@@ -532,7 +966,12 @@ function Dashboard({ navigate }: { navigate: (p: Page) => void }) {
     <div>
       {selectedDeal && selectedColumn && <DealModal project={selectedDeal} column={selectedColumn} onClose={() => setSelectedDeal(null)} navigate={navigate} onUpdate={handleUpdate} onDelete={handleDelete} pipelineType={pipelineType} />}
       {showNewProject && <NewProjectModal onClose={() => setShowNewProject(false)} onAdd={async (p) => { setProjects((prev) => [p, ...prev]); try { await API.projects.create(p); } catch { fetchProjects(); } }} pipelineType={pipelineType} />}
-      {progressAnim && <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -20 }} className="fixed bottom-6 left-1/2 -translate-x-1/2 z-[250] px-5 py-3 rounded-2xl flex items-center gap-3" style={{ background: "rgba(16,185,129,0.95)", backdropFilter: "blur(20px)", boxShadow: "0 8px 32px rgba(16,185,129,0.4)" }}><CheckCircle2 className="w-5 h-5 text-white" /><span className="text-white text-[13px] font-bold">Project advanced to {columns.find((c) => c.id === progressAnim.stage)?.label}</span></motion.div>}
+      {progressAnim && (
+        <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -20 }} className="fixed bottom-6 left-1/2 -translate-x-1/2 z-[250] px-5 py-3 rounded-2xl flex items-center gap-3" style={{ background: "rgba(16,185,129,0.95)", backdropFilter: "blur(20px)", boxShadow: "0 8px 32px rgba(16,185,129,0.4)" }}>
+          <CheckCircle2 className="w-5 h-5 text-white" />
+          <span className="text-white text-[13px] font-bold">Project advanced to {columns.find((c) => c.id === progressAnim.stage)?.label}</span>
+        </motion.div>
+      )}
       <div className="px-3 md:px-5 pt-4 md:pt-6 pb-4 md:pb-5 flex-shrink-0" style={{ borderBottom: "1px solid rgba(255,255,255,0.06)" }}>
         <div className="flex items-center justify-between mb-4 md:mb-5">
           <div>
@@ -550,25 +989,39 @@ function Dashboard({ navigate }: { navigate: (p: Page) => void }) {
         {pipelineType === "sales" ? (
           <div className="grid grid-cols-2 md:grid-cols-4 gap-2 md:gap-3">
             {[{ label: "Active Pipeline", value: pipeline, icon: TrendingUp },{ label: "Win Rate", value: winRate, icon: Star, isPct: true },{ label: "In Negotiation", value: negoValue, icon: BarChart3 },{ label: "Avg Deal Size", value: avgDeal, icon: DollarSign }].map((stat, i) => (
-              <div key={stat.label} className="rounded-2xl p-3 md:p-4" style={G.card}><div className="flex items-center justify-between mb-2"><span className="text-[#8b949e] text-[10px] md:text-[12px] font-extrabold uppercase tracking-[0.08em]">{stat.label}</span><div className="w-7 h-7 md:w-8 md:h-8 rounded-xl flex items-center justify-center" style={{ background: `${STAT_COLORS[i]}18` }}><stat.icon className="w-3 h-3 md:w-3.5 md:h-3.5" style={{ color: STAT_COLORS[i] }} /></div></div><p className="text-white text-[1.4rem] md:text-[2rem] font-extrabold tracking-tight leading-none">{stat.isPct ? `${stat.value}%` : fmt(stat.value as number, true)}</p></div>
+              <div key={stat.label} className="rounded-2xl p-3 md:p-4" style={G.card}>
+                <div className="flex items-center justify-between mb-2"><span className="text-[#8b949e] text-[10px] md:text-[12px] font-extrabold uppercase tracking-[0.08em]">{stat.label}</span><div className="w-7 h-7 md:w-8 md:h-8 rounded-xl flex items-center justify-center" style={{ background: `${STAT_COLORS[i]}18` }}><stat.icon className="w-3 h-3 md:w-3.5 md:h-3.5" style={{ color: STAT_COLORS[i] }} /></div></div>
+                <p className="text-white text-[1.4rem] md:text-[2rem] font-extrabold tracking-tight leading-none">{stat.isPct ? `${stat.value}%` : fmt(stat.value as number, true)}</p>
+              </div>
             ))}
           </div>
         ) : (
           <div className="grid grid-cols-2 md:grid-cols-4 gap-2 md:gap-3">
             {[{ label: "Active Projects", value: activeProjects, icon: Activity },{ label: "In Installation", value: inInstallation, icon: Wrench },{ label: "Overdue", value: overdueProjects, icon: AlertTriangle },{ label: "Tickets Resolved", value: ticketsResolved, icon: CheckCircle2 }].map((stat, i) => (
-              <div key={stat.label} className="rounded-2xl p-3 md:p-4" style={G.card}><div className="flex items-center justify-between mb-2"><span className="text-[#8b949e] text-[10px] md:text-[12px] font-extrabold uppercase tracking-[0.08em]">{stat.label}</span><div className="w-7 h-7 md:w-8 md:h-8 rounded-xl flex items-center justify-center" style={{ background: `${STAT_COLORS[i]}18` }}><stat.icon className="w-3 h-3 md:w-3.5 md:h-3.5" style={{ color: STAT_COLORS[i] }} /></div></div><p className="text-white text-[1.4rem] md:text-[2rem] font-extrabold tracking-tight leading-none">{stat.value}</p></div>
+              <div key={stat.label} className="rounded-2xl p-3 md:p-4" style={G.card}>
+                <div className="flex items-center justify-between mb-2"><span className="text-[#8b949e] text-[10px] md:text-[12px] font-extrabold uppercase tracking-[0.08em]">{stat.label}</span><div className="w-7 h-7 md:w-8 md:h-8 rounded-xl flex items-center justify-center" style={{ background: `${STAT_COLORS[i]}18` }}><stat.icon className="w-3 h-3 md:w-3.5 md:h-3.5" style={{ color: STAT_COLORS[i] }} /></div></div>
+                <p className="text-white text-[1.4rem] md:text-[2rem] font-extrabold tracking-tight leading-none">{stat.value}</p>
+              </div>
             ))}
           </div>
         )}
       </div>
-      {currentProjects.length === 0 ? <EmptyState icon={Layers} title="No projects yet" description={`Create your first ${pipelineType === "sales" ? "sales" : "project"} pipeline item.`} action={{ label: "New Project", onClick: () => setShowNewProject(true) }} /> : (
-        <div className="overflow-x-auto px-3 md:px-5 py-4 md:py-5" style={{ scrollbarWidth: "thin", scrollbarColor: "rgba(255,255,255,0.08) transparent" }}>
-          <div className="flex gap-2 md:gap-3 min-w-max pb-3">
-            {columns.map((col) => {
-              const colProjects = currentProjects.filter((p) => pipelineType === "sales" ? p.stage === col.id : p.projectStage === col.id);
-              const totalValue = colProjects.reduce((s, p) => s + p.value, 0);
-              return <KanbanColumn key={col.id} column={col} projects={colProjects} totalValue={totalValue} dragging={dragging} isOver={dragOverCol === col.id} onDragStart={handleDragStart} onDragEnd={handleDragEnd} onDragOver={(e) => { e.preventDefault(); setDragOverCol(col.id); }} onDragLeave={() => setDragOverCol(null)} onDrop={() => handleDrop(col.id)} onCardClick={(p) => setSelectedDeal(p)} onDelete={handleDelete} onMoveToProjects={handleMoveToProjects} />;
-            })}
+      {currentProjects.length === 0 ? (
+        <EmptyState icon={Layers} title="No projects yet" description={`Create your first ${pipelineType === "sales" ? "sales" : "project"} pipeline item.`} action={{ label: "New Project", onClick: () => setShowNewProject(true) }} />
+      ) : (
+        <div className="px-3 md:px-5 py-4 md:py-5">
+          {/* Custom scrollbar above board */}
+          <div ref={scrollBarRef} onScroll={syncScrollFromBar} className="h-2 mb-3 rounded-full overflow-x-auto cursor-grab active:cursor-grabbing" style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.07)", scrollbarWidth: "none" }}>
+            <div className="h-full rounded-full" style={{ width: `${Math.max(100, currentProjects.length * 15)}%`, background: "rgba(59,130,246,0.35)", minWidth: "200px" }} />
+          </div>
+          <div ref={boardScrollRef} onScroll={syncScrollFromBoard} className="overflow-x-auto" style={{ scrollbarWidth: "thin", scrollbarColor: "rgba(255,255,255,0.08) transparent", scrollBehavior: "smooth" }}>
+            <div className="flex gap-2 md:gap-3 min-w-max pb-3">
+              {columns.map((col) => {
+                const colProjects = currentProjects.filter((p) => pipelineType === "sales" ? p.stage === col.id : p.projectStage === col.id);
+                const totalValue = colProjects.reduce((s, p) => s + p.value, 0);
+                return <KanbanColumn key={col.id} column={col} projects={colProjects} totalValue={totalValue} dragging={dragging} isOver={dragOverCol === col.id} onDragStart={handleDragStart} onDragEnd={handleDragEnd} onDragOver={(e) => { e.preventDefault(); setDragOverCol(col.id); }} onDragLeave={() => setDragOverCol(null)} onDrop={() => handleDrop(col.id)} onCardClick={(p) => setSelectedDeal(p)} onDelete={handleDelete} onMoveToProjects={handleMoveToProjects} />;
+              })}
+            </div>
           </div>
         </div>
       )}
@@ -577,70 +1030,256 @@ function Dashboard({ navigate }: { navigate: (p: Page) => void }) {
 }
 
 function NewProjectModal({ onClose, onAdd, pipelineType }: { onClose: () => void; onAdd: (p: Project) => void; pipelineType: PipelineType }) {
-  const [name, setName] = useState(""); const [client, setClient] = useState(""); const [location, setLocation] = useState(""); const [value, setValue] = useState(""); const [stage, setStage] = useState<Stage>("lead"); const [projectStage, setProjectStage] = useState<ProjectStage>("planning"); const [risk, setRisk] = useState<"low" | "medium" | "high">("low"); const [dueDate, setDueDate] = useState(""); const [summary, setSummary] = useState(""); const [leadSource, setLeadSource] = useState<LeadSource>("Inbound"); const [contactName, setContactName] = useState(""); const [contactTitle, setContactTitle] = useState(""); const [contactEmail, setContactEmail] = useState(""); const [contactPhone, setContactPhone] = useState(""); const [notes, setNotes] = useState(""); const [supportType, setSupportType] = useState<SupportType>("contract-support"); const [submitting, setSubmitting] = useState(false);
-  const [collabSelect, setCollabSelect] = useState(""); const [collabRole, setCollabRole] = useState(""); const [collaborators, setCollaborators] = useState<{ name: string; initials: string; color: string; role: string }[]>([]);
+  const [name, setName] = useState("");
+  const [client, setClient] = useState("");
+  const [location, setLocation] = useState("");
+  const [value, setValue] = useState("");
+  const [stage, setStage] = useState<Stage>("lead");
+  const [projectStage, setProjectStage] = useState<ProjectStage>("planning");
+  const [risk, setRisk] = useState<"low" | "medium" | "high">("low");
+  const [dueDate, setDueDate] = useState("");
+  const [summary, setSummary] = useState("");
+  const [leadSource, setLeadSource] = useState<LeadSource>("Inbound");
+  const [contactName, setContactName] = useState("");
+  const [contactTitle, setContactTitle] = useState("");
+  const [contactEmail, setContactEmail] = useState("");
+  const [contactPhone, setContactPhone] = useState("");
+  const [notes, setNotes] = useState("");
+  const [supportType, setSupportType] = useState<SupportType>("contract-support");
+  const [submitting, setSubmitting] = useState(false);
+  const [collabSelect, setCollabSelect] = useState("");
+  const [collabRole, setCollabRole] = useState("");
+  const [collaborators, setCollaborators] = useState<{ name: string; initials: string; color: string; role: string }[]>([]);
   const canSubmit = name.trim() && client.trim();
 
-  const addCollaborator = () => { if (!collabSelect) return; const member = TEAM.find(t => t.name === collabSelect); if (!member || collaborators.find(c => c.name === member.name)) return; setCollaborators((prev) => [...prev, { name: member.name, initials: member.initials, color: member.color, role: collabRole.trim() || "Team Member" }]); setCollabSelect(""); setCollabRole(""); };
+  const addCollaborator = () => {
+    if (!collabSelect) return;
+    const member = TEAM.find(t => t.name === collabSelect);
+    if (!member || collaborators.find(c => c.name === member.name)) return;
+    setCollaborators((prev) => [...prev, { name: member.name, initials: member.initials, color: member.color, role: collabRole.trim() || "Team Member" }]);
+    setCollabSelect(""); setCollabRole("");
+  };
 
-  const handleSubmit = async (e: React.FormEvent) => { e.preventDefault(); if (!canSubmit || submitting) return; setSubmitting(true); const now = new Date().toISOString(); const newProject: Project = { id: crypto.randomUUID?.() || `p${Date.now()}`, name: name.trim(), client: client.trim(), location: location.trim() || "TBD", value: Math.round(parseFloat(value.replace(/[^0-9.]/g, "")) * (value.includes("M") ? 1_000_000 : value.includes("K") ? 1000 : 1)) || 0, cameras: 0, devices: 0, stage, risk, assignee: CURRENT_USER, dueDate: dueDate || new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10), summary: summary.trim() || undefined, notes: notes.trim() || undefined, leadSource: pipelineType === "sales" ? leadSource : undefined, collaborators: collaborators.length > 0 ? collaborators : undefined, stageHistory: [{ stage: pipelineType === "sales" ? stage : projectStage, date: new Date().toISOString().slice(0, 10) }], contact: contactName.trim() ? { name: contactName.trim(), title: contactTitle.trim(), email: contactEmail.trim(), phone: contactPhone.trim() } : undefined, createdAt: now, updatedAt: now, pipelineType, projectStage: pipelineType === "project" ? projectStage : undefined, supportType: pipelineType === "project" ? supportType : undefined }; onAdd(newProject); setSubmitting(false); onClose(); };
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!canSubmit || submitting) return;
+    setSubmitting(true);
+    const now = new Date().toISOString();
+    const newProject: Project = {
+      id: crypto.randomUUID?.() || `p${Date.now()}`,
+      name: name.trim(),
+      client: client.trim(),
+      location: location.trim() || "TBD",
+      value: pipelineType === "sales" ? (Math.round(parseFloat(value.replace(/[^0-9.]/g, "")) * (value.includes("M") ? 1_000_000 : value.includes("K") ? 1000 : 1)) || 0) : 0,
+      cameras: 0,
+      devices: 0,
+      stage,
+      risk,
+      assignee: CURRENT_USER,
+      dueDate: dueDate || new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10),
+      summary: summary.trim() || undefined,
+      notes: notes.trim() || undefined,
+      leadSource: pipelineType === "sales" ? leadSource : undefined,
+      collaborators: collaborators.length > 0 ? collaborators : undefined,
+      stageHistory: [{ stage: pipelineType === "sales" ? stage : projectStage, date: new Date().toISOString().slice(0, 10) }],
+      contact: contactName.trim() ? { name: contactName.trim(), title: contactTitle.trim(), email: contactEmail.trim(), phone: contactPhone.trim() } : undefined,
+      createdAt: now,
+      updatedAt: now,
+      pipelineType,
+      projectStage: pipelineType === "project" ? projectStage : undefined,
+      supportType: pipelineType === "project" ? supportType : undefined,
+    };
+    onAdd(newProject);
+    setSubmitting(false);
+    onClose();
+  };
 
   const inputCls = "w-full h-9 rounded-xl px-3 text-[#e6edf3] text-[12px] placeholder:text-[#484f58] focus:outline-none focus:ring-1 focus:ring-blue-500/50 transition-all";
   const labelCls = "block text-[#8b949e] text-[10px] font-bold uppercase tracking-widest mb-1.5";
   const selectStyle = { ...G.input, background: "#0d1117", color: "#e6edf3" };
 
   return (
-    <div className="fixed inset-0 z-[200] flex items-center justify-center p-4" onClick={onClose}><div className="absolute inset-0" style={{ background: "rgba(0,0,0,0.65)", backdropFilter: "blur(8px)" }} /><motion.div initial={{ opacity: 0, scale: 0.94, y: 16 }} animate={{ opacity: 1, scale: 1, y: 0 }} transition={{ type: "spring", damping: 26, stiffness: 360 }} onClick={(e) => e.stopPropagation()} className="relative z-10 w-full max-w-[600px] max-h-[90vh] overflow-y-auto rounded-3xl" style={{ background: "rgba(7,12,26,0.92)", backdropFilter: "blur(52px) saturate(200%)", border: "1px solid rgba(255,255,255,0.13)", boxShadow: "0 32px 80px rgba(0,0,0,0.9)" }}>
-      <div className="flex items-center justify-between px-5 md:px-7 pt-5 md:pt-7 pb-5" style={{ borderBottom: "1px solid rgba(255,255,255,0.07)" }}><div><h2 className="text-white text-[1rem] md:text-[1.1rem] font-bold">New {pipelineType === "sales" ? "Sales" : "Project"} Project</h2><p className="text-[#8b949e] text-[12px] mt-0.5">Account Owner: {CURRENT_USER.name}</p></div><button onClick={onClose} className="w-8 h-8 rounded-xl flex items-center justify-center hover:bg-white/[0.08] cursor-pointer min-w-[44px] min-h-[44px]" style={{ border: "1px solid rgba(255,255,255,0.10)" }}><X className="w-4 h-4 text-[#8b949e]" /></button></div>
-      <form onSubmit={handleSubmit}><div className="px-5 md:px-7 py-5 space-y-4">
-        <div className="grid grid-cols-2 gap-4"><div className="col-span-2"><label className={labelCls}>Project Name *</label><input value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g. HQ — CCTV Upgrade" className={inputCls} style={G.input} /></div></div>
-        <div className="grid grid-cols-2 gap-4"><div><label className={labelCls}>Client *</label><input value={client} onChange={(e) => setClient(e.target.value)} placeholder="Company name" className={inputCls} style={G.input} /></div><div><label className={labelCls}>Location</label><input value={location} onChange={(e) => setLocation(e.target.value)} placeholder="Site address" className={inputCls} style={G.input} /></div></div>
-        <div className="grid grid-cols-2 gap-4"><div><label className={labelCls}>Estimated Value</label><input value={value} onChange={(e) => setValue(e.target.value)} placeholder="e.g. 95000" className={inputCls} style={G.input} /></div>{pipelineType === "sales" && <div><label className={labelCls}>Lead Source</label><div className="relative"><select value={leadSource} onChange={(e) => setLeadSource(e.target.value as LeadSource)} className={`${inputCls} appearance-none cursor-pointer pr-7`} style={selectStyle}>{(["Tender","Single Source","Inbound","Referral","Recurring Client","Outbound"] as LeadSource[]).map((ls) => (<option key={ls} value={ls} style={{ background: "#0d1117", color: "#e6edf3" }}>{ls}</option>))}</select><ChevronDown className="absolute right-2.5 top-1/2 -translate-y-1/2 w-3 h-3 text-[#484f58]" /></div></div>}</div>
-        <div className="grid grid-cols-3 gap-4">
-          {pipelineType === "sales" ? (
-            <div><label className={labelCls}>Stage</label><div className="relative"><select value={stage} onChange={(e) => setStage(e.target.value as Stage)} className={`${inputCls} appearance-none cursor-pointer pr-7`} style={selectStyle}>{COLUMNS.map((c) => (<option key={c.id} value={c.id} style={{ background: "#0d1117", color: "#e6edf3" }}>{c.label}</option>))}</select><ChevronDown className="absolute right-2.5 top-1/2 -translate-y-1/2 w-3 h-3 text-[#484f58]" /></div></div>
-          ) : (
-            <div><label className={labelCls}>Stage</label><div className="relative"><select value={projectStage} onChange={(e) => setProjectStage(e.target.value as ProjectStage)} className={`${inputCls} appearance-none cursor-pointer pr-7`} style={selectStyle}>{PROJECT_COLUMNS.map((c) => (<option key={c.id} value={c.id} style={{ background: "#0d1117", color: "#e6edf3" }}>{c.label}</option>))}</select><ChevronDown className="absolute right-2.5 top-1/2 -translate-y-1/2 w-3 h-3 text-[#484f58]" /></div></div>
-          )}
-          <div><label className={labelCls}>Risk</label><div className="relative"><select value={risk} onChange={(e) => setRisk(e.target.value as "low"|"medium"|"high")} className={`${inputCls} appearance-none cursor-pointer pr-7`} style={selectStyle}>{["low","medium","high"].map((r) => (<option key={r} value={r} style={{ background: "#0d1117", color: "#e6edf3" }}>{r.charAt(0).toUpperCase()+r.slice(1)}</option>))}</select><ChevronDown className="absolute right-2.5 top-1/2 -translate-y-1/2 w-3 h-3 text-[#484f58]" /></div></div>
-          <div><label className={labelCls}>Due Date</label><input type="date" value={dueDate} onChange={(e) => setDueDate(e.target.value)} className={inputCls} style={{ ...G.input, colorScheme: "dark" }} /></div>
+    <div className="fixed inset-0 z-[200] flex items-center justify-center p-4" onClick={onClose}>
+      <div className="absolute inset-0" style={{ background: "rgba(0,0,0,0.65)", backdropFilter: "blur(8px)" }} />
+      <motion.div initial={{ opacity: 0, scale: 0.94, y: 16 }} animate={{ opacity: 1, scale: 1, y: 0 }} exit={{ opacity: 0, scale: 0.94, y: 16 }} transition={{ type: "spring", damping: 26, stiffness: 360 }} onClick={(e) => e.stopPropagation()} className="relative z-10 w-full max-w-[600px] max-h-[90vh] overflow-y-auto rounded-3xl" style={{ background: "rgba(7,12,26,0.92)", backdropFilter: "blur(52px) saturate(200%)", border: "1px solid rgba(255,255,255,0.13)", boxShadow: "0 32px 80px rgba(0,0,0,0.9)" }}>
+        <div className="flex items-center justify-between px-5 md:px-7 pt-5 md:pt-7 pb-5" style={{ borderBottom: "1px solid rgba(255,255,255,0.07)" }}>
+          <div><h2 className="text-white text-[1rem] md:text-[1.1rem] font-bold">New {pipelineType === "sales" ? "Sales" : "Project"} Project</h2><p className="text-[#8b949e] text-[12px] mt-0.5">Account Owner: {CURRENT_USER.name}</p></div>
+          <button onClick={onClose} className="w-8 h-8 rounded-xl flex items-center justify-center hover:bg-white/[0.08] cursor-pointer min-w-[44px] min-h-[44px]" style={{ border: "1px solid rgba(255,255,255,0.10)" }}><X className="w-4 h-4 text-[#8b949e]" /></button>
         </div>
-        {pipelineType === "project" && (
-          <div><label className={labelCls}>Support Type</label><div className="relative"><select value={supportType} onChange={(e) => setSupportType(e.target.value as SupportType)} className={`${inputCls} appearance-none cursor-pointer pr-7`} style={selectStyle}>{SUPPORT_TYPES.map((st) => (<option key={st.id} value={st.id} style={{ background: "#0d1117", color: "#e6edf3" }}>{st.label}</option>))}</select><ChevronDown className="absolute right-2.5 top-1/2 -translate-y-1/2 w-3 h-3 text-[#484f58]" /></div></div>
-        )}
-        <div style={{ borderTop: "1px solid rgba(255,255,255,0.07)", paddingTop: "12px" }}><label className={labelCls}>Collaborators</label><div className="flex gap-2 mb-2"><div className="relative flex-1"><select value={collabSelect} onChange={(e) => setCollabSelect(e.target.value)} className={`${inputCls} appearance-none cursor-pointer`} style={selectStyle}><option value="" style={{ background: "#0d1117", color: "#e6edf3" }}>Select team member</option>{TEAM.filter(t => !collaborators.find(c => c.name === t.name)).map((t) => (<option key={t.name} value={t.name} style={{ background: "#0d1117", color: "#e6edf3" }}>{t.name}</option>))}</select></div><input value={collabRole} onChange={(e) => setCollabRole(e.target.value)} placeholder="Role" className={`${inputCls} flex-1`} style={G.input} /><button type="button" onClick={addCollaborator} className="h-9 px-3 rounded-xl text-white text-[12px] font-bold cursor-pointer" style={{ background: "#3b82f6" }}><Plus className="w-3.5 h-3.5" /></button></div>{collaborators.length > 0 && <div className="flex flex-wrap gap-2">{collaborators.map((c, i) => (<span key={i} className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl text-[11px] font-semibold" style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.10)" }}><span className="w-5 h-5 rounded-full flex items-center justify-center text-[9px] font-bold text-white" style={{ background: c.color }}>{c.initials}</span>{c.name} · {c.role}<button type="button" onClick={() => setCollaborators((prev) => prev.filter((_, j) => j !== i))} className="ml-1 text-[#484f58] hover:text-rose-400"><X className="w-3 h-3" /></button></span>))}</div>}</div>
-        <div style={{ borderTop: "1px solid rgba(255,255,255,0.07)", paddingTop: "12px" }}><p className="text-[#484f58] text-[10px] font-bold uppercase tracking-widest mb-3">Contact (optional)</p><div className="grid grid-cols-2 gap-3"><div><label className={labelCls}>Name</label><input value={contactName} onChange={(e) => setContactName(e.target.value)} placeholder="Full name" className={inputCls} style={G.input} /></div><div><label className={labelCls}>Title</label><input value={contactTitle} onChange={(e) => setContactTitle(e.target.value)} placeholder="Job title" className={inputCls} style={G.input} /></div><div><label className={labelCls}>Email</label><input type="email" value={contactEmail} onChange={(e) => setContactEmail(e.target.value)} placeholder="email@company.com" className={inputCls} style={G.input} /></div><div><label className={labelCls}>Phone</label><input value={contactPhone} onChange={(e) => setContactPhone(e.target.value)} placeholder="+1 (876) 555-0000" className={inputCls} style={G.input} /></div></div></div>
-        <div><label className={labelCls}>Project Scope</label><textarea value={summary} onChange={(e) => setSummary(e.target.value)} placeholder="Brief description…" rows={3} className="w-full rounded-xl px-3 py-2.5 text-[#e6edf3] text-[12px] placeholder:text-[#484f58] focus:outline-none resize-none" style={G.input} /></div>
-        <div><label className={labelCls}>Notes</label><textarea value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="Internal notes…" rows={2} className="w-full rounded-xl px-3 py-2.5 text-[#e6edf3] text-[12px] placeholder:text-[#484f58] focus:outline-none resize-none" style={G.input} /></div>
-      </div><div className="px-5 md:px-7 pb-7 pt-4 flex gap-3" style={{ borderTop: "1px solid rgba(255,255,255,0.07)" }}><button type="button" onClick={onClose} className="flex-1 h-10 rounded-xl text-[#8b949e] text-[13px] font-semibold cursor-pointer min-h-[44px]" style={G.btn}>Cancel</button><button type="submit" disabled={!canSubmit || submitting} className="flex-1 h-10 rounded-xl text-white text-[13px] font-bold disabled:opacity-40 cursor-pointer min-h-[44px]" style={{ background: "#3b82f6", boxShadow: canSubmit ? "0 4px 20px rgba(59,130,246,0.4)" : "none" }}>{submitting ? "Adding…" : "Add to Pipeline"}</button></div></form>
-    </motion.div></div>
+        <form onSubmit={handleSubmit}>
+          <div className="px-5 md:px-7 py-5 space-y-4">
+            <div className="grid grid-cols-2 gap-4"><div className="col-span-2"><label className={labelCls}>Project Name *</label><input value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g. HQ — CCTV Upgrade" className={inputCls} style={G.input} /></div></div>
+            <div className="grid grid-cols-2 gap-4">
+              <div><label className={labelCls}>Client *</label><input value={client} onChange={(e) => setClient(e.target.value)} placeholder="Company name" className={inputCls} style={G.input} /></div>
+              <div><label className={labelCls}>Location</label><input value={location} onChange={(e) => setLocation(e.target.value)} placeholder="Site address" className={inputCls} style={G.input} /></div>
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              {pipelineType === "sales" && (
+                <div><label className={labelCls}>Estimated Value</label><input value={value} onChange={(e) => setValue(e.target.value)} placeholder="e.g. 95000" className={inputCls} style={G.input} /></div>
+              )}
+              {pipelineType === "sales" && (
+                <div>
+                  <label className={labelCls}>Lead Source</label>
+                  <div className="relative">
+                    <select value={leadSource} onChange={(e) => setLeadSource(e.target.value as LeadSource)} className={`${inputCls} appearance-none cursor-pointer pr-7`} style={selectStyle}>
+                      {(["Tender","Single Source","Inbound","Referral","Recurring Client","Outbound"] as LeadSource[]).map((ls) => (<option key={ls} value={ls} style={{ background: "#0d1117", color: "#e6edf3" }}>{ls}</option>))}
+                    </select>
+                    <ChevronDown className="absolute right-2.5 top-1/2 -translate-y-1/2 w-3 h-3 text-[#484f58]" />
+                  </div>
+                </div>
+              )}
+              {pipelineType === "project" && <div className="col-span-2" />}
+            </div>
+            <div className="grid grid-cols-3 gap-4">
+              {pipelineType === "sales" ? (
+                <div>
+                  <label className={labelCls}>Stage</label>
+                  <div className="relative">
+                    <select value={stage} onChange={(e) => setStage(e.target.value as Stage)} className={`${inputCls} appearance-none cursor-pointer pr-7`} style={selectStyle}>
+                      {COLUMNS.map((c) => (<option key={c.id} value={c.id} style={{ background: "#0d1117", color: "#e6edf3" }}>{c.label}</option>))}
+                    </select>
+                    <ChevronDown className="absolute right-2.5 top-1/2 -translate-y-1/2 w-3 h-3 text-[#484f58]" />
+                  </div>
+                </div>
+              ) : (
+                <div>
+                  <label className={labelCls}>Stage</label>
+                  <div className="relative">
+                    <select value={projectStage} onChange={(e) => setProjectStage(e.target.value as ProjectStage)} className={`${inputCls} appearance-none cursor-pointer pr-7`} style={selectStyle}>
+                      {PROJECT_COLUMNS.map((c) => (<option key={c.id} value={c.id} style={{ background: "#0d1117", color: "#e6edf3" }}>{c.label}</option>))}
+                    </select>
+                    <ChevronDown className="absolute right-2.5 top-1/2 -translate-y-1/2 w-3 h-3 text-[#484f58]" />
+                  </div>
+                </div>
+              )}
+              <div>
+                <label className={labelCls}>Risk</label>
+                <div className="relative">
+                  <select value={risk} onChange={(e) => setRisk(e.target.value as "low"|"medium"|"high")} className={`${inputCls} appearance-none cursor-pointer pr-7`} style={selectStyle}>
+                    {["low","medium","high"].map((r) => (<option key={r} value={r} style={{ background: "#0d1117", color: "#e6edf3" }}>{r.charAt(0).toUpperCase()+r.slice(1)}</option>))}
+                  </select>
+                  <ChevronDown className="absolute right-2.5 top-1/2 -translate-y-1/2 w-3 h-3 text-[#484f58]" />
+                </div>
+              </div>
+              <div><label className={labelCls}>Due Date</label><input type="date" value={dueDate} onChange={(e) => setDueDate(e.target.value)} className={inputCls} style={{ ...G.input, colorScheme: "dark" }} /></div>
+            </div>
+            {pipelineType === "project" && (
+              <div>
+                <label className={labelCls}>Support Type</label>
+                <div className="relative">
+                  <select value={supportType} onChange={(e) => setSupportType(e.target.value as SupportType)} className={`${inputCls} appearance-none cursor-pointer pr-7`} style={selectStyle}>
+                    {SUPPORT_TYPES.map((st) => (<option key={st.id} value={st.id} style={{ background: "#0d1117", color: "#e6edf3" }}>{st.label}</option>))}
+                  </select>
+                  <ChevronDown className="absolute right-2.5 top-1/2 -translate-y-1/2 w-3 h-3 text-[#484f58]" />
+                </div>
+              </div>
+            )}
+            <div style={{ borderTop: "1px solid rgba(255,255,255,0.07)", paddingTop: "12px" }}>
+              <label className={labelCls}>Collaborators</label>
+              <div className="flex gap-2 mb-2">
+                <div className="relative flex-1">
+                  <select value={collabSelect} onChange={(e) => setCollabSelect(e.target.value)} className={`${inputCls} appearance-none cursor-pointer`} style={selectStyle}>
+                    <option value="" style={{ background: "#0d1117", color: "#e6edf3" }}>Select team member</option>
+                    {TEAM.filter(t => !collaborators.find(c => c.name === t.name)).map((t) => (<option key={t.name} value={t.name} style={{ background: "#0d1117", color: "#e6edf3" }}>{t.name}</option>))}
+                  </select>
+                </div>
+                <input value={collabRole} onChange={(e) => setCollabRole(e.target.value)} placeholder="Role" className={`${inputCls} flex-1`} style={G.input} />
+                <button type="button" onClick={addCollaborator} className="h-9 px-3 rounded-xl text-white text-[12px] font-bold cursor-pointer" style={{ background: "#3b82f6" }}><Plus className="w-3.5 h-3.5" /></button>
+              </div>
+              {collaborators.length > 0 && (
+                <div className="flex flex-wrap gap-2">
+                  {collaborators.map((c, i) => (
+                    <span key={i} className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl text-[11px] font-semibold" style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.10)" }}>
+                      <span className="w-5 h-5 rounded-full flex items-center justify-center text-[9px] font-bold text-white" style={{ background: c.color }}>{c.initials}</span>
+                      {c.name} · {c.role}
+                      <button type="button" onClick={() => setCollaborators((prev) => prev.filter((_, j) => j !== i))} className="ml-1 text-[#8b949e] hover:text-rose-400"><X className="w-3 h-3" /></button>
+                    </span>
+                  ))}
+                </div>
+              )}
+            </div>
+            <div style={{ borderTop: "1px solid rgba(255,255,255,0.07)", paddingTop: "12px" }}>
+              <p className="text-[#8b949e] text-[10px] font-bold uppercase tracking-widest mb-3">Contact (optional)</p>
+              <div className="grid grid-cols-2 gap-3">
+                <div><label className={labelCls}>Name</label><input value={contactName} onChange={(e) => setContactName(e.target.value)} placeholder="Full name" className={inputCls} style={G.input} /></div>
+                <div><label className={labelCls}>Title</label><input value={contactTitle} onChange={(e) => setContactTitle(e.target.value)} placeholder="Job title" className={inputCls} style={G.input} /></div>
+                <div><label className={labelCls}>Email</label><input type="email" value={contactEmail} onChange={(e) => setContactEmail(e.target.value)} placeholder="email@company.com" className={inputCls} style={G.input} /></div>
+                <div><label className={labelCls}>Phone</label><input value={contactPhone} onChange={(e) => setContactPhone(e.target.value)} placeholder="+1 (876) 555-0000" className={inputCls} style={G.input} /></div>
+              </div>
+            </div>
+            <div><label className={labelCls}>Project Scope</label><textarea value={summary} onChange={(e) => setSummary(e.target.value)} placeholder="Brief description…" rows={3} className="w-full rounded-xl px-3 py-2.5 text-[#e6edf3] text-[12px] placeholder:text-[#484f58] focus:outline-none resize-none" style={G.input} /></div>
+            <div><label className={labelCls}>Notes</label><textarea value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="Internal notes…" rows={2} className="w-full rounded-xl px-3 py-2.5 text-[#e6edf3] text-[12px] placeholder:text-[#484f58] focus:outline-none resize-none" style={G.input} /></div>
+          </div>
+          <div className="px-5 md:px-7 pb-7 pt-4 flex gap-3" style={{ borderTop: "1px solid rgba(255,255,255,0.07)" }}>
+            <button type="button" onClick={onClose} className="flex-1 h-10 rounded-xl text-[#8b949e] text-[13px] font-semibold cursor-pointer min-h-[44px]" style={G.btn}>Cancel</button>
+            <button type="submit" disabled={!canSubmit || submitting} className="flex-1 h-10 rounded-xl text-white text-[13px] font-bold disabled:opacity-40 cursor-pointer min-h-[44px]" style={{ background: "#3b82f6", boxShadow: canSubmit ? "0 4px 20px rgba(59,130,246,0.4)" : "none" }}>{submitting ? "Adding…" : "Add to Pipeline"}</button>
+          </div>
+        </form>
+      </motion.div>
+    </div>
   );
 }
 
 function getDeduplicatedTeam(project: Project): { name: string; initials: string; color: string; roles: string[] }[] {
   const members: { name: string; initials: string; color: string; roles: string[] }[] = [];
   members.push({ name: project.assignee.name, initials: project.assignee.initials, color: project.assignee.color, roles: ["Account Owner"] });
-  if (project.collaborators) { for (const c of project.collaborators) { const existing = members.find(m => m.name === c.name); if (existing) { existing.roles.push(c.role); } else { members.push({ name: c.name, initials: c.initials, color: c.color, roles: [c.role] }); } } }
+  if (project.collaborators) {
+    for (const c of project.collaborators) {
+      const existing = members.find(m => m.name === c.name);
+      if (existing) existing.roles.push(c.role);
+      else members.push({ name: c.name, initials: c.initials, color: c.color, roles: [c.role] });
+    }
+  }
   return members;
 }
 
 function TaskList({ projectId }: { projectId: string }) {
-  const [tasks, setTasks] = useState<Task[]>([]); const [loading, setLoading] = useState(true);
+  const [tasks, setTasks] = useState<Task[]>([]);
+  const [loading, setLoading] = useState(true);
   const [showNew, setShowNew] = useState(false);
-  const [newTitle, setNewTitle] = useState(""); const [newAssignee, setNewAssignee] = useState(""); const [newPriority, setNewPriority] = useState<TaskPriority>("medium"); const [newDueDate, setNewDueDate] = useState("");
-  const [statusFilter, setStatusFilter] = useState<TaskStatus | "all">("all"); const [confirmDelete, setConfirmDelete] = useState<string | null>(null);
+  const [newTitle, setNewTitle] = useState("");
+  const [newDescription, setNewDescription] = useState("");
+  const [newAssignee, setNewAssignee] = useState("");
+  const [newPriority, setNewPriority] = useState<TaskPriority>("medium");
+  const [newDueDate, setNewDueDate] = useState("");
+  const [newDueTime, setNewDueTime] = useState("");
+  const [statusFilter, setStatusFilter] = useState<TaskStatus | "all">("all");
+  const [confirmDelete, setConfirmDelete] = useState<string | null>(null);
+  const [editingTask, setEditingTask] = useState<Task | null>(null);
 
   const fetchTasks = useCallback(async () => { setLoading(true); try { const data = await API.tasks.list(projectId); setTasks(data); } catch { setTasks([]); } finally { setLoading(false); } }, [projectId]);
   useEffect(() => { fetchTasks(); }, [fetchTasks]);
 
-  const handleCreate = async () => { if (!newTitle.trim()) return; try { const created = await API.tasks.create(projectId, { title: newTitle.trim(), assignee: newAssignee || undefined, priority: newPriority, dueDate: newDueDate || undefined, status: "todo" }); setTasks(prev => [created, ...prev]); setNewTitle(""); setNewAssignee(""); setNewPriority("medium"); setNewDueDate(""); setShowNew(false); toast.success("Task added"); } catch { toast.error("Failed to create task"); } };
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => { if (e.key === "t" || e.key === "T") { if (!(e.target instanceof HTMLInputElement) && !(e.target instanceof HTMLTextAreaElement) && !(e.target instanceof HTMLSelectElement)) { setShowNew(prev => !prev); } } };
+    window.addEventListener("keydown", handler);
+    return () => window.removeEventListener("keydown", handler);
+  }, []);
+
+  const handleCreate = async () => {
+    if (!newTitle.trim()) return;
+    try {
+      const dueDate = newDueDate ? `${newDueDate}${newDueTime ? "T" + newDueTime : ""}` : undefined;
+      const created = await API.tasks.create(projectId, { title: newTitle.trim(), description: newDescription.trim() || undefined, assignee: newAssignee || undefined, priority: newPriority, dueDate, status: "todo" });
+      setTasks(prev => [created, ...prev]);
+      setNewTitle(""); setNewDescription(""); setNewAssignee(""); setNewPriority("medium"); setNewDueDate(""); setNewDueTime(""); setShowNew(false);
+      toast.success("Task added");
+    } catch { toast.error("Failed to create task"); }
+  };
 
   const handleStatusChange = async (taskId: string, status: TaskStatus) => { setTasks(prev => prev.map(t => t.id === taskId ? { ...t, status } : t)); try { await API.tasks.update(projectId, taskId, { status }); } catch { fetchTasks(); } };
 
   const handleDelete = async (taskId: string) => { setTasks(prev => prev.filter(t => t.id !== taskId)); try { await API.tasks.delete(projectId, taskId); toast.success("Task deleted"); } catch { fetchTasks(); } setConfirmDelete(null); };
 
+  const handleEditSave = async () => {
+    if (!editingTask || !editingTask.title.trim()) return;
+    setTasks(prev => prev.map(t => t.id === editingTask.id ? editingTask : t));
+    try { await API.tasks.update(projectId, editingTask.id, editingTask); toast.success("Task updated"); } catch { fetchTasks(); }
+    setEditingTask(null);
+  };
+
   const filteredTasks = statusFilter === "all" ? tasks : tasks.filter(t => t.status === statusFilter);
-  const priorityColors: Record<TaskPriority, string> = { low: "#484f58", medium: "#f59e0b", high: "#f43f5e" };
+  const priorityColors: Record<TaskPriority, string> = { low: "#94a3b8", medium: "#fbbf24", high: "#f87171" };
 
   if (loading) return <div className="space-y-2">{[1,2,3].map(i => <Skeleton key={i} className="h-16 rounded-xl" />)}</div>;
 
@@ -648,34 +1287,75 @@ function TaskList({ projectId }: { projectId: string }) {
     <div className="space-y-3">
       {confirmDelete && <ConfirmDialog open={true} title="Delete Task" message="Are you sure you want to delete this task?" onConfirm={() => handleDelete(confirmDelete)} onCancel={() => setConfirmDelete(null)} />}
       <div className="flex items-center justify-between gap-2 flex-wrap">
-        <div className="flex items-center gap-1">{(["all","todo","in-progress","review","complete"] as const).map(s => (<button key={s} onClick={() => setStatusFilter(s)} className={clsx("h-7 px-2.5 rounded-lg text-[10px] font-semibold cursor-pointer", statusFilter === s ? "text-white" : "text-[#484f58]")} style={statusFilter === s ? { background: "rgba(255,255,255,0.10)" } : G.btn}>{s === "all" ? "All" : s === "in-progress" ? "In Progress" : s.charAt(0).toUpperCase() + s.slice(1)}</button>))}</div>
-        <button onClick={() => setShowNew(!showNew)} className="flex items-center gap-1 h-7 px-2.5 rounded-lg text-[10px] font-semibold text-white cursor-pointer" style={{ background: "#3b82f6" }}><Plus className="w-3 h-3" /> Add Task</button>
+        <div className="flex items-center gap-1">
+          {(["all","todo","in-progress","review","complete"] as const).map(s => (
+            <button key={s} onClick={() => setStatusFilter(s)} className={clsx("h-7 px-2.5 rounded-lg text-[10px] font-semibold cursor-pointer", statusFilter === s ? "text-white" : "text-[#484f58]")} style={statusFilter === s ? { background: "rgba(255,255,255,0.10)" } : G.btn}>{s === "all" ? "All" : s === "in-progress" ? "In Progress" : s.charAt(0).toUpperCase() + s.slice(1)}</button>
+          ))}
+        </div>
+        <button onClick={() => setShowNew(!showNew)} className="flex items-center gap-1 h-7 px-2.5 rounded-lg text-[10px] font-semibold text-white cursor-pointer" style={{ background: "#3b82f6" }}><Plus className="w-3 h-3" /> Add Task <span className="text-[8px] text-blue-200 ml-1">(T)</span></button>
       </div>
       {showNew && (
-        <div className="rounded-xl p-3 space-y-2" style={G.card}>
+        <motion.div initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }} className="rounded-xl p-3 space-y-2" style={G.card}>
           <input value={newTitle} onChange={(e) => setNewTitle(e.target.value)} placeholder="Task title..." className="w-full h-8 rounded-lg px-2.5 text-[11px] text-[#e6edf3] focus:outline-none" style={G.input} />
+          <textarea value={newDescription} onChange={(e) => setNewDescription(e.target.value)} placeholder="Description (optional)" rows={2} className="w-full rounded-lg px-2.5 py-2 text-[11px] text-[#e6edf3] focus:outline-none resize-none" style={G.input} />
           <div className="flex gap-2 flex-wrap">
-            <select value={newAssignee} onChange={(e) => setNewAssignee(e.target.value)} className="h-7 rounded-lg px-2 text-[10px] cursor-pointer" style={{ ...G.input, background: "#0d1117", color: "#e6edf3" }}><option value="">Assignee</option>{TEAM.map(t => <option key={t.name} value={t.name} style={{ background: "#0d1117", color: "#e6edf3" }}>{t.name}</option>)}</select>
-            <select value={newPriority} onChange={(e) => setNewPriority(e.target.value as TaskPriority)} className="h-7 rounded-lg px-2 text-[10px] cursor-pointer" style={{ ...G.input, background: "#0d1117", color: "#e6edf3" }}><option value="low">Low</option><option value="medium">Medium</option><option value="high">High</option></select>
+            <select value={newAssignee} onChange={(e) => setNewAssignee(e.target.value)} className="h-7 rounded-lg px-2 text-[10px] cursor-pointer" style={{ ...G.input, background: "#0d1117", color: "#e6edf3" }}>
+              <option value="">Assignee</option>
+              {TEAM.map(t => <option key={t.name} value={t.name} style={{ background: "#0d1117", color: "#e6edf3" }}>● {t.name}</option>)}
+            </select>
+            <select value={newPriority} onChange={(e) => setNewPriority(e.target.value as TaskPriority)} className="h-7 rounded-lg px-2 text-[10px] cursor-pointer" style={{ ...G.input, background: "#0d1117", color: "#e6edf3" }}>
+              <option value="low" style={{ background: "#0d1117", color: "#94a3b8" }}>● Low</option>
+              <option value="medium" style={{ background: "#0d1117", color: "#fbbf24" }}>● Medium</option>
+              <option value="high" style={{ background: "#0d1117", color: "#f87171" }}>● High</option>
+            </select>
             <input type="date" value={newDueDate} onChange={(e) => setNewDueDate(e.target.value)} className="h-7 rounded-lg px-2 text-[10px]" style={{ ...G.input, colorScheme: "dark", background: "#0d1117", color: "#e6edf3" }} />
+            <input type="time" value={newDueTime} onChange={(e) => setNewDueTime(e.target.value)} className="h-7 rounded-lg px-2 text-[10px]" style={{ ...G.input, colorScheme: "dark", background: "#0d1117", color: "#e6edf3" }} />
             <button onClick={handleCreate} className="h-7 px-3 rounded-lg text-[10px] font-bold text-white cursor-pointer" style={{ background: "#10b981" }}>Save</button>
           </div>
-        </div>
+        </motion.div>
+      )}
+      {editingTask && (
+        <motion.div initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }} className="rounded-xl p-3 space-y-2" style={{ ...G.card, border: "1px solid rgba(59,130,246,0.35)" }}>
+          <input value={editingTask.title} onChange={(e) => setEditingTask({ ...editingTask, title: e.target.value })} className="w-full h-8 rounded-lg px-2.5 text-[11px] text-[#e6edf3]" style={G.input} />
+          <textarea value={editingTask.description || ""} onChange={(e) => setEditingTask({ ...editingTask, description: e.target.value })} rows={2} className="w-full rounded-lg px-2.5 py-2 text-[11px] text-[#e6edf3] resize-none" style={G.input} />
+          <div className="flex gap-2 flex-wrap">
+            <select value={editingTask.assignee || ""} onChange={(e) => setEditingTask({ ...editingTask, assignee: e.target.value })} className="h-7 rounded-lg px-2 text-[10px] cursor-pointer" style={{ ...G.input, background: "#0d1117", color: "#e6edf3" }}>
+              <option value="">Assignee</option>
+              {TEAM.map(t => <option key={t.name} value={t.name} style={{ background: "#0d1117", color: "#e6edf3" }}>{t.name}</option>)}
+            </select>
+            <select value={editingTask.priority} onChange={(e) => setEditingTask({ ...editingTask, priority: e.target.value as TaskPriority })} className="h-7 rounded-lg px-2 text-[10px] cursor-pointer" style={{ ...G.input, background: "#0d1117", color: "#e6edf3" }}>
+              <option value="low">Low</option><option value="medium">Medium</option><option value="high">High</option>
+            </select>
+            <input type="date" value={editingTask.dueDate?.split("T")[0] || ""} onChange={(e) => setEditingTask({ ...editingTask, dueDate: e.target.value })} className="h-7 rounded-lg px-2 text-[10px]" style={{ ...G.input, colorScheme: "dark", background: "#0d1117", color: "#e6edf3" }} />
+            <button onClick={handleEditSave} className="h-7 px-3 rounded-lg text-[10px] font-bold text-white cursor-pointer" style={{ background: "#10b981" }}>Update</button>
+            <button onClick={() => setEditingTask(null)} className="h-7 px-3 rounded-lg text-[10px] font-semibold cursor-pointer" style={G.btn}>Cancel</button>
+          </div>
+        </motion.div>
       )}
       {filteredTasks.length === 0 ? (
-        <div className="text-center py-6"><p className="text-[#484f58] text-[11px]">{statusFilter === "all" ? "No tasks yet" : `No ${statusFilter} tasks`}</p></div>
+        <div className="text-center py-6"><p className="text-[#8b949e] text-[11px]">{statusFilter === "all" ? "No tasks yet" : `No ${statusFilter} tasks`}</p></div>
       ) : (
         <div className="space-y-1.5">
-          {filteredTasks.map(task => {
-            const assignee = TEAM.find(t => t.name === task.assignee);
-            return (
-              <div key={task.id} className="flex items-center gap-3 px-3 py-2.5 rounded-xl group hover:bg-white/[0.02]" style={G.subtle}>
-                <button onClick={() => handleStatusChange(task.id, task.status === "complete" ? "todo" : task.status === "todo" ? "in-progress" : task.status === "in-progress" ? "review" : "complete")} className={clsx("w-5 h-5 rounded-full border-2 flex items-center justify-center flex-shrink-0 cursor-pointer", task.status === "complete" ? "bg-emerald-500 border-emerald-500" : "border-[#484f58] hover:border-white/50")}>{task.status === "complete" && <CheckCircle2 className="w-3 h-3 text-white" />}</button>
-                <div className="flex-1 min-w-0"><p className={clsx("text-[11px] font-semibold", task.status === "complete" ? "text-[#484f58] line-through" : "text-white")}>{task.title}</p><div className="flex items-center gap-2 mt-0.5">{assignee && <span className="text-[#484f58] text-[9px] flex items-center gap-1"><div className="w-3 h-3 rounded-full flex items-center justify-center text-[6px] font-bold text-white" style={{ background: assignee.color }}>{assignee.initials}</div>{assignee.name}</span>}<span className="text-[9px] font-bold" style={{ color: priorityColors[task.priority] }}>{task.priority}</span>{task.dueDate && <span className="text-[#484f58] text-[9px]">{fmtDate(task.dueDate)}</span>}</div></div>
-                <button onClick={() => setConfirmDelete(task.id)} className="opacity-0 group-hover:opacity-100 w-6 h-6 rounded-lg hover:bg-rose-500/10 flex items-center justify-center cursor-pointer"><Trash2 className="w-3 h-3 text-rose-400" /></button>
-              </div>
-            );
-          })}
+          <AnimatePresence mode="popLayout">
+            {filteredTasks.map(task => {
+              const assignee = TEAM.find(t => t.name === task.assignee);
+              return (
+                <motion.div key={task.id} initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, x: -20 }} onClick={() => setEditingTask(task)} className="flex items-center gap-3 px-3 py-2.5 rounded-xl group hover:bg-white/[0.03] cursor-pointer" style={G.subtle}>
+                  <button onClick={(e) => { e.stopPropagation(); handleStatusChange(task.id, task.status === "complete" ? "todo" : task.status === "todo" ? "in-progress" : task.status === "in-progress" ? "review" : "complete"); }} className={clsx("w-5 h-5 rounded-full border-2 flex items-center justify-center flex-shrink-0 cursor-pointer", task.status === "complete" ? "bg-emerald-500 border-emerald-500" : "border-[#484f58] hover:border-white/50")}>{task.status === "complete" && <CheckCircle2 className="w-3 h-3 text-white" />}</button>
+                  <div className="flex-1 min-w-0">
+                    <p className={clsx("text-[11px] font-semibold", task.status === "complete" ? "text-[#484f58] line-through" : "text-white")}>{task.title}</p>
+                    {task.description && <p className="text-[#8b949e] text-[10px] mt-0.5 truncate">{task.description}</p>}
+                    <div className="flex items-center gap-2 mt-1">
+                      {assignee && <span className="text-[#8b949e] text-[10px] flex items-center gap-1"><div className="w-3.5 h-3.5 rounded-full flex items-center justify-center text-[7px] font-bold text-white" style={{ background: assignee.color }}>{assignee.initials}</div><span className="text-[#e6edf3]">{assignee.name}</span></span>}
+                      <span className="text-[10px] font-bold" style={{ color: priorityColors[task.priority] }}>{task.priority}</span>
+                      {task.dueDate && <span className="text-[#8b949e] text-[10px]">{new Date(task.dueDate).toLocaleString("en-US", { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" })}</span>}
+                    </div>
+                  </div>
+                  <button onClick={(e) => { e.stopPropagation(); setConfirmDelete(task.id); }} className="opacity-0 group-hover:opacity-100 w-6 h-6 rounded-lg hover:bg-rose-500/10 flex items-center justify-center cursor-pointer"><Trash2 className="w-3 h-3 text-rose-400" /></button>
+                </motion.div>
+              );
+            })}
+          </AnimatePresence>
         </div>
       )}
     </div>
@@ -683,24 +1363,43 @@ function TaskList({ projectId }: { projectId: string }) {
 }
 
 function DocumentList({ projectId }: { projectId: string }) {
-  const [documents, setDocuments] = useState<Document[]>([]); const [loading, setLoading] = useState(true); const [uploading, setUploading] = useState(false); const [confirmDelete, setConfirmDelete] = useState<string | null>(null);
+  const [documents, setDocuments] = useState<DocumentItem[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [uploading, setUploading] = useState(false);
+  const [confirmDelete, setConfirmDelete] = useState<string | null>(null);
 
   const fetchDocs = useCallback(async () => { setLoading(true); try { const data = await API.documents.list(projectId); setDocuments(data); } catch { setDocuments([]); } finally { setLoading(false); } }, [projectId]);
   useEffect(() => { fetchDocs(); }, [fetchDocs]);
 
-  const handleUpload = async (e: React.ChangeEvent<HTMLInputElement>) => { const file = e.target.files?.[0]; if (!file) return; setUploading(true); try { await API.documents.upload(projectId, file); fetchDocs(); toast.success("File uploaded"); } catch { toast.error("Upload failed"); } setUploading(false); e.target.value = ""; };
+  const handleUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]; if (!file) return;
+    setUploading(true);
+    try { await API.documents.upload(projectId, file); fetchDocs(); toast.success("File uploaded"); } catch { toast.error("Upload failed"); }
+    setUploading(false); e.target.value = "";
+  };
 
-  const handleDelete = async (id: string) => { setDocuments(prev => prev.filter(d => d.id !== id)); try { await API.documents.delete(projectId, id); toast.success("File deleted"); } catch { fetchDocs(); } setConfirmDelete(null); };
+  const handleDelete = async (id: string) => {
+    setDocuments(prev => prev.filter(d => d.id !== id));
+    try { await API.documents.delete(projectId, id); toast.success("File deleted"); } catch { fetchDocs(); }
+    setConfirmDelete(null);
+  };
 
   if (loading) return <div className="space-y-2">{[1,2].map(i => <Skeleton key={i} className="h-10 rounded-xl" />)}</div>;
 
   return (
     <div className="space-y-2">
       {confirmDelete && <ConfirmDialog open={true} title="Delete File" message="Are you sure you want to delete this file?" onConfirm={() => handleDelete(confirmDelete)} onCancel={() => setConfirmDelete(null)} />}
-      <label className="flex items-center gap-2 h-8 px-3 rounded-xl text-[#8b949e] text-[11px] font-semibold hover:text-white cursor-pointer w-fit" style={G.btn}><Upload className="w-3.5 h-3.5" /> {uploading ? "Uploading..." : "Upload File"}<input type="file" className="hidden" onChange={handleUpload} disabled={uploading} /></label>
-      {documents.length === 0 ? <p className="text-[#484f58] text-[11px]">No files uploaded yet</p> : documents.map(doc => (
+      <label className="flex items-center gap-2 h-8 px-3 rounded-xl text-[#8b949e] text-[11px] font-semibold hover:text-white cursor-pointer w-fit" style={G.btn}>
+        <Upload className="w-3.5 h-3.5" /> {uploading ? "Uploading..." : "Upload File"}
+        <input type="file" className="hidden" onChange={handleUpload} disabled={uploading} />
+      </label>
+      {documents.length === 0 ? <p className="text-[#8b949e] text-[11px]">No files uploaded yet</p> : documents.map(doc => (
         <div key={doc.id} className="flex items-center justify-between px-3 py-2 rounded-xl group hover:bg-white/[0.02]" style={G.subtle}>
-          <div className="flex items-center gap-2 min-w-0"><Paperclip className="w-3.5 h-3.5 text-[#484f58] flex-shrink-0" /><a href={doc.fileUrl} target="_blank" rel="noopener noreferrer" className="text-white text-[11px] font-semibold truncate hover:text-blue-400">{doc.filename}</a><span className="text-[#484f58] text-[9px] flex-shrink-0">{doc.fileSize ? `${(doc.fileSize / 1024).toFixed(0)} KB` : ""}</span></div>
+          <div className="flex items-center gap-2 min-w-0">
+            <Paperclip className="w-3.5 h-3.5 text-[#484f58] flex-shrink-0" />
+            <a href={doc.fileUrl} target="_blank" rel="noopener noreferrer" className="text-white text-[11px] font-semibold truncate hover:text-blue-400">{doc.filename}</a>
+            <span className="text-[#8b949e] text-[9px] flex-shrink-0">{doc.fileSize ? `${(doc.fileSize / 1024).toFixed(0)} KB` : ""}</span>
+          </div>
           <button onClick={() => setConfirmDelete(doc.id)} className="opacity-0 group-hover:opacity-100 w-6 h-6 rounded-lg hover:bg-rose-500/10 flex items-center justify-center cursor-pointer flex-shrink-0"><Trash2 className="w-3 h-3 text-rose-400" /></button>
         </div>
       ))}
@@ -708,18 +1407,36 @@ function DocumentList({ projectId }: { projectId: string }) {
   );
 }
 function DealModal({ project, column, onClose, navigate, onUpdate, onDelete, pipelineType }: { project: Project; column: Column | ProjectColumn; onClose: () => void; navigate: (p: Page) => void; onUpdate: (p: Project) => void; onDelete: (id: string) => void; pipelineType: PipelineType }) {
-  const [activeTab, setActiveTab] = useState("info"); const { fmt } = useCurrency();
+  const [activeTab, setActiveTab] = useState("info");
+  const { fmt } = useCurrency();
   const [editing, setEditing] = useState(false);
-  const [editName, setEditName] = useState(project.name); const [editClient, setEditClient] = useState(project.client); const [editLocation, setEditLocation] = useState(project.location); const [editValue, setEditValue] = useState(String(project.value)); const [editRisk, setEditRisk] = useState(project.risk); const [editDueDate, setEditDueDate] = useState(project.dueDate); const [editSummary, setEditSummary] = useState(project.summary || ""); const [editNotes, setEditNotes] = useState(project.notes || ""); const [editSupportType, setEditSupportType] = useState<SupportType>(project.supportType || "contract-support");
+  const [editName, setEditName] = useState(project.name);
+  const [editClient, setEditClient] = useState(project.client);
+  const [editLocation, setEditLocation] = useState(project.location);
+  const [editValue, setEditValue] = useState(String(project.value));
+  const [editRisk, setEditRisk] = useState(project.risk);
+  const [editDueDate, setEditDueDate] = useState(project.dueDate);
+  const [editSummary, setEditSummary] = useState(project.summary || "");
+  const [editNotes, setEditNotes] = useState(project.notes || "");
+  const [editSupportType, setEditSupportType] = useState<SupportType>(project.supportType || "contract-support");
   const [saving, setSaving] = useState(false);
   const ls = project.leadSource ? LEAD_SOURCE_STYLES[project.leadSource] : null;
   const team = getDeduplicatedTeam(project);
   const isProjectPipeline = pipelineType === "project" || project.pipelineType === "project";
   const psBadge = isProjectPipeline ? projectStageBadge(project.projectStage || "planning") : null;
 
-  const handleSave = async () => { setSaving(true); const updated: Project = { ...project, name: editName, client: editClient, location: editLocation, value: parseFloat(editValue) || project.value, risk: editRisk, dueDate: editDueDate, summary: editSummary, notes: editNotes, supportType: isProjectPipeline ? editSupportType : undefined, updatedAt: new Date().toISOString() }; onUpdate(updated); setEditing(false); setSaving(false); };
+  const handleSave = async () => {
+    setSaving(true);
+    const updated: Project = { ...project, name: editName, client: editClient, location: editLocation, value: parseFloat(editValue) || project.value, risk: editRisk, dueDate: editDueDate, summary: editSummary, notes: editNotes, supportType: isProjectPipeline ? editSupportType : undefined, updatedAt: new Date().toISOString() };
+    onUpdate(updated);
+    setEditing(false);
+    setSaving(false);
+  };
 
-  const copyProjectLink = () => { const url = `${window.location.origin}/project/${project.id}`; navigator.clipboard.writeText(url).then(() => toast.success("Link copied")).catch(() => toast.error("Failed to copy")); };
+  const copyProjectLink = () => {
+    const url = `${window.location.origin}/project/${project.id}`;
+    navigator.clipboard.writeText(url).then(() => toast.success("Link copied")).catch(() => toast.error("Failed to copy"));
+  };
 
   const tabs = [
     { id: "info", label: "Info", icon: Building2 },
@@ -731,63 +1448,185 @@ function DealModal({ project, column, onClose, navigate, onUpdate, onDelete, pip
   ];
 
   return (
-    <div className="fixed inset-0 z-[200] flex items-center justify-center p-4" onClick={onClose}><div className="absolute inset-0" style={{ background: "rgba(0,0,0,0.65)", backdropFilter: "blur(8px)" }} /><motion.div initial={{ opacity: 0, scale: 0.93, y: 20 }} animate={{ opacity: 1, scale: 1, y: 0 }} transition={{ type: "spring", damping: 26, stiffness: 360 }} onClick={(e) => e.stopPropagation()} className="relative z-10 w-full max-w-[620px] max-h-[85vh] overflow-y-auto rounded-3xl" style={{ background: "rgba(7,12,26,0.78)", backdropFilter: "blur(52px) saturate(200%)", border: "1px solid rgba(255,255,255,0.13)", boxShadow: "0 32px 80px rgba(0,0,0,0.9)" }}>
-      <div className="relative px-5 md:px-7 pt-5 md:pt-7 pb-3">
-        <div className="flex items-start justify-between gap-4"><div className="flex-1 min-w-0">
-          <div className="flex flex-wrap items-center gap-1.5 mb-2.5">
-            {isProjectPipeline && psBadge ? (
-              <span className="inline-flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-[0.14em] px-2.5 py-1 rounded-full" style={{ background: `${psBadge.color}22`, color: psBadge.color, border: `1px solid ${psBadge.color}44` }}><span className="w-1.5 h-1.5 rounded-full" style={{ background: psBadge.color }} />{psBadge.label}</span>
-            ) : (
-              <>
-                <span className="inline-flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-[0.14em] px-2.5 py-1 rounded-full" style={{ background: `${column.color}22`, color: column.color, border: `1px solid ${column.color}44` }}><span className="w-1.5 h-1.5 rounded-full" style={{ background: column.color }} />{column.label}</span>
-                {ls && <span className="text-[9px] font-bold px-2 py-0.5 rounded-full" style={{ background: ls.bg, color: ls.text }}>{project.leadSource}</span>}
-              </>
-            )}
-            {isProjectPipeline && project.supportType && <span className="text-[9px] font-bold px-2 py-0.5 rounded-full" style={{ background: "rgba(139,92,246,0.15)", color: "#a78bfa" }}>{SUPPORT_TYPE_LABELS[project.supportType]}</span>}
+    <div className="fixed inset-0 z-[200] flex items-center justify-center p-4" onClick={onClose}>
+      <div className="absolute inset-0" style={{ background: "rgba(0,0,0,0.65)", backdropFilter: "blur(8px)" }} />
+      <motion.div initial={{ opacity: 0, scale: 0.93, y: 20 }} animate={{ opacity: 1, scale: 1, y: 0 }} exit={{ opacity: 0, scale: 0.93, y: 20 }} transition={{ type: "spring", damping: 26, stiffness: 360 }} onClick={(e) => e.stopPropagation()} className="relative z-10 w-full max-w-[620px] max-h-[85vh] overflow-y-auto rounded-3xl" style={{ background: "rgba(7,12,26,0.78)", backdropFilter: "blur(52px) saturate(200%)", border: "1px solid rgba(255,255,255,0.13)", boxShadow: "0 32px 80px rgba(0,0,0,0.9)" }}>
+        <div className="relative px-5 md:px-7 pt-5 md:pt-7 pb-3">
+          <div className="flex items-start justify-between gap-4">
+            <div className="flex-1 min-w-0">
+              <div className="flex flex-wrap items-center gap-1.5 mb-2.5">
+                {isProjectPipeline && psBadge ? (
+                  <span className="inline-flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-[0.14em] px-2.5 py-1 rounded-full" style={{ background: `${psBadge.color}22`, color: psBadge.color, border: `1px solid ${psBadge.color}44` }}><span className="w-1.5 h-1.5 rounded-full" style={{ background: psBadge.color }} />{psBadge.label}</span>
+                ) : (
+                  <>
+                    <span className="inline-flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-[0.14em] px-2.5 py-1 rounded-full" style={{ background: `${column.color}22`, color: column.color, border: `1px solid ${column.color}44` }}><span className="w-1.5 h-1.5 rounded-full" style={{ background: column.color }} />{column.label}</span>
+                    {ls && <span className="text-[9px] font-bold px-2 py-0.5 rounded-full" style={{ background: ls.bg, color: ls.text }}>{project.leadSource}</span>}
+                  </>
+                )}
+                {isProjectPipeline && project.supportType && <span className="text-[9px] font-bold px-2 py-0.5 rounded-full" style={{ background: "rgba(139,92,246,0.15)", color: "#a78bfa" }}>{SUPPORT_TYPE_LABELS[project.supportType]}</span>}
+              </div>
+              <h2 className="text-white text-[1rem] md:text-[1.1rem] font-bold leading-snug">{project.name}</h2>
+              <p className="text-[#8b949e] text-[12px] md:text-[13px] font-semibold mt-1 flex items-center gap-1.5"><Building2 className="w-3.5 h-3.5 flex-shrink-0" />{project.client}</p>
+            </div>
+            <div className="flex gap-1 flex-shrink-0">
+              <button onClick={copyProjectLink} className="w-8 h-8 rounded-xl flex items-center justify-center hover:bg-white/[0.08] cursor-pointer" style={{ border: "1px solid rgba(255,255,255,0.10)" }}><Link2 className="w-3.5 h-3.5 text-[#8b949e]" /></button>
+              <button onClick={() => setEditing(!editing)} className="w-8 h-8 rounded-xl flex items-center justify-center hover:bg-white/[0.08] cursor-pointer" style={{ border: "1px solid rgba(255,255,255,0.10)" }}><Pencil className="w-4 h-4 text-[#8b949e]" /></button>
+              <button onClick={onClose} className="w-8 h-8 rounded-xl flex items-center justify-center hover:bg-white/[0.08] cursor-pointer" style={{ border: "1px solid rgba(255,255,255,0.10)" }}><X className="w-4 h-4 text-[#8b949e]" /></button>
+            </div>
           </div>
-          <h2 className="text-white text-[1rem] md:text-[1.1rem] font-bold leading-snug">{project.name}</h2>
-          <p className="text-[#8b949e] text-[12px] md:text-[13px] font-semibold mt-1 flex items-center gap-1.5"><Building2 className="w-3.5 h-3.5 flex-shrink-0" />{project.client}</p>
+          {editing && (
+            <div className="grid grid-cols-2 gap-2 mt-3">
+              <input value={editName} onChange={(e) => setEditName(e.target.value)} placeholder="Name" className="w-full h-8 rounded-xl px-2 text-[12px]" style={G.input} />
+              <input value={editClient} onChange={(e) => setEditClient(e.target.value)} placeholder="Client" className="w-full h-8 rounded-xl px-2 text-[12px]" style={G.input} />
+              <input value={editLocation} onChange={(e) => setEditLocation(e.target.value)} placeholder="Location" className="w-full h-8 rounded-xl px-2 text-[12px]" style={G.input} />
+              {!isProjectPipeline && <input type="number" value={editValue} onChange={(e) => setEditValue(e.target.value)} placeholder="Value" className="w-full h-8 rounded-xl px-2 text-[12px]" style={G.input} />}
+              <select value={editRisk} onChange={(e) => setEditRisk(e.target.value as "low"|"medium"|"high")} className="w-full h-8 rounded-xl px-2 text-[12px] cursor-pointer" style={{ ...G.input, background: "#0d1117", color: "#e6edf3" }}>{["low","medium","high"].map((r) => <option key={r} value={r} style={{ background: "#0d1117", color: "#e6edf3" }}>{r}</option>)}</select>
+              <input type="date" value={editDueDate} onChange={(e) => setEditDueDate(e.target.value)} className="w-full h-8 rounded-xl px-2 text-[12px]" style={{ ...G.input, colorScheme: "dark", background: "#0d1117", color: "#e6edf3" }} />
+              {isProjectPipeline && <select value={editSupportType} onChange={(e) => setEditSupportType(e.target.value as SupportType)} className="w-full h-8 rounded-xl px-2 text-[12px] cursor-pointer" style={{ ...G.input, background: "#0d1117", color: "#e6edf3" }}>{SUPPORT_TYPES.map(st => <option key={st.id} value={st.id} style={{ background: "#0d1117", color: "#e6edf3" }}>{st.label}</option>)}</select>}
+            </div>
+          )}
+          {editing && (
+            <div className="mt-3 flex gap-2">
+              <button onClick={handleSave} disabled={saving} className="flex-1 h-9 rounded-xl text-white text-[13px] font-bold cursor-pointer" style={{ background: "#10b981" }}><Save className="w-3.5 h-3.5 inline mr-1" />{saving ? "Saving…" : "Save"}</button>
+              <button onClick={() => setEditing(false)} className="flex-1 h-9 rounded-xl text-[#8b949e] text-[13px] font-semibold cursor-pointer" style={G.btn}>Cancel</button>
+            </div>
+          )}
         </div>
-        <div className="flex gap-1 flex-shrink-0"><button onClick={copyProjectLink} className="w-8 h-8 rounded-xl flex items-center justify-center hover:bg-white/[0.08] cursor-pointer" style={{ border: "1px solid rgba(255,255,255,0.10)" }}><Link2 className="w-3.5 h-3.5 text-[#8b949e]" /></button><button onClick={() => setEditing(!editing)} className="w-8 h-8 rounded-xl flex items-center justify-center hover:bg-white/[0.08] cursor-pointer" style={{ border: "1px solid rgba(255,255,255,0.10)" }}><Pencil className="w-4 h-4 text-[#8b949e]" /></button><button onClick={onClose} className="w-8 h-8 rounded-xl flex items-center justify-center hover:bg-white/[0.08] cursor-pointer" style={{ border: "1px solid rgba(255,255,255,0.10)" }}><X className="w-4 h-4 text-[#8b949e]" /></button></div></div>
-        {editing && <div className="grid grid-cols-2 gap-2 mt-3"><input value={editName} onChange={(e) => setEditName(e.target.value)} placeholder="Name" className="w-full h-8 rounded-xl px-2 text-[12px]" style={G.input} /><input value={editClient} onChange={(e) => setEditClient(e.target.value)} placeholder="Client" className="w-full h-8 rounded-xl px-2 text-[12px]" style={G.input} /><input value={editLocation} onChange={(e) => setEditLocation(e.target.value)} placeholder="Location" className="w-full h-8 rounded-xl px-2 text-[12px]" style={G.input} /><input type="number" value={editValue} onChange={(e) => setEditValue(e.target.value)} placeholder="Value" className="w-full h-8 rounded-xl px-2 text-[12px]" style={G.input} /><select value={editRisk} onChange={(e) => setEditRisk(e.target.value as "low"|"medium"|"high")} className="w-full h-8 rounded-xl px-2 text-[12px] cursor-pointer" style={{ ...G.input, background: "#0d1117", color: "#e6edf3" }}>{["low","medium","high"].map((r) => <option key={r} value={r} style={{ background: "#0d1117", color: "#e6edf3" }}>{r}</option>)}</select><input type="date" value={editDueDate} onChange={(e) => setEditDueDate(e.target.value)} className="w-full h-8 rounded-xl px-2 text-[12px]" style={{ ...G.input, colorScheme: "dark", background: "#0d1117", color: "#e6edf3" }} />{isProjectPipeline && <select value={editSupportType} onChange={(e) => setEditSupportType(e.target.value as SupportType)} className="w-full h-8 rounded-xl px-2 text-[12px] cursor-pointer" style={{ ...G.input, background: "#0d1117", color: "#e6edf3" }}>{SUPPORT_TYPES.map(st => <option key={st.id} value={st.id} style={{ background: "#0d1117", color: "#e6edf3" }}>{st.label}</option>)}</select>}</div>}
-        {editing && <div className="mt-3 flex gap-2"><button onClick={handleSave} disabled={saving} className="flex-1 h-9 rounded-xl text-white text-[13px] font-bold cursor-pointer" style={{ background: "#10b981" }}><Save className="w-3.5 h-3.5 inline mr-1" />{saving ? "Saving…" : "Save"}</button><button onClick={() => setEditing(false)} className="flex-1 h-9 rounded-xl text-[#8b949e] text-[13px] font-semibold cursor-pointer" style={G.btn}>Cancel</button></div>}
-      </div>
-      <div className="flex items-center gap-0.5 px-5 md:px-7 border-b overflow-x-auto" style={{ borderColor: "rgba(255,255,255,0.07)", scrollbarWidth: "none" }}>{tabs.map((tab) => (<button key={tab.id} onClick={() => setActiveTab(tab.id)} className={clsx("flex items-center gap-1.5 h-9 px-3 text-[11px] font-semibold border-b-2 -mb-px transition-all whitespace-nowrap cursor-pointer", activeTab === tab.id ? "border-blue-500 text-white" : "border-transparent text-[#8b949e]")}><tab.icon className="w-3 h-3" />{tab.label}</button>))}</div>
-      <div className="px-5 md:px-7 py-4">
-        {activeTab === "info" && (<div className="space-y-3"><div className="grid grid-cols-2 gap-2">{[{ label: "Value", value: isProjectPipeline ? "—" : fmt(project.value, true), color: "#3b82f6" },{ label: "Devices", value: String(project.devices), color: "#06b6d4" },{ label: "Cameras", value: String(project.cameras), color: "#8b5cf6" },{ label: "Due Date", value: fmtDateFull(project.dueDate), color: "#f59e0b" }].map((s) => (<div key={s.label} className="rounded-2xl px-3 py-3 text-center" style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)" }}><p className="text-[10px] font-bold uppercase tracking-widest mb-1" style={{ color: "rgba(139,148,158,0.85)" }}>{s.label}</p><p className="text-[1.2rem] font-bold tracking-tight leading-none" style={{ color: s.color }}>{s.value}</p></div>))}</div>{project.summary && <div className="rounded-xl p-3" style={G.subtle}><p className="text-[#484f58] text-[9px] font-bold uppercase tracking-widest mb-1">Scope</p><p className="text-[#8b949e] text-[11px]">{project.summary}</p></div>}<div className="space-y-2">{team.map((m) => (<div key={m.name} className="flex items-center gap-2"><div className="w-7 h-7 rounded-lg flex items-center justify-center text-[10px] font-bold text-white" style={{ background: m.color }}>{m.initials}</div><span className="text-white text-[12px] font-semibold">{m.name}</span><span className="text-[#484f58] text-[10px]">· {m.roles.join(", ")}</span></div>))}</div></div>)}
-        {activeTab === "tasks" && <TaskList projectId={project.id} />}
-        {activeTab === "documents" && <DocumentList projectId={project.id} />}
-        {activeTab === "contact" && (<div className="space-y-2">{project.contact ? (<div className="space-y-2">{project.contact.name && <div className="flex items-center gap-2 text-[#e6edf3] text-[12px]"><Users className="w-3.5 h-3.5 text-[#484f58]" />{project.contact.name}{project.contact.title && <span className="text-[#484f58]">· {project.contact.title}</span>}</div>}{project.contact.email && <div className="flex items-center gap-2 text-[#e6edf3] text-[12px]"><Mail className="w-3.5 h-3.5 text-[#484f58]" />{project.contact.email}</div>}{project.contact.phone && <div className="flex items-center gap-2 text-[#e6edf3] text-[12px]"><Phone className="w-3.5 h-3.5 text-[#484f58]" />{project.contact.phone}</div>}</div>) : <p className="text-[#484f58] text-[12px]">No contact info added yet.</p>}</div>)}
-        {activeTab === "notes" && (<div>{project.notes ? <p className="text-[#8b949e] text-[12px] whitespace-pre-wrap">{project.notes}</p> : <p className="text-[#484f58] text-[12px]">No notes yet.</p>}</div>)}
-        {activeTab === "workbook" && (<div className="flex flex-col items-center gap-3 py-4"><FileText className="w-10 h-10 text-[#484f58]" /><p className="text-[#8b949e] text-[12px]">View full workbook for this project</p><button onClick={() => { navigate("workbook"); onClose(); }} className="h-9 px-5 rounded-xl text-white text-[12px] font-bold cursor-pointer min-h-[44px]" style={{ background: "#3b82f6", boxShadow: "0 4px 20px rgba(59,130,246,0.4)" }}>Open Workbook <ExternalLink className="w-3 h-3 inline ml-1" /></button></div>)}
-      </div>
-      <div className="px-5 md:px-7 pb-7 flex gap-2.5"><button onClick={() => { navigate("project-detail"); onClose(); }} className="flex-1 h-10 rounded-xl flex items-center justify-center gap-2 text-white text-[13px] font-bold cursor-pointer min-h-[44px]" style={{ background: "#3b82f6", boxShadow: "0 4px 20px rgba(59,130,246,0.4)" }}><ExternalLink className="w-3.5 h-3.5" />Open</button><button onClick={() => { navigate("design-canvas"); onClose(); }} className="flex-1 h-10 rounded-xl flex items-center justify-center gap-2 text-[#e6edf3] text-[13px] font-bold cursor-pointer min-h-[44px]" style={G.btn}><Layers className="w-3.5 h-3.5 text-violet-400" />Design</button><button onClick={() => { onDelete(project.id); onClose(); }} className="h-10 px-3 rounded-xl text-rose-400 text-[13px] font-bold cursor-pointer min-h-[44px]" style={{ background: "rgba(244,63,94,0.10)", border: "1px solid rgba(244,63,94,0.20)" }}><Trash2 className="w-3.5 h-3.5" /></button></div>
-    </motion.div></div>
+        <div className="flex items-center gap-0.5 px-5 md:px-7 border-b overflow-x-auto" style={{ borderColor: "rgba(255,255,255,0.07)", scrollbarWidth: "none" }}>
+          {tabs.map((tab) => (
+            <button key={tab.id} onClick={() => setActiveTab(tab.id)} className={clsx("flex items-center gap-1.5 h-9 px-3 text-[11px] font-semibold border-b-2 -mb-px transition-all whitespace-nowrap cursor-pointer", activeTab === tab.id ? "border-blue-500 text-white" : "border-transparent text-[#8b949e]")}><tab.icon className="w-3 h-3" />{tab.label}</button>
+          ))}
+        </div>
+        <div className="px-5 md:px-7 py-4">
+          {activeTab === "info" && (
+            <div className="space-y-3">
+              <div className="grid grid-cols-2 gap-2">
+                {[
+                  { label: "Value", value: isProjectPipeline ? "—" : fmt(project.value, true), color: "#3b82f6" },
+                  { label: "Devices", value: String(project.devices), color: "#06b6d4" },
+                  { label: "Cameras", value: String(project.cameras), color: "#8b5cf6" },
+                  { label: "Due Date", value: fmtDateFull(project.dueDate), color: "#f59e0b" },
+                ].map((s) => (
+                  <div key={s.label} className="rounded-2xl px-3 py-3 text-center" style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)" }}>
+                    <p className="text-[10px] font-bold uppercase tracking-widest mb-1" style={{ color: "rgba(139,148,158,0.85)" }}>{s.label}</p>
+                    <p className="text-[1.2rem] font-bold tracking-tight leading-none" style={{ color: s.color }}>{s.value}</p>
+                  </div>
+                ))}
+              </div>
+              {project.summary && <div className="rounded-xl p-3" style={G.subtle}><p className="text-[#8b949e] text-[9px] font-bold uppercase tracking-widest mb-1">Scope</p><p className="text-[#8b949e] text-[11px]">{project.summary}</p></div>}
+              <div className="space-y-2">
+                {team.map((m) => (
+                  <div key={m.name} className="flex items-center gap-2">
+                    <div className="w-7 h-7 rounded-lg flex items-center justify-center text-[10px] font-bold text-white" style={{ background: m.color }}>{m.initials}</div>
+                    <span className="text-white text-[12px] font-semibold">{m.name}</span>
+                    <span className="text-[#8b949e] text-[10px]">· {m.roles.join(", ")}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+          {activeTab === "tasks" && <TaskList projectId={project.id} />}
+          {activeTab === "documents" && <DocumentList projectId={project.id} />}
+          {activeTab === "contact" && (
+            <div className="space-y-2">
+              {project.contact ? (
+                <div className="space-y-2">
+                  {project.contact.name && <div className="flex items-center gap-2 text-[#e6edf3] text-[12px]"><Users className="w-3.5 h-3.5 text-[#8b949e]" />{project.contact.name}{project.contact.title && <span className="text-[#8b949e]">· {project.contact.title}</span>}</div>}
+                  {project.contact.email && <div className="flex items-center gap-2 text-[#e6edf3] text-[12px]"><Mail className="w-3.5 h-3.5 text-[#8b949e]" />{project.contact.email}</div>}
+                  {project.contact.phone && <div className="flex items-center gap-2 text-[#e6edf3] text-[12px]"><Phone className="w-3.5 h-3.5 text-[#8b949e]" />{project.contact.phone}</div>}
+                </div>
+              ) : <p className="text-[#8b949e] text-[12px]">No contact info added yet.</p>}
+            </div>
+          )}
+          {activeTab === "notes" && <div>{project.notes ? <p className="text-[#8b949e] text-[12px] whitespace-pre-wrap">{project.notes}</p> : <p className="text-[#8b949e] text-[12px]">No notes yet.</p>}</div>}
+          {activeTab === "workbook" && (
+            <div className="flex flex-col items-center gap-3 py-4">
+              <FileText className="w-10 h-10 text-[#484f58]" />
+              <p className="text-[#8b949e] text-[12px]">View full workbook for this project</p>
+              <button onClick={() => { navigate("workbook"); onClose(); }} className="h-9 px-5 rounded-xl text-white text-[12px] font-bold cursor-pointer min-h-[44px]" style={{ background: "#3b82f6", boxShadow: "0 4px 20px rgba(59,130,246,0.4)" }}>Open Workbook <ExternalLink className="w-3 h-3 inline ml-1" /></button>
+            </div>
+          )}
+        </div>
+        <div className="px-5 md:px-7 pb-7 flex gap-2.5">
+          <button onClick={() => { navigate("project-detail"); onClose(); }} className="flex-1 h-10 rounded-xl flex items-center justify-center gap-2 text-white text-[13px] font-bold cursor-pointer min-h-[44px]" style={{ background: "#3b82f6", boxShadow: "0 4px 20px rgba(59,130,246,0.4)" }}><ExternalLink className="w-3.5 h-3.5" />Open</button>
+          <button onClick={() => { navigate("design-canvas"); onClose(); }} className="flex-1 h-10 rounded-xl flex items-center justify-center gap-2 text-[#e6edf3] text-[13px] font-bold cursor-pointer min-h-[44px]" style={G.btn}><Layers className="w-3.5 h-3.5 text-violet-400" />Design</button>
+          <button onClick={() => { onDelete(project.id); onClose(); }} className="h-10 px-3 rounded-xl text-rose-400 text-[13px] font-bold cursor-pointer min-h-[44px]" style={{ background: "rgba(244,63,94,0.10)", border: "1px solid rgba(244,63,94,0.20)" }}><Trash2 className="w-3.5 h-3.5" /></button>
+        </div>
+      </motion.div>
+    </div>
   );
 }
 
 function MiniFloorPlan({ project }: { project: Project }) {
   const hasDesign = ["proposal", "negotiation", "win"].includes(project.stage) || ["planning", "procurement", "installation", "commissioning", "complete"].includes(project.projectStage as string);
   const variant = parseInt(project.id.replace(/\D/g, "").slice(-1) || "0") % 3;
-  if (!hasDesign) return <div className="w-full h-full flex flex-col items-center justify-center rounded-lg border border-dashed" style={{ background: "rgba(255,255,255,0.03)", borderColor: "rgba(255,255,255,0.09)" }}><Upload className="w-5 h-5 text-[#484f58] mb-1.5" /><p className="text-[#484f58] text-[10px] font-semibold">No floor plan</p></div>;
+  if (!hasDesign) return <div className="w-full h-full flex flex-col items-center justify-center rounded-lg border border-dashed" style={{ background: "rgba(255,255,255,0.03)", borderColor: "rgba(255,255,255,0.09)" }}><Upload className="w-5 h-5 text-[#484f58] mb-1.5" /><p className="text-[#8b949e] text-[10px] font-semibold">No floor plan</p></div>;
   if (variant === 0) return <svg viewBox="0 0 200 112" className="w-full h-full"><rect width="200" height="112" fill="#070c1a" /><rect x="8" y="8" width="184" height="96" fill="rgba(255,255,255,0.02)" stroke="rgba(255,255,255,0.09)" strokeWidth="1" rx="1" /><rect x="8" y="8" width="60" height="40" fill="rgba(59,130,246,0.05)" /><rect x="8" y="56" width="60" height="48" fill="rgba(255,255,255,0.02)" /><rect x="130" y="8" width="62" height="96" fill="rgba(139,92,246,0.04)" /><text x="38" y="30" textAnchor="middle" fill="rgba(255,255,255,0.12)" fontSize="5" fontFamily="sans-serif">RECEPTION</text><text x="38" y="82" textAnchor="middle" fill="rgba(255,255,255,0.12)" fontSize="5" fontFamily="sans-serif">OFFICE</text><text x="161" y="56" textAnchor="middle" fill="rgba(255,255,255,0.12)" fontSize="5" fontFamily="sans-serif">SERVER</text><path d={fovPath(18,18,135,80,28)} fill="rgba(59,130,246,0.18)" /><circle cx="18" cy="18" r="2.5" fill="#3b82f6" /><path d={fovPath(182,18,225,80,28)} fill="rgba(59,130,246,0.18)" /><circle cx="182" cy="18" r="2.5" fill="#3b82f6" /><path d={fovPath(18,96,45,80,28)} fill="rgba(59,130,246,0.18)" /><circle cx="18" cy="96" r="2.5" fill="#3b82f6" /><text x="186" y="109" textAnchor="end" fill="rgba(59,130,246,0.4)" fontSize="5" fontFamily="sans-serif">{project.cameras} cams</text></svg>;
   if (variant === 1) return <svg viewBox="0 0 200 112" className="w-full h-full"><rect width="200" height="112" fill="#070c1a" /><rect x="8" y="8" width="184" height="96" fill="rgba(255,255,255,0.02)" stroke="rgba(255,255,255,0.09)" strokeWidth="1" rx="1" /><rect x="8" y="8" width="184" height="22" fill="rgba(59,130,246,0.04)" /><rect x="8" y="8" width="60" height="96" fill="rgba(255,255,255,0.015)" /><text x="100" y="21" textAnchor="middle" fill="rgba(255,255,255,0.12)" fontSize="5" fontFamily="sans-serif">LOADING DOCK</text><text x="38" y="68" textAnchor="middle" fill="rgba(255,255,255,0.12)" fontSize="5" fontFamily="sans-serif">STORAGE</text><text x="133" y="72" textAnchor="middle" fill="rgba(255,255,255,0.12)" fontSize="5" fontFamily="sans-serif">WAREHOUSE</text>{[30,80,130,180].map((x,i) => <g key={i}><path d={fovPath(x,9,90,100,40)} fill="rgba(59,130,246,0.12)" /><circle cx={x} cy={9} r="2.5" fill="#3b82f6" /></g>)}<text x="186" y="109" textAnchor="end" fill="rgba(59,130,246,0.4)" fontSize="5" fontFamily="sans-serif">{project.cameras} cams</text></svg>;
   return <svg viewBox="0 0 200 112" className="w-full h-full"><rect width="200" height="112" fill="#070c1a" /><rect x="8" y="8" width="86" height="46" fill="rgba(59,130,246,0.05)" /><rect x="106" y="8" width="86" height="46" fill="rgba(139,92,246,0.04)" /><rect x="8" y="62" width="86" height="42" fill="rgba(16,185,129,0.03)" /><rect x="106" y="62" width="86" height="42" fill="rgba(245,158,11,0.03)" /><text x="51" y="30" textAnchor="middle" fill="rgba(255,255,255,0.12)" fontSize="5" fontFamily="sans-serif">DATA HALL A</text><text x="149" y="30" textAnchor="middle" fill="rgba(255,255,255,0.12)" fontSize="5" fontFamily="sans-serif">DATA HALL B</text><text x="51" y="84" textAnchor="middle" fill="rgba(255,255,255,0.12)" fontSize="5" fontFamily="sans-serif">SERVER ROOM</text><text x="149" y="84" textAnchor="middle" fill="rgba(255,255,255,0.12)" fontSize="5" fontFamily="sans-serif">NOC</text>{[[18,18,135],[78,18,225],[18,98,45],[78,98,315],[118,18,135],[178,18,225],[118,98,45],[178,98,315]].map(([x,y,r],i) => <g key={i}><path d={fovPath(x,y,r,80,24)} fill="rgba(59,130,246,0.15)" /><circle cx={x} cy={y} r="2" fill="#3b82f6" /></g>)}<text x="186" y="109" textAnchor="end" fill="rgba(59,130,246,0.4)" fontSize="5" fontFamily="sans-serif">{project.cameras} cams</text></svg>;
 }
 
 function UploadFloorPlanModal({ onClose, onUpload, mode }: { onClose: () => void; onUpload: (file: File, type: "2d" | "3d") => void; mode: "2d" | "3d" }) {
-  const [dragOver, setDragOver] = useState(false); const [file, setFile] = useState<File | null>(null); const [uploading, setUploading] = useState(false);
+  const [dragOver, setDragOver] = useState(false);
+  const [file, setFile] = useState<File | null>(null);
+  const [uploading, setUploading] = useState(false);
   const handleUpload = async () => { if (!file) return; setUploading(true); try { onUpload(file, mode); onClose(); } catch { toast.error("Upload failed"); } finally { setUploading(false); } };
-  const twoDAccept = "image/*,.pdf,.dwg,.dxf"; const threeDAccept = "image/*,.glb,.gltf,.obj,.stl,.fbx";
+  const twoDAccept = "image/*,.pdf,.dwg,.dxf";
+  const threeDAccept = "image/*,.glb,.gltf,.obj,.stl,.fbx";
   return (
-    <div className="fixed inset-0 z-[200] flex items-center justify-center p-4" onClick={onClose}><div className="absolute inset-0" style={{ background: "rgba(0,0,0,0.65)", backdropFilter: "blur(8px)" }} /><motion.div initial={{ opacity: 0, scale: 0.94, y: 16 }} animate={{ opacity: 1, scale: 1, y: 0 }} transition={{ type: "spring", damping: 26, stiffness: 360 }} onClick={(e) => e.stopPropagation()} className="relative z-10 w-full max-w-[480px] rounded-3xl" style={{ background: "rgba(7,12,26,0.92)", backdropFilter: "blur(52px) saturate(200%)", border: "1px solid rgba(255,255,255,0.13)", boxShadow: "0 32px 80px rgba(0,0,0,0.9)" }}><div className="flex items-center justify-between px-6 pt-6 pb-5" style={{ borderBottom: "1px solid rgba(255,255,255,0.07)" }}><div><h2 className="text-white text-[1rem] font-bold">Upload {mode === "2d" ? "Floor Plan" : "3D Model / Rendering"}</h2><p className="text-[#484f58] text-[10px] mt-1">{mode === "2d" ? "PNG, JPG, PDF, DWG, DXF" : "PNG, JPG, GLB, GLTF, OBJ, STL, FBX"}</p></div><button onClick={onClose} className="w-8 h-8 rounded-xl flex items-center justify-center hover:bg-white/[0.08] cursor-pointer min-w-[44px] min-h-[44px]" style={{ border: "1px solid rgba(255,255,255,0.10)" }}><X className="w-4 h-4 text-[#8b949e]" /></button></div><div className="p-6"><div onDragOver={(e) => { e.preventDefault(); setDragOver(true); }} onDragLeave={() => setDragOver(false)} onDrop={(e) => { e.preventDefault(); if (e.dataTransfer.files.length > 0) setFile(e.dataTransfer.files[0]); }} className={clsx("border-2 border-dashed rounded-2xl p-10 text-center transition-all cursor-pointer", dragOver ? "border-violet-400 bg-violet-500/[0.06]" : file ? "border-emerald-500/40 bg-emerald-500/[0.03]" : "border-white/[0.10] hover:border-white/[0.20]")} onClick={() => document.getElementById("floorplan-upload-2")?.click()}><input id="floorplan-upload-2" type="file" accept={mode === "2d" ? twoDAccept : threeDAccept} className="hidden" onChange={(e) => { if (e.target.files?.[0]) setFile(e.target.files[0]); }} />{file ? <div className="space-y-2"><div className="w-12 h-12 rounded-xl mx-auto flex items-center justify-center" style={{ background: "rgba(16,185,129,0.15)" }}><CheckCircle2 className="w-6 h-6 text-emerald-400" /></div><p className="text-white text-[13px] font-semibold">{file.name}</p><p className="text-[#484f58] text-[11px]">{(file.size / 1024).toFixed(0)} KB</p></div> : <div className="space-y-3"><div className="w-14 h-14 rounded-2xl mx-auto flex items-center justify-center" style={{ background: "rgba(139,92,246,0.12)" }}><Upload className="w-6 h-6 text-violet-400" /></div><div><p className="text-white text-[13px] font-semibold">Drag & drop your {mode === "2d" ? "floor plan" : "3D file"}</p><p className="text-[#484f58] text-[11px] mt-1">or click to browse files</p></div></div>}</div><div className="flex gap-3 mt-5"><button onClick={onClose} className="flex-1 h-10 rounded-xl text-[#8b949e] text-[13px] font-semibold cursor-pointer min-h-[44px]" style={G.btn}>Cancel</button><button onClick={handleUpload} disabled={!file || uploading} className="flex-1 h-10 rounded-xl text-white text-[13px] font-bold disabled:opacity-40 flex items-center justify-center gap-2 cursor-pointer min-h-[44px]" style={{ background: "#8b5cf6", boxShadow: file ? "0 4px 20px rgba(139,92,246,0.4)" : "none" }}>{uploading ? "Uploading…" : "Upload"}</button></div></div></motion.div></div>
+    <div className="fixed inset-0 z-[200] flex items-center justify-center p-4" onClick={onClose}>
+      <div className="absolute inset-0" style={{ background: "rgba(0,0,0,0.65)", backdropFilter: "blur(8px)" }} />
+      <motion.div initial={{ opacity: 0, scale: 0.94, y: 16 }} animate={{ opacity: 1, scale: 1, y: 0 }} exit={{ opacity: 0, scale: 0.94, y: 16 }} transition={{ type: "spring", damping: 26, stiffness: 360 }} onClick={(e) => e.stopPropagation()} className="relative z-10 w-full max-w-[480px] rounded-3xl" style={{ background: "rgba(7,12,26,0.92)", backdropFilter: "blur(52px) saturate(200%)", border: "1px solid rgba(255,255,255,0.13)", boxShadow: "0 32px 80px rgba(0,0,0,0.9)" }}>
+        <div className="flex items-center justify-between px-6 pt-6 pb-5" style={{ borderBottom: "1px solid rgba(255,255,255,0.07)" }}>
+          <div><h2 className="text-white text-[1rem] font-bold">Upload {mode === "2d" ? "Floor Plan" : "3D Model / Rendering"}</h2><p className="text-[#8b949e] text-[10px] mt-1">{mode === "2d" ? "PNG, JPG, PDF, DWG, DXF" : "PNG, JPG, GLB, GLTF, OBJ, STL, FBX"}</p></div>
+          <button onClick={onClose} className="w-8 h-8 rounded-xl flex items-center justify-center hover:bg-white/[0.08] cursor-pointer min-w-[44px] min-h-[44px]" style={{ border: "1px solid rgba(255,255,255,0.10)" }}><X className="w-4 h-4 text-[#8b949e]" /></button>
+        </div>
+        <div className="p-6">
+          <div onDragOver={(e) => { e.preventDefault(); setDragOver(true); }} onDragLeave={() => setDragOver(false)} onDrop={(e) => { e.preventDefault(); if (e.dataTransfer.files.length > 0) setFile(e.dataTransfer.files[0]); }} className={clsx("border-2 border-dashed rounded-2xl p-10 text-center transition-all cursor-pointer", dragOver ? "border-violet-400 bg-violet-500/[0.06]" : file ? "border-emerald-500/40 bg-emerald-500/[0.03]" : "border-white/[0.10] hover:border-white/[0.20]")} onClick={() => document.getElementById("floorplan-upload-2")?.click()}>
+            <input id="floorplan-upload-2" type="file" accept={mode === "2d" ? twoDAccept : threeDAccept} className="hidden" onChange={(e) => { if (e.target.files?.[0]) setFile(e.target.files[0]); }} />
+            {file ? (
+              <div className="space-y-2">
+                <div className="w-12 h-12 rounded-xl mx-auto flex items-center justify-center" style={{ background: "rgba(16,185,129,0.15)" }}><CheckCircle2 className="w-6 h-6 text-emerald-400" /></div>
+                <p className="text-white text-[13px] font-semibold">{file.name}</p>
+                <p className="text-[#8b949e] text-[11px]">{(file.size / 1024).toFixed(0)} KB</p>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                <div className="w-14 h-14 rounded-2xl mx-auto flex items-center justify-center" style={{ background: "rgba(139,92,246,0.12)" }}><Upload className="w-6 h-6 text-violet-400" /></div>
+                <div><p className="text-white text-[13px] font-semibold">Drag & drop your {mode === "2d" ? "floor plan" : "3D file"}</p><p className="text-[#8b949e] text-[11px] mt-1">or click to browse files</p></div>
+              </div>
+            )}
+          </div>
+          <div className="flex gap-3 mt-5">
+            <button onClick={onClose} className="flex-1 h-10 rounded-xl text-[#8b949e] text-[13px] font-semibold cursor-pointer min-h-[44px]" style={G.btn}>Cancel</button>
+            <button onClick={handleUpload} disabled={!file || uploading} className="flex-1 h-10 rounded-xl text-white text-[13px] font-bold disabled:opacity-40 flex items-center justify-center gap-2 cursor-pointer min-h-[44px]" style={{ background: "#8b5cf6", boxShadow: file ? "0 4px 20px rgba(139,92,246,0.4)" : "none" }}>{uploading ? "Uploading…" : "Upload"}</button>
+          </div>
+        </div>
+      </motion.div>
+    </div>
   );
 }
 
 function SelectProjectModal({ onClose, onSelect, currentId, projects }: { onClose: () => void; onSelect: (id: string) => void; currentId: string; projects: Project[] }) {
-  const [search, setSearch] = useState(""); const filtered = search.trim() ? projects.filter((p) => p.name.toLowerCase().includes(search.toLowerCase()) || p.client.toLowerCase().includes(search.toLowerCase())) : projects;
+  const [search, setSearch] = useState("");
+  const filtered = search.trim() ? projects.filter((p) => p.name.toLowerCase().includes(search.toLowerCase()) || p.client.toLowerCase().includes(search.toLowerCase())) : projects;
   return (
-    <div className="fixed inset-0 z-[200] flex items-center justify-center p-4" onClick={onClose}><div className="absolute inset-0" style={{ background: "rgba(0,0,0,0.55)", backdropFilter: "blur(6px)" }} /><motion.div initial={{ opacity: 0, scale: 0.94, y: 14 }} animate={{ opacity: 1, scale: 1, y: 0 }} transition={{ type: "spring", damping: 26, stiffness: 360 }} onClick={(e) => e.stopPropagation()} className="relative z-10 w-full max-w-[500px] max-h-[80vh] overflow-y-auto rounded-3xl" style={{ background: "rgba(7,12,26,0.95)", backdropFilter: "blur(52px) saturate(200%)", border: "1px solid rgba(255,255,255,0.13)", boxShadow: "0 32px 80px rgba(0,0,0,0.9)" }}><div className="flex items-center justify-between px-6 pt-6 pb-4" style={{ borderBottom: "1px solid rgba(255,255,255,0.07)" }}><h2 className="text-white text-[1rem] font-bold">Select Project</h2><button onClick={onClose} className="w-8 h-8 rounded-xl flex items-center justify-center hover:bg-white/[0.08] cursor-pointer min-w-[44px] min-h-[44px]" style={{ border: "1px solid rgba(255,255,255,0.10)" }}><X className="w-4 h-4 text-[#8b949e]" /></button></div><div className="px-4 py-3"><div className="relative"><Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-[#484f58]" /><input autoFocus value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search projects…" className="w-full h-9 rounded-xl pl-8 pr-3 text-[13px] text-[#e6edf3] focus:outline-none" style={G.input} /></div></div><div className="max-h-[340px] overflow-y-auto" style={{ scrollbarWidth: "none" }}>{filtered.map((p) => (<button key={p.id} onClick={() => { onSelect(p.id); onClose(); }} className="w-full flex items-center gap-3 px-5 py-3 hover:bg-white/[0.04] transition-colors text-left cursor-pointer min-h-[44px]" style={{ borderBottom: "1px solid rgba(255,255,255,0.04)", background: p.id === currentId ? "rgba(59,130,246,0.06)" : "transparent" }}><div className="w-8 h-8 rounded-xl flex items-center justify-center text-[10px] font-bold text-white flex-shrink-0" style={{ background: p.assignee.color }}>{p.assignee.initials}</div><div className="flex-1 min-w-0"><p className="text-white text-[13px] font-semibold truncate">{p.name}</p><p className="text-[#8b949e] text-[11px] truncate">{p.client}</p></div>{p.id === currentId && <CheckCircle2 className="w-4 h-4 text-blue-400" />}</button>))}</div></motion.div></div>
+    <div className="fixed inset-0 z-[200] flex items-center justify-center p-4" onClick={onClose}>
+      <div className="absolute inset-0" style={{ background: "rgba(0,0,0,0.55)", backdropFilter: "blur(6px)" }} />
+      <motion.div initial={{ opacity: 0, scale: 0.94, y: 14 }} animate={{ opacity: 1, scale: 1, y: 0 }} exit={{ opacity: 0, scale: 0.94, y: 14 }} transition={{ type: "spring", damping: 26, stiffness: 360 }} onClick={(e) => e.stopPropagation()} className="relative z-10 w-full max-w-[500px] max-h-[80vh] overflow-y-auto rounded-3xl" style={{ background: "rgba(7,12,26,0.95)", backdropFilter: "blur(52px) saturate(200%)", border: "1px solid rgba(255,255,255,0.13)", boxShadow: "0 32px 80px rgba(0,0,0,0.9)" }}>
+        <div className="flex items-center justify-between px-6 pt-6 pb-4" style={{ borderBottom: "1px solid rgba(255,255,255,0.07)" }}><h2 className="text-white text-[1rem] font-bold">Select Project</h2><button onClick={onClose} className="w-8 h-8 rounded-xl flex items-center justify-center hover:bg-white/[0.08] cursor-pointer min-w-[44px] min-h-[44px]" style={{ border: "1px solid rgba(255,255,255,0.10)" }}><X className="w-4 h-4 text-[#8b949e]" /></button></div>
+        <div className="px-4 py-3"><div className="relative"><Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-[#484f58]" /><input autoFocus value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search projects…" className="w-full h-9 rounded-xl pl-8 pr-3 text-[13px] text-[#e6edf3] focus:outline-none" style={G.input} /></div></div>
+        <div className="max-h-[340px] overflow-y-auto" style={{ scrollbarWidth: "none" }}>
+          {filtered.map((p) => (
+            <button key={p.id} onClick={() => { onSelect(p.id); onClose(); }} className="w-full flex items-center gap-3 px-5 py-3 hover:bg-white/[0.04] transition-colors text-left cursor-pointer min-h-[44px]" style={{ borderBottom: "1px solid rgba(255,255,255,0.04)", background: p.id === currentId ? "rgba(59,130,246,0.06)" : "transparent" }}>
+              <div className="w-8 h-8 rounded-xl flex items-center justify-center text-[10px] font-bold text-white flex-shrink-0" style={{ background: p.assignee.color }}>{p.assignee.initials}</div>
+              <div className="flex-1 min-w-0"><p className="text-white text-[13px] font-semibold truncate">{p.name}</p><p className="text-[#8b949e] text-[11px] truncate">{p.client}</p></div>
+              {p.id === currentId && <CheckCircle2 className="w-4 h-4 text-blue-400" />}
+            </button>
+          ))}
+        </div>
+      </motion.div>
+    </div>
   );
 }
 
@@ -802,24 +1641,96 @@ function DesignStudio({ navigate }: { navigate: (p: Page) => void }) {
   const fetchProjects = useCallback(async () => { setLoading(true); try { const data = await API.projects.list(); setProjects(data); } catch { setProjects([]); } finally { setLoading(false); } }, []);
   useEffect(() => { fetchProjects(); }, [fetchProjects]);
 
-  const filtered = useMemo(() => { let result = projects; if (filter !== "all") result = result.filter((p) => p.stage === filter || p.projectStage === filter); if (search.trim()) { const q = search.toLowerCase(); result = result.filter((p) => p.name.toLowerCase().includes(q) || p.client.toLowerCase().includes(q) || p.location.toLowerCase().includes(q)); } return result; }, [projects, filter, search]);
-  const stageFilters: { id: "all" | Stage | ProjectStage; label: string }[] = [{ id: "all", label: "All" },{ id: "lead", label: "Lead" },{ id: "opportunity", label: "Opportunity" },{ id: "proposal", label: "Proposal" },{ id: "win", label: "Won" },{ id: "planning", label: "Planning" },{ id: "installation", label: "Installation" }];
+  const filtered = useMemo(() => {
+    let result = projects;
+    if (filter !== "all") result = result.filter((p) => p.stage === filter || p.projectStage === filter);
+    if (search.trim()) { const q = search.toLowerCase(); result = result.filter((p) => p.name.toLowerCase().includes(q) || p.client.toLowerCase().includes(q) || p.location.toLowerCase().includes(q)); }
+    return result;
+  }, [projects, filter, search]);
+
+  const stageFilters: { id: "all" | Stage | ProjectStage; label: string }[] = [
+    { id: "all", label: "All" },
+    { id: "lead", label: "Lead" },
+    { id: "opportunity", label: "Opportunity" },
+    { id: "proposal", label: "Proposal" },
+    { id: "win", label: "Won" },
+    { id: "planning", label: "Planning" },
+    { id: "installation", label: "Installation" },
+  ];
+
+  const openProject = (projectId: string) => {
+    localStorage.setItem("active_project_id", projectId);
+    navigate("project-detail");
+  };
 
   if (loading) return <div className="px-3 md:px-5 py-4 md:py-6 space-y-4"><Skeleton className="h-10 w-56" /><div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 md:gap-4">{[1,2,3,4].map(i => <Skeleton key={i} className="h-48 rounded-2xl" />)}</div></div>;
 
   return (
     <div className="px-3 md:px-5 py-4 md:py-6">
-      <div className="flex items-center justify-between mb-4 md:mb-6"><div><h1 className="text-white font-bold text-lg md:text-xl tracking-tight">System Design Studio</h1></div><div className="flex items-center gap-2"><div className="flex items-center rounded-xl p-0.5 gap-0.5" style={G.btn}><button onClick={() => setStudioView("projects")} className={clsx("h-7 px-3 rounded-lg text-[11px] md:text-[12px] font-semibold cursor-pointer", studioView === "projects" ? "text-white" : "text-[#484f58]")} style={studioView === "projects" ? { background: "rgba(255,255,255,0.12)" } : undefined}>Projects</button><button onClick={() => setStudioView("canvas")} className={clsx("h-7 px-3 rounded-lg text-[11px] md:text-[12px] font-semibold cursor-pointer", studioView === "canvas" ? "text-white" : "text-[#484f58]")} style={studioView === "canvas" ? { background: "rgba(255,255,255,0.12)" } : undefined}>Canvas</button></div>{studioView === "projects" && <div className="flex items-center rounded-xl p-0.5 gap-0.5" style={G.btn}>{(["grid","list"] as const).map((m) => (<button key={m} onClick={() => setViewMode(m)} className={clsx("w-7 h-7 rounded-lg flex items-center justify-center cursor-pointer", viewMode === m ? "text-white" : "text-[#484f58]")} style={viewMode === m ? { background: "rgba(255,255,255,0.12)" } : undefined}>{m === "grid" ? <Grid3x3 className="w-3.5 h-3.5" /> : <List className="w-3.5 h-3.5" />}</button>))}</div>}</div></div>
+      <div className="flex items-center justify-between mb-4 md:mb-6">
+        <div><h1 className="text-white font-bold text-lg md:text-xl tracking-tight">System Design Studio</h1></div>
+        <div className="flex items-center gap-2">
+          <div className="flex items-center rounded-xl p-0.5 gap-0.5" style={G.btn}>
+            <button onClick={() => setStudioView("projects")} className={clsx("h-7 px-3 rounded-lg text-[11px] md:text-[12px] font-semibold cursor-pointer", studioView === "projects" ? "text-white" : "text-[#8b949e]")} style={studioView === "projects" ? { background: "rgba(255,255,255,0.12)" } : undefined}>Projects</button>
+            <button onClick={() => setStudioView("canvas")} className={clsx("h-7 px-3 rounded-lg text-[11px] md:text-[12px] font-semibold cursor-pointer", studioView === "canvas" ? "text-white" : "text-[#8b949e]")} style={studioView === "canvas" ? { background: "rgba(255,255,255,0.12)" } : undefined}>Canvas</button>
+          </div>
+          {studioView === "projects" && (
+            <div className="flex items-center rounded-xl p-0.5 gap-0.5" style={G.btn}>
+              {(["grid","list"] as const).map((m) => (
+                <button key={m} onClick={() => setViewMode(m)} className={clsx("w-7 h-7 rounded-lg flex items-center justify-center cursor-pointer", viewMode === m ? "text-white" : "text-[#8b949e]")} style={viewMode === m ? { background: "rgba(255,255,255,0.12)" } : undefined}>{m === "grid" ? <Grid3x3 className="w-3.5 h-3.5" /> : <List className="w-3.5 h-3.5" />}</button>
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
       {studioView === "canvas" ? (
         <div className="rounded-2xl p-8 text-center" style={G.card}><Layers className="w-12 h-12 text-[#484f58] mx-auto mb-3" /><p className="text-[#8b949e] text-[13px]">Open the Design Canvas to place devices on floor plans and 3D models.</p><button onClick={() => navigate("design-canvas")} className="mt-4 h-9 px-5 rounded-xl text-white text-[12px] font-bold cursor-pointer min-h-[44px]" style={{ background: "#3b82f6" }}>Open Canvas</button></div>
       ) : (
-        <><div className="flex items-center gap-2 mb-4 md:mb-5 flex-wrap">{stageFilters.map((f) => (<button key={f.id} onClick={() => setFilter(f.id)} className={clsx("h-7 px-3 rounded-full text-[11px] md:text-[12px] font-semibold cursor-pointer", filter === f.id ? "text-white" : "text-[#8b949e]")} style={filter === f.id ? { background: "#3b82f6", boxShadow: "0 2px 12px rgba(59,130,246,0.3)" } : G.subtle}>{f.label}</button>))}<div className="relative ml-1"><Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3 h-3 text-[#484f58]" /><input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search…" className="h-7 rounded-xl pl-7 pr-3 text-[11px] md:text-[12px] text-[#e6edf3] focus:outline-none w-36 md:w-44" style={G.input} /></div><span className="text-[#484f58] text-[11px] md:text-[12px] ml-1">{filtered.length} projects</span></div>
-        {filtered.length === 0 ? <EmptyState icon={Layers} title="No projects found" description="" /> : viewMode === "grid" ? (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 md:gap-4">{filtered.map((project) => { const isProjPipe = project.pipelineType === "project"; const badge = isProjPipe ? projectStageBadge(project.projectStage || "planning") : stageBadge(project.stage); return (<div key={project.id} className="group rounded-2xl overflow-hidden cursor-pointer transition-all md:hover:-translate-y-1" style={{ ...G.card }} onClick={() => navigate("project-detail")}><div className="relative h-[100px] md:h-[112px] bg-[#070c1a]"><MiniFloorPlan project={project} /><div className={clsx("absolute top-2 right-2 text-[10px] font-bold px-2 py-0.5 rounded-full", badge.cls)}>{badge.label}</div></div><div className="p-3 md:p-4"><h3 className="text-white text-[12px] md:text-[13px] font-semibold leading-snug mb-1 line-clamp-1">{project.name}</h3><p className="text-[#8b949e] text-[10px] md:text-[11px] font-medium mb-2 flex items-center gap-1"><Building2 className="w-3 h-3" /> {project.client}</p><div className="flex items-center justify-between"><div className="flex items-center gap-2"><span className="flex items-center gap-1 text-[#484f58] text-[10px]"><Camera className="w-3 h-3" />{project.cameras}</span></div><div className="w-5 h-5 rounded-full flex items-center justify-center text-[9px] font-bold text-white" style={{ background: project.assignee.color }}>{project.assignee.initials}</div></div></div></div>); })}</div>
-        ) : (
-          <div className="rounded-2xl overflow-hidden" style={G.card}><div className="overflow-x-auto"><div className="grid gap-3 px-3 py-2.5" style={{ gridTemplateColumns: "2fr 1fr 80px 80px 100px", minWidth: "600px", borderBottom: "1px solid rgba(255,255,255,0.06)" }}>{["Project","Client","Cameras","Devices","Stage"].map((h) => (<span key={h} className="text-[#484f58] text-[10px] font-bold uppercase tracking-widest">{h}</span>))}</div>{filtered.map((project) => { const isProjPipe = project.pipelineType === "project"; const badge = isProjPipe ? projectStageBadge(project.projectStage || "planning") : stageBadge(project.stage); return (<div key={project.id} className="grid gap-3 px-3 py-3.5 items-center cursor-pointer hover:bg-white/[0.03]" style={{ gridTemplateColumns: "2fr 1fr 80px 80px 100px", minWidth: "600px", borderBottom: "1px solid rgba(255,255,255,0.04)" }} onClick={() => navigate("project-detail")}><div><p className="text-white text-[12px] font-semibold truncate">{project.name}</p><p className="text-[#484f58] text-[10px] truncate">{project.location}</p></div><p className="text-[#8b949e] text-[11px] truncate">{project.client}</p><p className="text-[#8b949e] text-[11px]">{project.cameras}</p><p className="text-[#8b949e] text-[11px]">{project.devices}</p><span className={clsx("text-[10px] font-bold px-2 py-0.5 rounded-full w-fit", badge.cls)}>{badge.label}</span></div>); })}</div></div>
-        )}
-      </>)}
+        <>
+          <div className="flex items-center gap-2 mb-4 md:mb-5 flex-wrap">
+            {stageFilters.map((f) => (
+              <button key={f.id} onClick={() => setFilter(f.id)} className={clsx("h-7 px-3 rounded-full text-[11px] md:text-[12px] font-semibold cursor-pointer", filter === f.id ? "text-white" : "text-[#8b949e]")} style={filter === f.id ? { background: "#3b82f6", boxShadow: "0 2px 12px rgba(59,130,246,0.3)" } : G.subtle}>{f.label}</button>
+            ))}
+            <div className="relative ml-1"><Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3 h-3 text-[#484f58]" /><input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search…" className="h-7 rounded-xl pl-7 pr-3 text-[11px] md:text-[12px] text-[#e6edf3] focus:outline-none w-36 md:w-44" style={G.input} /></div>
+            <span className="text-[#8b949e] text-[11px] md:text-[12px] ml-1">{filtered.length} projects</span>
+          </div>
+          {filtered.length === 0 ? <EmptyState icon={Layers} title="No projects found" description="" /> : viewMode === "grid" ? (
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 md:gap-4">
+              <AnimatePresence mode="popLayout">
+                {filtered.map((project) => {
+                  const isProjPipe = project.pipelineType === "project";
+                  const badge = isProjPipe ? projectStageBadge(project.projectStage || "planning") : stageBadge(project.stage);
+                  return (
+                    <motion.div key={project.id} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, scale: 0.95 }} className="group rounded-2xl overflow-hidden cursor-pointer transition-all md:hover:-translate-y-1" style={{ ...G.card }} onClick={() => openProject(project.id)}>
+                      <div className="relative h-[100px] md:h-[112px] bg-[#070c1a]"><MiniFloorPlan project={project} /><div className={clsx("absolute top-2 right-2 text-[10px] font-bold px-2 py-0.5 rounded-full", badge.cls)}>{badge.label}</div></div>
+                      <div className="p-3 md:p-4"><h3 className="text-white text-[12px] md:text-[13px] font-semibold leading-snug mb-1 line-clamp-1">{project.name}</h3><p className="text-[#8b949e] text-[10px] md:text-[11px] font-medium mb-2 flex items-center gap-1"><Building2 className="w-3 h-3" /> {project.client}</p><div className="flex items-center justify-between"><div className="flex items-center gap-2"><span className="flex items-center gap-1 text-[#8b949e] text-[10px]"><Camera className="w-3 h-3" />{project.cameras}</span></div><div className="w-5 h-5 rounded-full flex items-center justify-center text-[9px] font-bold text-white" style={{ background: project.assignee.color }}>{project.assignee.initials}</div></div></div>
+                    </motion.div>
+                  );
+                })}
+              </AnimatePresence>
+            </div>
+          ) : (
+            <div className="rounded-2xl overflow-hidden" style={G.card}>
+              <div className="overflow-x-auto">
+                <div className="grid gap-3 px-3 py-2.5" style={{ gridTemplateColumns: "2fr 1fr 80px 80px 100px", minWidth: "600px", borderBottom: "1px solid rgba(255,255,255,0.06)" }}>{["Project","Client","Cameras","Devices","Stage"].map((h) => (<span key={h} className="text-[#8b949e] text-[10px] font-bold uppercase tracking-widest">{h}</span>))}</div>
+                {filtered.map((project) => {
+                  const isProjPipe = project.pipelineType === "project";
+                  const badge = isProjPipe ? projectStageBadge(project.projectStage || "planning") : stageBadge(project.stage);
+                  return (
+                    <div key={project.id} className="grid gap-3 px-3 py-3.5 items-center cursor-pointer hover:bg-white/[0.03]" style={{ gridTemplateColumns: "2fr 1fr 80px 80px 100px", minWidth: "600px", borderBottom: "1px solid rgba(255,255,255,0.04)" }} onClick={() => openProject(project.id)}>
+                      <div><p className="text-white text-[12px] font-semibold truncate">{project.name}</p><p className="text-[#8b949e] text-[10px] truncate">{project.location}</p></div>
+                      <p className="text-[#8b949e] text-[11px] truncate">{project.client}</p>
+                      <p className="text-[#8b949e] text-[11px]">{project.cameras}</p>
+                      <p className="text-[#8b949e] text-[11px]">{project.devices}</p>
+                      <span className={clsx("text-[10px] font-bold px-2 py-0.5 rounded-full w-fit", badge.cls)}>{badge.label}</span>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+        </>
+      )}
     </div>
   );
 }
@@ -840,14 +1751,40 @@ function ProjectDetail({ navigate }: { navigate: (p: Page) => void }) {
 
   useEffect(() => { localStorage.setItem("pd_tab", activeTab); }, [activeTab]);
 
-  const fetchProject = useCallback(async () => { setLoading(true); try { const data = await API.projects.list(); if (data.length > 0) setProject(data[0]); else setProject(null); const qData = await API.quotes.list(); setQuotes(qData.filter((q: Quote) => q.projectId === data[0]?.id)); } catch { setProject(null); } finally { setLoading(false); } }, []);
+  const fetchProject = useCallback(async () => {
+    setLoading(true);
+    try {
+      const data = await API.projects.list();
+      const activeProjectId = localStorage.getItem("active_project_id");
+      const proj = data.find(p => p.id === activeProjectId) || data[0];
+      if (proj) {
+        setProject(proj);
+        const qData = await API.quotes.list();
+        setQuotes(qData.filter((q: Quote) => q.projectId === proj.id));
+      } else {
+        setProject(null);
+      }
+    } catch { setProject(null); } finally { setLoading(false); }
+  }, []);
   useEffect(() => { fetchProject(); }, [fetchProject]);
 
-  useEffect(() => { if (project) { API.audit.list(project.id).then(setAuditLog).catch(() => setAuditLog([])); API.changeOrders.list(project.id).then(setChangeOrders).catch(() => setChangeOrders([])); } }, [project]);
+  useEffect(() => {
+    if (project) {
+      API.audit.list(project.id).then(setAuditLog).catch(() => setAuditLog([]));
+      API.changeOrders.list(project.id).then(setChangeOrders).catch(() => setChangeOrders([]));
+    }
+  }, [project]);
 
-  const handleCreateCO = async () => { if (!project || !newCOTitle.trim()) return; const co: Partial<ChangeOrder> = { projectId: project.id, title: newCOTitle.trim(), description: newCODesc.trim(), costImpact: parseFloat(newCOCost) || 0, status: "draft", createdBy: CURRENT_USER.name }; try { const created = await API.changeOrders.create(project.id, co); setChangeOrders((prev) => [...prev, created]); setShowNewCO(false); setNewCOTitle(""); setNewCODesc(""); setNewCOCost(""); toast.success("Change order created"); } catch { toast.error("Failed to create change order"); } };
+  const handleCreateCO = async () => {
+    if (!project || !newCOTitle.trim()) return;
+    const co: Partial<ChangeOrder> = { projectId: project.id, title: newCOTitle.trim(), description: newCODesc.trim(), costImpact: parseFloat(newCOCost) || 0, status: "draft", createdBy: CURRENT_USER.name };
+    try { const created = await API.changeOrders.create(project.id, co); setChangeOrders((prev) => [...prev, created]); setShowNewCO(false); setNewCOTitle(""); setNewCODesc(""); setNewCOCost(""); toast.success("Change order created"); } catch { toast.error("Failed to create change order"); }
+  };
 
-  const handleGenerateShareLink = async () => { if (!project) return; try { const result = await API.share.generate(project.id, "project-view"); setShareUrl(result.url); setShowShareModal(true); } catch { toast.error("Failed to generate link"); } };
+  const handleGenerateShareLink = async () => {
+    if (!project) return;
+    try { const result = await API.share.generate(project.id, "project-view"); setShareUrl(result.url); setShowShareModal(true); } catch { toast.error("Failed to generate link"); }
+  };
 
   if (loading) return (<div className="px-3 md:px-5 py-4 md:py-6 space-y-4"><Skeleton className="h-8 w-64" /><div className="grid grid-cols-2 md:grid-cols-5 gap-2 md:gap-3">{[1,2,3,4,5].map(i => <Skeleton key={i} className="h-24 rounded-2xl" />)}</div><Skeleton className="h-64 rounded-2xl" /></div>);
   if (!project) return <EmptyState icon={Building2} title="No project selected" description="Select a project from the Projects tab." />;
@@ -866,7 +1803,7 @@ function ProjectDetail({ navigate }: { navigate: (p: Page) => void }) {
       {showShareModal && (
         <div className="fixed inset-0 z-[400] flex items-center justify-center p-4" onClick={() => setShowShareModal(false)}>
           <div className="absolute inset-0" style={{ background: "rgba(0,0,0,0.65)", backdropFilter: "blur(8px)" }} />
-          <motion.div initial={{ opacity: 0, scale: 0.93 }} animate={{ opacity: 1, scale: 1 }} onClick={e => e.stopPropagation()} className="relative z-10 w-full max-w-[440px] rounded-2xl p-6" style={G.liquidGlass}>
+          <motion.div initial={{ opacity: 0, scale: 0.93 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.93 }} transition={{ type: "spring", damping: 26, stiffness: 360 }} onClick={e => e.stopPropagation()} className="relative z-10 w-full max-w-[440px] rounded-2xl p-6" style={G.liquidGlass}>
             <h3 className="text-white text-[14px] font-bold mb-2">Shareable Link</h3>
             <p className="text-[#8b949e] text-[11px] mb-4">Clients can view project progress without logging in.</p>
             <div className="flex items-center gap-2 mb-4"><input value={shareUrl} readOnly className="flex-1 h-9 rounded-xl px-3 text-[11px] text-white" style={G.input} /><button onClick={() => { navigator.clipboard.writeText(shareUrl); toast.success("Copied"); }} className="h-9 px-3 rounded-xl text-white text-[11px] font-bold cursor-pointer" style={{ background: "#3b82f6" }}><Copy className="w-3.5 h-3.5" /></button></div>
@@ -874,15 +1811,95 @@ function ProjectDetail({ navigate }: { navigate: (p: Page) => void }) {
           </motion.div>
         </div>
       )}
-      <div className="flex flex-col md:flex-row md:items-start justify-between mb-4 md:mb-6 gap-4"><div className="min-w-0"><div className="flex items-center gap-2 mb-2 flex-wrap"><span className={clsx("text-[10px] font-bold px-2 py-0.5 rounded-full", badge.cls)}>{badge.label}</span>{!isProjPipe && ls && <span className="text-[10px] font-bold px-2 py-0.5 rounded-full" style={{ background: ls.bg, color: ls.text }}>{p.leadSource}</span>}{!isProjPipe && <span className="text-rose-400 text-[10px] font-bold px-2 py-0.5 rounded-full bg-rose-500/12">{p.risk.toUpperCase()} RISK</span>}{isProjPipe && p.supportType && <span className="text-[10px] font-bold px-2 py-0.5 rounded-full" style={{ background: "rgba(139,92,246,0.15)", color: "#a78bfa" }}>{SUPPORT_TYPE_LABELS[p.supportType]}</span>}</div><h1 className="text-white font-bold text-xl md:text-2xl tracking-tight mb-1">{p.name}</h1><p className="text-[#8b949e] text-[12px] md:text-[13px] flex items-center gap-1.5"><Building2 className="w-3.5 h-3.5" /> {p.client} · <MapPin className="w-3.5 h-3.5 ml-1" /> {p.location}</p></div><div className="flex items-center gap-2 flex-shrink-0 flex-wrap">{[{ label: "Design", icon: Layers, action: () => navigate("design-canvas") },{ label: "Install", icon: CheckSquare, action: () => navigate("install-tracker") }].map(({ label, icon: Icon, action }) => (<button key={label} onClick={action} className="flex items-center gap-1.5 h-9 px-3 md:px-4 rounded-xl text-white text-[11px] md:text-[12px] font-semibold hover:bg-white/[0.10] cursor-pointer min-h-[44px]" style={G.btn}><Icon className="w-3.5 h-3.5" /> {label}</button>))}<button onClick={handleGenerateShareLink} className="flex items-center gap-1.5 h-9 px-3 rounded-xl text-white text-[11px] font-semibold cursor-pointer" style={G.btn}><Share2 className="w-3.5 h-3.5" /> Share</button></div></div>
-      <div className="grid grid-cols-2 md:grid-cols-5 gap-2 md:gap-3 mb-4 md:mb-6">{[{ label: "Contract Value", value: isProjPipe ? "—" : fmt(p.value, true), icon: DollarSign, color: "#3b82f6" },{ label: "Cameras", value: String(p.cameras), icon: Camera, color: "#8b5cf6" },{ label: "Devices", value: String(p.devices), icon: Fingerprint, color: "#06b6d4" },{ label: "Due Date", value: fmtDate(p.dueDate), icon: Calendar, color: "#f59e0b" },{ label: "Progress", value: "0%", icon: Activity, color: "#10b981" }].map((s) => (<div key={s.label} className="rounded-2xl p-3 md:p-4" style={G.card}><div className="flex items-center justify-between mb-2 md:mb-3"><span className="text-[#8b949e] text-[9px] md:text-[10px] font-bold uppercase">{s.label}</span><div className="w-6 h-6 md:w-7 md:h-7 rounded-xl flex items-center justify-center" style={{ background: `${s.color}18` }}><s.icon className="w-3 h-3" style={{ color: s.color }} /></div></div><p className="text-white text-lg md:text-xl font-bold">{s.value}</p></div>))}</div>
-      <div className="flex items-center gap-0.5 mb-4 md:mb-5 overflow-x-auto" style={{ borderBottom: "1px solid rgba(255,255,255,0.07)", scrollbarWidth: "none" }}>{tabs.map((tab) => (<button key={tab} onClick={() => setActiveTab(tab)} className={clsx("h-10 px-3 md:px-4 text-[12px] md:text-[13px] font-semibold border-b-2 transition-all -mb-px whitespace-nowrap cursor-pointer min-h-[44px]", activeTab === tab ? "border-blue-500 text-white" : "border-transparent text-[#8b949e]")}>{tabLabels[tab]}</button>))}</div>
-      {activeTab === "overview" && (<div className="grid grid-cols-1 md:grid-cols-3 gap-4"><div className="md:col-span-2 space-y-4"><div className="rounded-2xl p-4 md:p-5" style={G.card}><h3 className="text-white text-[13px] md:text-[14px] font-bold mb-3">Project Scope</h3><p className="text-[#8b949e] text-[12px] leading-relaxed">{p.summary ?? "No scope defined yet."}</p></div><div className="rounded-2xl p-4 md:p-5" style={G.card}><h3 className="text-white text-[13px] md:text-[14px] font-bold mb-4">Team</h3><div className="space-y-3">{team.map((m) => (<div key={m.name} className="flex items-center gap-3"><div className="w-8 h-8 rounded-xl flex items-center justify-center text-[11px] font-bold text-white" style={{ background: m.color }}>{m.initials}</div><div><p className="text-white text-[12px] font-semibold">{m.name}</p><p className="text-[#8b949e] text-[10px]">{m.roles.join(", ")}</p></div></div>))}</div></div></div><div className="space-y-4"><div className="rounded-2xl p-4 md:p-5" style={G.card}><h3 className="text-white text-[13px] md:text-[14px] font-bold mb-4">Timeline</h3><div className="space-y-2">{stageHistory.map((entry, i) => { const isLast = i === stageHistory.length - 1; return (<div key={i} className="flex items-center gap-3"><div className={clsx("w-5 h-5 rounded-full flex items-center justify-center flex-shrink-0", isLast ? "bg-blue-500/20 ring-2 ring-blue-500/40" : "bg-emerald-500/20")}>{isLast ? <Clock className="w-3 h-3 text-blue-400" /> : <CheckCircle2 className="w-3 h-3 text-emerald-400" />}</div><div className="flex-1 flex items-center justify-between"><span className={clsx("text-[11px] font-semibold", isLast ? "text-white" : "text-[#8b949e]")}>{typeof entry.stage === "string" ? entry.stage.replace(/-/g, " ").replace(/\b\w/g, c => c.toUpperCase()) : entry.stage}</span><span className="text-[#484f58] text-[10px]">{fmtDateFull(entry.date)}</span></div></div>); })}</div></div></div></div>)}
+      <div className="flex flex-col md:flex-row md:items-start justify-between mb-4 md:mb-6 gap-4">
+        <div className="min-w-0">
+          <div className="flex items-center gap-2 mb-2 flex-wrap">
+            <span className={clsx("text-[10px] font-bold px-2 py-0.5 rounded-full", badge.cls)}>{badge.label}</span>
+            {!isProjPipe && ls && <span className="text-[10px] font-bold px-2 py-0.5 rounded-full" style={{ background: ls.bg, color: ls.text }}>{p.leadSource}</span>}
+            {!isProjPipe && <span className="text-rose-400 text-[10px] font-bold px-2 py-0.5 rounded-full bg-rose-500/12">{p.risk.toUpperCase()} RISK</span>}
+            {isProjPipe && p.supportType && <span className="text-[10px] font-bold px-2 py-0.5 rounded-full" style={{ background: "rgba(139,92,246,0.15)", color: "#a78bfa" }}>{SUPPORT_TYPE_LABELS[p.supportType]}</span>}
+          </div>
+          <h1 className="text-white font-bold text-xl md:text-2xl tracking-tight mb-1">{p.name}</h1>
+          <p className="text-[#8b949e] text-[12px] md:text-[13px] flex items-center gap-1.5"><Building2 className="w-3.5 h-3.5" /> {p.client} · <MapPin className="w-3.5 h-3.5 ml-1" /> {p.location}</p>
+        </div>
+        <div className="flex items-center gap-2 flex-shrink-0 flex-wrap">
+          {[{ label: "Design", icon: Layers, action: () => navigate("design-canvas") },{ label: "Install", icon: CheckSquare, action: () => navigate("install-tracker") }].map(({ label, icon: Icon, action }) => (
+            <button key={label} onClick={action} className="flex items-center gap-1.5 h-9 px-3 md:px-4 rounded-xl text-white text-[11px] md:text-[12px] font-semibold hover:bg-white/[0.10] cursor-pointer min-h-[44px]" style={G.btn}><Icon className="w-3.5 h-3.5" /> {label}</button>
+          ))}
+          <button onClick={handleGenerateShareLink} className="flex items-center gap-1.5 h-9 px-3 rounded-xl text-white text-[11px] font-semibold cursor-pointer" style={G.btn}><Share2 className="w-3.5 h-3.5" /> Share</button>
+        </div>
+      </div>
+      <div className="grid grid-cols-2 md:grid-cols-5 gap-2 md:gap-3 mb-4 md:mb-6">
+        {[
+          { label: "Contract Value", value: isProjPipe ? "—" : fmt(p.value, true), icon: DollarSign, color: "#3b82f6" },
+          { label: "Cameras", value: String(p.cameras), icon: Camera, color: "#8b5cf6" },
+          { label: "Devices", value: String(p.devices), icon: Fingerprint, color: "#06b6d4" },
+          { label: "Due Date", value: fmtDate(p.dueDate), icon: Calendar, color: "#f59e0b" },
+          { label: "Progress", value: "0%", icon: Activity, color: "#10b981" },
+        ].map((s) => (
+          <div key={s.label} className="rounded-2xl p-3 md:p-4" style={G.card}>
+            <div className="flex items-center justify-between mb-2 md:mb-3"><span className="text-[#8b949e] text-[9px] md:text-[10px] font-bold uppercase">{s.label}</span><div className="w-6 h-6 md:w-7 md:h-7 rounded-xl flex items-center justify-center" style={{ background: `${s.color}18` }}><s.icon className="w-3 h-3" style={{ color: s.color }} /></div></div>
+            <p className="text-white text-lg md:text-xl font-bold">{s.value}</p>
+          </div>
+        ))}
+      </div>
+      <div className="flex items-center gap-0.5 mb-4 md:mb-5 overflow-x-auto" style={{ borderBottom: "1px solid rgba(255,255,255,0.07)", scrollbarWidth: "none" }}>
+        {tabs.map((tab) => (
+          <button key={tab} onClick={() => setActiveTab(tab)} className={clsx("h-10 px-3 md:px-4 text-[12px] md:text-[13px] font-semibold border-b-2 transition-all -mb-px whitespace-nowrap cursor-pointer min-h-[44px]", activeTab === tab ? "border-blue-500 text-white" : "border-transparent text-[#8b949e]")}>{tabLabels[tab]}</button>
+        ))}
+      </div>
+      {activeTab === "overview" && (
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div className="md:col-span-2 space-y-4">
+            <div className="rounded-2xl p-4 md:p-5" style={G.card}><h3 className="text-white text-[13px] md:text-[14px] font-bold mb-3">Project Scope</h3><p className="text-[#8b949e] text-[12px] leading-relaxed">{p.summary ?? "No scope defined yet."}</p></div>
+            <div className="rounded-2xl p-4 md:p-5" style={G.card}><h3 className="text-white text-[13px] md:text-[14px] font-bold mb-4">Team</h3><div className="space-y-3">{team.map((m) => (<div key={m.name} className="flex items-center gap-3"><div className="w-8 h-8 rounded-xl flex items-center justify-center text-[11px] font-bold text-white" style={{ background: m.color }}>{m.initials}</div><div><p className="text-white text-[12px] font-semibold">{m.name}</p><p className="text-[#8b949e] text-[10px]">{m.roles.join(", ")}</p></div></div>))}</div></div>
+          </div>
+          <div className="space-y-4">
+            <div className="rounded-2xl p-4 md:p-5" style={G.card}>
+              <h3 className="text-white text-[13px] md:text-[14px] font-bold mb-4">Timeline</h3>
+              <div className="space-y-2">
+                {stageHistory.map((entry, i) => {
+                  const isLast = i === stageHistory.length - 1;
+                  return (
+                    <div key={i} className="flex items-center gap-3">
+                      <div className={clsx("w-5 h-5 rounded-full flex items-center justify-center flex-shrink-0", isLast ? "bg-blue-500/20 ring-2 ring-blue-500/40" : "bg-emerald-500/20")}>{isLast ? <Clock className="w-3 h-3 text-blue-400" /> : <CheckCircle2 className="w-3 h-3 text-emerald-400" />}</div>
+                      <div className="flex-1 flex items-center justify-between"><span className={clsx("text-[11px] font-semibold", isLast ? "text-white" : "text-[#8b949e]")}>{typeof entry.stage === "string" ? entry.stage.replace(/-/g, " ").replace(/\b\w/g, c => c.toUpperCase()) : entry.stage}</span><span className="text-[#8b949e] text-[10px]">{fmtDateFull(entry.date)}</span></div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
       {activeTab === "tasks" && <TaskList projectId={p.id} />}
       {activeTab === "documents" && <DocumentList projectId={p.id} />}
-      {activeTab === "quotes" && (quotes.length === 0 ? <EmptyState icon={DollarSign} title="No workbook yet" description="" /> : <div className="space-y-3">{quotes.map((q) => (<div key={q.id} className="flex items-center justify-between rounded-2xl p-4" style={G.card}><div className="flex items-center gap-4"><DollarSign className="w-4 h-4 text-blue-400" /><div><p className="text-white text-[13px] font-semibold">{q.refNumber}</p><p className="text-[#484f58] text-[11px]">{q.date} · {q.status}</p></div></div><button onClick={() => navigate("workbook")} className="h-8 px-3 rounded-xl text-[#8b949e] text-[12px] font-semibold hover:text-white cursor-pointer" style={G.btn}>Open</button></div>))}</div>)}
-      {activeTab === "change-orders" && (<div><div className="flex items-center justify-between mb-3"><p className="text-[#8b949e] text-[11px]">{changeOrders.length} change orders</p><button onClick={() => setShowNewCO(true)} className="flex items-center gap-1.5 h-8 px-3 rounded-xl text-white text-[11px] font-bold cursor-pointer" style={{ background: "#3b82f6" }}><Plus className="w-3 h-3" /> New Change Order</button></div>{showNewCO && (<div className="rounded-2xl p-4 mb-3" style={G.card}><div className="space-y-2"><input value={newCOTitle} onChange={(e) => setNewCOTitle(e.target.value)} placeholder="Title" className="w-full h-9 rounded-xl px-3 text-[12px] text-[#e6edf3] focus:outline-none" style={G.input} /><textarea value={newCODesc} onChange={(e) => setNewCODesc(e.target.value)} placeholder="Description" rows={2} className="w-full rounded-xl px-3 py-2 text-[12px] text-[#e6edf3] focus:outline-none resize-none" style={G.input} /><input type="number" value={newCOCost} onChange={(e) => setNewCOCost(e.target.value)} placeholder="Cost Impact" className="w-full h-9 rounded-xl px-3 text-[12px] text-[#e6edf3] focus:outline-none" style={G.input} /><div className="flex gap-2"><button onClick={handleCreateCO} className="flex-1 h-9 rounded-xl text-white text-[12px] font-bold cursor-pointer" style={{ background: "#10b981" }}>Create</button><button onClick={() => setShowNewCO(false)} className="flex-1 h-9 rounded-xl text-[#8b949e] text-[12px] font-semibold cursor-pointer" style={G.btn}>Cancel</button></div></div></div>)}{changeOrders.length === 0 && !showNewCO ? <EmptyState icon={AlertTriangle} title="No change orders" description="Create one to track scope changes." /> : (<div className="space-y-2">{changeOrders.map((co) => (<div key={co.id} className="rounded-2xl p-4" style={G.card}><div className="flex items-center justify-between"><div><p className="text-white text-[13px] font-semibold">{co.title}</p>{co.description && <p className="text-[#8b949e] text-[11px] mt-0.5">{co.description}</p>}</div><span className={clsx("text-[10px] font-bold px-2 py-0.5 rounded-full", co.status === "approved" ? "bg-emerald-500/12 text-emerald-400" : co.status === "submitted" ? "bg-blue-500/12 text-blue-400" : co.status === "rejected" ? "bg-rose-500/12 text-rose-400" : "bg-amber-500/12 text-amber-400")}>{co.status}</span></div><div className="flex items-center justify-between mt-2"><span className="text-[#484f58] text-[10px]">{co.createdBy} · {fmtDateFull(co.createdAt)}</span>{co.costImpact !== 0 && <span className="text-white text-[12px] font-bold">{fmt(co.costImpact)}</span>}</div></div>))}</div>)}</div>)}
-      {activeTab === "audit-log" && (<div>{auditLog.length === 0 ? <EmptyState icon={History} title="No audit entries" description="Activity will appear here automatically." /> : (<div className="space-y-1">{auditLog.map((entry) => (<div key={entry.id} className="flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-white/[0.02]" style={{ borderBottom: "1px solid rgba(255,255,255,0.03)" }}><div className="w-7 h-7 rounded-full flex items-center justify-center text-[9px] font-bold text-white flex-shrink-0" style={{ background: TEAM.find(t => t.name === entry.user)?.color || "#3b82f6" }}>{(TEAM.find(t => t.name === entry.user)?.initials || "??")}</div><div className="flex-1 min-w-0"><p className="text-white text-[11px] font-semibold">{entry.event}</p><p className="text-[#8b949e] text-[10px]">{entry.details}</p></div><span className="text-[#484f58] text-[10px] flex-shrink-0">{new Date(entry.timestamp).toLocaleString()}</span></div>))}</div>)}</div>)}
+      {activeTab === "quotes" && (quotes.length === 0 ? <EmptyState icon={DollarSign} title="No workbook yet" description="" /> : <div className="space-y-3">{quotes.map((q) => (<div key={q.id} className="flex items-center justify-between rounded-2xl p-4" style={G.card}><div className="flex items-center gap-4"><DollarSign className="w-4 h-4 text-blue-400" /><div><p className="text-white text-[13px] font-semibold">{q.refNumber}</p><p className="text-[#8b949e] text-[11px]">{q.date} · {q.status}</p></div></div><button onClick={() => navigate("workbook")} className="h-8 px-3 rounded-xl text-[#8b949e] text-[12px] font-semibold hover:text-white cursor-pointer" style={G.btn}>Open</button></div>))}</div>)}
+      {activeTab === "change-orders" && (
+        <div>
+          <div className="flex items-center justify-between mb-3"><p className="text-[#8b949e] text-[11px]">{changeOrders.length} change orders</p><button onClick={() => setShowNewCO(true)} className="flex items-center gap-1.5 h-8 px-3 rounded-xl text-white text-[11px] font-bold cursor-pointer" style={{ background: "#3b82f6" }}><Plus className="w-3 h-3" /> New Change Order</button></div>
+          {showNewCO && (
+            <div className="rounded-2xl p-4 mb-3" style={G.card}>
+              <div className="space-y-2">
+                <input value={newCOTitle} onChange={(e) => setNewCOTitle(e.target.value)} placeholder="Title" className="w-full h-9 rounded-xl px-3 text-[12px] text-[#e6edf3] focus:outline-none" style={G.input} />
+                <textarea value={newCODesc} onChange={(e) => setNewCODesc(e.target.value)} placeholder="Description" rows={2} className="w-full rounded-xl px-3 py-2 text-[12px] text-[#e6edf3] focus:outline-none resize-none" style={G.input} />
+                <input type="number" value={newCOCost} onChange={(e) => setNewCOCost(e.target.value)} placeholder="Cost Impact" className="w-full h-9 rounded-xl px-3 text-[12px] text-[#e6edf3] focus:outline-none" style={G.input} />
+                <div className="flex gap-2"><button onClick={handleCreateCO} className="flex-1 h-9 rounded-xl text-white text-[12px] font-bold cursor-pointer" style={{ background: "#10b981" }}>Create</button><button onClick={() => setShowNewCO(false)} className="flex-1 h-9 rounded-xl text-[#8b949e] text-[12px] font-semibold cursor-pointer" style={G.btn}>Cancel</button></div>
+              </div>
+            </div>
+          )}
+          {changeOrders.length === 0 && !showNewCO ? <EmptyState icon={AlertTriangle} title="No change orders" description="Create one to track scope changes." /> : (
+            <div className="space-y-2">{changeOrders.map((co) => (<div key={co.id} className="rounded-2xl p-4" style={G.card}><div className="flex items-center justify-between"><div><p className="text-white text-[13px] font-semibold">{co.title}</p>{co.description && <p className="text-[#8b949e] text-[11px] mt-0.5">{co.description}</p>}</div><span className={clsx("text-[10px] font-bold px-2 py-0.5 rounded-full", co.status === "approved" ? "bg-emerald-500/12 text-emerald-400" : co.status === "submitted" ? "bg-blue-500/12 text-blue-400" : co.status === "rejected" ? "bg-rose-500/12 text-rose-400" : "bg-amber-500/12 text-amber-400")}>{co.status}</span></div><div className="flex items-center justify-between mt-2"><span className="text-[#8b949e] text-[10px]">{co.createdBy} · {fmtDateFull(co.createdAt)}</span>{co.costImpact !== 0 && <span className="text-white text-[12px] font-bold">{fmt(co.costImpact)}</span>}</div></div>))}</div>
+          )}
+        </div>
+      )}
+      {activeTab === "audit-log" && (
+        <div>
+          {auditLog.length === 0 ? <EmptyState icon={History} title="No audit entries" description="Activity will appear here automatically." /> : (
+            <div className="space-y-1">{auditLog.map((entry) => (<div key={entry.id} className="flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-white/[0.02]" style={{ borderBottom: "1px solid rgba(255,255,255,0.03)" }}><div className="w-7 h-7 rounded-full flex items-center justify-center text-[9px] font-bold text-white flex-shrink-0" style={{ background: TEAM.find(t => t.name === entry.user)?.color || "#3b82f6" }}>{(TEAM.find(t => t.name === entry.user)?.initials || "??")}</div><div className="flex-1 min-w-0"><p className="text-white text-[11px] font-semibold">{entry.event}</p><p className="text-[#8b949e] text-[10px]">{entry.details}</p></div><span className="text-[#8b949e] text-[10px] flex-shrink-0">{new Date(entry.timestamp).toLocaleString()}</span></div>))}</div>
+          )}
+        </div>
+      )}
       {activeTab === "gantt" && <GanttView projectId={p.id} />}
       {activeTab === "subcontractors" && <SubcontractorTab projectId={p.id} />}
       {activeTab === "procurement" && <ProcurementTab projectId={p.id} />}
@@ -907,7 +1924,7 @@ function GanttView({ projectId }: { projectId: string }) {
     <div className="rounded-2xl p-4 overflow-x-auto" style={G.card}>
       <div style={{ minWidth: "700px" }}>
         <div className="flex items-center mb-3"><GanttChartSquare className="w-4 h-4 text-blue-400 mr-2" /><span className="text-white text-[13px] font-bold">Project Timeline</span></div>
-        <div className="flex" style={{ marginLeft: "200px" }}>{Array.from({ length: Math.ceil(totalDays/30) }).map((_, i) => { const d = new Date(startDate); d.setDate(d.getDate() + i*30); return <div key={i} className="text-[#484f58] text-[9px] font-bold flex-1 text-center border-l border-white/5">{months[d.getMonth()]}</div>; })}</div>
+        <div className="flex" style={{ marginLeft: "200px" }}>{Array.from({ length: Math.ceil(totalDays/30) }).map((_, i) => { const d = new Date(startDate); d.setDate(d.getDate() + i*30); return <div key={i} className="text-[#8b949e] text-[9px] font-bold flex-1 text-center border-l border-white/5">{months[d.getMonth()]}</div>; })}</div>
         <div className="mt-3 space-y-2">{tasks.map(task => { const startPct = getX(task.createdAt); const duePct = task.dueDate ? getX(task.dueDate) : startPct + 15; const width = Math.max(duePct - startPct, 5); return (<div key={task.id} className="flex items-center gap-2"><div className="w-[200px] flex-shrink-0 text-white text-[11px] font-semibold truncate">{task.title}</div><div className="flex-1 relative h-7"><div className="absolute rounded-full h-5 top-1" style={{ left: `${startPct}%`, width: `${width}%`, background: task.status === "complete" ? "rgba(16,185,129,0.4)" : task.status === "in-progress" ? "rgba(59,130,246,0.5)" : "rgba(255,255,255,0.15)", border: `1px solid ${task.status === "complete" ? "rgba(16,185,129,0.6)" : task.status === "in-progress" ? "rgba(59,130,246,0.6)" : "rgba(255,255,255,0.2)"}` }}><span className="absolute inset-0 flex items-center px-2 text-[8px] font-bold text-white truncate">{task.assignee || ""}</span></div></div></div>); })}</div>
       </div>
     </div>
@@ -917,23 +1934,28 @@ function SubcontractorTab({ projectId }: { projectId: string }) {
   const [subs, setSubs] = useState<Subcontractor[]>([]);
   const [loading, setLoading] = useState(true);
   const [showAdd, setShowAdd] = useState(false);
-  const [name, setName] = useState(""); const [trade, setTrade] = useState(""); const [email, setEmail] = useState("");
+  const [name, setName] = useState("");
+  const [trade, setTrade] = useState("");
+  const [email, setEmail] = useState("");
   const [showDocs, setShowDocs] = useState<string | null>(null);
   const [uploadingDoc, setUploadingDoc] = useState<string | null>(null);
 
   useEffect(() => { API.subcontractors.list(projectId).then(setSubs).catch(() => setSubs([])).finally(() => setLoading(false)); }, [projectId]);
 
-  const handleAdd = async () => { if (!name.trim()) return; try { const created = await API.subcontractors.add(projectId, { name: name.trim(), trade: trade.trim(), email: email.trim() }); setSubs(prev => [...prev, created]); setName(""); setTrade(""); setEmail(""); setShowAdd(false); toast.success("Subcontractor added"); } catch { toast.error("Failed to add"); } };
+  const handleAdd = async () => {
+    if (!name.trim()) return;
+    try { const created = await API.subcontractors.add(projectId, { name: name.trim(), trade: trade.trim(), email: email.trim() }); setSubs(prev => [...prev, created]); setName(""); setTrade(""); setEmail(""); setShowAdd(false); toast.success("Subcontractor added"); } catch { toast.error("Failed to add"); }
+  };
 
   const handleRate = async (subId: string, rating: number) => { API.subcontractors.rate(subId, rating).then(() => setSubs(prev => prev.map(x => x.id === subId ? { ...x, rating } : x))).catch(() => {}); };
 
   const handleDelete = async (subId: string) => { API.subcontractors.delete(subId).then(() => { setSubs(prev => prev.filter(x => x.id !== subId)); toast.success("Removed"); }).catch(() => toast.error("Failed to delete")); };
 
   const handleDocUpload = async (subId: string, e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0]; if (!file) return;
+    const file = e.target.files?.[0];
+    if (!file) return;
     setUploadingDoc(subId);
     try {
-      const fd = new FormData(); fd.append("file", file);
       const result = await API.documents.upload(projectId, file);
       await API.subcontractors.addDoc(subId, { filename: file.name, fileUrl: result.fileUrl, uploadedBy: CURRENT_USER.name });
       const updated = await API.subcontractors.list(projectId);
@@ -949,8 +1971,35 @@ function SubcontractorTab({ projectId }: { projectId: string }) {
   return (
     <div className="space-y-3">
       <div className="flex items-center justify-between"><p className="text-[#8b949e] text-[11px]">{subs.length} subcontractors</p><button onClick={() => setShowAdd(!showAdd)} className="flex items-center gap-1 h-8 px-3 rounded-xl text-white text-[11px] font-bold cursor-pointer" style={{ background: "#3b82f6" }}><Plus className="w-3 h-3" /> Add</button></div>
-      {showAdd && (<div className="rounded-xl p-3 space-y-2" style={G.card}><input value={name} onChange={e => setName(e.target.value)} placeholder="Company name" className="w-full h-8 rounded-lg px-2 text-[11px] text-white" style={G.input} /><input value={trade} onChange={e => setTrade(e.target.value)} placeholder="Trade (e.g. Electrical)" className="w-full h-8 rounded-lg px-2 text-[11px] text-white" style={G.input} /><input value={email} onChange={e => setEmail(e.target.value)} placeholder="Email" className="w-full h-8 rounded-lg px-2 text-[11px] text-white" style={G.input} /><button onClick={handleAdd} className="w-full h-8 rounded-lg text-white text-[11px] font-bold cursor-pointer" style={{ background: "#10b981" }}>Save</button></div>)}
-      {subs.length === 0 && !showAdd ? <EmptyState icon={UserCheck} title="No subcontractors" description="Add subcontractors working on this project." /> : subs.map((sub) => (<div key={sub.id} className="rounded-xl p-3" style={G.card}><div className="flex items-center justify-between"><div className="flex-1 min-w-0"><p className="text-white text-[12px] font-semibold">{sub.name}</p><p className="text-[#484f58] text-[10px]">{sub.trade}{sub.email ? ` · ${sub.email}` : ""}</p></div><div className="flex items-center gap-2 flex-shrink-0"><div className="flex items-center gap-1">{[1,2,3,4,5].map(s => <Star key={s} className={clsx("w-3 h-3 cursor-pointer", s <= (sub.rating || 0) ? "text-amber-400 fill-amber-400" : "text-[#484f58]")} onClick={() => handleRate(sub.id, s)} />)}</div><button onClick={() => setShowDocs(showDocs === sub.id ? null : sub.id)} className="w-7 h-7 rounded-lg flex items-center justify-center cursor-pointer hover:bg-white/10" style={G.btn}><Paperclip className="w-3.5 h-3.5 text-[#8b949e]" /></button><button onClick={() => handleDelete(sub.id)} className="w-7 h-7 rounded-lg flex items-center justify-center cursor-pointer hover:bg-rose-500/10"><Trash2 className="w-3 h-3 text-rose-400" /></button></div></div>{showDocs === sub.id && (<div className="mt-2 pt-2 space-y-1" style={{ borderTop: "1px solid rgba(255,255,255,0.06)" }}><div className="flex items-center justify-between"><p className="text-[#484f58] text-[9px] font-bold uppercase">Documents</p><label className="text-[10px] text-blue-400 cursor-pointer flex items-center gap-1">{uploadingDoc === sub.id ? <Loader2 className="w-3 h-3 animate-spin" /> : <Upload className="w-3 h-3" />}{uploadingDoc === sub.id ? "Uploading..." : "Upload"}<input type="file" className="hidden" onChange={(e) => handleDocUpload(sub.id, e)} disabled={uploadingDoc === sub.id} /></label></div>{sub.documents.length === 0 ? <p className="text-[#484f58] text-[10px]">No documents</p> : sub.documents.map(doc => (<div key={doc.id} className="flex items-center gap-2"><Paperclip className="w-3 h-3 text-[#484f58]" /><a href={doc.fileUrl} target="_blank" rel="noopener noreferrer" className="text-white text-[10px] font-semibold hover:text-blue-400">{doc.filename}</a></div>))}</div>)}</div>))}
+      {showAdd && (
+        <div className="rounded-xl p-3 space-y-2" style={G.card}>
+          <input value={name} onChange={e => setName(e.target.value)} placeholder="Company name" className="w-full h-8 rounded-lg px-2 text-[11px] text-white" style={G.input} />
+          <input value={trade} onChange={e => setTrade(e.target.value)} placeholder="Trade (e.g. Electrical)" className="w-full h-8 rounded-lg px-2 text-[11px] text-white" style={G.input} />
+          <input value={email} onChange={e => setEmail(e.target.value)} placeholder="Email" className="w-full h-8 rounded-lg px-2 text-[11px] text-white" style={G.input} />
+          <button onClick={handleAdd} className="w-full h-8 rounded-lg text-white text-[11px] font-bold cursor-pointer" style={{ background: "#10b981" }}>Save</button>
+        </div>
+      )}
+      {subs.length === 0 && !showAdd ? <EmptyState icon={UserCheck} title="No subcontractors" description="Add subcontractors working on this project." /> : subs.map((sub) => (
+        <div key={sub.id} className="rounded-xl p-3" style={G.card}>
+          <div className="flex items-center justify-between">
+            <div className="flex-1 min-w-0"><p className="text-white text-[12px] font-semibold">{sub.name}</p><p className="text-[#8b949e] text-[10px]">{sub.trade}{sub.email ? ` · ${sub.email}` : ""}</p></div>
+            <div className="flex items-center gap-2 flex-shrink-0">
+              <div className="flex items-center gap-1">{[1,2,3,4,5].map(s => <Star key={s} className={clsx("w-3 h-3 cursor-pointer", s <= (sub.rating || 0) ? "text-amber-400 fill-amber-400" : "text-[#8b949e]")} onClick={() => handleRate(sub.id, s)} />)}</div>
+              <button onClick={() => setShowDocs(showDocs === sub.id ? null : sub.id)} className="w-7 h-7 rounded-lg flex items-center justify-center cursor-pointer hover:bg-white/10" style={G.btn}><Paperclip className="w-3.5 h-3.5 text-[#8b949e]" /></button>
+              <button onClick={() => handleDelete(sub.id)} className="w-7 h-7 rounded-lg flex items-center justify-center cursor-pointer hover:bg-rose-500/10"><Trash2 className="w-3 h-3 text-rose-400" /></button>
+            </div>
+          </div>
+          {showDocs === sub.id && (
+            <div className="mt-2 pt-2 space-y-1" style={{ borderTop: "1px solid rgba(255,255,255,0.06)" }}>
+              <div className="flex items-center justify-between">
+                <p className="text-[#8b949e] text-[9px] font-bold uppercase">Documents</p>
+                <label className="text-[10px] text-blue-400 cursor-pointer flex items-center gap-1">{uploadingDoc === sub.id ? <Loader2 className="w-3 h-3 animate-spin" /> : <Upload className="w-3 h-3" />}{uploadingDoc === sub.id ? "Uploading..." : "Upload"}<input type="file" className="hidden" onChange={(e) => handleDocUpload(sub.id, e)} disabled={uploadingDoc === sub.id} /></label>
+              </div>
+              {sub.documents.length === 0 ? <p className="text-[#8b949e] text-[10px]">No documents</p> : sub.documents.map(doc => (<div key={doc.id} className="flex items-center gap-2"><Paperclip className="w-3 h-3 text-[#8b949e]" /><a href={doc.fileUrl} target="_blank" rel="noopener noreferrer" className="text-white text-[10px] font-semibold hover:text-blue-400">{doc.filename}</a></div>))}
+            </div>
+          )}
+        </div>
+      ))}
     </div>
   );
 }
@@ -967,7 +2016,10 @@ function ProcurementTab({ projectId }: { projectId: string }) {
     try {
       const quotes = await API.quotes.list();
       const q = quotes.find(q => q.projectId === projectId);
-      const items = q?.categories.flatMap(c => c.lineItems.filter(li => li.quantity > 0).map(li => ({ description: li.description, quantity: li.quantity, unitCost: li.unitCost }))) || [];
+      const hardwareCategories = ["Video Security Equipment", "Access Control Equipment", "Compute & Storage", "Networking", "Hardware", "Infrastructure", "Intercom System Software"];
+      const items = q?.categories
+        .filter(c => hardwareCategories.includes(c.name))
+        .flatMap(c => c.lineItems.filter(li => li.quantity > 0).map(li => ({ description: li.description, quantity: li.quantity, unitCost: li.unitCost }))) || [];
       const po = await API.procurement.createPO(projectId, { supplierName: supplierName.trim() || null, generatedFrom: "BOM", items });
       setPos(prev => [po, ...prev]);
       setShowGenerate(false);
@@ -976,15 +2028,34 @@ function ProcurementTab({ projectId }: { projectId: string }) {
     } catch { toast.error("Failed to generate PO"); }
   };
 
-  const toggleReceived = async (itemId: string, received: boolean) => { API.procurement.updateItem(itemId, { received }).then(() => setPos(prev => prev.map(po => ({ ...po, items: po.items.map(i => i.id === itemId ? { ...i, received } : i) })))).catch(() => {}); };
+  const toggleReceived = async (itemId: string, received: boolean) => {
+    API.procurement.updateItem(itemId, { received }).then(() => setPos(prev => prev.map(po => ({ ...po, items: po.items.map(i => i.id === itemId ? { ...i, received } : i) })))).catch(() => {});
+  };
 
   if (loading) return <Skeleton className="h-48 rounded-2xl" />;
 
   return (
     <div className="space-y-3">
       <div className="flex items-center justify-between"><p className="text-[#8b949e] text-[11px]">{pos.length} purchase orders</p><button onClick={() => setShowGenerate(!showGenerate)} className="flex items-center gap-1 h-8 px-3 rounded-xl text-white text-[11px] font-bold cursor-pointer" style={{ background: "#3b82f6" }}><FileText className="w-3 h-3" /> Generate PO from BOM</button></div>
-      {showGenerate && (<div className="rounded-xl p-3 space-y-2" style={G.card}><input value={supplierName} onChange={e => setSupplierName(e.target.value)} placeholder="Supplier name (optional)" className="w-full h-8 rounded-lg px-2 text-[11px] text-white" style={G.input} /><button onClick={handleGeneratePO} className="w-full h-8 rounded-lg text-white text-[11px] font-bold cursor-pointer" style={{ background: "#10b981" }}>Generate</button></div>)}
-      {pos.length === 0 && !showGenerate ? <EmptyState icon={Truck} title="No purchase orders" description="Generate a PO from the workbook BOM." /> : pos.map((po) => (<div key={po.id} className="rounded-xl p-3" style={G.card}><div className="flex items-center justify-between mb-2"><p className="text-white text-[12px] font-semibold">PO #{po.id.slice(0,8)}</p><span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-500/12 text-amber-400">{po.status}</span></div>{po.supplierName && <p className="text-[#484f58] text-[10px]">Supplier: {po.supplierName}</p>}<p className="text-[#484f58] text-[10px]">Total: ${po.totalCost.toFixed(2)}</p><div className="mt-2 space-y-1">{po.items.map(item => (<div key={item.id} className="flex items-center gap-2"><button onClick={() => toggleReceived(item.id, !item.received)} className={clsx("w-4 h-4 rounded-full border-2 flex items-center justify-center flex-shrink-0", item.received ? "bg-emerald-500 border-emerald-500" : "border-[#484f58]")}>{item.received && <CheckCircle2 className="w-2.5 h-2.5 text-white" />}</button><span className={clsx("text-[10px] flex-1", item.received ? "text-[#484f58] line-through" : "text-white")}>{item.description} × {item.quantity}</span></div>))}</div></div>))}
+      {showGenerate && (
+        <div className="rounded-xl p-3 space-y-2" style={G.card}>
+          <input value={supplierName} onChange={e => setSupplierName(e.target.value)} placeholder="Supplier name (optional)" className="w-full h-8 rounded-lg px-2 text-[11px] text-white" style={G.input} />
+          <button onClick={handleGeneratePO} className="w-full h-8 rounded-lg text-white text-[11px] font-bold cursor-pointer" style={{ background: "#10b981" }}>Generate</button>
+        </div>
+      )}
+      {pos.length === 0 && !showGenerate ? <EmptyState icon={Truck} title="No purchase orders" description="Generate a PO from the workbook BOM." /> : pos.map((po) => (
+        <div key={po.id} className="rounded-xl p-3" style={G.card}>
+          <div className="flex items-center justify-between mb-2"><p className="text-white text-[12px] font-semibold">PO #{po.id.slice(0,8)}</p><span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-500/12 text-amber-400">{po.status}</span></div>
+          {po.supplierName && <p className="text-[#8b949e] text-[10px]">Supplier: {po.supplierName}</p>}
+          <p className="text-[#8b949e] text-[10px]">Total: ${po.totalCost.toFixed(2)}</p>
+          <div className="mt-2 space-y-1">{po.items.map(item => (
+            <div key={item.id} className="flex items-center gap-2">
+              <button onClick={() => toggleReceived(item.id, !item.received)} className={clsx("w-4 h-4 rounded-full border-2 flex items-center justify-center flex-shrink-0", item.received ? "bg-emerald-500 border-emerald-500" : "border-[#484f58]")}>{item.received && <CheckCircle2 className="w-2.5 h-2.5 text-white" />}</button>
+              <span className={clsx("text-[10px] flex-1", item.received ? "text-[#8b949e] line-through" : "text-white")}>{item.description} × {item.quantity}</span>
+            </div>
+          ))}</div>
+        </div>
+      ))}
     </div>
   );
 }
@@ -996,18 +2067,53 @@ function CommissioningTab({ projectId }: { projectId: string }) {
   const [newDeviceName, setNewDeviceName] = useState("");
   const [newLocation, setNewLocation] = useState("");
   const [uploadingPhoto, setUploadingPhoto] = useState<string | null>(null);
+  const [selectedDevices, setSelectedDevices] = useState<Set<string>>(new Set());
+  const [editingNotes, setEditingNotes] = useState<string | null>(null);
+  const [noteText, setNoteText] = useState("");
 
-  useEffect(() => { API.commissioning.list(projectId).then(setChecklist).catch(() => setChecklist([])).finally(() => setLoading(false)); }, [projectId]);
+  useEffect(() => {
+    const load = async () => {
+      setLoading(true);
+      try {
+        await API.commissioning.sync(projectId);
+        const data = await API.commissioning.list(projectId);
+        setChecklist(data);
+      } catch { setChecklist([]); } finally { setLoading(false); }
+    };
+    load();
+  }, [projectId]);
 
-  const handleAdd = async () => { if (!newDeviceName.trim()) return; try { const created = await API.commissioning.add(projectId, { deviceName: newDeviceName.trim(), location: newLocation.trim() || null, deviceId: crypto.randomUUID?.() }); setChecklist(prev => [...prev, created]); setNewDeviceName(""); setNewLocation(""); setShowAdd(false); toast.success("Added"); } catch { toast.error("Failed to add"); } };
+  const handleAdd = async () => {
+    if (!newDeviceName.trim()) return;
+    try {
+      const created = await API.commissioning.add(projectId, { deviceName: newDeviceName.trim(), location: newLocation.trim() || null, deviceId: crypto.randomUUID?.() });
+      setChecklist(prev => [...prev, created]);
+      setNewDeviceName(""); setNewLocation(""); setShowAdd(false);
+      toast.success("Added");
+    } catch { toast.error("Failed to add"); }
+  };
 
   const handleUpdate = async (deviceId: string, status: "pass" | "fail") => {
     API.commissioning.update(projectId, deviceId, { status }).then(() => setChecklist(prev => prev.map(x => x.deviceId === deviceId ? { ...x, status } : x))).catch(() => {});
-    if (status === "fail") { API.tasks.create(projectId, { title: `${checklist.find(x => x.deviceId === deviceId)?.deviceName || "Device"} failed commissioning`, priority: "high", status: "todo" }).catch(() => {}); }
+    if (status === "fail") {
+      API.tasks.create(projectId, { title: `${checklist.find(x => x.deviceId === deviceId)?.deviceName || "Device"} failed commissioning`, priority: "high", status: "todo" }).catch(() => {});
+    }
+  };
+
+  const handleBulkAction = async (status: "pass" | "fail") => {
+    const ids = Array.from(selectedDevices);
+    if (ids.length === 0) return;
+    try {
+      await API.commissioning.bulk(projectId, ids, status);
+      setChecklist(prev => prev.map(x => ids.includes(x.deviceId || x.id) ? { ...x, status } : x));
+      setSelectedDevices(new Set());
+      toast.success(`Marked ${ids.length} devices as ${status}`);
+    } catch { toast.error("Bulk update failed"); }
   };
 
   const handlePhotoUpload = async (deviceId: string, e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0]; if (!file) return;
+    const file = e.target.files?.[0];
+    if (!file) return;
     setUploadingPhoto(deviceId);
     try {
       const result = await API.documents.upload(projectId, file);
@@ -1021,15 +2127,80 @@ function CommissioningTab({ projectId }: { projectId: string }) {
     e.target.value = "";
   };
 
-  const handleGenerateReport = async () => { try { const result = await API.commissioning.generateReport(projectId); toast.success("Report generated"); } catch { toast.error("Failed to generate report"); } };
+  const handleSaveNote = async (deviceId: string) => {
+    await API.commissioning.update(projectId, deviceId, { notes: noteText });
+    setChecklist(prev => prev.map(x => x.deviceId === deviceId ? { ...x, notes: noteText } : x));
+    setEditingNotes(null);
+    setNoteText("");
+    toast.success("Note saved");
+  };
+
+  const handleGenerateReport = async () => {
+    try {
+      const result = await API.commissioning.generateReport(projectId);
+      toast.success("Report generated");
+      window.open(result.url, "_blank");
+    } catch { toast.error("Failed to generate report"); }
+  };
+
+  const toggleSelect = (deviceId: string) => {
+    setSelectedDevices(prev => {
+      const next = new Set(prev);
+      next.has(deviceId) ? next.delete(deviceId) : next.add(deviceId);
+      return next;
+    });
+  };
 
   if (loading) return <Skeleton className="h-48 rounded-2xl" />;
 
   return (
     <div className="space-y-3">
-      <div className="flex items-center justify-between"><p className="text-[#8b949e] text-[11px]">{checklist.length} devices</p><div className="flex gap-2"><button onClick={() => setShowAdd(!showAdd)} className="flex items-center gap-1 h-8 px-3 rounded-xl text-white text-[11px] font-bold cursor-pointer" style={{ background: "#3b82f6" }}><Plus className="w-3 h-3" /> Add</button><button onClick={handleGenerateReport} className="flex items-center gap-1 h-8 px-3 rounded-xl text-white text-[11px] font-bold cursor-pointer" style={{ background: "#10b981" }}><ClipboardCheck className="w-3 h-3" /> Handover Report</button></div></div>
-      {showAdd && (<div className="rounded-xl p-3 space-y-2" style={G.card}><input value={newDeviceName} onChange={e => setNewDeviceName(e.target.value)} placeholder="Device name" className="w-full h-8 rounded-lg px-2 text-[11px] text-white" style={G.input} /><input value={newLocation} onChange={e => setNewLocation(e.target.value)} placeholder="Location" className="w-full h-8 rounded-lg px-2 text-[11px] text-white" style={G.input} /><button onClick={handleAdd} className="w-full h-8 rounded-lg text-white text-[11px] font-bold cursor-pointer" style={{ background: "#10b981" }}>Save</button></div>)}
-      {checklist.length === 0 && !showAdd ? <EmptyState icon={ClipboardCheck} title="No commissioning data" description="Add devices for final sign-off." /> : checklist.map((item) => (<div key={item.id} className="rounded-xl p-3" style={G.card}><div className="flex items-center justify-between"><div className="flex items-center gap-3"><div className={clsx("w-6 h-6 rounded-full flex items-center justify-center", item.status === "pass" ? "bg-emerald-500/20" : item.status === "fail" ? "bg-rose-500/20" : "bg-white/5")}>{item.status === "pass" ? <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" /> : item.status === "fail" ? <X className="w-3.5 h-3.5 text-rose-400" /> : <Clock className="w-3.5 h-3.5 text-[#484f58]" />}</div><div><p className="text-white text-[12px] font-semibold">{item.deviceName}</p><p className="text-[#484f58] text-[10px]">{item.location || ""}</p></div></div><div className="flex gap-1"><button onClick={() => handleUpdate(item.deviceId || item.id, "pass")} className="h-7 px-2 rounded-lg text-[10px] font-bold text-emerald-400 cursor-pointer" style={{ background: "rgba(16,185,129,0.12)" }}>Pass</button><button onClick={() => handleUpdate(item.deviceId || item.id, "fail")} className="h-7 px-2 rounded-lg text-[10px] font-bold text-rose-400 cursor-pointer" style={{ background: "rgba(244,63,94,0.12)" }}>Fail</button><label className="h-7 px-2 rounded-lg text-[10px] font-bold text-blue-400 cursor-pointer flex items-center gap-1" style={{ background: "rgba(59,130,246,0.12)" }}>{uploadingPhoto === (item.deviceId || item.id) ? <Loader2 className="w-3 h-3 animate-spin" /> : <Camera className="w-3 h-3" />} Photo<input type="file" accept="image/*" capture="environment" className="hidden" onChange={(e) => handlePhotoUpload(item.deviceId || item.id, e)} disabled={uploadingPhoto === (item.deviceId || item.id)} /></label></div></div>{item.photos && item.photos.length > 0 && <div className="flex gap-2 mt-2 flex-wrap">{item.photos.map((p, i) => <img key={i} src={p} alt="" className="w-16 h-16 rounded-lg object-cover" style={{ border: "1px solid rgba(255,255,255,0.10)" }} />)}</div>}</div>))}
+      <div className="flex items-center justify-between">
+        <p className="text-[#8b949e] text-[11px]">{checklist.length} devices{selectedDevices.size > 0 && ` · ${selectedDevices.size} selected`}</p>
+        <div className="flex gap-2">
+          <button onClick={() => setShowAdd(!showAdd)} className="flex items-center gap-1 h-8 px-3 rounded-xl text-white text-[11px] font-bold cursor-pointer" style={{ background: "#3b82f6" }}><Plus className="w-3 h-3" /> Add</button>
+          <button onClick={handleGenerateReport} className="flex items-center gap-1 h-8 px-3 rounded-xl text-white text-[11px] font-bold cursor-pointer" style={{ background: "#10b981" }}><ClipboardCheck className="w-3 h-3" /> Handover Report</button>
+        </div>
+      </div>
+      {selectedDevices.size > 0 && (
+        <div className="flex gap-2 px-3 py-2 rounded-xl" style={G.subtle}>
+          <button onClick={() => handleBulkAction("pass")} className="h-7 px-3 rounded-lg text-[10px] font-bold text-emerald-400 cursor-pointer" style={{ background: "rgba(16,185,129,0.12)" }}>Bulk Pass</button>
+          <button onClick={() => handleBulkAction("fail")} className="h-7 px-3 rounded-lg text-[10px] font-bold text-rose-400 cursor-pointer" style={{ background: "rgba(244,63,94,0.12)" }}>Bulk Fail</button>
+          <button onClick={() => setSelectedDevices(new Set())} className="h-7 px-3 rounded-lg text-[10px] font-semibold cursor-pointer" style={G.btn}>Clear</button>
+        </div>
+      )}
+      {showAdd && (
+        <div className="rounded-xl p-3 space-y-2" style={G.card}>
+          <input value={newDeviceName} onChange={e => setNewDeviceName(e.target.value)} placeholder="Device name" className="w-full h-8 rounded-lg px-2 text-[11px] text-white" style={G.input} />
+          <input value={newLocation} onChange={e => setNewLocation(e.target.value)} placeholder="Location" className="w-full h-8 rounded-lg px-2 text-[11px] text-white" style={G.input} />
+          <button onClick={handleAdd} className="w-full h-8 rounded-lg text-white text-[11px] font-bold cursor-pointer" style={{ background: "#10b981" }}>Save</button>
+        </div>
+      )}
+      {checklist.length === 0 && !showAdd ? <EmptyState icon={ClipboardCheck} title="No commissioning data" description="Sync from Install Tracker or add devices manually." action={{ label: "Sync Devices", onClick: async () => { await API.commissioning.sync(projectId); const data = await API.commissioning.list(projectId); setChecklist(data); toast.success("Synced"); } }} /> : checklist.map((item) => (
+        <div key={item.id} className="rounded-xl p-3" style={G.card}>
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <button onClick={() => toggleSelect(item.deviceId || item.id)} className={clsx("w-4 h-4 rounded border-2 flex items-center justify-center", selectedDevices.has(item.deviceId || item.id) ? "bg-blue-500 border-blue-500" : "border-[#484f58]")}>{selectedDevices.has(item.deviceId || item.id) && <CheckCircle2 className="w-2.5 h-2.5 text-white" />}</button>
+              <div className={clsx("w-6 h-6 rounded-full flex items-center justify-center", item.status === "pass" ? "bg-emerald-500/20" : item.status === "fail" ? "bg-rose-500/20" : "bg-white/5")}>{item.status === "pass" ? <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" /> : item.status === "fail" ? <X className="w-3.5 h-3.5 text-rose-400" /> : <Clock className="w-3.5 h-3.5 text-[#8b949e]" />}</div>
+              <div><p className="text-white text-[12px] font-semibold">{item.deviceName}</p><p className="text-[#8b949e] text-[10px]">{item.location || ""}</p></div>
+            </div>
+            <div className="flex gap-1">
+              <button onClick={() => handleUpdate(item.deviceId || item.id, "pass")} className="h-7 px-2 rounded-lg text-[10px] font-bold text-emerald-400 cursor-pointer" style={{ background: "rgba(16,185,129,0.12)" }}>Pass</button>
+              <button onClick={() => handleUpdate(item.deviceId || item.id, "fail")} className="h-7 px-2 rounded-lg text-[10px] font-bold text-rose-400 cursor-pointer" style={{ background: "rgba(244,63,94,0.12)" }}>Fail</button>
+              <label className="h-7 px-2 rounded-lg text-[10px] font-bold text-blue-400 cursor-pointer flex items-center gap-1" style={{ background: "rgba(59,130,246,0.12)" }}>{uploadingPhoto === (item.deviceId || item.id) ? <Loader2 className="w-3 h-3 animate-spin" /> : <Camera className="w-3 h-3" />} Photo<input type="file" accept="image/*" capture="environment" className="hidden" onChange={(e) => handlePhotoUpload(item.deviceId || item.id, e)} disabled={uploadingPhoto === (item.deviceId || item.id)} /></label>
+              <button onClick={() => { setEditingNotes(editingNotes === (item.deviceId || item.id) ? null : (item.deviceId || item.id)); setNoteText(item.notes || ""); }} className="h-7 px-2 rounded-lg text-[10px] font-bold text-amber-400 cursor-pointer" style={{ background: "rgba(245,158,11,0.12)" }}>Note</button>
+            </div>
+          </div>
+          {item.notes && editingNotes !== (item.deviceId || item.id) && <p className="text-[#8b949e] text-[10px] mt-2">{item.notes}</p>}
+          {editingNotes === (item.deviceId || item.id) && (
+            <div className="mt-2 space-y-2">
+              <textarea value={noteText} onChange={e => setNoteText(e.target.value)} rows={2} placeholder="Notes…" className="w-full rounded-lg px-2 py-1.5 text-[11px] text-white resize-none" style={G.input} />
+              <div className="flex gap-2"><button onClick={() => handleSaveNote(item.deviceId || item.id)} className="h-7 px-3 rounded-lg text-[10px] font-bold text-white cursor-pointer" style={{ background: "#10b981" }}>Save</button><button onClick={() => setEditingNotes(null)} className="h-7 px-3 rounded-lg text-[10px] font-semibold cursor-pointer" style={G.btn}>Cancel</button></div>
+            </div>
+          )}
+          {item.photos && item.photos.length > 0 && <div className="flex gap-2 mt-2 flex-wrap">{item.photos.map((p, i) => <img key={i} src={p} alt="" className="w-16 h-16 rounded-lg object-cover" style={{ border: "1px solid rgba(255,255,255,0.10)" }} />)}</div>}
+        </div>
+      ))}
     </div>
   );
 }
@@ -1066,6 +2237,7 @@ const CANVAS_TOOLS = [
   { id: "panel", icon: PanelRight, label: "Panel" },
   { id: "power", icon: Zap, label: "Power" },
   { id: "server", icon: Server, label: "NVR" },
+  { id: "intercom", icon: Phone, label: "Intercom" },
   { id: "cable", icon: Cable, label: "Cable" },
   { id: "trash", icon: Trash2, label: "Delete" },
 ];
@@ -1095,10 +2267,8 @@ function DesignCanvas({ navigate }: { navigate: (p: Page) => void }) {
   const selected = devices.find((c) => c.id === selectedId);
   const storeDevice = selected?.deviceStoreRef ? storeDevices.find(d => d.id === selected.deviceStoreRef) : null;
 
-  // Fetch store devices on mount
   useEffect(() => { API.devices.list().then(setStoreDevices).catch(() => setStoreDevices([])); }, []);
 
-  // Responsive stage sizing
   useEffect(() => {
     const updateSize = () => { if (containerRef.current) setStageSize({ width: containerRef.current.clientWidth, height: containerRef.current.clientHeight }); };
     updateSize();
@@ -1106,7 +2276,6 @@ function DesignCanvas({ navigate }: { navigate: (p: Page) => void }) {
     return () => window.removeEventListener("resize", updateSize);
   }, []);
 
-  // Load canvas state from backend
   useEffect(() => {
     const loadCanvas = async () => {
       try {
@@ -1134,7 +2303,6 @@ function DesignCanvas({ navigate }: { navigate: (p: Page) => void }) {
     loadCanvas();
   }, []);
 
-  // Auto-save with debounce
   const saveCanvas = useCallback(async () => {
     if (!projectId) return;
     try {
@@ -1147,7 +2315,6 @@ function DesignCanvas({ navigate }: { navigate: (p: Page) => void }) {
 
   useEffect(() => { const t = setTimeout(() => { if (devices.length > 0 || floorPlan2D || floorPlan3D) saveCanvas(); }, 800); return () => clearTimeout(t); }, [devices, saveCanvas]);
 
-  // Workbook sync — add
   const syncDeviceToWorkbook = async (device: CatalogDevice) => {
     if (!projectId) return;
     try {
@@ -1156,20 +2323,38 @@ function DesignCanvas({ navigate }: { navigate: (p: Page) => void }) {
       if (!projectQuote) {
         const projects = await API.projects.list();
         const proj = projects.find((p: Project) => p.id === projectId);
-        projectQuote = await API.quotes.create({ clientName: proj?.client || "", refNumber: `Q-${projectId.slice(0, 8).toUpperCase()}`, date: new Date().toISOString().slice(0, 10), status: "draft", quoteType: "Both", exchangeRate: parseFloat(localStorage.getItem("fx_rate") || "157.4"), projectId, categories: [{ id: crypto.randomUUID?.() || "cat1", name: "Video Security Equipment", type: "Video Surveillance" as QuoteType, lineItems: [] },{ id: crypto.randomUUID?.() || "cat2", name: "Access Control Equipment", type: "Access Control" as QuoteType, lineItems: [] },{ id: crypto.randomUUID?.() || "cat3", name: "Software", type: "Both" as QuoteType, lineItems: [] },{ id: crypto.randomUUID?.() || "cat4", name: "Compute & Storage", type: "Both" as QuoteType, lineItems: [] },{ id: crypto.randomUUID?.() || "cat5", name: "Networking", type: "Both" as QuoteType, lineItems: [] },{ id: crypto.randomUUID?.() || "cat6", name: "Installation & Labor", type: "Both" as QuoteType, lineItems: [] }] });
+        const system = device.system || "VSS";
+        const sysCategories = SYSTEM_CATEGORIES[system] || SYSTEM_CATEGORIES.VSS;
+        const categories = sysCategories.map(sc => ({ id: crypto.randomUUID?.() || `cat-${sc.sectionNumber}`, name: sc.name, type: system === "Intercom" ? "Intercom" as QuoteType : system === "EAC" ? "Access Control" as QuoteType : "Video Surveillance" as QuoteType, system, sectionNumber: sc.sectionNumber, importRatePercent: sc.importRatePercent, lineItems: [] }));
+        projectQuote = await API.quotes.create({ clientName: proj?.client || "", refNumber: `Q-${projectId.slice(0, 8).toUpperCase()}`, date: new Date().toISOString().slice(0, 10), status: "draft", quoteType: system === "Intercom" ? "Intercom" as QuoteType : "Multiple" as QuoteType, exchangeRate: parseFloat(localStorage.getItem("fx_rate") || String(DEFAULT_EXCHANGE_RATE)), projectId, categories });
       }
-      const targetCatName = device.category === "camera" ? "Video Security Equipment" : device.category === "access-control" ? "Access Control Equipment" : device.category === "nvr" ? "Compute & Storage" : "Video Security Equipment";
+      const system = device.system || "VSS";
+      const targetSection = device.category === "camera" ? 400 : device.category === "access-control" ? 1000 : device.category === "nvr" ? 200 : device.category === "intercom" ? 1500 : 400;
       const categories = projectQuote.categories || [];
-      let targetCat = categories.find((c: QuoteCategory) => c.name === targetCatName);
-      if (!targetCat) { targetCat = { id: crypto.randomUUID?.() || `cat${Date.now()}`, name: targetCatName, type: "Both" as QuoteType, lineItems: [] }; categories.push(targetCat); }
+      let targetCat = categories.find((c: QuoteCategory) => c.system === system && c.sectionNumber === targetSection);
+      if (!targetCat) {
+        const sc = (SYSTEM_CATEGORIES[system] || SYSTEM_CATEGORIES.VSS).find(s => s.sectionNumber === targetSection);
+        targetCat = { id: crypto.randomUUID?.() || `cat${Date.now()}`, name: sc?.name || "Hardware", type: system === "Intercom" ? "Intercom" as QuoteType : system === "EAC" ? "Access Control" as QuoteType : "Video Surveillance" as QuoteType, system, sectionNumber: targetSection, importRatePercent: sc?.importRatePercent || 0, lineItems: [] };
+        categories.push(targetCat);
+      }
       const existingItem = targetCat.lineItems.find((li: QuoteLineItem) => li.description === `${device.manufacturer} ${device.model}`);
-      if (existingItem) { existingItem.quantity += 1; const sellPrice = existingItem.unitCost * (1 + existingItem.markupPercent); existingItem.sellPrice = sellPrice; existingItem.costTotal = existingItem.unitCost * existingItem.quantity; existingItem.sellTotal = sellPrice * existingItem.quantity; existingItem.profit = existingItem.sellTotal - existingItem.costTotal; }
-      else { const price = device.price || 0; const sellPrice = price * 1.35; targetCat.lineItems.push({ id: crypto.randomUUID?.() || `li${Date.now()}`, itemNumber: String(targetCat.lineItems.length + 1).padStart(2, "0"), description: `${device.manufacturer} ${device.model}`, unitCost: price, quantity: 1, markupPercent: 0.35, sellPrice, costTotal: price, sellTotal: sellPrice, profit: sellPrice - price, jmdConversion: sellPrice * (parseFloat(localStorage.getItem("fx_rate") || "157.4")) }); }
+      if (existingItem) {
+        existingItem.quantity += 1;
+        const sellPrice = existingItem.unitCost * (1 + existingItem.markupPercent);
+        existingItem.sellPrice = sellPrice;
+        existingItem.costTotal = existingItem.unitCost * existingItem.quantity;
+        existingItem.sellTotal = sellPrice * existingItem.quantity;
+        existingItem.profit = existingItem.sellTotal - existingItem.costTotal;
+      } else {
+        const price = device.price || 0;
+        const defaultMarkup = (SYSTEM_CATEGORIES[system] || SYSTEM_CATEGORIES.VSS).find(s => s.sectionNumber === targetSection)?.defaultMarkup || 0.35;
+        const sellPrice = price * (1 + defaultMarkup);
+        targetCat.lineItems.push({ id: crypto.randomUUID?.() || `li${Date.now()}`, itemNumber: String(targetCat.lineItems.length + 1).padStart(2, "0"), description: `${device.manufacturer} ${device.model}`, unitCost: price, quantity: 1, markupPercent: defaultMarkup, sellPrice, costTotal: price, sellTotal: sellPrice, profit: sellPrice - price, jmdConversion: sellPrice * (parseFloat(localStorage.getItem("fx_rate") || String(DEFAULT_EXCHANGE_RATE))) });
+      }
       await API.quotes.update(projectQuote.id, { categories });
     } catch (err) { console.error("Workbook sync failed:", err); }
   };
 
-  // Workbook sync — remove
   const removeDeviceFromWorkbook = async (deviceLabel: string) => {
     if (!projectId) return;
     try {
@@ -1181,16 +2366,14 @@ function DesignCanvas({ navigate }: { navigate: (p: Page) => void }) {
     } catch (err) { console.error("Workbook remove failed:", err); }
   };
 
-  // Add device to canvas
   const addDevice = (type: CanvasDevice["type"], x: number, y: number, storeRef?: string, imgUrl?: string) => {
     const newDevice: CanvasDevice = { id: `dev${Date.now()}`, type, x, y, rot: 0, fov: type === "camera" ? 80 : undefined, range: type === "camera" ? 90 : undefined, label: `${type.toUpperCase()}-${String(devices.length + 1).padStart(2, "0")}`, doorConfig: type === "door" ? { swing: "inswinging", lockType: "Electric Strike", readers: [], accessType: "Card", keyOverride: true } : undefined, deviceStoreRef: storeRef, imageUrl: imgUrl };
     setDevices((prev) => [...prev, newDevice]);
     setSelectedId(newDevice.id);
   };
 
-  // Place from store tray
   const placeDeviceFromStore = (device: CatalogDevice) => {
-    const typeMap: Record<string, CanvasDevice["type"]> = { camera: "camera", "access-control": "door", nvr: "server", analytics: "server", other: "camera" };
+    const typeMap: Record<string, CanvasDevice["type"]> = { camera: "camera", "access-control": "door", nvr: "server", analytics: "server", intercom: "intercom", other: "camera" };
     const centerX = stageSize.width / 2 + (Math.random() * 100 - 50);
     const centerY = stageSize.height / 2 + (Math.random() * 100 - 50);
     addDevice(typeMap[device.category] || "camera", centerX, centerY, device.id, device.imageUrl);
@@ -1198,9 +2381,8 @@ function DesignCanvas({ navigate }: { navigate: (p: Page) => void }) {
     toast.success(`${device.model} placed on canvas`);
   };
 
-  const getDeviceColor = (type: CanvasDevice["type"]) => { const colors: Record<string, string> = { camera: "#3b82f6", door: "#f59e0b", panel: "#f97316", power: "#ef4444", server: "#ec4899", cable: "#8b5cf6" }; return colors[type] || "#3b82f6"; };
+  const getDeviceColor = (type: CanvasDevice["type"]) => { const colors: Record<string, string> = { camera: "#3b82f6", door: "#f59e0b", panel: "#f97316", power: "#ef4444", server: "#ec4899", intercom: "#14b8a6", cable: "#8b5cf6" }; return colors[type] || "#3b82f6"; };
 
-  // Canvas click — place device or cable point
   const handleStageClick = (e: any) => {
     const stage = e.target.getStage();
     const point = stage.getPointerPosition();
@@ -1211,7 +2393,6 @@ function DesignCanvas({ navigate }: { navigate: (p: Page) => void }) {
     addDevice(activeTool as CanvasDevice["type"], point.x, point.y);
   };
 
-  // Double-click — finish cable
   const handleDoubleClick = () => {
     if (activeTool === "cable" && cablePoints.length >= 2) {
       setDevices((prev) => [...prev, { id: `dev${Date.now()}`, type: "cable", x: cablePoints[0].x, y: cablePoints[0].y, rot: 0, label: `CABLE-${String(prev.filter(d => d.type === "cable").length + 1).padStart(2, "0")}`, cablePoints: [...cablePoints] }]);
@@ -1219,13 +2400,11 @@ function DesignCanvas({ navigate }: { navigate: (p: Page) => void }) {
     }
   };
 
-  // Drag end — update device position
   const handleDragEnd = (deviceId: string, e: any) => {
     const node = e.target;
     setDevices((prev) => prev.map((d) => d.id === deviceId ? { ...d, x: node.x(), y: node.y() } : d));
   };
 
-  // Delete device
   const handleDeviceDelete = (deviceId: string) => {
     const dev = devices.find(d => d.id === deviceId);
     setDevices((prev) => prev.filter((d) => d.id !== deviceId));
@@ -1233,7 +2412,6 @@ function DesignCanvas({ navigate }: { navigate: (p: Page) => void }) {
     if (selectedId === deviceId) setSelectedId(null);
   };
 
-  // Zoom/pan
   const handleWheel = (e: any) => {
     e.evt.preventDefault();
     const stage = e.target.getStage();
@@ -1246,12 +2424,13 @@ function DesignCanvas({ navigate }: { navigate: (p: Page) => void }) {
     setPosition({ x: pointer.x - (pointer.x - stage.x()) * (newScale / oldScale), y: pointer.y - (pointer.y - stage.y()) * (newScale / oldScale) });
   };
 
-  // Upload
   const uploadFile = async (type: "2d" | "3d") => {
-    const input = document.createElement("input"); input.type = "file";
+    const input = document.createElement("input");
+    input.type = "file";
     input.accept = type === "2d" ? "image/*,.pdf,.dwg,.dxf" : "image/*,.glb,.gltf,.obj,.stl,.fbx";
     input.onchange = async (e: any) => {
-      const file = e.target.files?.[0]; if (!file || !projectId) return;
+      const file = e.target.files?.[0];
+      if (!file || !projectId) return;
       const ext = file.name.split(".").pop()?.toLowerCase() || "";
       if (type === "2d" && ext === "pdf") {
         setPdfRendering(true);
@@ -1261,7 +2440,8 @@ function DesignCanvas({ navigate }: { navigate: (p: Page) => void }) {
           const page = await pdf.getPage(1);
           const viewport = page.getViewport({ scale: 2 });
           const canvas = document.createElement("canvas");
-          canvas.width = viewport.width; canvas.height = viewport.height;
+          canvas.width = viewport.width;
+          canvas.height = viewport.height;
           const ctx = canvas.getContext("2d")!;
           await page.render({ canvasContext: ctx, viewport, canvas }).promise;
           const dataUrl = canvas.toDataURL("image/png");
@@ -1289,11 +2469,10 @@ function DesignCanvas({ navigate }: { navigate: (p: Page) => void }) {
   };
 
   const filteredStoreDevices = storeSearch.trim() ? storeDevices.filter(d => d.model.toLowerCase().includes(storeSearch.toLowerCase()) || d.manufacturer.toLowerCase().includes(storeSearch.toLowerCase())) : storeDevices;
-  const CAT_COLOR: Record<string, { bg: string; text: string; label: string }> = { camera: { bg: "rgba(59,130,246,0.12)", text: "#60a5fa", label: "Camera" }, "access-control": { bg: "rgba(139,92,246,0.12)", text: "#a78bfa", label: "Access" }, nvr: { bg: "rgba(16,185,129,0.12)", text: "#34d399", label: "NVR" }, analytics: { bg: "rgba(249,115,22,0.12)", text: "#fb923c", label: "VMS" }, other: { bg: "rgba(100,100,100,0.12)", text: "#8b949e", label: "Other" } };
+  const CAT_COLOR: Record<string, { bg: string; text: string; label: string }> = { camera: { bg: "rgba(59,130,246,0.12)", text: "#60a5fa", label: "Camera" }, "access-control": { bg: "rgba(139,92,246,0.12)", text: "#a78bfa", label: "Access" }, nvr: { bg: "rgba(16,185,129,0.12)", text: "#34d399", label: "NVR" }, analytics: { bg: "rgba(249,115,22,0.12)", text: "#fb923c", label: "VMS" }, intercom: { bg: "rgba(20,184,166,0.12)", text: "#2dd4bf", label: "Intercom" }, other: { bg: "rgba(100,100,100,0.12)", text: "#8b949e", label: "Other" } };
 
   return (
     <div className="fixed inset-0 flex flex-col" style={{ background: "#070c1a" }}>
-      {/* Header */}
       <header className="h-12 flex items-center gap-2 md:gap-4 px-3 md:px-4 flex-shrink-0 z-40" style={G.liquidGlass}>
         <button onClick={() => navigate("design-studio")} className="flex items-center gap-1.5 text-[#8b949e] hover:text-white text-[11px] font-semibold flex-shrink-0 cursor-pointer min-h-[44px]"><ArrowLeft className="w-3.5 h-3.5" /><span className="hidden md:inline">Back</span></button>
         <div className="flex-1" />
@@ -1304,81 +2483,57 @@ function DesignCanvas({ navigate }: { navigate: (p: Page) => void }) {
         <button onClick={() => setShowFov(!showFov)} className={clsx("flex items-center gap-1.5 h-7 px-2 rounded-xl text-[10px] font-semibold cursor-pointer", showFov ? "text-blue-400" : "text-[#8b949e]")} style={showFov ? { background: "rgba(59,130,246,0.15)" } : G.btn}><Eye className="w-3 h-3" /> FOV</button>
         <button onClick={() => setShowDeviceTray(!showDeviceTray)} className={clsx("flex items-center gap-1.5 h-7 px-2 rounded-xl text-[10px] font-semibold cursor-pointer", showDeviceTray ? "text-white" : "text-[#8b949e]")} style={G.btn}><Store className="w-3 h-3" /> Store</button>
       </header>
-
       <div className="flex-1 relative overflow-hidden" ref={containerRef}>
-        {/* Device Store Tray */}
         <motion.div className="absolute left-0 top-0 bottom-0 w-80 z-30 flex flex-col" style={G.liquidGlass} animate={{ x: showDeviceTray ? 0 : -320 }} transition={{ type: "spring", stiffness: 300, damping: 30 }}>
           <div className="px-4 py-3 flex items-center justify-between" style={{ borderBottom: "1px solid rgba(255,255,255,0.07)" }}><p className="text-white text-[12px] font-bold">Device Store</p><button onClick={() => setShowDeviceTray(false)} className="w-6 h-6 rounded-lg hover:bg-white/[0.08] flex items-center justify-center cursor-pointer min-w-[44px] min-h-[44px]"><X className="w-3.5 h-3.5 text-[#8b949e]" /></button></div>
           <div className="px-3 py-2.5"><div className="relative"><Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3 h-3 text-[#484f58]" /><input value={storeSearch} onChange={(e) => setStoreSearch(e.target.value)} placeholder="Search device store..." className="w-full h-7 rounded-xl pl-7 pr-2.5 text-[11px] text-[#e6edf3] focus:outline-none" style={G.input} /></div></div>
           <div className="flex-1 overflow-y-auto" style={{ scrollbarWidth: "none" }}>
-            {filteredStoreDevices.map((device) => { const cc = CAT_COLOR[device.category] ?? CAT_COLOR.other; return (<button key={device.id} onClick={() => placeDeviceFromStore(device)} className="w-full flex items-center gap-2.5 px-3 py-2.5 hover:bg-white/[0.04] transition-colors cursor-pointer text-left" style={{ borderBottom: "1px solid rgba(255,255,255,0.04)" }}><div className="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0" style={{ background: "rgba(255,255,255,0.04)" }}>{device.imageUrl ? <img src={device.imageUrl} alt="" className="w-full h-full object-contain p-0.5 opacity-70" /> : <Camera className="w-3.5 h-3.5 text-[#484f58]" />}</div><div className="flex-1 min-w-0"><p className="text-white text-[11px] font-semibold truncate">{device.model}</p><p className="text-[#484f58] text-[9px]">{device.manufacturer}{device.price ? ` · $${device.price.toFixed(0)}` : ""}</p></div><span className="inline-block px-1.5 py-0.5 rounded text-[8px] font-bold uppercase flex-shrink-0" style={{ background: cc.bg, color: cc.text }}>{cc.label}</span></button>); })}
-            {filteredStoreDevices.length === 0 && <div className="px-4 py-8 text-center"><p className="text-[#484f58] text-[11px]">No devices found</p></div>}
+            {filteredStoreDevices.map((device) => { const cc = CAT_COLOR[device.category] ?? CAT_COLOR.other; return (
+              <button key={device.id} onClick={() => placeDeviceFromStore(device)} className="w-full flex items-center gap-2.5 px-3 py-2.5 hover:bg-white/[0.04] transition-colors cursor-pointer text-left" style={{ borderBottom: "1px solid rgba(255,255,255,0.04)" }}>
+                <div className="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0" style={{ background: "rgba(255,255,255,0.04)" }}>{device.imageUrl ? <img src={device.imageUrl} alt="" className="w-full h-full object-contain p-0.5 opacity-70" /> : <Camera className="w-3.5 h-3.5 text-[#484f58]" />}</div>
+                <div className="flex-1 min-w-0"><p className="text-white text-[11px] font-semibold truncate">{device.model}</p><p className="text-[#8b949e] text-[9px]">{device.manufacturer}{device.price ? ` · $${device.price.toFixed(0)}` : ""}</p></div>
+                <span className="inline-block px-1.5 py-0.5 rounded text-[8px] font-bold uppercase flex-shrink-0" style={{ background: cc.bg, color: cc.text }}>{cc.label}</span>
+              </button>
+            ); })}
+            {filteredStoreDevices.length === 0 && <div className="px-4 py-8 text-center"><p className="text-[#8b949e] text-[11px]">No devices found</p></div>}
           </div>
         </motion.div>
-
-        {/* Canvas */}
         {view3D && floorPlan3D ? (
           <div className="absolute inset-0"><ThreeDViewer file={floorPlan3D} /><div className="absolute bottom-4 left-4 px-3 py-1.5 rounded-xl text-[10px] font-semibold text-white" style={G.liquidGlass}>3D View — {floorPlan3D.originalName}</div></div>
         ) : (
-          <KonvaStage
-            ref={stageRef}
-            width={stageSize.width}
-            height={stageSize.height}
-            scaleX={scale}
-            scaleY={scale}
-            x={position.x}
-            y={position.y}
-            draggable
-            onClick={handleStageClick}
-            onDblClick={handleDoubleClick}
-            onWheel={handleWheel}
-            style={{ background: "#070c1a", cursor: activeTool === "select" ? "default" : "crosshair" }}
-          >
+          <KonvaStage ref={stageRef} width={stageSize.width} height={stageSize.height} scaleX={scale} scaleY={scale} x={position.x} y={position.y} draggable onClick={handleStageClick} onDblClick={handleDoubleClick} onWheel={handleWheel} style={{ background: "#070c1a", cursor: activeTool === "select" ? "default" : "crosshair" }}>
             <KonvaLayer>
               {floorPlanImage && <KonvaImage image={floorPlanImage} x={50} y={50} width={stageSize.width - 100} height={stageSize.height - 100} opacity={0.5} listening={false} />}
               {activeTool === "cable" && cablePoints.length > 0 && <KonvaLine points={cablePoints.flatMap(p => [p.x, p.y])} stroke="#8b5cf6" strokeWidth={2} dash={[6, 3]} listening={false} />}
               {devices.map((dev) => {
                 const color = getDeviceColor(dev.type);
                 const isSelected = dev.id === selectedId;
-                if (dev.type === "cable" && dev.cablePoints) {
-                  return <KonvaLine key={dev.id} points={dev.cablePoints.flatMap(p => [p.x, p.y])} stroke={color} strokeWidth={isSelected ? 2.5 : 1.5} dash={isSelected ? [] : [6, 3]} listening={false} />;
-                }
+                if (dev.type === "cable" && dev.cablePoints) return <KonvaLine key={dev.id} points={dev.cablePoints.flatMap(p => [p.x, p.y])} stroke={color} strokeWidth={isSelected ? 2.5 : 1.5} dash={isSelected ? [] : [6, 3]} listening={false} />;
                 return (
-                  <KonvaGroup
-                    key={dev.id}
-                    x={dev.x}
-                    y={dev.y}
-                    draggable
-                    onClick={(e) => { e.cancelBubble = true; setSelectedId(dev.id); }}
-                    onTap={(e) => { e.cancelBubble = true; setSelectedId(dev.id); }}
-                    onDragEnd={(e) => handleDragEnd(dev.id, e)}
-                  >
-                    {showFov && dev.type === "camera" && (
-                      <KonvaArc x={0} y={0} innerRadius={0} outerRadius={dev.range || 45} angle={dev.fov || 80} rotation={dev.rot - (dev.fov || 80) / 2} fill={isSelected ? "rgba(59,130,246,0.22)" : "rgba(59,130,246,0.08)"} listening={false} />
-                    )}
+                  <KonvaGroup key={dev.id} x={dev.x} y={dev.y} draggable onClick={(e) => { e.cancelBubble = true; setSelectedId(dev.id); }} onTap={(e) => { e.cancelBubble = true; setSelectedId(dev.id); }} onDragEnd={(e) => handleDragEnd(dev.id, e)}>
+                    {showFov && dev.type === "camera" && <KonvaArc x={0} y={0} innerRadius={0} outerRadius={dev.range || 45} angle={dev.fov || 80} rotation={dev.rot - (dev.fov || 80) / 2} fill={isSelected ? "rgba(59,130,246,0.22)" : "rgba(59,130,246,0.08)"} listening={false} />}
                     {dev.type === "camera" && <KonvaCircle radius={12} fill={color} stroke={isSelected ? "#fff" : "rgba(255,255,255,0.5)"} strokeWidth={isSelected ? 2 : 1} />}
                     {dev.type === "door" && <KonvaRect x={-10} y={-6} width={20} height={12} fill="rgba(245,158,11,0.2)" stroke={isSelected ? "#f59e0b" : "rgba(245,158,11,0.5)"} strokeWidth={isSelected ? 2 : 1} cornerRadius={2} />}
                     {dev.type === "panel" && <KonvaRect x={-12} y={-8} width={24} height={16} fill="rgba(249,115,22,0.2)" stroke={isSelected ? "#f97316" : "rgba(249,115,22,0.5)"} strokeWidth={isSelected ? 2 : 1} cornerRadius={2} />}
                     {dev.type === "power" && <KonvaRect x={-10} y={-10} width={20} height={20} fill="rgba(239,68,68,0.2)" stroke={isSelected ? "#ef4444" : "rgba(239,68,68,0.5)"} strokeWidth={isSelected ? 2 : 1} cornerRadius={2} />}
                     {dev.type === "server" && <KonvaRect x={-14} y={-8} width={28} height={16} fill="rgba(236,72,153,0.2)" stroke={isSelected ? "#ec4899" : "rgba(236,72,153,0.5)"} strokeWidth={isSelected ? 2 : 1} cornerRadius={2} />}
-                    <KonvaText text={dev.label} fontSize={8} fill={isSelected ? "#fff" : "#484f58"} y={16} align="center" width={80} x={-40} listening={false} />
+                    {dev.type === "intercom" && <KonvaRect x={-10} y={-10} width={20} height={20} fill="rgba(20,184,166,0.2)" stroke={isSelected ? "#14b8a6" : "rgba(20,184,166,0.5)"} strokeWidth={isSelected ? 2 : 1} cornerRadius={2} />}
+                    <KonvaText text={dev.label} fontSize={8} fill={isSelected ? "#fff" : "#8b949e"} y={16} align="center" width={80} x={-40} listening={false} />
                   </KonvaGroup>
                 );
               })}
-              {!floorPlan2D && <KonvaText text="Upload a floor plan or 3D model to begin" fontSize={14} fill="#484f58" x={stageSize.width / 2 - 120} y={stageSize.height / 2 - 10} listening={false} />}
+              {!floorPlan2D && <KonvaText text="Upload a floor plan or 3D model to begin" fontSize={14} fill="#8b949e" x={stageSize.width / 2 - 120} y={stageSize.height / 2 - 10} listening={false} />}
             </KonvaLayer>
           </KonvaStage>
         )}
-
-        {/* Properties Panel */}
         {showProperties && selected && (
           <div className="absolute right-0 top-0 bottom-0 w-72 z-30 flex flex-col" style={G.liquidGlass}>
             <div className="px-4 py-3 flex items-center justify-between" style={{ borderBottom: "1px solid rgba(255,255,255,0.07)" }}><p className="text-white text-[12px] font-bold">Properties</p><button onClick={() => setShowProperties(false)} className="w-6 h-6 rounded-lg hover:bg-white/[0.08] flex items-center justify-center cursor-pointer min-w-[44px] min-h-[44px]"><X className="w-3.5 h-3.5 text-[#8b949e]" /></button></div>
             <div className="flex-1 p-4 overflow-y-auto space-y-4" style={{ scrollbarWidth: "none" }}>
-              <div><p className="text-[#484f58] text-[10px] font-bold uppercase tracking-widest mb-2">Device</p><div className="rounded-xl p-3" style={G.card}><p className="text-white text-[12px] font-bold">{selected.label}</p><p className="text-[#484f58] text-[10px] mt-1 capitalize">{selected.type}</p></div></div>
-              {storeDevice && (<div><p className="text-[#484f58] text-[10px] font-bold uppercase tracking-widest mb-2">Device Store Info</p><div className="rounded-xl p-3 space-y-2" style={G.card}><p className="text-white text-[12px] font-bold">{storeDevice.model}</p><p className="text-[#8b949e] text-[10px]">{storeDevice.manufacturer}</p>{storeDevice.price && <div className="flex justify-between"><span className="text-[#484f58] text-[10px]">Price</span><span className="text-white text-[10px] font-bold">${storeDevice.price.toFixed(2)}</span></div>}</div></div>)}
+              <div><p className="text-[#8b949e] text-[10px] font-bold uppercase tracking-widest mb-2">Device</p><div className="rounded-xl p-3" style={G.card}><p className="text-white text-[12px] font-bold">{selected.label}</p><p className="text-[#8b949e] text-[10px] mt-1 capitalize">{selected.type}</p></div></div>
+              {storeDevice && <div><p className="text-[#8b949e] text-[10px] font-bold uppercase tracking-widest mb-2">Device Store Info</p><div className="rounded-xl p-3 space-y-2" style={G.card}><p className="text-white text-[12px] font-bold">{storeDevice.model}</p><p className="text-[#8b949e] text-[10px]">{storeDevice.manufacturer}</p>{storeDevice.price && <div className="flex justify-between"><span className="text-[#8b949e] text-[10px]">Price</span><span className="text-white text-[10px] font-bold">${storeDevice.price.toFixed(2)}</span></div>}</div></div>}
               {selected.type === "camera" && (
-                <div><p className="text-[#484f58] text-[10px] font-bold uppercase tracking-widest mb-2">Camera Settings</p><div className="rounded-xl p-3 space-y-2" style={G.card}>
+                <div><p className="text-[#8b949e] text-[10px] font-bold uppercase tracking-widest mb-2">Camera Settings</p><div className="rounded-xl p-3 space-y-2" style={G.card}>
                   <div className="flex items-center justify-between"><span className="text-[#8b949e] text-[11px]">Rotation</span><input type="range" min="0" max="360" value={selected.rot} onChange={(e) => setDevices((prev) => prev.map((d) => d.id === selected.id ? { ...d, rot: parseInt(e.target.value) } : d))} className="w-24" /><span className="text-white text-[10px] font-bold">{selected.rot}°</span></div>
                   <div className="flex items-center justify-between"><span className="text-[#8b949e] text-[11px]">FOV</span><select value={selected.fov || 80} onChange={(e) => setDevices((prev) => prev.map((d) => d.id === selected.id ? { ...d, fov: parseInt(e.target.value) } : d))} className="cursor-pointer" style={{ ...G.input, background: "#0d1117", color: "#e6edf3", padding: "2px 6px", borderRadius: "6px" }}><option value="60">60°</option><option value="80">80°</option><option value="100">100°</option><option value="120">120°</option><option value="180">180°</option><option value="360">360°</option></select></div>
                 </div></div>
@@ -1387,21 +2542,22 @@ function DesignCanvas({ navigate }: { navigate: (p: Page) => void }) {
             </div>
           </div>
         )}
-
-        {/* Toolbar */}
         <div className="absolute bottom-5 left-1/2 -translate-x-1/2 z-40 flex items-center gap-1 px-2 py-2 rounded-2xl overflow-x-auto max-w-[95vw]" style={G.liquidGlass}>
           {CANVAS_TOOLS.map((tool) => (
             <button key={tool.id} onClick={() => { setActiveTool(tool.id); if (tool.id !== "cable") setCablePoints([]); }} title={tool.label} className={clsx("w-8 h-8 rounded-xl flex items-center justify-center flex-shrink-0 cursor-pointer min-w-[44px] min-h-[44px] md:min-w-0 md:min-h-0", activeTool === tool.id ? "text-white" : "text-[#8b949e]")} style={activeTool === tool.id ? { background: "#3b82f6", boxShadow: "0 4px 16px rgba(59,130,246,0.45)" } : undefined}><tool.icon className="w-3.5 h-3.5" /></button>
           ))}
           <div className="w-px h-6 mx-1" style={{ background: "rgba(255,255,255,0.10)" }} />
-          <span className="text-[#484f58] text-[9px] ml-1">{devices.length} devices</span>
+          <span className="text-[#8b949e] text-[9px] ml-1">{devices.length} devices</span>
         </div>
       </div>
     </div>
   );
 }
 function InlineEditCell({ value, onChange, onSave, type = "text", disabled, placeholder }: { value: string | number; onChange: (val: string) => void; onSave?: () => void; type?: "text" | "number"; disabled?: boolean; placeholder?: string; }) {
-  const [editing, setEditing] = useState(false); const [localValue, setLocalValue] = useState(String(value)); const inputRef = useRef<HTMLInputElement>(null); const [saveState, setSaveState] = useState<"idle" | "saving" | "saved">("idle");
+  const [editing, setEditing] = useState(false);
+  const [localValue, setLocalValue] = useState(String(value));
+  const inputRef = useRef<HTMLInputElement>(null);
+  const [saveState, setSaveState] = useState<"idle" | "saving" | "saved">("idle");
   useEffect(() => { if (!editing) setLocalValue(String(value)); }, [value, editing]);
   useEffect(() => { if (editing && inputRef.current) { inputRef.current.focus(); if (type === "number") inputRef.current.select(); } }, [editing, type]);
   const handleCommit = useCallback(() => { if (String(localValue) !== String(value)) { onChange(localValue); setSaveState("saving"); setTimeout(() => setSaveState("saved"), 600); setTimeout(() => setSaveState("idle"), 2000); onSave?.(); } setEditing(false); }, [localValue, value, onChange, onSave]);
@@ -1418,7 +2574,14 @@ function InlineEditCell({ value, onChange, onSave, type = "text", disabled, plac
 function OverrideConflictModal({ open, sectionName, onUpdateOverride, onKeepOverride, onCancel }: { open: boolean; sectionName: string; onUpdateOverride: () => void; onKeepOverride: () => void; onCancel: () => void; }) {
   if (!open) return null;
   return (
-    <div className="fixed inset-0 z-[400] flex items-center justify-center p-4" onClick={onCancel}><div className="absolute inset-0" style={{ background: "rgba(0,0,0,0.65)", backdropFilter: "blur(8px)" }} /><motion.div initial={{ opacity: 0, scale: 0.93 }} animate={{ opacity: 1, scale: 1 }} onClick={e => e.stopPropagation()} className="relative z-10 w-full max-w-[440px] rounded-2xl p-6" style={G.liquidGlass}><div className="flex items-center gap-3 mb-4"><div className="w-10 h-10 rounded-xl flex items-center justify-center" style={{ background: "rgba(245,158,11,0.15)" }}><AlertTriangle className="w-5 h-5 text-amber-400" /></div><div><h3 className="text-white text-[14px] font-bold">Manual Override Detected</h3><p className="text-[#8b949e] text-[11px] mt-0.5">"{sectionName}" has a manual override in Synthesis.</p></div></div><p className="text-[#8b949e] text-[12px] mb-5">Editing the BOM will recalculate this section. Update override or keep the manual value?</p><div className="flex gap-2"><button onClick={onCancel} className="flex-1 h-10 rounded-xl text-[#8b949e] text-[12px] font-semibold cursor-pointer" style={G.btn}>Cancel</button><button onClick={onKeepOverride} className="flex-1 h-10 rounded-xl text-white text-[12px] font-semibold cursor-pointer" style={{ background: "rgba(255,255,255,0.08)", border: "1px solid rgba(255,255,255,0.14)" }}>Keep Override</button><button onClick={onUpdateOverride} className="flex-1 h-10 rounded-xl text-white text-[12px] font-bold cursor-pointer" style={{ background: "#f59e0b", boxShadow: "0 4px 16px rgba(245,158,11,0.35)" }}>Update Override</button></div></motion.div></div>
+    <div className="fixed inset-0 z-[400] flex items-center justify-center p-4" onClick={onCancel}>
+      <div className="absolute inset-0" style={{ background: "rgba(0,0,0,0.65)", backdropFilter: "blur(8px)" }} />
+      <motion.div initial={{ opacity: 0, scale: 0.93 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.93 }} transition={{ type: "spring", damping: 26, stiffness: 360 }} onClick={e => e.stopPropagation()} className="relative z-10 w-full max-w-[440px] rounded-2xl p-6" style={G.liquidGlass}>
+        <div className="flex items-center gap-3 mb-4"><div className="w-10 h-10 rounded-xl flex items-center justify-center" style={{ background: "rgba(245,158,11,0.15)" }}><AlertTriangle className="w-5 h-5 text-amber-400" /></div><div><h3 className="text-white text-[14px] font-bold">Manual Override Detected</h3><p className="text-[#8b949e] text-[11px] mt-0.5">"{sectionName}" has a manual override in Synthesis.</p></div></div>
+        <p className="text-[#8b949e] text-[12px] mb-5">Editing the BOM will recalculate this section. Update override or keep the manual value?</p>
+        <div className="flex gap-2"><button onClick={onCancel} className="flex-1 h-10 rounded-xl text-[#8b949e] text-[12px] font-semibold cursor-pointer" style={G.btn}>Cancel</button><button onClick={onKeepOverride} className="flex-1 h-10 rounded-xl text-white text-[12px] font-semibold cursor-pointer" style={{ background: "rgba(255,255,255,0.08)", border: "1px solid rgba(255,255,255,0.14)" }}>Keep Override</button><button onClick={onUpdateOverride} className="flex-1 h-10 rounded-xl text-white text-[12px] font-bold cursor-pointer" style={{ background: "#f59e0b", boxShadow: "0 4px 16px rgba(245,158,11,0.35)" }}>Update Override</button></div>
+      </motion.div>
+    </div>
   );
 }
 
@@ -1426,36 +2589,184 @@ function PriceDeviationBadge({ deviation }: { deviation: number }) { if (Math.ab
 
 function OverrideIndicator({ isOverridden, onReset }: { isOverridden: boolean; onReset?: () => void }) { if (!isOverridden) return null; return (<button onClick={e => { e.stopPropagation(); onReset?.(); }} className="w-5 h-5 rounded-full flex items-center justify-center cursor-pointer ml-1 flex-shrink-0" style={{ background: "rgba(245,158,11,0.20)", border: "1px solid rgba(245,158,11,0.40)" }} title="Manually overridden — click to reset"><Pencil className="w-2.5 h-2.5 text-amber-400" /></button>); }
 
-function FieldAuditModal({ open, entries, onClose }: { open: boolean; entries: WorkbookAuditEntry[]; onClose: () => void }) { if (!open) return null; return (<div className="fixed inset-0 z-[400] flex items-center justify-center p-4" onClick={onClose}><div className="absolute inset-0" style={{ background: "rgba(0,0,0,0.55)", backdropFilter: "blur(6px)" }} /><motion.div initial={{ opacity: 0, scale: 0.93 }} animate={{ opacity: 1, scale: 1 }} onClick={e => e.stopPropagation()} className="relative z-10 w-full max-w-[500px] max-h-[70vh] overflow-y-auto rounded-2xl" style={G.liquidGlass}><div className="flex items-center justify-between px-5 py-4" style={{ borderBottom: "1px solid rgba(255,255,255,0.07)" }}><h3 className="text-white text-[14px] font-bold">Change History</h3><button onClick={onClose} className="w-8 h-8 rounded-xl flex items-center justify-center hover:bg-white/[0.08] cursor-pointer"><X className="w-4 h-4 text-[#8b949e]" /></button></div><div className="p-4 space-y-2">{entries.length === 0 ? <p className="text-[#484f58] text-[12px] text-center py-4">No changes recorded</p> : entries.map(entry => (<div key={entry.id} className="flex items-start gap-3 p-3 rounded-xl" style={{ background: "rgba(255,255,255,0.03)" }}><div className="w-7 h-7 rounded-full flex items-center justify-center text-[9px] font-bold text-white flex-shrink-0" style={{ background: TEAM.find(t => t.name === entry.changedBy)?.color || "#3b82f6" }}>{TEAM.find(t => t.name === entry.changedBy)?.initials || "??"}</div><div className="flex-1 min-w-0"><p className="text-white text-[11px] font-semibold">{entry.fieldPath}</p><div className="flex items-center gap-1.5 mt-1 text-[10px]"><span className="text-rose-400 line-through">{entry.oldValue}</span><ChevronRight className="w-3 h-3 text-[#484f58]" /><span className="text-emerald-400">{entry.newValue}</span></div><p className="text-[#484f58] text-[9px] mt-1">{new Date(entry.changedAt).toLocaleString()}</p></div></div>))}</div></motion.div></div>); }
+function FieldAuditModal({ open, entries, onClose }: { open: boolean; entries: WorkbookAuditEntry[]; onClose: () => void }) {
+  if (!open) return null;
+  return (
+    <div className="fixed inset-0 z-[400] flex items-center justify-center p-4" onClick={onClose}>
+      <div className="absolute inset-0" style={{ background: "rgba(0,0,0,0.55)", backdropFilter: "blur(6px)" }} />
+      <motion.div initial={{ opacity: 0, scale: 0.93 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.93 }} transition={{ type: "spring", damping: 26, stiffness: 360 }} onClick={e => e.stopPropagation()} className="relative z-10 w-full max-w-[500px] max-h-[70vh] overflow-y-auto rounded-2xl" style={G.liquidGlass}>
+        <div className="flex items-center justify-between px-5 py-4" style={{ borderBottom: "1px solid rgba(255,255,255,0.07)" }}><h3 className="text-white text-[14px] font-bold">Change History</h3><button onClick={onClose} className="w-8 h-8 rounded-xl flex items-center justify-center hover:bg-white/[0.08] cursor-pointer"><X className="w-4 h-4 text-[#8b949e]" /></button></div>
+        <div className="p-4 space-y-2">{entries.length === 0 ? <p className="text-[#8b949e] text-[12px] text-center py-4">No changes recorded</p> : entries.map(entry => (<div key={entry.id} className="flex items-start gap-3 p-3 rounded-xl" style={{ background: "rgba(255,255,255,0.03)" }}><div className="w-7 h-7 rounded-full flex items-center justify-center text-[9px] font-bold text-white flex-shrink-0" style={{ background: TEAM.find(t => t.name === entry.changedBy)?.color || "#3b82f6" }}>{TEAM.find(t => t.name === entry.changedBy)?.initials || "??"}</div><div className="flex-1 min-w-0"><p className="text-white text-[11px] font-semibold">{entry.fieldPath}</p><div className="flex items-center gap-1.5 mt-1 text-[10px]"><span className="text-rose-400 line-through">{entry.oldValue}</span><ChevronRight className="w-3 h-3 text-[#484f58]" /><span className="text-emerald-400">{entry.newValue}</span></div><p className="text-[#8b949e] text-[9px] mt-1">{new Date(entry.changedAt).toLocaleString()}</p></div></div>))}</div>
+      </motion.div>
+    </div>
+  );
+}
 
 function SummaryBar({ totalCost, totalSell, blendedMargin, fmt, onGenerateProposal }: { totalCost: number; totalSell: number; blendedMargin: number; fmt: (n: number) => string; onGenerateProposal?: () => void; }) {
   return (
     <div className="sticky top-0 z-20 flex items-center gap-4 px-4 py-2.5 rounded-xl mb-3 flex-wrap" style={{ ...G.liquidGlass, borderColor: "rgba(59,130,246,0.25)" }}>
-      <div className="flex items-center gap-2"><span className="text-[#8b949e] text-[10px] font-bold uppercase">Total Cost</span><span className="text-white text-[14px] font-bold">{fmt(totalCost)}</span></div><div className="w-px h-5" style={{ background: "rgba(255,255,255,0.10)" }} /><div className="flex items-center gap-2"><span className="text-[#8b949e] text-[10px] font-bold uppercase">Total Sell</span><span className="text-emerald-400 text-[14px] font-bold">{fmt(totalSell)}</span></div><div className="w-px h-5" style={{ background: "rgba(255,255,255,0.10)" }} /><div className="flex items-center gap-2"><span className="text-[#8b949e] text-[10px] font-bold uppercase">Blended Margin</span><span className={clsx("text-[14px] font-bold", blendedMargin >= 30 ? "text-emerald-400" : blendedMargin >= 15 ? "text-amber-400" : "text-rose-400")}>{blendedMargin.toFixed(1)}%</span></div>
+      <div className="flex items-center gap-2"><span className="text-[#8b949e] text-[10px] font-bold uppercase">Total Cost</span><span className="text-white text-[14px] font-bold">{fmt(totalCost)}</span></div>
+      <div className="w-px h-5" style={{ background: "rgba(255,255,255,0.10)" }} />
+      <div className="flex items-center gap-2"><span className="text-[#8b949e] text-[10px] font-bold uppercase">Total Sell</span><span className="text-emerald-400 text-[14px] font-bold">{fmt(totalSell)}</span></div>
+      <div className="w-px h-5" style={{ background: "rgba(255,255,255,0.10)" }} />
+      <div className="flex items-center gap-2"><span className="text-[#8b949e] text-[10px] font-bold uppercase">Blended Margin</span><span className={clsx("text-[14px] font-bold", blendedMargin >= 30 ? "text-emerald-400" : blendedMargin >= 15 ? "text-amber-400" : "text-rose-400")}>{blendedMargin.toFixed(1)}%</span></div>
       <div className="flex-1" />
       {onGenerateProposal && <button onClick={onGenerateProposal} className="flex items-center gap-1.5 h-7 px-3 rounded-lg text-white text-[10px] font-bold cursor-pointer" style={{ background: "#3b82f6" }}><FileDown className="w-3 h-3" /> Generate Proposal</button>}
     </div>
   );
 }
 
-function BomTab({ quoteCategories, synthesisOverrides, exchangeRate, fmt, onLineItemUpdate, onAddLineItem, onBomEditWithOverride, fieldSaveStatus }: { quoteCategories: QuoteCategory[]; synthesisOverrides: SynthesisOverride[]; exchangeRate: number; fmt: (n: number, compact?: boolean) => string; onLineItemUpdate: (categoryId: string, itemId: string, updates: Partial<QuoteLineItem>) => void; onAddLineItem: (categoryId: string) => void; onBomEditWithOverride: (sectionNumber: string, sectionName: string, callback: () => void) => void; fieldSaveStatus: Record<string, "saved" | "saving" | "">; }) {
-  const bodyRef = useRef<HTMLDivElement>(null); const [stickyScrollLeft, setStickyScrollLeft] = useState(0);
-  useEffect(() => { const body = bodyRef.current; if (!body) return; const handler = () => setStickyScrollLeft(body.scrollLeft); body.addEventListener("scroll", handler); return () => body.removeEventListener("scroll", handler); }, []);
-  const bomData = useMemo(() => BOM_SECTIONS.map(bs => { const cat = quoteCategories.find(c => c.name === bs.name); const items = (cat?.lineItems || []).filter(li => li.quantity > 0); const children = items.map((item, i) => ({ subNumber: items.length > 1 ? `${bs.section}.${i + 1}` : String(bs.section), item: recalcLineItem(item, exchangeRate) })); const subtotal = children.reduce((s, c) => s + c.item.sellTotal, 0); const override = synthesisOverrides.find(o => o.sectionNumber === String(bs.section) && o.isOverridden); return { ...bs, items, children, subtotal, override, displayPrice: override ? override.overrideValue! : subtotal }; }), [quoteCategories, synthesisOverrides, exchangeRate]);
-  const grandTotal = bomData.reduce((s, b) => s + b.displayPrice, 0); const tax = grandTotal * GCT_RATE; const totalWithTax = grandTotal + tax;
-  const getFieldKey = (catId: string, itemId: string) => `bom-${catId}-${itemId}`;
+function CostMarginTab({ quoteCategories, exchangeRate, fmt, onLineItemUpdate, fieldSaveStatus }: { quoteCategories: QuoteCategory[]; exchangeRate: number; fmt: (n: number, compact?: boolean) => string; onLineItemUpdate: (categoryId: string, itemId: string, updates: Partial<QuoteLineItem>) => void; fieldSaveStatus: Record<string, "saved" | "saving" | "">; }) {
+  const [systemFilter, setSystemFilter] = useState<SystemType>("VSS");
+
+  const filteredCategories = quoteCategories.filter(c => c.system === systemFilter && c.sectionNumber !== 800 && c.sectionNumber !== 1300 && c.sectionNumber !== 1800);
+  const importCategories = quoteCategories.filter(c => c.system === systemFilter && (c.sectionNumber === 800 || c.sectionNumber === 1300 || c.sectionNumber === 1800));
+
+  const systemCostTotal = filteredCategories.reduce((s, c) => s + c.lineItems.reduce((ls, li) => ls + recalcLineItem(li, exchangeRate).costTotal, 0), 0);
+  const systemSellTotal = filteredCategories.reduce((s, c) => s + c.lineItems.reduce((ls, li) => ls + recalcLineItem(li, exchangeRate).sellTotal, 0), 0);
+  const systemProfit = systemSellTotal - systemCostTotal;
+  const systemImportTotal = filteredCategories.reduce((s, c) => s + (c.lineItems.reduce((ls, li) => ls + recalcLineItem(li, exchangeRate).costTotal, 0) * c.importRatePercent), 0);
+  const systemSubtotal = systemCostTotal + systemImportTotal;
+
   return (
-    <div className="rounded-2xl overflow-hidden" style={G.card}>
-      <div className="sticky top-0 z-10 overflow-hidden" style={{ borderBottom: "1px solid rgba(255,255,255,0.08)", background: "rgba(7,12,26,0.95)" }}><div style={{ marginLeft: -stickyScrollLeft }}><table style={{ minWidth: "900px" }}><thead><tr style={{ background: "rgba(255,255,255,0.03)" }}><th className="sticky left-0 z-20 px-3 py-2.5 text-[#484f58] text-[9px] font-bold uppercase tracking-widest text-left" style={{ background: "rgba(7,12,26,0.95)", minWidth: "100px" }}>Item No</th><th className="px-3 py-2.5 text-[#484f58] text-[9px] font-bold uppercase tracking-widest text-left" style={{ minWidth: "300px" }}>Products – Description (List)</th><th className="px-3 py-2.5 text-[#484f58] text-[9px] font-bold uppercase tracking-widest text-right" style={{ minWidth: "120px" }}>List</th><th className="px-3 py-2.5 text-[#484f58] text-[9px] font-bold uppercase tracking-widest text-right" style={{ minWidth: "140px" }}>Price</th><th className="px-3 py-2.5" style={{ width: "60px" }}></th></tr></thead></table></div></div>
-      <div ref={bodyRef} className="overflow-x-auto" style={{ maxHeight: "calc(100vh - 380px)", scrollbarWidth: "thin" }}><table style={{ minWidth: "900px" }}><tbody>
-        <tr style={{ background: "rgba(59,130,246,0.06)" }}><td colSpan={5} className="sticky left-0 px-4 py-2.5 text-white text-[12px] font-bold uppercase tracking-widest" style={{ background: "rgba(59,130,246,0.08)" }}>Video Surveillance</td></tr>
-        {bomData.map((section) => {
-          if (section.children.length === 0) return (<tr key={section.section} style={{ borderBottom: "1px solid rgba(255,255,255,0.03)" }}><td className="sticky left-0 px-4 py-2 text-[#484f58] text-[10px] font-mono" style={{ background: "rgba(7,12,26,0.9)" }}>{section.section}</td><td className="px-4 py-2 text-[#8b949e] text-[11px]">{section.name}</td><td className="px-4 py-2 text-right"><input type="text" defaultValue="" placeholder="0.00" className="bg-transparent text-white text-[11px] w-24 text-right focus:outline-none" style={G.input} /></td><td className="px-4 py-2 text-white text-[11px] font-bold text-right flex items-center justify-end gap-1">—{section.override && <OverrideIndicator isOverridden={true} />}</td><td className="px-2 py-2 text-center"><button onClick={() => onAddLineItem(quoteCategories.find(c => c.name === section.name)?.id || "")} className="w-6 h-6 rounded-lg flex items-center justify-center hover:bg-white/10 cursor-pointer"><Plus className="w-3 h-3 text-[#484f58]" /></button></td></tr>);
-          return section.children.map((child, ci) => { const fieldKey = getFieldKey(quoteCategories.find(c => c.name === section.name)?.id || "", child.item.id); const fs = fieldSaveStatus[fieldKey]; return (<tr key={child.item.id} className={clsx("hover:bg-white/[0.02]", ci === section.children.length - 1 && "border-b-2 border-white/10")} style={{ borderBottom: "1px solid rgba(255,255,255,0.03)" }}><td className="sticky left-0 px-4 py-2 text-[#484f58] text-[10px] font-mono" style={{ background: "rgba(7,12,26,0.9)", paddingLeft: section.children.length > 1 ? "28px" : "16px" }}>{child.subNumber}</td><td className="px-4 py-2 text-white text-[11px] font-semibold max-w-[400px] truncate">{child.item.description}</td><td className="px-4 py-2 text-right"><InlineEditCell value={fmt(child.item.unitCost)} onChange={(val) => { const num = parseFloat(val.replace(/[^0-9.]/g, "")) || 0; onLineItemUpdate(quoteCategories.find(c => c.name === section.name)?.id || "", child.item.id, { unitCost: num }); }} /></td><td className="px-4 py-2 text-white text-[11px] font-bold text-right flex items-center justify-end gap-1">{fmt(child.item.sellTotal)}{fs === "saving" && <Loader2 className="w-2.5 h-2.5 animate-spin text-[#484f58]" />}{fs === "saved" && <CheckCircle2 className="w-2.5 h-2.5 text-emerald-400" />}</td><td className="px-2 py-2 text-center"></td></tr>); });
-        })}
-        <tr style={{ background: "rgba(255,255,255,0.04)" }}><td colSpan={3} className="px-4 py-2 text-[#8b949e] text-[10px] font-bold text-right uppercase">Total Video Surveillance</td><td className="px-4 py-2 text-white text-[12px] font-bold text-right">{fmt(grandTotal)}</td><td></td></tr>
-      </tbody></table></div>
-      <div className="p-4" style={{ ...G.card, background: "rgba(59,130,246,0.06)", border: "1px solid rgba(59,130,246,0.20)" }}><div className="space-y-2"><div className="flex justify-between py-1"><span className="text-[#8b949e] text-[11px]">Grand Total Supply, Install, Configure and Commission Security Solution</span><span className="text-white text-[14px] font-bold">{fmt(grandTotal)}</span></div><div className="flex justify-between py-1"><span className="text-[#8b949e] text-[12px]">Tax</span><span className="text-[#8b949e] text-[12px] font-bold">{fmt(tax)}</span></div><div className="flex justify-between py-2 border-t-2 border-white/10"><span className="text-white text-[14px] font-bold">Grand Total</span><span className="text-white text-[1.1rem] font-extrabold" style={{ color: "#60a5fa" }}>{fmt(totalWithTax)}</span></div></div></div>
+    <div className="space-y-4">
+      <div className="flex items-center gap-2">
+        {(["VSS","EAC","Intercom"] as SystemType[]).map(s => (
+          <button key={s} onClick={() => setSystemFilter(s)} className={clsx("h-7 px-3 rounded-lg text-[10px] font-bold cursor-pointer", systemFilter === s ? "text-white" : "text-[#8b949e]")} style={systemFilter === s ? { background: s === "VSS" ? "#3b82f6" : s === "EAC" ? "#8b5cf6" : "#14b8a6" } : G.btn}>{s}</button>
+        ))}
+      </div>
+      <div className="rounded-2xl overflow-hidden" style={G.card}>
+        <div className="overflow-x-auto">
+          <table className="w-full" style={{ minWidth: "900px" }}>
+            <thead><tr style={{ borderBottom: "1px solid rgba(255,255,255,0.08)", background: "rgba(255,255,255,0.03)" }}><th className="px-3 py-2.5 text-[#8b949e] text-[9px] font-bold uppercase tracking-widest text-left">Item No</th><th className="px-3 py-2.5 text-[#8b949e] text-[9px] font-bold uppercase tracking-widest text-left">Description</th><th className="px-3 py-2.5 text-[#8b949e] text-[9px] font-bold uppercase tracking-widest text-center">Qty</th><th className="px-3 py-2.5 text-[#8b949e] text-[9px] font-bold uppercase tracking-widest text-right">Cost (USD)</th><th className="px-3 py-2.5 text-[#8b949e] text-[9px] font-bold uppercase tracking-widest text-right">Markup %</th><th className="px-3 py-2.5 text-[#8b949e] text-[9px] font-bold uppercase tracking-widest text-right">Sell (USD)</th><th className="px-3 py-2.5 text-[#8b949e] text-[9px] font-bold uppercase tracking-widest text-right">Total Cost</th><th className="px-3 py-2.5 text-[#8b949e] text-[9px] font-bold uppercase tracking-widest text-right">Total Sell</th><th className="px-3 py-2.5 text-[#8b949e] text-[9px] font-bold uppercase tracking-widest text-right">Profit</th></tr></thead>
+            <tbody>
+              {filteredCategories.map(category => (
+                <React.Fragment key={category.id}>
+                  <tr style={{ background: "rgba(255,255,255,0.02)" }}><td colSpan={9} className="px-3 py-2 text-white text-[11px] font-bold">{category.sectionNumber} — {category.name}</td></tr>
+                  {category.lineItems.filter(li => li.quantity > 0).map((li, i) => {
+                    const r = recalcLineItem(li, exchangeRate);
+                    const fieldKey = `cm-${category.id}-${li.id}`;
+                    const fs = fieldSaveStatus[fieldKey];
+                    const itemNumber = category.lineItems.filter(x => x.quantity > 0).length > 1 ? `${category.sectionNumber}.${i + 1}` : String(category.sectionNumber);
+                    return (
+                      <tr key={li.id} style={{ borderBottom: "1px solid rgba(255,255,255,0.03)" }}>
+                        <td className="px-3 py-2 text-[#8b949e] text-[10px] font-mono">{itemNumber}</td>
+                        <td className="px-3 py-2 text-white text-[11px] font-semibold">{li.description}</td>
+                        <td className="px-3 py-2 text-center"><InlineEditCell type="number" value={li.quantity} onChange={(val) => onLineItemUpdate(category.id, li.id, { quantity: parseInt(val) || 0 })} /></td>
+                        <td className="px-3 py-2 text-right"><InlineEditCell type="number" value={li.unitCost} onChange={(val) => onLineItemUpdate(category.id, li.id, { unitCost: parseFloat(val) || 0 })} /></td>
+                        <td className="px-3 py-2 text-right"><InlineEditCell type="number" value={Math.round(li.markupPercent * 100)} onChange={(val) => onLineItemUpdate(category.id, li.id, { markupPercent: (parseFloat(val) || 0) / 100 })} /><span className="text-[#8b949e] text-[10px]">%</span></td>
+                        <td className="px-3 py-2 text-right text-white text-[11px] font-bold">{r.sellPrice.toFixed(2)}</td>
+                        <td className="px-3 py-2 text-right text-[#8b949e] text-[11px]">{r.costTotal.toFixed(2)}</td>
+                        <td className="px-3 py-2 text-right text-white text-[11px] font-bold">{r.sellTotal.toFixed(2)}</td>
+                        <td className="px-3 py-2 text-right text-[11px] font-bold" style={{ color: r.profit >= 0 ? "#34d399" : "#f87171" }}>{r.profit.toFixed(2)}{fs === "saving" && <Loader2 className="w-2.5 h-2.5 animate-spin text-[#8b949e] ml-1 inline" />}{fs === "saved" && <CheckCircle2 className="w-2.5 h-2.5 text-emerald-400 ml-1 inline" />}</td>
+                      </tr>
+                    );
+                  })}
+                  {category.importRatePercent > 0 && (
+                    <tr style={{ borderBottom: "1px solid rgba(255,255,255,0.03)" }}>
+                      <td colSpan={6} className="px-3 py-2 text-right text-[#8b949e] text-[10px] font-semibold">Import ({Math.round(category.importRatePercent * 100)}% of cost)</td>
+                      <td className="px-3 py-2 text-right text-amber-400 text-[11px] font-bold">{(category.lineItems.reduce((s, li) => s + recalcLineItem(li, exchangeRate).costTotal, 0) * category.importRatePercent).toFixed(2)}</td>
+                      <td colSpan={2}></td>
+                    </tr>
+                  )}
+                </React.Fragment>
+              ))}
+              <tr style={{ background: "rgba(255,255,255,0.04)" }}><td colSpan={6} className="px-3 py-2.5 text-right text-white text-[11px] font-bold uppercase">System Subtotal</td><td className="px-3 py-2.5 text-right text-white text-[12px] font-bold">{systemSubtotal.toFixed(2)}</td><td className="px-3 py-2.5 text-right text-white text-[12px] font-bold">{systemSellTotal.toFixed(2)}</td><td className="px-3 py-2.5 text-right text-emerald-400 text-[12px] font-bold">{systemProfit.toFixed(2)}</td></tr>
+              <tr style={{ background: "rgba(255,255,255,0.02)" }}><td colSpan={6} className="px-3 py-2 text-right text-[#8b949e] text-[10px]">Cost Total</td><td className="px-3 py-2 text-right text-white text-[11px] font-bold">{systemCostTotal.toFixed(2)}</td><td colSpan={2}></td></tr>
+              <tr style={{ background: "rgba(255,255,255,0.02)" }}><td colSpan={6} className="px-3 py-2 text-right text-[#8b949e] text-[10px]">Import Total</td><td className="px-3 py-2 text-right text-white text-[11px] font-bold">{systemImportTotal.toFixed(2)}</td><td colSpan={2}></td></tr>
+              <tr style={{ background: "rgba(255,255,255,0.02)" }}><td colSpan={6} className="px-3 py-2 text-right text-[#8b949e] text-[10px]">Profit</td><td colSpan={2}></td><td className="px-3 py-2 text-right text-emerald-400 text-[11px] font-bold">{systemProfit.toFixed(2)}</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+      <div className="text-[#8b949e] text-[9px] italic">Internal only — never included in client exports. Cost/margin data stays hidden from proposals.</div>
+    </div>
+  );
+}
+function BomTab({ quoteCategories, synthesisOverrides, exchangeRate, fmt, onLineItemUpdate, onAddLineItem, onBomEditWithOverride, fieldSaveStatus }: { quoteCategories: QuoteCategory[]; synthesisOverrides: SynthesisOverride[]; exchangeRate: number; fmt: (n: number, compact?: boolean) => string; onLineItemUpdate: (categoryId: string, itemId: string, updates: Partial<QuoteLineItem>) => void; onAddLineItem: (categoryId: string) => void; onBomEditWithOverride: (sectionNumber: string, sectionName: string, callback: () => void) => void; fieldSaveStatus: Record<string, "saved" | "saving" | "">; }) {
+  const [systemFilter, setSystemFilter] = useState<SystemType>("VSS");
+  const bodyRef = useRef<HTMLDivElement>(null);
+  const [stickyScrollLeft, setStickyScrollLeft] = useState(0);
+
+  useEffect(() => { const body = bodyRef.current; if (!body) return; const handler = () => setStickyScrollLeft(body.scrollLeft); body.addEventListener("scroll", handler); return () => body.removeEventListener("scroll", handler); }, []);
+
+  const systemCategories = quoteCategories.filter(c => c.system === systemFilter);
+  const activeCategories = systemCategories.filter(c => c.sectionNumber !== 800 && c.sectionNumber !== 1300 && c.sectionNumber !== 1800);
+  const importCategories = systemCategories.filter(c => c.sectionNumber === 800 || c.sectionNumber === 1300 || c.sectionNumber === 1800);
+
+  const bomData = activeCategories.map(cat => {
+    const items = cat.lineItems.filter(li => li.quantity > 0);
+    const children = items.map((item, i) => ({ subNumber: items.length > 1 ? `${cat.sectionNumber}.${i + 1}` : String(cat.sectionNumber), item: recalcLineItem(item, exchangeRate) }));
+    const subtotal = children.reduce((s, c) => s + c.item.sellTotal, 0);
+    const override = synthesisOverrides.find(o => o.sectionNumber === String(cat.sectionNumber) && o.isOverridden);
+    return { ...cat, items, children, subtotal, override, displayPrice: override ? override.overrideValue! : subtotal, importAmount: cat.importRatePercent > 0 ? children.reduce((s, c) => s + c.item.costTotal, 0) * cat.importRatePercent : 0 };
+  });
+
+  const grandTotal = bomData.reduce((s, b) => s + b.displayPrice + b.importAmount, 0);
+  const tax = grandTotal * GCT_RATE;
+  const totalWithTax = grandTotal + tax;
+
+  return (
+    <div className="space-y-4">
+      <div className="flex items-center gap-2">
+        {(["VSS","EAC","Intercom"] as SystemType[]).map(s => (
+          <button key={s} onClick={() => setSystemFilter(s)} className={clsx("h-7 px-3 rounded-lg text-[10px] font-bold cursor-pointer", systemFilter === s ? "text-white" : "text-[#8b949e]")} style={systemFilter === s ? { background: s === "VSS" ? "#3b82f6" : s === "EAC" ? "#8b5cf6" : "#14b8a6" } : G.btn}>{s}</button>
+        ))}
+      </div>
+      <div className="rounded-2xl overflow-hidden" style={G.card}>
+        <div className="sticky top-0 z-10 overflow-hidden" style={{ borderBottom: "1px solid rgba(255,255,255,0.08)", background: "rgba(7,12,26,0.95)" }}>
+          <div style={{ marginLeft: -stickyScrollLeft }}>
+            <table style={{ minWidth: "900px" }}>
+              <thead><tr style={{ background: "rgba(255,255,255,0.03)" }}><th className="sticky left-0 z-20 px-3 py-2.5 text-[#8b949e] text-[9px] font-bold uppercase tracking-widest text-left" style={{ background: "rgba(7,12,26,0.95)", minWidth: "100px" }}>Item No</th><th className="px-3 py-2.5 text-[#8b949e] text-[9px] font-bold uppercase tracking-widest text-left" style={{ minWidth: "250px" }}>Products – Description</th><th className="px-3 py-2.5 text-[#8b949e] text-[9px] font-bold uppercase tracking-widest text-right" style={{ minWidth: "120px" }}>List (JMD)</th><th className="px-3 py-2.5 text-[#8b949e] text-[9px] font-bold uppercase tracking-widest text-center" style={{ minWidth: "60px" }}>Qty</th><th className="px-3 py-2.5 text-[#8b949e] text-[9px] font-bold uppercase tracking-widest text-right" style={{ minWidth: "140px" }}>Extended (JMD)</th></tr></thead>
+            </table>
+          </div>
+        </div>
+        <div ref={bodyRef} className="overflow-x-auto" style={{ maxHeight: "calc(100vh - 420px)", scrollbarWidth: "thin" }}>
+          <table style={{ minWidth: "900px" }}>
+            <tbody>
+              <tr style={{ background: systemFilter === "VSS" ? "rgba(59,130,246,0.06)" : systemFilter === "EAC" ? "rgba(139,92,246,0.06)" : "rgba(20,184,166,0.06)" }}><td colSpan={5} className="sticky left-0 px-4 py-2.5 text-white text-[12px] font-bold uppercase tracking-widest" style={{ background: "rgba(7,12,26,0.9)" }}>{systemFilter === "VSS" ? "Video Surveillance" : systemFilter === "EAC" ? "Access Control" : "Intercom"}</td></tr>
+              {bomData.map(section => {
+                if (section.children.length === 0) return (
+                  <tr key={section.id} style={{ borderBottom: "1px solid rgba(255,255,255,0.03)" }}>
+                    <td className="sticky left-0 px-4 py-2 text-[#8b949e] text-[10px] font-mono" style={{ background: "rgba(7,12,26,0.9)" }}>{section.sectionNumber}</td>
+                    <td className="px-4 py-2 text-[#8b949e] text-[11px]">{section.name}</td>
+                    <td className="px-4 py-2 text-right text-white text-[11px]">—</td>
+                    <td className="px-4 py-2 text-center text-[#8b949e] text-[11px]">0</td>
+                    <td className="px-4 py-2 text-right text-white text-[11px] font-bold flex items-center justify-end gap-1">—{section.override && <OverrideIndicator isOverridden={true} />}</td>
+                  </tr>
+                );
+                return section.children.map((child, ci) => {
+                  const listPriceJMD = child.item.sellPrice * exchangeRate;
+                  const extendedJMD = listPriceJMD * child.item.quantity;
+                  const fieldKey = `bom-${section.id}-${child.item.id}`;
+                  const fs = fieldSaveStatus[fieldKey];
+                  return (
+                    <tr key={child.item.id} style={{ borderBottom: "1px solid rgba(255,255,255,0.03)" }}>
+                      <td className="sticky left-0 px-4 py-2 text-[#8b949e] text-[10px] font-mono" style={{ background: "rgba(7,12,26,0.9)", paddingLeft: section.children.length > 1 ? "28px" : "16px" }}>{child.subNumber}</td>
+                      <td className="px-4 py-2 text-white text-[11px] font-semibold max-w-[250px] truncate">{child.item.description}</td>
+                      <td className="px-4 py-2 text-right text-white text-[11px]">{fmt(listPriceJMD)}</td>
+                      <td className="px-4 py-2 text-center"><InlineEditCell type="number" value={child.item.quantity} onChange={(val) => onLineItemUpdate(section.id, child.item.id, { quantity: parseInt(val) || 0 })} /></td>
+                      <td className="px-4 py-2 text-right text-white text-[11px] font-bold flex items-center justify-end gap-1">{fmt(extendedJMD)}{fs === "saving" && <Loader2 className="w-2.5 h-2.5 animate-spin text-[#8b949e]" />}{fs === "saved" && <CheckCircle2 className="w-2.5 h-2.5 text-emerald-400" />}</td>
+                    </tr>
+                  );
+                });
+              })}
+              {bomData.filter(b => b.importAmount > 0).map(section => (
+                <tr key={`import-${section.id}`} style={{ borderBottom: "1px solid rgba(255,255,255,0.03)" }}>
+                  <td className="sticky left-0 px-4 py-2 text-[#8b949e] text-[10px] font-mono" style={{ background: "rgba(7,12,26,0.9)" }}>{section.sectionNumber}.9</td>
+                  <td className="px-4 py-2 text-amber-400 text-[11px] font-semibold">Import ({Math.round(section.importRatePercent * 100)}%)</td>
+                  <td className="px-4 py-2 text-right text-amber-400 text-[11px]">{fmt(section.importAmount * exchangeRate)}</td>
+                  <td className="px-4 py-2 text-center text-[#8b949e] text-[11px]">1</td>
+                  <td className="px-4 py-2 text-right text-amber-400 text-[11px] font-bold">{fmt(section.importAmount * exchangeRate)}</td>
+                </tr>
+              ))}
+              <tr style={{ background: "rgba(255,255,255,0.04)" }}><td colSpan={4} className="px-4 py-2.5 text-right text-white text-[11px] font-bold uppercase">Subtotal</td><td className="px-4 py-2.5 text-right text-white text-[13px] font-bold">{fmt(grandTotal)}</td></tr>
+              <tr><td colSpan={4} className="px-4 py-2 text-right text-[#8b949e] text-[11px]">GCT (15%)</td><td className="px-4 py-2 text-right text-white text-[12px] font-bold">{fmt(tax)}</td></tr>
+              <tr style={{ background: "rgba(255,255,255,0.04)" }}><td colSpan={4} className="px-4 py-2.5 text-right text-white text-[13px] font-bold uppercase">Total</td><td className="px-4 py-2.5 text-right text-white text-[14px] font-extrabold" style={{ color: "#60a5fa" }}>{fmt(totalWithTax)}</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
     </div>
   );
 }
@@ -1463,13 +2774,12 @@ function BomTab({ quoteCategories, synthesisOverrides, exchangeRate, fmt, onLine
 function SynthesisTab({ quoteCategories, synthesisOverrides, exchangeRate, fmt, onSaveOverride, fieldSaveStatus }: { quoteCategories: QuoteCategory[]; synthesisOverrides: SynthesisOverride[]; exchangeRate: number; fmt: (n: number, compact?: boolean) => string; onSaveOverride: (sectionNumber: string, value: number | null, isOverridden: boolean) => void; fieldSaveStatus: Record<string, "saved" | "saving" | "">; }) {
   const [collapsedVideo, setCollapsedVideo] = useState(false);
   const [collapsedAccess, setCollapsedAccess] = useState(false);
+  const [collapsedIntercom, setCollapsedIntercom] = useState(false);
   const [editingSection, setEditingSection] = useState<string | null>(null);
   const [editValue, setEditValue] = useState("");
 
   const getSectionSubtotal = (sectionNumber: string): number => {
-    const bomSection = BOM_SECTIONS.find(bs => String(bs.section) === sectionNumber);
-    if (!bomSection) return 0;
-    const cat = quoteCategories.find(c => c.name === bomSection.name);
+    const cat = quoteCategories.find(c => String(c.sectionNumber) === sectionNumber);
     if (!cat) return 0;
     return cat.lineItems.filter(li => li.quantity > 0).reduce((s, li) => s + recalcLineItem(li, exchangeRate).sellTotal, 0);
   };
@@ -1486,31 +2796,75 @@ function SynthesisTab({ quoteCategories, synthesisOverrides, exchangeRate, fmt, 
 
   const videoSections = SYNTHESIS_SECTIONS.filter(s => s.group === "video");
   const accessSections = SYNTHESIS_SECTIONS.filter(s => s.group === "access");
+  const intercomSections = SYNTHESIS_SECTIONS.filter(s => s.group === "intercom");
   const videoTotal = videoSections.reduce((s, sec) => s + getDisplayValue(sec).value, 0);
   const accessTotal = accessSections.reduce((s, sec) => s + getDisplayValue(sec).value, 0);
-  const grandTotal = videoTotal + accessTotal;
+  const intercomTotal = intercomSections.reduce((s, sec) => s + getDisplayValue(sec).value, 0);
+  const grandTotal = videoTotal + accessTotal + intercomTotal;
   const tax = grandTotal * GCT_RATE;
   const totalWithTax = grandTotal + tax;
+  const suggestedPM = grandTotal * PM_REFERENCE_RATE;
+  const suggestedContingency = grandTotal * CONTINGENCY_REFERENCE_RATE;
 
-  const renderSection = (section: typeof SYNTHESIS_SECTIONS[number]) => { const { value, isOverridden } = getDisplayValue(section); const fieldKey = `synth-${section.section}`; const fs = fieldSaveStatus[fieldKey]; return (<tr key={section.section} style={{ borderBottom: "1px solid rgba(255,255,255,0.03)" }}><td className="px-4 py-2 text-[#484f58] text-[10px] font-mono">{section.section}</td><td className="px-4 py-2 text-white text-[11px] font-semibold">{section.name}</td><td className={clsx("px-4 py-2 text-[11px] font-bold text-right flex items-center justify-end gap-1", isOverridden ? "text-amber-400" : "text-[#8b949e]")}>{editingSection === section.section ? (<div className="flex items-center gap-1"><input type="number" value={editValue} onChange={e => setEditValue(e.target.value)} className="bg-transparent text-white text-[11px] w-24 text-right focus:outline-none" style={G.input} autoFocus onKeyDown={e => { if (e.key === "Enter") handleSaveEdit(section.section); if (e.key === "Escape") setEditingSection(null); }} /><button onClick={() => handleSaveEdit(section.section)} className="w-5 h-5 rounded flex items-center justify-center cursor-pointer" style={{ background: "rgba(16,185,129,0.15)" }}><CheckCircle2 className="w-3 h-3 text-emerald-400" /></button></div>) : (<span className="cursor-pointer" onClick={() => handleStartEdit(section.section, value)}>{value > 0 ? fmt(value) : "—"}</span>)}{isOverridden && <OverrideIndicator isOverridden={true} onReset={() => handleResetOverride(section.section)} />}{fs === "saving" && <Loader2 className="w-2.5 h-2.5 animate-spin text-[#484f58]" />}{fs === "saved" && <CheckCircle2 className="w-2.5 h-2.5 text-emerald-400" />}</td></tr>); };
+  const renderSection = (section: typeof SYNTHESIS_SECTIONS[number]) => {
+    const { value, isOverridden } = getDisplayValue(section);
+    const fieldKey = `synth-${section.section}`;
+    const fs = fieldSaveStatus[fieldKey];
+    return (
+      <tr key={section.section} style={{ borderBottom: "1px solid rgba(255,255,255,0.03)" }}>
+        <td className="px-4 py-2 text-[#8b949e] text-[10px] font-mono">{section.section}</td>
+        <td className="px-4 py-2 text-white text-[11px] font-semibold">{section.name}</td>
+        <td className={clsx("px-4 py-2 text-[11px] font-bold text-right flex items-center justify-end gap-1", isOverridden ? "text-amber-400" : "text-[#8b949e]")}>
+          {editingSection === section.section ? (
+            <div className="flex items-center gap-1"><input type="number" value={editValue} onChange={e => setEditValue(e.target.value)} className="bg-transparent text-white text-[11px] w-24 text-right focus:outline-none" style={G.input} autoFocus onKeyDown={e => { if (e.key === "Enter") handleSaveEdit(section.section); if (e.key === "Escape") setEditingSection(null); }} /><button onClick={() => handleSaveEdit(section.section)} className="w-5 h-5 rounded flex items-center justify-center cursor-pointer" style={{ background: "rgba(16,185,129,0.15)" }}><CheckCircle2 className="w-3 h-3 text-emerald-400" /></button></div>
+          ) : (<span className="cursor-pointer" onClick={() => handleStartEdit(section.section, value)}>{value > 0 ? fmt(value) : "—"}</span>)}
+          {isOverridden && <OverrideIndicator isOverridden={true} onReset={() => handleResetOverride(section.section)} />}
+          {fs === "saving" && <Loader2 className="w-2.5 h-2.5 animate-spin text-[#8b949e]" />}
+          {fs === "saved" && <CheckCircle2 className="w-2.5 h-2.5 text-emerald-400" />}
+        </td>
+      </tr>
+    );
+  };
 
   return (
     <div className="space-y-0">
       <div className="rounded-2xl overflow-hidden" style={G.card}>
-        <div className="overflow-x-auto"><table className="w-full" style={{ minWidth: "700px" }}><thead><tr style={{ borderBottom: "1px solid rgba(255,255,255,0.08)", background: "rgba(255,255,255,0.03)" }}><th className="px-3 py-2.5 text-[#484f58] text-[9px] font-bold uppercase tracking-widest text-left">Item No</th><th className="px-3 py-2.5 text-[#484f58] text-[9px] font-bold uppercase tracking-widest text-left">DESIGNATION</th><th className="px-3 py-2.5 text-[#484f58] text-[9px] font-bold uppercase tracking-widest text-right">Unit Price</th></tr></thead><tbody>
-          <tr style={{ background: "rgba(59,130,246,0.06)", cursor: "pointer" }} onClick={() => setCollapsedVideo(!collapsedVideo)}><td colSpan={3} className="px-4 py-2.5 text-white text-[12px] font-bold uppercase tracking-widest flex items-center gap-2">{collapsedVideo ? <ChevronRight className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />} Video Surveillance</td></tr>
-          {!collapsedVideo && videoSections.map(renderSection)}
-          {!collapsedVideo && (<tr style={{ background: "rgba(255,255,255,0.04)" }}><td colSpan={2} className="px-4 py-2 text-[#8b949e] text-[10px] font-bold text-right uppercase">Total Video Surveillance</td><td className="px-4 py-2 text-white text-[12px] font-bold text-right">{fmt(videoTotal)}</td></tr>)}
-          <tr><td colSpan={3} className="px-4 py-1"></td></tr>
-          <tr style={{ background: "rgba(139,92,246,0.06)", cursor: "pointer" }} onClick={() => setCollapsedAccess(!collapsedAccess)}><td colSpan={3} className="px-4 py-2.5 text-white text-[12px] font-bold uppercase tracking-widest flex items-center gap-2">{collapsedAccess ? <ChevronRight className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />} Access Control Systems</td></tr>
-          {!collapsedAccess && accessSections.map(renderSection)}
-          {!collapsedAccess && (<tr style={{ background: "rgba(255,255,255,0.04)" }}><td colSpan={2} className="px-4 py-2 text-[#8b949e] text-[10px] font-bold text-right uppercase">Total Access Control</td><td className="px-4 py-2 text-white text-[12px] font-bold text-right">{fmt(accessTotal)}</td></tr>)}
-        </tbody></table></div>
+        <div className="overflow-x-auto">
+          <table className="w-full" style={{ minWidth: "700px" }}>
+            <thead><tr style={{ borderBottom: "1px solid rgba(255,255,255,0.08)", background: "rgba(255,255,255,0.03)" }}><th className="px-3 py-2.5 text-[#8b949e] text-[9px] font-bold uppercase tracking-widest text-left">Item No</th><th className="px-3 py-2.5 text-[#8b949e] text-[9px] font-bold uppercase tracking-widest text-left">DESIGNATION</th><th className="px-3 py-2.5 text-[#8b949e] text-[9px] font-bold uppercase tracking-widest text-right">Unit Price</th></tr></thead>
+            <tbody>
+              <tr style={{ background: "rgba(59,130,246,0.06)", cursor: "pointer" }} onClick={() => setCollapsedVideo(!collapsedVideo)}><td colSpan={3} className="px-4 py-2.5 text-white text-[12px] font-bold uppercase tracking-widest flex items-center gap-2">{collapsedVideo ? <ChevronRight className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />} Video Surveillance</td></tr>
+              {!collapsedVideo && videoSections.map(renderSection)}
+              {!collapsedVideo && <tr style={{ background: "rgba(255,255,255,0.04)" }}><td colSpan={2} className="px-4 py-2 text-[#8b949e] text-[10px] font-bold text-right uppercase">Total Video</td><td className="px-4 py-2 text-white text-[12px] font-bold text-right">{fmt(videoTotal)}</td></tr>}
+              <tr><td colSpan={3} className="px-4 py-1"></td></tr>
+              <tr style={{ background: "rgba(139,92,246,0.06)", cursor: "pointer" }} onClick={() => setCollapsedAccess(!collapsedAccess)}><td colSpan={3} className="px-4 py-2.5 text-white text-[12px] font-bold uppercase tracking-widest flex items-center gap-2">{collapsedAccess ? <ChevronRight className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />} Access Control</td></tr>
+              {!collapsedAccess && accessSections.map(renderSection)}
+              {!collapsedAccess && <tr style={{ background: "rgba(255,255,255,0.04)" }}><td colSpan={2} className="px-4 py-2 text-[#8b949e] text-[10px] font-bold text-right uppercase">Total Access</td><td className="px-4 py-2 text-white text-[12px] font-bold text-right">{fmt(accessTotal)}</td></tr>}
+              <tr><td colSpan={3} className="px-4 py-1"></td></tr>
+              <tr style={{ background: "rgba(20,184,166,0.06)", cursor: "pointer" }} onClick={() => setCollapsedIntercom(!collapsedIntercom)}><td colSpan={3} className="px-4 py-2.5 text-white text-[12px] font-bold uppercase tracking-widest flex items-center gap-2">{collapsedIntercom ? <ChevronRight className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />} Intercom</td></tr>
+              {!collapsedIntercom && intercomSections.map(renderSection)}
+              {!collapsedIntercom && <tr style={{ background: "rgba(255,255,255,0.04)" }}><td colSpan={2} className="px-4 py-2 text-[#8b949e] text-[10px] font-bold text-right uppercase">Total Intercom</td><td className="px-4 py-2 text-white text-[12px] font-bold text-right">{fmt(intercomTotal)}</td></tr>}
+            </tbody>
+          </table>
+        </div>
       </div>
-      <div className="rounded-2xl p-4 mt-4" style={{ ...G.card, background: "rgba(59,130,246,0.06)", border: "1px solid rgba(59,130,246,0.20)" }}><div className="space-y-2"><div className="flex justify-between py-1"><span className="text-[#8b949e] text-[11px]">Grand Total Supply, Install, Configure and Commission Security Solution</span><span className="text-white text-[14px] font-bold">{fmt(grandTotal)}</span></div><div className="flex justify-between py-1"><span className="text-[#8b949e] text-[12px]">Tax</span><span className="text-[#8b949e] text-[12px] font-bold">{fmt(tax)}</span></div><div className="flex justify-between py-2 border-t-2 border-white/10"><span className="text-white text-[14px] font-bold">Grand Total</span><span className="text-white text-[1.1rem] font-extrabold" style={{ color: "#60a5fa" }}>{fmt(totalWithTax)}</span></div></div></div>
+      <div className="rounded-2xl p-4 mt-4" style={{ ...G.card, background: "rgba(59,130,246,0.06)", border: "1px solid rgba(59,130,246,0.20)" }}>
+        <div className="space-y-2">
+          <div className="flex justify-between py-1"><span className="text-[#8b949e] text-[11px]">Grand Total</span><span className="text-white text-[14px] font-bold">{fmt(grandTotal)}</span></div>
+          <div className="flex justify-between py-1"><span className="text-[#8b949e] text-[12px]">Tax (GCT 15%)</span><span className="text-[#8b949e] text-[12px] font-bold">{fmt(tax)}</span></div>
+          <div className="flex justify-between py-2 border-t-2 border-white/10"><span className="text-white text-[14px] font-bold">Grand Total with Tax</span><span className="text-white text-[1.1rem] font-extrabold" style={{ color: "#60a5fa" }}>{fmt(totalWithTax)}</span></div>
+        </div>
+      </div>
+      <div className="rounded-2xl p-4 mt-3" style={G.subtle}>
+        <p className="text-[#8b949e] text-[10px] font-bold uppercase tracking-widest mb-2">Reference</p>
+        <div className="flex justify-between py-1"><span className="text-[#8b949e] text-[11px]">Suggested PM (5%)</span><span className="text-[#8b949e] text-[12px] font-bold">{fmt(suggestedPM)}</span></div>
+        <div className="flex justify-between py-1"><span className="text-[#8b949e] text-[11px]">Suggested Contingency (10%)</span><span className="text-[#8b949e] text-[12px] font-bold">{fmt(suggestedContingency)}</span></div>
+        <p className="text-[#484f58] text-[9px] italic mt-2">Not applied to any total — informational only.</p>
+      </div>
     </div>
   );
 }
+
 function AssetListTab({ quoteCategories, canvasDevices, storeDevices, exchangeRate, fmt, onLineItemUpdate, fieldSaveStatus }: { quoteCategories: QuoteCategory[]; canvasDevices: CanvasDevice[]; storeDevices: CatalogDevice[]; exchangeRate: number; fmt: (n: number, compact?: boolean) => string; onLineItemUpdate: (categoryId: string, itemId: string, updates: Partial<QuoteLineItem>) => void; fieldSaveStatus: Record<string, "saved" | "saving" | "">; }) {
   const [clientExportMode, setClientExportMode] = useState(false);
   const [collapsedCategories, setCollapsedCategories] = useState<Set<string>>(new Set());
@@ -1518,8 +2872,16 @@ function AssetListTab({ quoteCategories, canvasDevices, storeDevices, exchangeRa
 
   const allItems = useMemo(() => {
     const items: AssetListItem[] = [];
-    canvasDevices.forEach(dev => { const sd = dev.deviceStoreRef ? storeDevices.find(d => d.id === dev.deviceStoreRef) : null; items.push({ id: dev.id, item: dev.label, qty: 1, cost: sd?.price || 0, markupPercent: 0.35, sell: (sd?.price || 0) * 1.35, costTotal: sd?.price || 0, total: (sd?.price || 0) * 1.35, profit: ((sd?.price || 0) * 1.35) - (sd?.price || 0), isCanvasDevice: true, deviceType: dev.type }); });
-    quoteCategories.filter(c => ["Video Security Equipment","Access Control Equipment","Software","Compute & Storage","Networking"].includes(c.name)).forEach(cat => { cat.lineItems.filter(li => li.quantity > 0).forEach(li => { const r = recalcLineItem(li, exchangeRate); items.push({ id: li.id, item: li.description, qty: li.quantity, cost: li.unitCost, markupPercent: li.markupPercent, sell: r.sellPrice, costTotal: r.costTotal, total: r.sellTotal, profit: r.profit, sourceCategory: cat.name, sourceItemId: li.id }); }); });
+    canvasDevices.forEach(dev => {
+      const sd = dev.deviceStoreRef ? storeDevices.find(d => d.id === dev.deviceStoreRef) : null;
+      items.push({ id: dev.id, item: dev.label, qty: 1, cost: sd?.price || 0, markupPercent: 0.35, sell: (sd?.price || 0) * 1.35, costTotal: sd?.price || 0, total: (sd?.price || 0) * 1.35, profit: ((sd?.price || 0) * 1.35) - (sd?.price || 0), isCanvasDevice: true, deviceType: dev.type, system: sd?.system });
+    });
+    quoteCategories.forEach(cat => {
+      cat.lineItems.filter(li => li.quantity > 0).forEach(li => {
+        const r = recalcLineItem(li, exchangeRate);
+        items.push({ id: li.id, item: li.description, qty: li.quantity, cost: li.unitCost, markupPercent: li.markupPercent, sell: r.sellPrice, costTotal: r.costTotal, total: r.sellTotal, profit: r.profit, system: cat.system, sourceCategory: cat.name, sourceItemId: li.id });
+      });
+    });
     return items;
   }, [canvasDevices, storeDevices, quoteCategories, exchangeRate]);
 
@@ -1534,21 +2896,52 @@ function AssetListTab({ quoteCategories, canvasDevices, storeDevices, exchangeRa
       <div className="flex items-center gap-2 mb-2"><button onClick={() => setClientExportMode(!clientExportMode)} className={clsx("h-7 px-3 rounded-lg text-[10px] font-semibold cursor-pointer", clientExportMode ? "text-white" : "text-[#8b949e]")} style={clientExportMode ? { background: "rgba(16,185,129,0.15)", border: "1px solid rgba(16,185,129,0.30)" } : G.btn}><EyeOff className="w-3 h-3 mr-1" />{clientExportMode ? "Client View" : "Internal View"}</button></div>
       {canvasDevices.length > 0 && (
         <div className="rounded-2xl overflow-hidden" style={G.card}>
-          <div className="w-full px-4 py-3 flex items-center justify-between" style={{ borderBottom: "1px solid rgba(255,255,255,0.06)", background: "rgba(255,255,255,0.02)" }}><div className="flex items-center gap-2"><h3 className="text-white text-[13px] font-bold">Canvas Devices</h3><span className="text-[#484f58] text-[10px]">({canvasDevices.length})</span></div></div>
-          <div className="overflow-x-auto"><table className="w-full" style={{ minWidth: clientExportMode ? "400px" : "800px" }}><thead><tr style={{ borderBottom: "1px solid rgba(255,255,255,0.06)" }}><th className="px-3 py-2.5 text-[#484f58] text-[9px] font-bold uppercase tracking-widest text-left">Item</th><th className="px-3 py-2.5 text-[#484f58] text-[9px] font-bold uppercase tracking-widest text-center">QTY</th>{!clientExportMode && <><th className="px-3 py-2.5 text-[#484f58] text-[9px] font-bold uppercase tracking-widest text-right">Cost</th><th className="px-3 py-2.5 text-[#484f58] text-[9px] font-bold uppercase tracking-widest text-right">Markup %</th></>}<th className="px-3 py-2.5 text-[#484f58] text-[9px] font-bold uppercase tracking-widest text-right">Sell</th>{!clientExportMode && <th className="px-3 py-2.5 text-[#484f58] text-[9px] font-bold uppercase tracking-widest text-right">Cost Total</th>}<th className="px-3 py-2.5 text-[#484f58] text-[9px] font-bold uppercase tracking-widest text-right">Total</th>{!clientExportMode && <th className="px-3 py-2.5 text-[#484f58] text-[9px] font-bold uppercase tracking-widest text-right">Profit</th>}</tr></thead><tbody>{allItems.filter(i => i.isCanvasDevice).map(item => (<tr key={item.id} style={{ borderBottom: "1px solid rgba(255,255,255,0.03)" }}><td className="px-3 py-2.5 text-white text-[11px] font-semibold">{item.item}</td><td className="px-3 py-2.5 text-white text-[11px] text-center">{item.qty}</td>{!clientExportMode && <><td className="px-3 py-2.5 text-[#8b949e] text-[11px] text-right">{fmt(item.cost)}</td><td className="px-3 py-2.5 text-[#8b949e] text-[11px] text-right">{(item.markupPercent * 100).toFixed(0)}%</td></>}<td className="px-3 py-2.5 text-white text-[11px] font-bold text-right">{fmt(item.sell)}</td>{!clientExportMode && <td className="px-3 py-2.5 text-[#8b949e] text-[11px] text-right">{fmt(item.costTotal)}</td>}<td className="px-3 py-2.5 text-white text-[11px] font-bold text-right">{fmt(item.total)}</td>{!clientExportMode && <td className="px-3 py-2.5 text-[10px] font-bold text-right" style={{ color: item.profit >= 0 ? "#34d399" : "#f87171" }}>{fmt(item.profit)}</td>}</tr>))}</tbody></table></div>
+          <div className="w-full px-4 py-3 flex items-center justify-between" style={{ borderBottom: "1px solid rgba(255,255,255,0.06)", background: "rgba(255,255,255,0.02)" }}><div className="flex items-center gap-2"><h3 className="text-white text-[13px] font-bold">Canvas Devices</h3><span className="text-[#8b949e] text-[10px]">({canvasDevices.length})</span></div></div>
+          <div className="overflow-x-auto"><table className="w-full" style={{ minWidth: clientExportMode ? "400px" : "800px" }}><thead><tr style={{ borderBottom: "1px solid rgba(255,255,255,0.06)" }}><th className="px-3 py-2.5 text-[#8b949e] text-[9px] font-bold uppercase tracking-widest text-left">Item</th><th className="px-3 py-2.5 text-[#8b949e] text-[9px] font-bold uppercase tracking-widest text-center">QTY</th>{!clientExportMode && <><th className="px-3 py-2.5 text-[#8b949e] text-[9px] font-bold uppercase tracking-widest text-right">Cost</th><th className="px-3 py-2.5 text-[#8b949e] text-[9px] font-bold uppercase tracking-widest text-right">Markup %</th></>}<th className="px-3 py-2.5 text-[#8b949e] text-[9px] font-bold uppercase tracking-widest text-right">Sell</th>{!clientExportMode && <th className="px-3 py-2.5 text-[#8b949e] text-[9px] font-bold uppercase tracking-widest text-right">Cost Total</th>}<th className="px-3 py-2.5 text-[#8b949e] text-[9px] font-bold uppercase tracking-widest text-right">Total</th>{!clientExportMode && <th className="px-3 py-2.5 text-[#8b949e] text-[9px] font-bold uppercase tracking-widest text-right">Profit</th>}</tr></thead><tbody>{allItems.filter(i => i.isCanvasDevice).map(item => (<tr key={item.id} style={{ borderBottom: "1px solid rgba(255,255,255,0.03)" }}><td className="px-3 py-2.5 text-white text-[11px] font-semibold">{item.item}</td><td className="px-3 py-2.5 text-white text-[11px] text-center">{item.qty}</td>{!clientExportMode && <><td className="px-3 py-2.5 text-[#8b949e] text-[11px] text-right">{fmt(item.cost)}</td><td className="px-3 py-2.5 text-[#8b949e] text-[11px] text-right">{(item.markupPercent * 100).toFixed(0)}%</td></>}<td className="px-3 py-2.5 text-white text-[11px] font-bold text-right">{fmt(item.sell)}</td>{!clientExportMode && <td className="px-3 py-2.5 text-[#8b949e] text-[11px] text-right">{fmt(item.costTotal)}</td>}<td className="px-3 py-2.5 text-white text-[11px] font-bold text-right">{fmt(item.total)}</td>{!clientExportMode && <td className="px-3 py-2.5 text-[10px] font-bold text-right" style={{ color: item.profit >= 0 ? "#34d399" : "#f87171" }}>{fmt(item.profit)}</td>}</tr>))}</tbody></table></div>
         </div>
       )}
-      {quoteCategories.filter(c => ["Video Security Equipment","Access Control Equipment","Software","Compute & Storage","Networking"].includes(c.name)).map(category => { const isCollapsed = collapsedCategories.has(category.id); const items = allItems.filter(i => i.sourceCategory === category.name && !i.isCanvasDevice); if (items.length === 0) return null; return (<div key={category.id} className="rounded-2xl overflow-hidden" style={G.card}><button onClick={() => toggleCollapse(category.id)} className="w-full px-4 py-3 flex items-center justify-between hover:bg-white/[0.02] cursor-pointer" style={{ borderBottom: isCollapsed ? "none" : "1px solid rgba(255,255,255,0.06)", background: "rgba(255,255,255,0.02)" }}><div className="flex items-center gap-2"><h3 className="text-white text-[13px] font-bold">{category.name}</h3><span className="text-[#484f58] text-[10px]">({items.length})</span></div><div className="flex items-center gap-3"><span className="text-[#8b949e] text-[11px] font-bold">{fmt(items.reduce((s,i) => s + i.total, 0))}</span>{isCollapsed ? <ChevronDown className="w-4 h-4 text-[#484f58]" /> : <ChevronUp className="w-4 h-4 text-[#484f58]" />}</div></button>{!isCollapsed && (<div className="overflow-x-auto"><table className="w-full" style={{ minWidth: clientExportMode ? "400px" : "800px" }}><thead><tr style={{ borderBottom: "1px solid rgba(255,255,255,0.06)" }}><th className="px-3 py-2.5 text-[#484f58] text-[9px] font-bold uppercase tracking-widest text-left">Item</th><th className="px-3 py-2.5 text-[#484f58] text-[9px] font-bold uppercase tracking-widest text-center">QTY</th>{!clientExportMode && <><th className="px-3 py-2.5 text-[#484f58] text-[9px] font-bold uppercase tracking-widest text-right">Cost</th><th className="px-3 py-2.5 text-[#484f58] text-[9px] font-bold uppercase tracking-widest text-right">Markup %</th></>}<th className="px-3 py-2.5 text-[#484f58] text-[9px] font-bold uppercase tracking-widest text-right">Sell</th>{!clientExportMode && <th className="px-3 py-2.5 text-[#484f58] text-[9px] font-bold uppercase tracking-widest text-right">Cost Total</th>}<th className="px-3 py-2.5 text-[#484f58] text-[9px] font-bold uppercase tracking-widest text-right">Total</th>{!clientExportMode && <th className="px-3 py-2.5 text-[#484f58] text-[9px] font-bold uppercase tracking-widest text-right">Profit</th>}</tr></thead><tbody>{items.map(item => (<tr key={item.id} className="hover:bg-white/[0.02]" style={{ borderBottom: "1px solid rgba(255,255,255,0.03)" }}><td className="px-3 py-2.5"><InlineEditCell value={item.item} onChange={(val) => { if (item.sourceCategory && item.sourceItemId) { const cat = quoteCategories.find(c => c.name === item.sourceCategory); if (cat) onLineItemUpdate(cat.id, item.sourceItemId!, { description: val }); } }} /></td><td className="px-3 py-2.5"><InlineEditCell type="number" value={item.qty} onChange={(val) => { if (item.sourceCategory && item.sourceItemId) { const cat = quoteCategories.find(c => c.name === item.sourceCategory); if (cat) onLineItemUpdate(cat.id, item.sourceItemId!, { quantity: parseInt(val) || 0 }); } }} /></td>{!clientExportMode && <><td className="px-3 py-2.5"><InlineEditCell type="number" value={item.cost} onChange={(val) => { if (item.sourceCategory && item.sourceItemId) { const cat = quoteCategories.find(c => c.name === item.sourceCategory); if (cat) onLineItemUpdate(cat.id, item.sourceItemId!, { unitCost: parseFloat(val) || 0 }); } }} /></td><td className="px-3 py-2.5 text-[#8b949e] text-[11px] text-right">{(item.markupPercent * 100).toFixed(0)}%</td></>}<td className="px-3 py-2.5 text-white text-[11px] font-bold text-right">{fmt(item.sell)}</td>{!clientExportMode && <td className="px-3 py-2.5 text-[#8b949e] text-[11px] text-right">{fmt(item.costTotal)}</td>}<td className="px-3 py-2.5 text-white text-[11px] font-bold text-right">{fmt(item.total)}</td>{!clientExportMode && <td className="px-3 py-2.5 text-[10px] font-bold text-right" style={{ color: item.profit >= 0 ? "#34d399" : "#f87171" }}>{fmt(item.profit)}</td>}</tr>))}</tbody></table></div>)}</div>); })}
+      {quoteCategories.filter(c => !c.name.includes("Importation")).map(category => {
+        const isCollapsed = collapsedCategories.has(category.id);
+        const items = allItems.filter(i => i.sourceCategory === category.name && !i.isCanvasDevice);
+        if (items.length === 0) return null;
+        return (
+          <div key={category.id} className="rounded-2xl overflow-hidden" style={G.card}>
+            <button onClick={() => toggleCollapse(category.id)} className="w-full px-4 py-3 flex items-center justify-between hover:bg-white/[0.02] cursor-pointer" style={{ borderBottom: isCollapsed ? "none" : "1px solid rgba(255,255,255,0.06)", background: "rgba(255,255,255,0.02)" }}>
+              <div className="flex items-center gap-2"><h3 className="text-white text-[13px] font-bold">{category.name}</h3><span className="text-[#8b949e] text-[10px]">({items.length})</span><span className="text-[#484f58] text-[9px] font-mono">[{category.system}]</span></div>
+              <div className="flex items-center gap-3"><span className="text-[#8b949e] text-[11px] font-bold">{fmt(items.reduce((s,i) => s + i.total, 0))}</span>{isCollapsed ? <ChevronDown className="w-4 h-4 text-[#8b949e]" /> : <ChevronUp className="w-4 h-4 text-[#8b949e]" />}</div>
+            </button>
+            {!isCollapsed && <div className="overflow-x-auto"><table className="w-full" style={{ minWidth: clientExportMode ? "400px" : "800px" }}><thead><tr style={{ borderBottom: "1px solid rgba(255,255,255,0.06)" }}><th className="px-3 py-2.5 text-[#8b949e] text-[9px] font-bold uppercase tracking-widest text-left">Item</th><th className="px-3 py-2.5 text-[#8b949e] text-[9px] font-bold uppercase tracking-widest text-center">QTY</th>{!clientExportMode && <><th className="px-3 py-2.5 text-[#8b949e] text-[9px] font-bold uppercase tracking-widest text-right">Cost</th><th className="px-3 py-2.5 text-[#8b949e] text-[9px] font-bold uppercase tracking-widest text-right">Markup %</th></>}<th className="px-3 py-2.5 text-[#8b949e] text-[9px] font-bold uppercase tracking-widest text-right">Sell</th>{!clientExportMode && <th className="px-3 py-2.5 text-[#8b949e] text-[9px] font-bold uppercase tracking-widest text-right">Cost Total</th>}<th className="px-3 py-2.5 text-[#8b949e] text-[9px] font-bold uppercase tracking-widest text-right">Total</th>{!clientExportMode && <th className="px-3 py-2.5 text-[#8b949e] text-[9px] font-bold uppercase tracking-widest text-right">Profit</th>}</tr></thead><tbody>{items.map(item => (<tr key={item.id} className="hover:bg-white/[0.02]" style={{ borderBottom: "1px solid rgba(255,255,255,0.03)" }}><td className="px-3 py-2.5"><InlineEditCell value={item.item} onChange={(val) => { if (item.sourceCategory && item.sourceItemId) { const cat = quoteCategories.find(c => c.name === item.sourceCategory); if (cat) onLineItemUpdate(cat.id, item.sourceItemId!, { description: val }); } }} /></td><td className="px-3 py-2.5"><InlineEditCell type="number" value={item.qty} onChange={(val) => { if (item.sourceCategory && item.sourceItemId) { const cat = quoteCategories.find(c => c.name === item.sourceCategory); if (cat) onLineItemUpdate(cat.id, item.sourceItemId!, { quantity: parseInt(val) || 0 }); } }} /></td>{!clientExportMode && <><td className="px-3 py-2.5"><InlineEditCell type="number" value={item.cost} onChange={(val) => { if (item.sourceCategory && item.sourceItemId) { const cat = quoteCategories.find(c => c.name === item.sourceCategory); if (cat) onLineItemUpdate(cat.id, item.sourceItemId!, { unitCost: parseFloat(val) || 0 }); } }} /></td><td className="px-3 py-2.5 text-[#8b949e] text-[11px] text-right">{(item.markupPercent * 100).toFixed(0)}%</td></>}<td className="px-3 py-2.5 text-white text-[11px] font-bold text-right">{fmt(item.sell)}</td>{!clientExportMode && <td className="px-3 py-2.5 text-[#8b949e] text-[11px] text-right">{fmt(item.costTotal)}</td>}<td className="px-3 py-2.5 text-white text-[11px] font-bold text-right">{fmt(item.total)}</td>{!clientExportMode && <td className="px-3 py-2.5 text-[10px] font-bold text-right" style={{ color: item.profit >= 0 ? "#34d399" : "#f87171" }}>{fmt(item.profit)}</td>}</tr>))}</tbody></table></div>}
+          </div>
+        );
+      })}
     </div>
   );
 }
-
 function ProposalGeneratorModal({ open, onClose, projectId }: { open: boolean; onClose: () => void; projectId: string; }) {
   const [generating, setGenerating] = useState(false);
-  const handleGenerate = async () => { setGenerating(true); try { const result = await API.proposals.generate(projectId); toast.success("Proposal generated"); window.open(result.url, "_blank"); onClose(); } catch { toast.error("Failed to generate proposal"); } finally { setGenerating(false); } };
+  const handleGenerate = async () => {
+    setGenerating(true);
+    try {
+      const result = await API.proposals.generate(projectId);
+      toast.success("Proposal generated");
+      window.open(result.url, "_blank");
+      onClose();
+    } catch { toast.error("Failed to generate proposal"); }
+    finally { setGenerating(false); }
+  };
   if (!open) return null;
   return (
-    <div className="fixed inset-0 z-[400] flex items-center justify-center p-4" onClick={onClose}><div className="absolute inset-0" style={{ background: "rgba(0,0,0,0.65)", backdropFilter: "blur(8px)" }} /><motion.div initial={{ opacity: 0, scale: 0.93 }} animate={{ opacity: 1, scale: 1 }} onClick={e => e.stopPropagation()} className="relative z-10 w-full max-w-[480px] rounded-2xl p-6" style={G.liquidGlass}><h3 className="text-white text-[14px] font-bold mb-2">Generate Proposal</h3><p className="text-[#8b949e] text-[11px] mb-4">Creates a formatted PDF with project scope, device list, pricing summary, company boilerplate, and terms.</p><div className="flex gap-2"><button onClick={onClose} className="flex-1 h-10 rounded-xl text-[#8b949e] text-[12px] font-semibold cursor-pointer" style={G.btn}>Cancel</button><button onClick={handleGenerate} disabled={generating} className="flex-1 h-10 rounded-xl text-white text-[12px] font-bold cursor-pointer flex items-center justify-center gap-2" style={{ background: "#3b82f6" }}>{generating ? <Loader2 className="w-4 h-4 animate-spin" /> : <FileDown className="w-4 h-4" />}{generating ? "Generating..." : "Generate PDF"}</button></div></motion.div></div>
+    <div className="fixed inset-0 z-[400] flex items-center justify-center p-4" onClick={onClose}>
+      <div className="absolute inset-0" style={{ background: "rgba(0,0,0,0.65)", backdropFilter: "blur(8px)" }} />
+      <motion.div initial={{ opacity: 0, scale: 0.93 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.93 }} transition={{ type: "spring", damping: 26, stiffness: 360 }} onClick={e => e.stopPropagation()} className="relative z-10 w-full max-w-[480px] rounded-2xl p-6" style={G.liquidGlass}>
+        <h3 className="text-white text-[14px] font-bold mb-2">Generate Proposal</h3>
+        <p className="text-[#8b949e] text-[11px] mb-4">Creates a formatted PDF with project scope, device list, pricing summary, company boilerplate, and terms.</p>
+        <div className="flex gap-2">
+          <button onClick={onClose} className="flex-1 h-10 rounded-xl text-[#8b949e] text-[12px] font-semibold cursor-pointer" style={G.btn}>Cancel</button>
+          <button onClick={handleGenerate} disabled={generating} className="flex-1 h-10 rounded-xl text-white text-[12px] font-bold cursor-pointer flex items-center justify-center gap-2" style={{ background: "#3b82f6" }}>{generating ? <Loader2 className="w-4 h-4 animate-spin" /> : <FileDown className="w-4 h-4" />}{generating ? "Generating..." : "Generate PDF"}</button>
+        </div>
+      </motion.div>
+    </div>
   );
 }
 
@@ -1560,7 +2953,7 @@ function Workbook({ navigate }: { navigate: (p: Page) => void }) {
   const [selectedProjectId, setSelectedProjectId] = useState<string>(() => localStorage.getItem("wb_last_project") || "");
   const [selectedQuoteId, setSelectedQuoteId] = useState<string>("");
   const [showProjectSelect, setShowProjectSelect] = useState(false);
-  const [exchangeRate, setExchangeRate] = useState(parseFloat(localStorage.getItem("fx_rate") || "157.4"));
+  const [exchangeRate, setExchangeRate] = useState(parseFloat(localStorage.getItem("fx_rate") || String(DEFAULT_EXCHANGE_RATE)));
   const [activeTab, setActiveTab] = useState<WorkbookTab>(() => (localStorage.getItem("wb_tab") as WorkbookTab) || "asset-list");
   const [saveStatus, setSaveStatus] = useState<"saved" | "saving" | "">("saved");
   const [canvasDevices, setCanvasDevices] = useState<CanvasDevice[]>([]);
@@ -1575,11 +2968,33 @@ function Workbook({ navigate }: { navigate: (p: Page) => void }) {
   useEffect(() => { API.fx.getRate().then(r => setExchangeRate(r)); }, []);
   useEffect(() => { API.devices.list().then(setStoreDevices).catch(() => setStoreDevices([])); }, []);
 
-  const fetchData = useCallback(async () => { setLoading(true); try { const [projData, quoteData] = await Promise.all([API.projects.list(), API.quotes.list()]); setProjects(projData); setQuotes(quoteData); const lastId = localStorage.getItem("wb_last_project"); const pid = lastId && projData.find(p => p.id === lastId) ? lastId : projData[0]?.id || ""; if (pid && !selectedProjectId) { setSelectedProjectId(pid); const pq = quoteData.find((q: Quote) => q.projectId === pid); if (pq) setSelectedQuoteId(pq.id); } } catch { setProjects([]); setQuotes([]); } finally { setLoading(false); } }, []);
+  const fetchData = useCallback(async () => {
+    setLoading(true);
+    try {
+      const [projData, quoteData] = await Promise.all([API.projects.list(), API.quotes.list()]);
+      setProjects(projData);
+      setQuotes(quoteData);
+      const lastId = localStorage.getItem("wb_last_project");
+      const pid = lastId && projData.find(p => p.id === lastId) ? lastId : projData[0]?.id || "";
+      if (pid && !selectedProjectId) {
+        setSelectedProjectId(pid);
+        const pq = quoteData.find((q: Quote) => q.projectId === pid);
+        if (pq) setSelectedQuoteId(pq.id);
+      }
+    } catch { setProjects([]); setQuotes([]); }
+    finally { setLoading(false); }
+  }, []);
   useEffect(() => { fetchData(); }, [fetchData]);
   useEffect(() => { if (!selectedProjectId && projects.length > 0) { setShowProjectSelect(true); } }, [projects, selectedProjectId]);
 
-  useEffect(() => { if (selectedProjectId) { localStorage.setItem("wb_last_project", selectedProjectId); API.canvas.get(selectedProjectId).then(data => { if (data.layoutData?.devices) setCanvasDevices(data.layoutData.devices); else setCanvasDevices([]); }).catch(() => setCanvasDevices([])); API.workbook.getOverrides(selectedProjectId).then(setSynthesisOverrides).catch(() => setSynthesisOverrides([])); API.workbook.getAudit(selectedProjectId).then(setWorkbookAudit).catch(() => setWorkbookAudit([])); } }, [selectedProjectId]);
+  useEffect(() => {
+    if (selectedProjectId) {
+      localStorage.setItem("wb_last_project", selectedProjectId);
+      API.canvas.get(selectedProjectId).then(data => { if (data.layoutData?.devices) setCanvasDevices(data.layoutData.devices); else setCanvasDevices([]); }).catch(() => setCanvasDevices([]));
+      API.workbook.getOverrides(selectedProjectId).then(setSynthesisOverrides).catch(() => setSynthesisOverrides([]));
+      API.workbook.getAudit(selectedProjectId).then(setWorkbookAudit).catch(() => setWorkbookAudit([]));
+    }
+  }, [selectedProjectId]);
 
   const selectedProject = projects.find((p) => p.id === selectedProjectId);
   const selectedQuote = quotes.find((q) => q.id === selectedQuoteId);
@@ -1591,38 +3006,88 @@ function Workbook({ navigate }: { navigate: (p: Page) => void }) {
   const updateQuoteLineItem = (categoryId: string, itemId: string, updates: Partial<QuoteLineItem>) => {
     const fieldKey = `li-${categoryId}-${itemId}`;
     setFieldSaveStatus(prev => ({ ...prev, [fieldKey]: "saving" }));
-    setQuotes((prev) => prev.map((q) => { if (q.id !== selectedQuoteId) return q; const updated = { ...q, categories: q.categories.map((cat) => cat.id !== categoryId ? cat : { ...cat, lineItems: cat.lineItems.map((li) => li.id === itemId ? recalcLineItem({ ...li, ...updates }, exchangeRate) : li) }) }; autoSave(updated); return updated; }));
+    setQuotes((prev) => prev.map((q) => {
+      if (q.id !== selectedQuoteId) return q;
+      const updated = { ...q, categories: q.categories.map((cat) => cat.id !== categoryId ? cat : { ...cat, lineItems: cat.lineItems.map((li) => li.id === itemId ? recalcLineItem({ ...li, ...updates }, exchangeRate) : li) }) };
+      autoSave(updated);
+      return updated;
+    }));
     setTimeout(() => setFieldSaveStatus(prev => ({ ...prev, [fieldKey]: "saved" })), 600);
   };
 
-  const addLineItem = (categoryId: string) => { setQuotes((prev) => prev.map((q) => { if (q.id !== selectedQuoteId) return q; const updated = { ...q, categories: q.categories.map((cat) => { if (cat.id !== categoryId) return cat; const newItem: QuoteLineItem = { id: crypto.randomUUID?.() || `li${Date.now()}`, itemNumber: String(cat.lineItems.length + 1).padStart(2, "0"), description: "", unitCost: 0, quantity: 0, markupPercent: 0.35, sellPrice: 0, costTotal: 0, sellTotal: 0, profit: 0, jmdConversion: 0 }; return { ...cat, lineItems: [...cat.lineItems, newItem] }; }) }; autoSave(updated); return updated; })); };
+  const addLineItem = (categoryId: string) => {
+    setQuotes((prev) => prev.map((q) => {
+      if (q.id !== selectedQuoteId) return q;
+      const updated = { ...q, categories: q.categories.map((cat) => {
+        if (cat.id !== categoryId) return cat;
+        const newItem: QuoteLineItem = { id: crypto.randomUUID?.() || `li${Date.now()}`, itemNumber: String(cat.lineItems.length + 1).padStart(2, "0"), description: "", unitCost: 0, quantity: 0, markupPercent: 0.35, sellPrice: 0, costTotal: 0, sellTotal: 0, profit: 0, jmdConversion: 0 };
+        return { ...cat, lineItems: [...cat.lineItems, newItem] };
+      }) };
+      autoSave(updated);
+      return updated;
+    }));
+  };
 
   const handleSaveOverride = async (sectionNumber: string, value: number | null, isOverridden: boolean) => {
     const fieldKey = `synth-${sectionNumber}`;
     setFieldSaveStatus(prev => ({ ...prev, [fieldKey]: "saving" }));
-    try { await API.workbook.saveOverrides(selectedProjectId, [{ projectId: selectedProjectId, sectionNumber, overrideValue: value, isOverridden, overriddenBy: CURRENT_USER.name }]); setSynthesisOverrides(prev => { const existing = prev.findIndex(o => o.sectionNumber === sectionNumber); if (existing >= 0) { const updated = [...prev]; updated[existing] = { ...updated[existing], overrideValue: value, isOverridden, overriddenBy: CURRENT_USER.name }; return updated; } return [...prev, { id: crypto.randomUUID?.() || `ovr${Date.now()}`, projectId: selectedProjectId, sectionNumber, overrideValue: value, isOverridden, overriddenBy: CURRENT_USER.name, overriddenAt: new Date().toISOString() }]; }); setTimeout(() => setFieldSaveStatus(prev => ({ ...prev, [fieldKey]: "saved" })), 600); } catch { setFieldSaveStatus(prev => ({ ...prev, [fieldKey]: "" })); }
+    try {
+      await API.workbook.saveOverrides(selectedProjectId, [{ projectId: selectedProjectId, sectionNumber, overrideValue: value, isOverridden, overriddenBy: CURRENT_USER.name }]);
+      setSynthesisOverrides(prev => {
+        const existing = prev.findIndex(o => o.sectionNumber === sectionNumber);
+        if (existing >= 0) { const updated = [...prev]; updated[existing] = { ...updated[existing], overrideValue: value, isOverridden, overriddenBy: CURRENT_USER.name }; return updated; }
+        return [...prev, { id: crypto.randomUUID?.() || `ovr${Date.now()}`, projectId: selectedProjectId, sectionNumber, overrideValue: value, isOverridden, overriddenBy: CURRENT_USER.name, overriddenAt: new Date().toISOString() }];
+      });
+      setTimeout(() => setFieldSaveStatus(prev => ({ ...prev, [fieldKey]: "saved" })), 600);
+    } catch { setFieldSaveStatus(prev => ({ ...prev, [fieldKey]: "" })); }
   };
 
-  const handleBomEditWithOverride = (sectionNumber: string, sectionName: string, callback: () => void) => { const override = synthesisOverrides.find(o => o.sectionNumber === sectionNumber && o.isOverridden); if (override) { setOverrideConflict({ sectionNumber, sectionName, pendingCallback: callback }); } else { callback(); } };
+  const handleBomEditWithOverride = (sectionNumber: string, sectionName: string, callback: () => void) => {
+    const override = synthesisOverrides.find(o => o.sectionNumber === sectionNumber && o.isOverridden);
+    if (override) { setOverrideConflict({ sectionNumber, sectionName, pendingCallback: callback }); } else { callback(); }
+  };
 
-  const wbTabs = [{ id: "asset-list" as WorkbookTab, label: "Asset List" },{ id: "bom" as WorkbookTab, label: "BOM" },{ id: "synthesis" as WorkbookTab, label: "Synthesis" }];
+  const wbTabs = [
+    { id: "asset-list" as WorkbookTab, label: "Asset List" },
+    { id: "cost-margin" as WorkbookTab, label: "Cost & Margin" },
+    { id: "bom" as WorkbookTab, label: "BOM" },
+    { id: "synthesis" as WorkbookTab, label: "Synthesis" },
+  ];
 
-  if (loading) return (<div className="px-3 md:px-5 py-4 md:py-6 space-y-4"><Skeleton className="h-10 w-48" /><div className="flex gap-2"><Skeleton className="h-8 w-24 rounded-lg" /><Skeleton className="h-8 w-24 rounded-lg" /><Skeleton className="h-8 w-24 rounded-lg" /></div><Skeleton className="h-64 rounded-2xl" /></div>);
+  if (loading) return (<div className="px-3 md:px-5 py-4 md:py-6 space-y-4"><Skeleton className="h-10 w-48" /><div className="flex gap-2"><Skeleton className="h-8 w-24 rounded-lg" /><Skeleton className="h-8 w-24 rounded-lg" /><Skeleton className="h-8 w-24 rounded-lg" /><Skeleton className="h-8 w-24 rounded-lg" /></div><Skeleton className="h-64 rounded-2xl" /></div>);
 
   return (
     <div className="flex flex-col h-[calc(100vh-56px)] overflow-hidden">
-      {overrideConflict && (<OverrideConflictModal open={true} sectionName={overrideConflict.sectionName} onUpdateOverride={() => { overrideConflict.pendingCallback?.(); handleSaveOverride(overrideConflict.sectionNumber, null, false); setOverrideConflict(null); }} onKeepOverride={() => { overrideConflict.pendingCallback?.(); setOverrideConflict(null); }} onCancel={() => setOverrideConflict(null)} />)}
+      {overrideConflict && <OverrideConflictModal open={true} sectionName={overrideConflict.sectionName} onUpdateOverride={() => { overrideConflict.pendingCallback?.(); handleSaveOverride(overrideConflict.sectionNumber, null, false); setOverrideConflict(null); }} onKeepOverride={() => { overrideConflict.pendingCallback?.(); setOverrideConflict(null); }} onCancel={() => setOverrideConflict(null)} />}
       {showProjectSelect && <SelectProjectModal onClose={() => setShowProjectSelect(false)} onSelect={(id: string) => { setSelectedProjectId(id); setShowProjectSelect(false); }} currentId={selectedProjectId} projects={projects} />}
       {showProposalModal && <ProposalGeneratorModal open={true} onClose={() => setShowProposalModal(false)} projectId={selectedProjectId} />}
       <div className="px-4 md:px-6 py-3 flex flex-col md:flex-row md:items-center justify-between flex-shrink-0 gap-2" style={{ borderBottom: "1px solid rgba(255,255,255,0.07)" }}>
-        <div><h1 className="text-white font-bold text-lg md:text-xl tracking-tight">Workbook</h1><div className="flex items-center gap-2 mt-1 flex-wrap"><button onClick={() => setShowProjectSelect(true)} className="flex items-center gap-1.5 text-[#8b949e] hover:text-white text-[11px] font-semibold cursor-pointer" style={{ ...G.btn, padding: "4px 10px", borderRadius: "8px" }}><Building2 className="w-3 h-3" />{selectedProject ? selectedProject.name : "Select project"}<ChevronDown className="w-3 h-3" /></button>{selectedQuote && <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-500/12 text-amber-400">{selectedQuote.refNumber} · {selectedQuote.status}</span>}{saveStatus === "saving" && <span className="text-[10px] text-[#484f58] flex items-center gap-1"><Loader2 className="w-3 h-3 animate-spin" /> Saving…</span>}{saveStatus === "saved" && <span className="text-[10px] text-emerald-400 flex items-center gap-1"><CheckCircle2 className="w-3 h-3" /> Saved</span>}</div></div>
-        <div className="flex items-center gap-2"><div className="flex items-center gap-2 px-3 py-1 rounded-xl" style={G.subtle}><span className="text-[#484f58] text-[10px] font-bold uppercase">FX Rate</span><span className="text-white text-[12px] font-bold">J$ {exchangeRate.toFixed(2)}</span></div><button onClick={() => setShowProposalModal(true)} className="flex items-center gap-1.5 h-7 px-3 rounded-lg text-white text-[10px] font-bold cursor-pointer" style={{ background: "#3b82f6" }}><FileDown className="w-3 h-3" /> Proposal</button></div>
+        <div>
+          <h1 className="text-white font-bold text-lg md:text-xl tracking-tight">Workbook</h1>
+          <div className="flex items-center gap-2 mt-1 flex-wrap">
+            <button onClick={() => setShowProjectSelect(true)} className="flex items-center gap-1.5 text-[#8b949e] hover:text-white text-[11px] font-semibold cursor-pointer" style={{ ...G.btn, padding: "4px 10px", borderRadius: "8px" }}><Building2 className="w-3 h-3" />{selectedProject ? selectedProject.name : "Select project"}<ChevronDown className="w-3 h-3" /></button>
+            {selectedQuote && <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-500/12 text-amber-400">{selectedQuote.refNumber} · {selectedQuote.status}</span>}
+            {saveStatus === "saving" && <span className="text-[10px] text-[#8b949e] flex items-center gap-1"><Loader2 className="w-3 h-3 animate-spin" /> Saving…</span>}
+            {saveStatus === "saved" && <span className="text-[10px] text-emerald-400 flex items-center gap-1"><CheckCircle2 className="w-3 h-3" /> Saved</span>}
+          </div>
+        </div>
+        <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 px-3 py-1 rounded-xl" style={G.subtle}><span className="text-[#8b949e] text-[10px] font-bold uppercase">FX Rate</span><span className="text-white text-[12px] font-bold">J$ {exchangeRate.toFixed(2)}</span></div>
+          <button onClick={() => setShowProposalModal(true)} className="flex items-center gap-1.5 h-7 px-3 rounded-lg text-white text-[10px] font-bold cursor-pointer" style={{ background: "#3b82f6" }}><FileDown className="w-3 h-3" /> Proposal</button>
+        </div>
       </div>
-      {!selectedQuote && canvasDevices.length === 0 ? (<div className="flex-1 flex items-center justify-center"><EmptyState icon={DollarSign} title="No workbook" description="Select a project to view its workbook." action={{ label: "Select Project", onClick: () => setShowProjectSelect(true) }} /></div>) : (
+      {!selectedQuote && canvasDevices.length === 0 ? (
+        <div className="flex-1 flex items-center justify-center"><EmptyState icon={DollarSign} title="No workbook" description="Select a project to view its workbook." action={{ label: "Select Project", onClick: () => setShowProjectSelect(true) }} /></div>
+      ) : (
         <div className="flex-1 flex flex-col overflow-hidden">
-          <div className="flex items-center gap-1 px-4 py-2 overflow-x-auto flex-shrink-0" style={{ borderBottom: "1px solid rgba(255,255,255,0.06)", scrollbarWidth: "none" }}>{wbTabs.map((tab) => (<button key={tab.id} onClick={() => setActiveTab(tab.id)} className={clsx("h-8 px-3 rounded-lg text-[11px] font-semibold whitespace-nowrap cursor-pointer", activeTab === tab.id ? "text-white" : "text-[#8b949e] hover:text-white")} style={activeTab === tab.id ? { background: "rgba(59,130,246,0.20)", border: "1px solid rgba(59,130,246,0.30)" } : undefined}>{tab.label}</button>))}</div>
+          <div className="flex items-center gap-1 px-4 py-2 overflow-x-auto flex-shrink-0" style={{ borderBottom: "1px solid rgba(255,255,255,0.06)", scrollbarWidth: "none" }}>
+            {wbTabs.map((tab) => (
+              <button key={tab.id} onClick={() => setActiveTab(tab.id)} className={clsx("h-8 px-3 rounded-lg text-[11px] font-semibold whitespace-nowrap cursor-pointer", activeTab === tab.id ? "text-white" : "text-[#8b949e] hover:text-white")} style={activeTab === tab.id ? { background: "rgba(59,130,246,0.20)", border: "1px solid rgba(59,130,246,0.30)" } : undefined}>{tab.label}</button>
+            ))}
+          </div>
           <div className="flex-1 overflow-y-auto px-3 md:px-5 py-4 space-y-4" style={{ scrollbarWidth: "thin", scrollbarColor: "rgba(255,255,255,0.08) transparent" }}>
             {activeTab === "asset-list" && <AssetListTab quoteCategories={quoteCategories} canvasDevices={canvasDevices} storeDevices={storeDevices} exchangeRate={exchangeRate} fmt={fmt} onLineItemUpdate={updateQuoteLineItem} fieldSaveStatus={fieldSaveStatus} />}
+            {activeTab === "cost-margin" && <CostMarginTab quoteCategories={quoteCategories} exchangeRate={exchangeRate} fmt={fmt} onLineItemUpdate={updateQuoteLineItem} fieldSaveStatus={fieldSaveStatus} />}
             {activeTab === "bom" && <BomTab quoteCategories={quoteCategories} synthesisOverrides={synthesisOverrides} exchangeRate={exchangeRate} fmt={fmt} onLineItemUpdate={updateQuoteLineItem} onAddLineItem={addLineItem} onBomEditWithOverride={handleBomEditWithOverride} fieldSaveStatus={fieldSaveStatus} />}
             {activeTab === "synthesis" && <SynthesisTab quoteCategories={quoteCategories} synthesisOverrides={synthesisOverrides} exchangeRate={exchangeRate} fmt={fmt} onSaveOverride={handleSaveOverride} fieldSaveStatus={fieldSaveStatus} />}
           </div>
@@ -1632,7 +3097,220 @@ function Workbook({ navigate }: { navigate: (p: Page) => void }) {
   );
 }
 
-const STATUS_META: Record<InstallStatus, { label: string; color: string; bg: string; icon: IconType }> = { complete: { label: "Complete", color: "text-emerald-400", bg: "bg-emerald-500/12", icon: CheckCircle2 }, "in-progress": { label: "In Progress", color: "text-blue-400", bg: "bg-blue-500/12", icon: Clock }, failed: { label: "Failed", color: "text-rose-400", bg: "bg-rose-500/12", icon: AlertTriangle }, pending: { label: "Pending", color: "text-[#484f58]", bg: "bg-white/[0.04]", icon: AlertCircle } };
+const CAT_COLOR_DS: Record<string, { bg: string; text: string; label: string }> = {
+  camera: { bg: "rgba(59,130,246,0.12)", text: "#60a5fa", label: "Camera" },
+  "access-control": { bg: "rgba(139,92,246,0.12)", text: "#a78bfa", label: "Access" },
+  nvr: { bg: "rgba(16,185,129,0.12)", text: "#34d399", label: "NVR" },
+  analytics: { bg: "rgba(249,115,22,0.12)", text: "#fb923c", label: "VMS" },
+  intercom: { bg: "rgba(20,184,166,0.12)", text: "#2dd4bf", label: "Intercom" },
+  other: { bg: "rgba(100,100,100,0.12)", text: "#8b949e", label: "Other" },
+};
+
+function DeviceSpecModal({ device, onClose }: { device: CatalogDevice; onClose: () => void }) {
+  const { addToQuote } = useQuote();
+  const { fmt } = useCurrency();
+  const cc = CAT_COLOR_DS[device.category] ?? CAT_COLOR_DS.other;
+  const specs: { label: string; value?: string }[] = [
+    { label: "SKU", value: device.sku },
+    { label: "Category", value: cc.label },
+    { label: "System", value: device.system },
+    { label: "Camera Type", value: device.cameraType },
+    { label: "Resolution", value: device.resolution },
+    { label: "Sensor", value: device.sensor },
+    { label: "Lens", value: device.lens },
+    { label: "Frame Rate", value: device.frameRate },
+    { label: "Compression", value: device.compression },
+    { label: "FOV", value: device.fov },
+    { label: "Night Vision", value: device.nightVision },
+    { label: "Weather Rating", value: device.weatherRating },
+    { label: "Power Input", value: device.powerInput },
+    { label: "Storage", value: device.storage },
+    { label: "Operating Temp", value: device.operatingTemp },
+    { label: "Authentication", value: device.authentication },
+    { label: "Channels", value: device.channels },
+    { label: "Readers", value: device.readers },
+  ].filter((s) => !!s.value);
+  return (
+    <div className="fixed inset-0 z-[300] flex items-center justify-center p-4" onClick={onClose}>
+      <div className="absolute inset-0" style={{ background: "rgba(0,0,0,0.7)", backdropFilter: "blur(10px)" }} />
+      <motion.div initial={{ opacity: 0, scale: 0.93, y: 18 }} animate={{ opacity: 1, scale: 1, y: 0 }} exit={{ opacity: 0, scale: 0.93, y: 18 }} transition={{ type: "spring", damping: 26, stiffness: 340 }} onClick={(e) => e.stopPropagation()} className="relative z-10 w-full max-w-[780px] max-h-[90vh] overflow-y-auto rounded-3xl flex flex-col md:flex-row" style={{ background: "rgba(7,12,26,0.95)", backdropFilter: "blur(52px) saturate(200%)", border: "1px solid rgba(255,255,255,0.13)", boxShadow: "0 40px 100px rgba(0,0,0,0.95)" }}>
+        <div className="w-full md:w-56 flex-shrink-0 relative flex items-center justify-center" style={{ background: "rgba(255,255,255,0.03)", minHeight: "250px" }}>
+          {device.imageUrl ? <img src={device.imageUrl} alt={device.model} className="w-full h-full object-contain p-4" style={{ maxHeight: "320px" }} /> : <div className="w-full h-full flex items-center justify-center"><Camera className="w-16 h-16 text-[#8b949e]" /></div>}
+          <div className="absolute bottom-4 left-4 flex flex-wrap gap-1.5">
+            <span className="inline-block px-2 py-0.5 rounded-lg text-[10px] font-bold uppercase" style={{ background: cc.bg, color: cc.text }}>{cc.label}</span>
+            {device.cameraType && <span className="inline-block px-2 py-0.5 rounded-lg text-[9px] font-bold uppercase" style={{ background: "rgba(255,255,255,0.08)", color: "#e6edf3" }}>{device.cameraType}</span>}
+            {device.tags?.map((tag) => { const ts = TAG_STYLES[tag]; return ts ? <span key={tag} className="inline-block px-2 py-0.5 rounded-lg text-[9px] font-bold uppercase" style={{ background: ts.bg, color: ts.text, border: `1px solid ${ts.border}` }}>{tag}</span> : null; })}
+          </div>
+        </div>
+        <div className="flex-1 flex flex-col overflow-hidden">
+          <div className="px-5 md:px-6 pt-5 md:pt-6 pb-4 flex items-start justify-between flex-shrink-0" style={{ borderBottom: "1px solid rgba(255,255,255,0.07)" }}>
+            <div><p className="text-[#8b949e] text-[11px] font-semibold">{device.manufacturer}</p><h2 className="text-white text-[1.1rem] font-bold mt-0.5">{device.model}</h2>{device.price && <p className="text-[0.9rem] font-bold mt-1" style={{ color: cc.text }}>{fmt(device.price)} <span className="text-[#8b949e] text-[10px] font-normal">/ unit</span></p>}</div>
+            <button onClick={onClose} className="w-8 h-8 rounded-xl flex items-center justify-center hover:bg-white/[0.08] cursor-pointer min-w-[44px] min-h-[44px]" style={{ border: "1px solid rgba(255,255,255,0.10)" }}><X className="w-4 h-4 text-[#8b949e]" /></button>
+          </div>
+          <div className="flex-1 overflow-y-auto px-5 md:px-6 py-4"><div className="grid grid-cols-1 md:grid-cols-2 gap-2 md:gap-3">{specs.map((s) => (<div key={s.label} className="rounded-xl p-3" style={G.subtle}><p className="text-[#8b949e] text-[9px] font-bold uppercase tracking-widest mb-1">{s.label}</p><p className="text-white text-[11px] font-semibold">{s.value}</p></div>))}</div></div>
+          <div className="px-5 md:px-6 py-4 flex items-center gap-3 flex-shrink-0" style={{ borderTop: "1px solid rgba(255,255,255,0.07)" }}><button onClick={() => { addToQuote(device); onClose(); }} className="flex items-center gap-2 h-9 px-4 rounded-xl text-white text-[11px] font-bold cursor-pointer min-h-[44px]" style={{ background: "#3b82f6", boxShadow: "0 4px 16px rgba(59,130,246,0.35)" }}><Plus className="w-3.5 h-3.5" /> Add to Quote</button></div>
+        </div>
+      </motion.div>
+    </div>
+  );
+}
+
+function DeviceLibrary({ navigate: _navigate }: { navigate: (p: Page) => void }) {
+  const [activeTab, setActiveTab] = useState<DeviceLibraryTab>("store");
+  const [search, setSearch] = useState("");
+  const [categoryFilter, setCategoryFilter] = useState<string>("all");
+  const [systemFilter, setSystemFilter] = useState<SystemType | "all">("all");
+  const [selectedDevice, setSelectedDevice] = useState<CatalogDevice | null>(null);
+  const [devices, setDevices] = useState<CatalogDevice[]>([]);
+  const [loading, setLoading] = useState(true);
+  const { fmt } = useCurrency();
+  const [csvUploading, setCsvUploading] = useState(false);
+  const [inventory, setInventory] = useState<InventoryItem[]>([]);
+  const [transactions, setTransactions] = useState<InventoryTransaction[]>([]);
+  const [showAddItem, setShowAddItem] = useState(false);
+  const [invName, setInvName] = useState("");
+  const [invQty, setInvQty] = useState("");
+  const [invLocation, setInvLocation] = useState("");
+  const [showTransaction, setShowTransaction] = useState<string | null>(null);
+  const [txUserName, setTxUserName] = useState("");
+  const [txAction, setTxAction] = useState("Sold");
+  const [txQty, setTxQty] = useState("");
+  const [txPurpose, setTxPurpose] = useState("");
+  const [txNotes, setTxNotes] = useState("");
+
+  const fetchDevices = useCallback(async () => { setLoading(true); try { const data = await API.devices.list(); setDevices(data); } catch { setDevices([]); } finally { setLoading(false); } }, []);
+  useEffect(() => { fetchDevices(); }, [fetchDevices]);
+
+  const fetchInventory = useCallback(async () => { try { const [items, txs] = await Promise.all([API.inventory.items(), API.inventory.transactions()]); setInventory(items); setTransactions(txs); } catch { setInventory([]); setTransactions([]); } }, []);
+  useEffect(() => { fetchInventory(); }, [fetchInventory]);
+
+  const handleCSVUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]; if (!file) return;
+    setCsvUploading(true);
+    try {
+      const text = await file.text();
+      const lines = text.split("\n").filter(l => l.trim());
+      const headers = lines[0].split(",").map(h => h.trim().replace(/"/g,""));
+      const parsed = lines.slice(1).map(line => {
+        const vals = line.split(",").map(v => v.trim().replace(/"/g,""));
+        const obj: any = {};
+        headers.forEach((h,i) => { obj[h] = vals[i]; });
+        return { model: obj.Model||obj.model||"", manufacturer: obj.Manufacturer||obj.manufacturer||"Unknown", category: "camera" as const, system: (obj.System as SystemType) || "VSS", cameraType: obj["Camera Type"]||undefined, resolution: obj["Max Video Resolution"]||undefined, lens: obj["Sensor/Lens/Horizontal FOV"]||undefined, price: parseFloat(obj.Price||"0")||undefined, sku: obj.SKU||obj.Model||undefined, imageUrl: obj["Image URL"]||obj.Image||undefined, tags: [] as DeviceTag[] };
+      });
+      if (parsed.length > 0) { await API.devices.bulk(parsed); toast.success(`Imported ${parsed.length} devices`); fetchDevices(); }
+    } catch { toast.error("CSV import failed"); }
+    finally { setCsvUploading(false); e.target.value = ""; }
+  };
+
+  const handleAddInventoryItem = async () => {
+    if (!invName.trim()) return;
+    try { await API.inventory.createItem({ name: invName.trim(), quantityOnHand: parseInt(invQty) || 0, location: invLocation.trim() || undefined }); fetchInventory(); setInvName(""); setInvQty(""); setInvLocation(""); setShowAddItem(false); toast.success("Item added"); } catch { toast.error("Failed to add item"); }
+  };
+
+  const handleAddTransaction = async (itemId: string) => {
+    if (!txUserName.trim() || !txQty) return;
+    try { await API.inventory.createTransaction({ itemId, userName: txUserName.trim(), action: txAction, quantity: parseInt(txQty), purpose: txPurpose.trim() || undefined, notes: txNotes.trim() || undefined }); fetchInventory(); setShowTransaction(null); setTxUserName(""); setTxQty(""); setTxPurpose(""); setTxNotes(""); toast.success("Transaction logged"); } catch { toast.error("Failed to log transaction"); }
+  };
+
+  const categories: { id: string; label: string }[] = [{ id: "all", label: "All" },{ id: "camera", label: "Cameras" },{ id: "access-control", label: "Access" },{ id: "nvr", label: "NVR" },{ id: "analytics", label: "VMS" },{ id: "intercom", label: "Intercom" }];
+  const filtered = useMemo(() => {
+    let result = devices;
+    if (categoryFilter !== "all") result = result.filter((d) => d.category === categoryFilter);
+    if (systemFilter !== "all") result = result.filter((d) => d.system === systemFilter);
+    if (search.trim()) { const q = search.toLowerCase(); result = result.filter((d) => d.model.toLowerCase().includes(q) || d.manufacturer.toLowerCase().includes(q) || (d.sku??"").toLowerCase().includes(q) || (d.tags??[]).some(t=>t.toLowerCase().includes(q))); }
+    return result;
+  }, [devices, search, categoryFilter, systemFilter]);
+
+  return (
+    <div className="px-3 md:px-5 py-4 md:py-6">
+      {selectedDevice && <DeviceSpecModal device={selectedDevice} onClose={() => setSelectedDevice(null)} />}
+      <div className="flex items-center justify-between mb-4 md:mb-6">
+        <div><h1 className="text-white font-bold text-lg md:text-xl tracking-tight">Device Library</h1><p className="text-[#8b949e] text-[11px] mt-0.5">{activeTab === "store" ? `${filtered.length} products` : `${inventory.length} inventory items`}</p></div>
+        <div className="flex items-center h-8 rounded-xl overflow-hidden" style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.10)" }}>
+          <button onClick={() => setActiveTab("store")} className="h-full px-3 text-[10px] font-bold cursor-pointer" style={activeTab === "store" ? { background: "#3b82f6", color: "#fff" } : { color: "#8b949e" }}>Device Store</button>
+          <button onClick={() => setActiveTab("inventory")} className="h-full px-3 text-[10px] font-bold cursor-pointer" style={activeTab === "inventory" ? { background: "#8b5cf6", color: "#fff" } : { color: "#8b949e" }}>Inventory</button>
+        </div>
+      </div>
+      {activeTab === "store" ? (
+        <>
+          <div className="mb-4 md:mb-5 flex items-center gap-2 flex-wrap">
+            <div className="relative flex-1 min-w-[160px] max-w-sm"><Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[#8b949e]" /><input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search model, SKU, tags…" className="h-9 rounded-xl pl-9 w-full text-[12px] text-[#e6edf3] focus:outline-none" style={G.input} /></div>
+            <div className="flex gap-1.5 flex-wrap">{categories.map((c) => (<button key={c.id} onClick={() => setCategoryFilter(c.id)} className="h-8 px-2.5 rounded-xl text-[11px] font-semibold cursor-pointer whitespace-nowrap" style={categoryFilter===c.id?{background:"rgba(59,130,246,0.15)",color:"#60a5fa",border:"1px solid rgba(59,130,246,0.35)"}:{...G.btn,color:"#8b949e"}}>{c.label}</button>))}</div>
+            <select value={systemFilter} onChange={(e) => setSystemFilter(e.target.value as SystemType | "all")} className="h-8 rounded-xl px-2 text-[11px] cursor-pointer" style={{ ...G.btn, background: "#0d1117", color: "#e6edf3" }}>
+              <option value="all" style={{ background: "#0d1117", color: "#e6edf3" }}>All Systems</option>
+              <option value="VSS" style={{ background: "#0d1117", color: "#e6edf3" }}>VSS</option>
+              <option value="EAC" style={{ background: "#0d1117", color: "#e6edf3" }}>EAC</option>
+              <option value="Intercom" style={{ background: "#0d1117", color: "#e6edf3" }}>Intercom</option>
+            </select>
+            <label className="flex items-center gap-1.5 h-8 px-3 rounded-xl text-[#8b949e] text-[11px] font-semibold hover:text-white cursor-pointer" style={G.btn}><Upload className="w-3.5 h-3.5" /> {csvUploading ? "Importing…" : "Import CSV"}<input type="file" accept=".csv" className="hidden" onChange={handleCSVUpload} disabled={csvUploading} /></label>
+          </div>
+          {devices.length === 0 ? <EmptyState icon={Store} title="Device store is empty" description="Import a CSV to populate the catalog." /> : filtered.length === 0 ? <EmptyState icon={Search} title="No devices match" description="Try adjusting filters." /> : (
+            <div className="grid gap-3 md:gap-4" style={{ gridTemplateColumns: "repeat(auto-fill, minmax(200px, 1fr))" }}>
+              {filtered.map((device) => {
+                const cc = CAT_COLOR_DS[device.category] ?? CAT_COLOR_DS.other;
+                return (
+                  <div key={device.id} onClick={() => setSelectedDevice(device)} className="rounded-2xl overflow-hidden cursor-pointer group transition-all md:hover:-translate-y-1" style={{ ...G.card }}>
+                    <div className="relative h-32 md:h-36 overflow-hidden" style={{ background: "rgba(255,255,255,0.03)" }}>
+                      {device.imageUrl ? <img src={device.imageUrl} alt={device.model} className="w-full h-full object-contain p-3 opacity-70 group-hover:opacity-90" /> : <div className="w-full h-full flex items-center justify-center"><Camera className="w-12 h-12 text-[#8b949e]" /></div>}
+                      <div className="absolute top-2.5 left-2.5 flex flex-wrap gap-1">
+                        <span className="inline-block px-2 py-0.5 rounded-lg text-[9px] font-bold uppercase" style={{ background: cc.bg, color: cc.text }}>{cc.label}</span>
+                        {device.cameraType && <span className="inline-block px-2 py-0.5 rounded-lg text-[8px] font-bold uppercase" style={{ background: "rgba(255,255,255,0.08)", color: "#e6edf3" }}>{device.cameraType}</span>}
+                      </div>
+                      <div className="absolute bottom-2 left-2"><span className="inline-block px-1.5 py-0.5 rounded text-[8px] font-bold uppercase" style={{ background: "rgba(0,0,0,0.5)", color: "#e6edf3" }}>{device.system}</span></div>
+                    </div>
+                    <div className="p-3">
+                      <p className="text-[#8b949e] text-[9px] font-semibold">{device.manufacturer}</p>
+                      <p className="text-white text-[12px] font-bold mt-0.5 truncate">{device.model}</p>
+                      <div className="flex flex-wrap gap-1 mt-2">{device.tags?.slice(0,3).map((tag) => { const ts = TAG_STYLES[tag]; return ts ? <span key={tag} className="inline-block px-1.5 py-0.5 rounded-md text-[8px] font-bold uppercase" style={{ background: ts.bg, color: ts.text }}>{tag}</span> : null; })}</div>
+                      <div className="flex items-center justify-between mt-2 pt-2" style={{ borderTop: "1px solid rgba(255,255,255,0.06)" }}><span className="text-[#8b949e] text-[8px] font-mono">{device.sku}</span><span className="font-bold text-[11px]" style={{ color: cc.text }}>{device.price ? fmt(device.price) : "—"}</span></div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </>
+      ) : (
+        <div className="space-y-4">
+          <button onClick={() => setShowAddItem(!showAddItem)} className="flex items-center gap-1 h-8 px-3 rounded-xl text-white text-[11px] font-bold cursor-pointer" style={{ background: "#8b5cf6" }}><Plus className="w-3 h-3" /> Add Item</button>
+          {showAddItem && (
+            <div className="rounded-xl p-3 space-y-2" style={G.card}>
+              <input value={invName} onChange={e => setInvName(e.target.value)} placeholder="Item name" className="w-full h-8 rounded-lg px-2 text-[11px] text-white" style={G.input} />
+              <input type="number" value={invQty} onChange={e => setInvQty(e.target.value)} placeholder="Quantity on hand" className="w-full h-8 rounded-lg px-2 text-[11px] text-white" style={G.input} />
+              <input value={invLocation} onChange={e => setInvLocation(e.target.value)} placeholder="Storage location" className="w-full h-8 rounded-lg px-2 text-[11px] text-white" style={G.input} />
+              <button onClick={handleAddInventoryItem} className="w-full h-8 rounded-lg text-white text-[11px] font-bold cursor-pointer" style={{ background: "#10b981" }}>Save</button>
+            </div>
+          )}
+          {inventory.length === 0 && !showAddItem ? <EmptyState icon={PackageOpen} title="No inventory items" description="Add items to track physical stock." /> : (
+            <div className="rounded-2xl overflow-hidden" style={G.card}>
+              <div className="overflow-x-auto"><table className="w-full" style={{ minWidth: "600px" }}><thead><tr style={{ background: "rgba(255,255,255,0.03)", borderBottom: "1px solid rgba(255,255,255,0.08)" }}><th className="px-3 py-3 text-[#8b949e] text-[10px] font-bold uppercase tracking-widest text-left">Item</th><th className="px-3 py-3 text-[#8b949e] text-[10px] font-bold uppercase tracking-widest text-center">Qty</th><th className="px-3 py-3 text-[#8b949e] text-[10px] font-bold uppercase tracking-widest text-left">Location</th><th className="px-3 py-3 text-[#8b949e] text-[10px] font-bold uppercase tracking-widest text-right">Action</th></tr></thead><tbody>{inventory.map((item) => (<tr key={item.id} style={{ borderBottom: "1px solid rgba(255,255,255,0.04)" }}><td className="px-3 py-2.5 text-white text-[11px] font-semibold">{item.name}</td><td className="px-3 py-2.5 text-white text-[11px] text-center font-bold">{item.quantityOnHand}</td><td className="px-3 py-2.5 text-[#8b949e] text-[10px]">{item.location || "—"}</td><td className="px-3 py-2.5 text-right"><button onClick={() => { setShowTransaction(showTransaction === item.id ? null : item.id); setTxAction("Sold"); }} className="h-7 px-2 rounded-lg text-[10px] font-bold text-blue-400 cursor-pointer" style={{ background: "rgba(59,130,246,0.12)" }}>Log Transaction</button></td></tr>))}</tbody></table></div>
+            </div>
+          )}
+          {showTransaction && (
+            <div className="rounded-xl p-3 space-y-2" style={G.card}>
+              <div className="flex gap-2"><input value={txUserName} onChange={e => setTxUserName(e.target.value)} placeholder="Who took it" className="flex-1 h-8 rounded-lg px-2 text-[11px] text-white" style={G.input} /><select value={txAction} onChange={e => setTxAction(e.target.value)} className="h-8 rounded-lg px-2 text-[11px] cursor-pointer" style={{ ...G.input, background: "#0d1117", color: "#e6edf3" }}>{["Sold","Loaned","Disposed","Returned"].map(a => <option key={a} value={a} style={{ background: "#0d1117", color: "#e6edf3" }}>{a}</option>)}</select></div>
+              <div className="flex gap-2"><input type="number" value={txQty} onChange={e => setTxQty(e.target.value)} placeholder="Qty" className="w-24 h-8 rounded-lg px-2 text-[11px] text-white" style={G.input} /><input value={txPurpose} onChange={e => setTxPurpose(e.target.value)} placeholder="Purpose" className="flex-1 h-8 rounded-lg px-2 text-[11px] text-white" style={G.input} /></div>
+              <input value={txNotes} onChange={e => setTxNotes(e.target.value)} placeholder="Notes" className="w-full h-8 rounded-lg px-2 text-[11px] text-white" style={G.input} />
+              <button onClick={() => handleAddTransaction(showTransaction)} className="w-full h-8 rounded-lg text-white text-[11px] font-bold cursor-pointer" style={{ background: "#10b981" }}>Save Transaction</button>
+            </div>
+          )}
+          {transactions.length > 0 && (
+            <div className="rounded-2xl overflow-hidden" style={G.card}>
+              <div className="px-4 py-3" style={{ borderBottom: "1px solid rgba(255,255,255,0.06)" }}><h3 className="text-white text-[13px] font-bold">Recent Transactions</h3></div>
+              <div className="overflow-x-auto"><table className="w-full" style={{ minWidth: "500px" }}><thead><tr><th className="px-3 py-2 text-[#8b949e] text-[9px] font-bold uppercase text-left">Item</th><th className="px-3 py-2 text-[#8b949e] text-[9px] font-bold uppercase text-left">User</th><th className="px-3 py-2 text-[#8b949e] text-[9px] font-bold uppercase text-left">Action</th><th className="px-3 py-2 text-[#8b949e] text-[9px] font-bold uppercase text-center">Qty</th><th className="px-3 py-2 text-[#8b949e] text-[9px] font-bold uppercase text-left">Date</th></tr></thead><tbody>{transactions.map(tx => (<tr key={tx.id} style={{ borderBottom: "1px solid rgba(255,255,255,0.03)" }}><td className="px-3 py-2 text-white text-[10px] font-semibold">{tx.itemName}</td><td className="px-3 py-2 text-[#8b949e] text-[10px]">{tx.userName}</td><td className="px-3 py-2 text-[#8b949e] text-[10px]">{tx.action}</td><td className="px-3 py-2 text-white text-[10px] text-center">{tx.quantity}</td><td className="px-3 py-2 text-[#8b949e] text-[10px]">{new Date(tx.createdAt).toLocaleDateString()}</td></tr>))}</tbody></table></div>
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+const STATUS_META: Record<InstallStatus, { label: string; color: string; bg: string; icon: IconType }> = {
+  complete: { label: "Complete", color: "text-emerald-400", bg: "bg-emerald-500/12", icon: CheckCircle2 },
+  "in-progress": { label: "In Progress", color: "text-blue-400", bg: "bg-blue-500/12", icon: Clock },
+  failed: { label: "Failed", color: "text-rose-400", bg: "bg-rose-500/12", icon: AlertTriangle },
+  pending: { label: "Pending", color: "text-[#8b949e]", bg: "bg-white/[0.04]", icon: AlertCircle },
+};
 
 function InstallTracker({ navigate: _navigate }: { navigate: (p: Page) => void }) {
   const [projects, setProjects] = useState<Project[]>([]);
@@ -1643,14 +3321,28 @@ function InstallTracker({ navigate: _navigate }: { navigate: (p: Page) => void }
   const [showSupportTask, setShowSupportTask] = useState(false);
   const [stName, setStName] = useState("");
 
-  const fetchData = useCallback(async () => { setLoading(true); try { const [projData, zoneData] = await Promise.all([API.projects.list(), API.install.zones()]); setProjects(projData.filter((p: Project) => p.projectStage === "installation")); setZones(zoneData); } catch { setProjects([]); setZones([]); } finally { setLoading(false); } }, []);
+  const fetchData = useCallback(async () => {
+    setLoading(true);
+    try {
+      const [projData, zoneData] = await Promise.all([API.projects.list(), API.install.zones()]);
+      setProjects(projData.filter((p: Project) => p.projectStage === "installation"));
+      setZones(zoneData);
+    } catch { setProjects([]); setZones([]); }
+    finally { setLoading(false); }
+  }, []);
   useEffect(() => { fetchData(); }, [fetchData]);
 
-  const updateStatus = async (zoneId: string, deviceId: string, status: InstallStatus) => { setZones((prev) => prev.map((z) => z.id !== zoneId ? z : { ...z, devices: z.devices.map((d) => d.id !== deviceId ? d : { ...d, status }) })); try { await API.install.updateStatus(zoneId, deviceId, status); } catch {} };
+  const updateStatus = async (zoneId: string, deviceId: string, status: InstallStatus) => {
+    setZones((prev) => prev.map((z) => z.id !== zoneId ? z : { ...z, devices: z.devices.map((d) => d.id !== deviceId ? d : { ...d, status }) }));
+    try { await API.install.updateStatus(zoneId, deviceId, status); } catch {}
+  };
 
-  const handleSupportTask = async () => { if (!stName.trim()) return; try { const zone = await API.install.createZone({ name: stName.trim(), isQuickSupport: true }); setZones(prev => [...prev, zone]); setStName(""); setShowSupportTask(false); toast.success("Support task added"); } catch { toast.error("Failed to add"); } };
+  const handleSupportTask = async () => {
+    if (!stName.trim()) return;
+    try { const zone = await API.install.createZone({ name: stName.trim(), isQuickSupport: true }); setZones(prev => [...prev, zone]); setStName(""); setShowSupportTask(false); toast.success("Support task added"); } catch { toast.error("Failed to add"); }
+  };
 
-  const typeIcons: Record<string, IconType> = { camera: Camera, access: Key, nvr: Cpu, door: DoorOpen, panel: PanelRight, power: Zap, server: Server };
+  const typeIcons: Record<string, IconType> = { camera: Camera, access: Key, nvr: Cpu, door: DoorOpen, panel: PanelRight, power: Zap, server: Server, intercom: Phone };
 
   if (loading) return (<div className="px-3 md:px-5 py-4 md:py-6 space-y-4"><Skeleton className="h-10 w-48" /><Skeleton className="h-32 rounded-2xl" /><Skeleton className="h-48 rounded-2xl" /></div>);
 
@@ -1661,96 +3353,157 @@ function InstallTracker({ navigate: _navigate }: { navigate: (p: Page) => void }
 
   return (
     <div className="px-3 md:px-5 py-4 md:py-6 max-w-[1100px]">
-      <div className="mb-4 md:mb-6 flex items-center justify-between"><div><h1 className="text-white font-bold text-lg md:text-xl tracking-tight">Install Tracker</h1><p className="text-[#8b949e] text-[11px] mt-0.5">{total} devices across {zones.length} zones</p></div><button onClick={() => setShowSupportTask(!showSupportTask)} className="flex items-center gap-1.5 h-8 px-3 rounded-xl text-white text-[11px] font-bold cursor-pointer" style={{ background: "#f59e0b" }}><Plus className="w-3 h-3" /> Support Task</button></div>
-      {showSupportTask && (<div className="rounded-xl p-3 space-y-2 mb-3" style={G.card}><input value={stName} onChange={e => setStName(e.target.value)} placeholder="Task name" className="w-full h-8 rounded-lg px-2 text-[11px] text-white" style={G.input} /><button onClick={handleSupportTask} className="w-full h-8 rounded-lg text-white text-[11px] font-bold cursor-pointer" style={{ background: "#10b981" }}>Add</button></div>)}
-      {projects.length === 0 && zones.length === 0 ? <EmptyState icon={CheckSquare} title="No active installs" description="Projects in Installation stage will appear here." /> : (<>
-        <div className="rounded-2xl p-4 md:p-5 mb-4" style={G.card}><div className="flex flex-col md:flex-row md:items-center justify-between mb-4 gap-3"><div><p className="text-white text-[1.6rem] md:text-[2rem] font-bold">{pct}%</p><p className="text-[#484f58] text-[10px]">{complete} of {total} complete</p></div><div className="grid grid-cols-4 gap-3">{[{ label: "Complete", count: complete, color: "text-emerald-400" },{ label: "In Progress", count: allDevices.filter(d=>d.status==="in-progress").length, color: "text-blue-400" },{ label: "Failed", count: allDevices.filter(d=>d.status==="failed").length, color: "text-rose-400" },{ label: "Pending", count: allDevices.filter(d=>d.status==="pending").length, color: "text-[#484f58]" }].map((s) => (<div key={s.label}><p className={clsx("text-[1.1rem] font-bold", s.color)}>{s.count}</p><p className="text-[#484f58] text-[9px]">{s.label}</p></div>))}</div></div><div className="relative w-full h-3 rounded-full overflow-hidden" style={{ background: "rgba(255,255,255,0.07)" }}><div className="absolute left-0 top-0 h-full bg-gradient-to-r from-blue-600 to-emerald-500 rounded-full" style={{ width: `${pct}%` }} /></div></div>
-        <div className="flex items-center gap-1 mb-3">{(["all","pending","in-progress","complete","failed"] as const).map(s => (<button key={s} onClick={() => setStatusFilter(s)} className={clsx("h-7 px-2.5 rounded-lg text-[10px] font-semibold cursor-pointer", statusFilter === s ? "text-white" : "text-[#484f58]")} style={statusFilter === s ? { background: "rgba(255,255,255,0.10)" } : G.btn}>{s === "all" ? "All" : s === "in-progress" ? "In Progress" : s.charAt(0).toUpperCase() + s.slice(1)}</button>))}</div>
-        <div className="space-y-3">{projects.map((project) => { const projectZones = zones.filter((z) => z.projectId === project.id); const projectDevices = projectZones.flatMap((z) => z.devices).filter(d => statusFilter === "all" || d.status === statusFilter); const isExpanded = expandedProject === project.id; return (<div key={project.id} className="rounded-2xl overflow-hidden" style={G.card}><button onClick={() => setExpandedProject(isExpanded ? null : project.id)} className="w-full flex items-center gap-3 px-4 py-3 hover:bg-white/[0.02] cursor-pointer min-h-[44px]"><div className="flex-1 min-w-0"><p className="text-white text-[12px] font-bold text-left">{project.name}</p><p className="text-[#484f58] text-[10px]">{projectDevices.length} devices</p></div>{isExpanded ? <ChevronUp className="w-4 h-4 text-[#484f58]" /> : <ChevronDown className="w-4 h-4 text-[#484f58]" />}</button>{isExpanded && projectDevices.map((device) => { const meta = STATUS_META[device.status]; const TypeIcon = typeIcons[device.type] ?? Camera; return (<div key={device.id} className="grid gap-2 px-3 py-3 items-center" style={{ gridTemplateColumns: "36px 2fr 1fr 120px", borderTop: "1px solid rgba(255,255,255,0.04)" }}><div className="w-7 h-7 rounded-xl flex items-center justify-center" style={{ background: "rgba(255,255,255,0.04)" }}><TypeIcon className="w-3.5 h-3.5 text-[#484f58]" /></div><div className="min-w-0"><p className="text-white text-[11px] font-semibold truncate">{device.name}</p><p className="text-[#484f58] text-[9px]">{device.location}</p></div><span className="text-[#8b949e] text-[10px] truncate">{device.assignee}</span><select value={device.status} onChange={(e) => { const z = projectZones.find(z => z.devices.some(d => d.id === device.id)); if (z) updateStatus(z.id, device.id, e.target.value as InstallStatus); }} className={clsx("w-full h-7 rounded-xl border px-2 text-[10px] font-bold appearance-none cursor-pointer", meta.bg, meta.color)} style={{ background: "#0d1117" }}>{Object.entries(STATUS_META).map(([val, m]) => (<option key={val} value={val} style={{ background: "#0d1117", color: "#e6edf3" }}>{m.label}</option>))}</select></div>); })}</div>); })}
-        {zones.filter(z => z.isQuickSupport).map(zone => { const zoneDevices = zone.devices.filter(d => statusFilter === "all" || d.status === statusFilter); const isExpanded = expandedProject === zone.id; return (<div key={zone.id} className="rounded-2xl overflow-hidden" style={G.card}><button onClick={() => setExpandedProject(isExpanded ? null : zone.id)} className="w-full flex items-center gap-3 px-4 py-3 cursor-pointer min-h-[44px]"><div className="flex-1 min-w-0"><p className="text-white text-[12px] font-bold text-left">{zone.name}</p><p className="text-[#484f58] text-[10px]">Support Task · {zoneDevices.length} devices</p></div>{isExpanded ? <ChevronUp className="w-4 h-4 text-[#484f58]" /> : <ChevronDown className="w-4 h-4 text-[#484f58]" />}</button>{isExpanded && zoneDevices.map((device) => { const meta = STATUS_META[device.status]; const TypeIcon = typeIcons[device.type] ?? Camera; return (<div key={device.id} className="grid gap-2 px-3 py-3 items-center" style={{ gridTemplateColumns: "36px 2fr 1fr 120px", borderTop: "1px solid rgba(255,255,255,0.04)" }}><div className="w-7 h-7 rounded-xl flex items-center justify-center" style={{ background: "rgba(255,255,255,0.04)" }}><TypeIcon className="w-3.5 h-3.5 text-[#484f58]" /></div><div className="min-w-0"><p className="text-white text-[11px] font-semibold truncate">{device.name}</p><p className="text-[#484f58] text-[9px]">{device.location}</p></div><span className="text-[#8b949e] text-[10px] truncate">{device.assignee}</span><select value={device.status} onChange={(e) => updateStatus(zone.id, device.id, e.target.value as InstallStatus)} className={clsx("w-full h-7 rounded-xl border px-2 text-[10px] font-bold appearance-none cursor-pointer", meta.bg, meta.color)} style={{ background: "#0d1117" }}>{Object.entries(STATUS_META).map(([val, m]) => (<option key={val} value={val} style={{ background: "#0d1117", color: "#e6edf3" }}>{m.label}</option>))}</select></div>); })}</div>); })}
+      <div className="mb-4 md:mb-6 flex items-center justify-between">
+        <div><h1 className="text-white font-bold text-lg md:text-xl tracking-tight">Install Tracker</h1><p className="text-[#8b949e] text-[11px] mt-0.5">{total} devices across {zones.length} zones</p></div>
+        <button onClick={() => setShowSupportTask(!showSupportTask)} className="flex items-center gap-1.5 h-8 px-3 rounded-xl text-white text-[11px] font-bold cursor-pointer" style={{ background: "#f59e0b" }}><Plus className="w-3 h-3" /> Support Task</button>
       </div>
-      </>)}
-    </div>
-  );
-}
-const CAT_COLOR_DS: Record<string, { bg: string; text: string; label: string }> = { camera: { bg: "rgba(59,130,246,0.12)", text: "#60a5fa", label: "Camera" }, "access-control": { bg: "rgba(139,92,246,0.12)", text: "#a78bfa", label: "Access" }, nvr: { bg: "rgba(16,185,129,0.12)", text: "#34d399", label: "NVR" }, analytics: { bg: "rgba(249,115,22,0.12)", text: "#fb923c", label: "VMS" }, other: { bg: "rgba(100,100,100,0.12)", text: "#8b949e", label: "Other" } };
-
-function DeviceSpecModal({ device, onClose }: { device: CatalogDevice; onClose: () => void }) {
-  const { addToQuote } = useQuote(); const { fmt } = useCurrency(); const cc = CAT_COLOR_DS[device.category] ?? CAT_COLOR_DS.other;
-  const specs: { label: string; value?: string }[] = [{ label: "SKU", value: device.sku },{ label: "Category", value: cc.label },{ label: "Camera Type", value: device.cameraType },{ label: "Resolution", value: device.resolution },{ label: "Sensor", value: device.sensor },{ label: "Lens", value: device.lens },{ label: "Frame Rate", value: device.frameRate },{ label: "Compression", value: device.compression },{ label: "FOV", value: device.fov },{ label: "Night Vision", value: device.nightVision },{ label: "Weather Rating", value: device.weatherRating },{ label: "Power Input", value: device.powerInput },{ label: "Storage", value: device.storage },{ label: "Operating Temp", value: device.operatingTemp },{ label: "Authentication", value: device.authentication },{ label: "Channels", value: device.channels },{ label: "Readers", value: device.readers }].filter((s) => !!s.value);
-  return (
-    <div className="fixed inset-0 z-[300] flex items-center justify-center p-4" onClick={onClose}><div className="absolute inset-0" style={{ background: "rgba(0,0,0,0.7)", backdropFilter: "blur(10px)" }} /><motion.div initial={{ opacity: 0, scale: 0.93, y: 18 }} animate={{ opacity: 1, scale: 1, y: 0 }} onClick={(e) => e.stopPropagation()} className="relative z-10 w-full max-w-[780px] max-h-[90vh] overflow-y-auto rounded-3xl flex flex-col md:flex-row" style={{ background: "rgba(7,12,26,0.95)", backdropFilter: "blur(52px) saturate(200%)", border: "1px solid rgba(255,255,255,0.13)", boxShadow: "0 40px 100px rgba(0,0,0,0.95)" }}><div className="w-full md:w-56 flex-shrink-0 relative flex items-center justify-center" style={{ background: "rgba(255,255,255,0.03)", minHeight: "250px" }}>{device.imageUrl ? <img src={device.imageUrl} alt={device.model} className="w-full h-full object-contain p-4" style={{ maxHeight: "320px" }} /> : <div className="w-full h-full flex items-center justify-center"><Camera className="w-16 h-16 text-[#484f58]" /></div>}<div className="absolute bottom-4 left-4 flex flex-wrap gap-1.5"><span className="inline-block px-2 py-0.5 rounded-lg text-[10px] font-bold uppercase" style={{ background: cc.bg, color: cc.text }}>{cc.label}</span>{device.cameraType && <span className="inline-block px-2 py-0.5 rounded-lg text-[9px] font-bold uppercase" style={{ background: "rgba(255,255,255,0.08)", color: "#e6edf3" }}>{device.cameraType}</span>}{device.tags?.map((tag) => { const ts = TAG_STYLES[tag]; return ts ? <span key={tag} className="inline-block px-2 py-0.5 rounded-lg text-[9px] font-bold uppercase" style={{ background: ts.bg, color: ts.text, border: `1px solid ${ts.border}` }}>{tag}</span> : null; })}</div></div><div className="flex-1 flex flex-col overflow-hidden"><div className="px-5 md:px-6 pt-5 md:pt-6 pb-4 flex items-start justify-between flex-shrink-0" style={{ borderBottom: "1px solid rgba(255,255,255,0.07)" }}><div><p className="text-[#8b949e] text-[11px] font-semibold">{device.manufacturer}</p><h2 className="text-white text-[1.1rem] font-bold mt-0.5">{device.model}</h2>{device.price && <p className="text-[0.9rem] font-bold mt-1" style={{ color: cc.text }}>{fmt(device.price)} <span className="text-[#484f58] text-[10px] font-normal">/ unit</span></p>}</div><button onClick={onClose} className="w-8 h-8 rounded-xl flex items-center justify-center hover:bg-white/[0.08] cursor-pointer min-w-[44px] min-h-[44px]" style={{ border: "1px solid rgba(255,255,255,0.10)" }}><X className="w-4 h-4 text-[#8b949e]" /></button></div><div className="flex-1 overflow-y-auto px-5 md:px-6 py-4"><div className="grid grid-cols-1 md:grid-cols-2 gap-2 md:gap-3">{specs.map((s) => (<div key={s.label} className="rounded-xl p-3" style={G.subtle}><p className="text-[#484f58] text-[9px] font-bold uppercase tracking-widest mb-1">{s.label}</p><p className="text-white text-[11px] font-semibold">{s.value}</p></div>))}</div></div><div className="px-5 md:px-6 py-4 flex items-center gap-3 flex-shrink-0" style={{ borderTop: "1px solid rgba(255,255,255,0.07)" }}><button onClick={() => { addToQuote(device); onClose(); }} className="flex items-center gap-2 h-9 px-4 rounded-xl text-white text-[11px] font-bold cursor-pointer min-h-[44px]" style={{ background: "#3b82f6", boxShadow: "0 4px 16px rgba(59,130,246,0.35)" }}><Plus className="w-3.5 h-3.5" /> Add to Quote</button></div></div></motion.div></div>
-  );
-}
-
-function DeviceLibrary({ navigate: _navigate }: { navigate: (p: Page) => void }) {
-  const [activeTab, setActiveTab] = useState<DeviceLibraryTab>("store");
-  const [search, setSearch] = useState(""); const [categoryFilter, setCategoryFilter] = useState<string>("all"); const [cameraTypeFilter, setCameraTypeFilter] = useState<string>("all");
-  const [selectedDevice, setSelectedDevice] = useState<CatalogDevice | null>(null); const [devices, setDevices] = useState<CatalogDevice[]>([]);
-  const [loading, setLoading] = useState(true); const { fmt } = useCurrency();
-  const [csvUploading, setCsvUploading] = useState(false);
-  const [inventory, setInventory] = useState<InventoryItem[]>([]);
-  const [transactions, setTransactions] = useState<InventoryTransaction[]>([]);
-  const [showAddItem, setShowAddItem] = useState(false);
-  const [invName, setInvName] = useState(""); const [invQty, setInvQty] = useState(""); const [invLocation, setInvLocation] = useState("");
-  const [showTransaction, setShowTransaction] = useState<string | null>(null);
-  const [txUserName, setTxUserName] = useState(""); const [txAction, setTxAction] = useState("Sold"); const [txQty, setTxQty] = useState(""); const [txPurpose, setTxPurpose] = useState(""); const [txNotes, setTxNotes] = useState("");
-
-  const fetchDevices = useCallback(async () => { setLoading(true); try { const data = await API.devices.list(); setDevices(data); } catch { setDevices([]); } finally { setLoading(false); } }, []);
-  useEffect(() => { fetchDevices(); }, [fetchDevices]);
-
-  const fetchInventory = useCallback(async () => { try { const [items, txs] = await Promise.all([API.inventory.items(), API.inventory.transactions()]); setInventory(items); setTransactions(txs); } catch { setInventory([]); setTransactions([]); } }, []);
-  useEffect(() => { fetchInventory(); }, [fetchInventory]);
-
-  const handleCSVUpload = async (e: React.ChangeEvent<HTMLInputElement>) => { const file = e.target.files?.[0]; if (!file) return; setCsvUploading(true); try { const text = await file.text(); const lines = text.split("\n").filter(l => l.trim()); const headers = lines[0].split(",").map(h => h.trim().replace(/"/g,"")); const parsed = lines.slice(1).map(line => { const vals = line.split(",").map(v => v.trim().replace(/"/g,"")); const obj: any = {}; headers.forEach((h,i) => { obj[h] = vals[i]; }); return { model: obj.Model||obj.model||"", manufacturer: obj.Manufacturer||obj.manufacturer||"Unknown", category: "camera" as const, cameraType: obj["Camera Type"]||undefined, resolution: obj["Max Video Resolution"]||undefined, lens: obj["Sensor/Lens/Horizontal FOV"]||undefined, price: parseFloat(obj.Price||"0")||undefined, sku: obj.SKU||obj.Model||undefined, imageUrl: obj["Image URL"]||obj.Image||undefined, tags: [] as DeviceTag[] }; }); if (parsed.length > 0) { await API.devices.bulk(parsed); toast.success(`Imported ${parsed.length} devices`); fetchDevices(); } } catch { toast.error("CSV import failed"); } finally { setCsvUploading(false); e.target.value = ""; } };
-
-  const handleAddInventoryItem = async () => { if (!invName.trim()) return; try { await API.inventory.createItem({ name: invName.trim(), quantityOnHand: parseInt(invQty) || 0, location: invLocation.trim() || undefined }); fetchInventory(); setInvName(""); setInvQty(""); setInvLocation(""); setShowAddItem(false); toast.success("Item added"); } catch { toast.error("Failed to add item"); } };
-
-  const handleAddTransaction = async (itemId: string) => { if (!txUserName.trim() || !txQty) return; try { await API.inventory.createTransaction({ itemId, userName: txUserName.trim(), action: txAction, quantity: parseInt(txQty), purpose: txPurpose.trim() || undefined, notes: txNotes.trim() || undefined }); fetchInventory(); setShowTransaction(null); setTxUserName(""); setTxQty(""); setTxPurpose(""); setTxNotes(""); toast.success("Transaction logged"); } catch { toast.error("Failed to log transaction"); } };
-
-  const categories: { id: string; label: string }[] = [{ id: "all", label: "All" },{ id: "camera", label: "Cameras" },{ id: "access-control", label: "Access" },{ id: "nvr", label: "NVR" },{ id: "analytics", label: "VMS" }];
-  const filtered = useMemo(() => { let result = devices; if (categoryFilter !== "all") result = result.filter((d) => d.category === categoryFilter); if (cameraTypeFilter !== "all") result = result.filter((d) => d.cameraType === cameraTypeFilter); if (search.trim()) { const q = search.toLowerCase(); result = result.filter((d) => d.model.toLowerCase().includes(q) || d.manufacturer.toLowerCase().includes(q) || (d.sku??"").toLowerCase().includes(q) || (d.tags??[]).some(t=>t.toLowerCase().includes(q))); } return result; }, [devices, search, categoryFilter, cameraTypeFilter]);
-
-  return (
-    <div className="px-3 md:px-5 py-4 md:py-6">
-      {selectedDevice && <DeviceSpecModal device={selectedDevice} onClose={() => setSelectedDevice(null)} />}
-      <div className="flex items-center justify-between mb-4 md:mb-6"><div><h1 className="text-white font-bold text-lg md:text-xl tracking-tight">Device Library</h1><p className="text-[#8b949e] text-[11px] mt-0.5">{activeTab === "store" ? `${filtered.length} products` : `${inventory.length} inventory items`}</p></div><div className="flex items-center h-8 rounded-xl overflow-hidden" style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.10)" }}><button onClick={() => setActiveTab("store")} className="h-full px-3 text-[10px] font-bold cursor-pointer" style={activeTab === "store" ? { background: "#3b82f6", color: "#fff" } : { color: "#8b949e" }}>Device Store</button><button onClick={() => setActiveTab("inventory")} className="h-full px-3 text-[10px] font-bold cursor-pointer" style={activeTab === "inventory" ? { background: "#8b5cf6", color: "#fff" } : { color: "#8b949e" }}>Inventory</button></div></div>
-      {activeTab === "store" ? (
-        <>
-          <div className="mb-4 md:mb-5 flex items-center gap-2 flex-wrap"><div className="relative flex-1 min-w-[160px] max-w-sm"><Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[#484f58]" /><input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search model, SKU, tags…" className="h-9 rounded-xl pl-9 w-full text-[12px] text-[#e6edf3] focus:outline-none" style={G.input} /></div><div className="flex gap-1.5 flex-wrap">{categories.map((c) => (<button key={c.id} onClick={() => setCategoryFilter(c.id)} className="h-8 px-2.5 rounded-xl text-[11px] font-semibold cursor-pointer whitespace-nowrap" style={categoryFilter===c.id?{background:"rgba(59,130,246,0.15)",color:"#60a5fa",border:"1px solid rgba(59,130,246,0.35)"}:{...G.btn,color:"#8b949e"}}>{c.label}</button>))}</div><select value={cameraTypeFilter} onChange={(e) => setCameraTypeFilter(e.target.value)} className="h-8 rounded-xl px-2.5 text-[11px] font-semibold cursor-pointer appearance-none" style={{ ...G.btn, background: "#0d1117", color: "#e6edf3" }}><option value="all" style={{ background: "#0d1117", color: "#e6edf3" }}>All Types</option>{CAMERA_TYPES.map(ct=><option key={ct} value={ct} style={{ background: "#0d1117", color: "#e6edf3" }}>{ct}</option>)}</select><label className="flex items-center gap-1.5 h-8 px-3 rounded-xl text-[#8b949e] text-[11px] font-semibold hover:text-white cursor-pointer" style={G.btn}><Upload className="w-3.5 h-3.5" /> {csvUploading ? "Importing…" : "Import CSV"}<input type="file" accept=".csv" className="hidden" onChange={handleCSVUpload} disabled={csvUploading} /></label></div>
-          {devices.length === 0 ? <EmptyState icon={Store} title="Device store is empty" description="Import a CSV to populate the catalog." /> : filtered.length === 0 ? <EmptyState icon={Search} title="No devices match" description="Try adjusting filters." /> : (
-            <div className="grid gap-3 md:gap-4" style={{ gridTemplateColumns: "repeat(auto-fill, minmax(200px, 1fr))" }}>{filtered.map((device) => { const cc = CAT_COLOR_DS[device.category] ?? CAT_COLOR_DS.other; return (<div key={device.id} onClick={() => setSelectedDevice(device)} className="rounded-2xl overflow-hidden cursor-pointer group transition-all md:hover:-translate-y-1" style={{ ...G.card }}><div className="relative h-32 md:h-36 overflow-hidden" style={{ background: "rgba(255,255,255,0.03)" }}>{device.imageUrl ? <img src={device.imageUrl} alt={device.model} className="w-full h-full object-contain p-3 opacity-70 group-hover:opacity-90" /> : <div className="w-full h-full flex items-center justify-center"><Camera className="w-12 h-12 text-[#484f58]" /></div>}<div className="absolute top-2.5 left-2.5 flex flex-wrap gap-1"><span className="inline-block px-2 py-0.5 rounded-lg text-[9px] font-bold uppercase" style={{ background: cc.bg, color: cc.text }}>{cc.label}</span>{device.cameraType && <span className="inline-block px-2 py-0.5 rounded-lg text-[8px] font-bold uppercase" style={{ background: "rgba(255,255,255,0.08)", color: "#e6edf3" }}>{device.cameraType}</span>}</div></div><div className="p-3"><p className="text-[#8b949e] text-[9px] font-semibold">{device.manufacturer}</p><p className="text-white text-[12px] font-bold mt-0.5 truncate">{device.model}</p><div className="flex flex-wrap gap-1 mt-2">{device.tags?.slice(0,3).map((tag) => { const ts = TAG_STYLES[tag]; return ts ? <span key={tag} className="inline-block px-1.5 py-0.5 rounded-md text-[8px] font-bold uppercase" style={{ background: ts.bg, color: ts.text }}>{tag}</span> : null; })}</div><div className="flex items-center justify-between mt-2 pt-2" style={{ borderTop: "1px solid rgba(255,255,255,0.06)" }}><span className="text-[#484f58] text-[8px] font-mono">{device.sku}</span><span className="font-bold text-[11px]" style={{ color: cc.text }}>{device.price ? fmt(device.price) : "—"}</span></div></div></div>); })}</div>
-          )}
-        </>
-      ) : (
-        <div className="space-y-4">
-          <button onClick={() => setShowAddItem(!showAddItem)} className="flex items-center gap-1 h-8 px-3 rounded-xl text-white text-[11px] font-bold cursor-pointer" style={{ background: "#8b5cf6" }}><Plus className="w-3 h-3" /> Add Item</button>
-          {showAddItem && (<div className="rounded-xl p-3 space-y-2" style={G.card}><input value={invName} onChange={e => setInvName(e.target.value)} placeholder="Item name" className="w-full h-8 rounded-lg px-2 text-[11px] text-white" style={G.input} /><input type="number" value={invQty} onChange={e => setInvQty(e.target.value)} placeholder="Quantity on hand" className="w-full h-8 rounded-lg px-2 text-[11px] text-white" style={G.input} /><input value={invLocation} onChange={e => setInvLocation(e.target.value)} placeholder="Storage location" className="w-full h-8 rounded-lg px-2 text-[11px] text-white" style={G.input} /><button onClick={handleAddInventoryItem} className="w-full h-8 rounded-lg text-white text-[11px] font-bold cursor-pointer" style={{ background: "#10b981" }}>Save</button></div>)}
-          {inventory.length === 0 && !showAddItem ? <EmptyState icon={PackageOpen} title="No inventory items" description="Add items to track physical stock." /> : (
-            <div className="rounded-2xl overflow-hidden" style={G.card}><div className="overflow-x-auto"><table className="w-full" style={{ minWidth: "600px" }}><thead><tr style={{ background: "rgba(255,255,255,0.03)", borderBottom: "1px solid rgba(255,255,255,0.08)" }}><th className="px-3 py-3 text-[#484f58] text-[10px] font-bold uppercase tracking-widest text-left">Item</th><th className="px-3 py-3 text-[#484f58] text-[10px] font-bold uppercase tracking-widest text-center">Qty</th><th className="px-3 py-3 text-[#484f58] text-[10px] font-bold uppercase tracking-widest text-left">Location</th><th className="px-3 py-3 text-[#484f58] text-[10px] font-bold uppercase tracking-widest text-right">Action</th></tr></thead><tbody>{inventory.map((item) => (<tr key={item.id} style={{ borderBottom: "1px solid rgba(255,255,255,0.04)" }}><td className="px-3 py-2.5 text-white text-[11px] font-semibold">{item.name}</td><td className="px-3 py-2.5 text-white text-[11px] text-center font-bold">{item.quantityOnHand}</td><td className="px-3 py-2.5 text-[#8b949e] text-[10px]">{item.location || "—"}</td><td className="px-3 py-2.5 text-right"><button onClick={() => { setShowTransaction(showTransaction === item.id ? null : item.id); setTxAction("Sold"); }} className="h-7 px-2 rounded-lg text-[10px] font-bold text-blue-400 cursor-pointer" style={{ background: "rgba(59,130,246,0.12)" }}>Log Transaction</button></td></tr>))}</tbody></table></div></div>
-          )}
-          {showTransaction && (<div className="rounded-xl p-3 space-y-2" style={G.card}><div className="flex gap-2"><input value={txUserName} onChange={e => setTxUserName(e.target.value)} placeholder="Who took it" className="flex-1 h-8 rounded-lg px-2 text-[11px] text-white" style={G.input} /><select value={txAction} onChange={e => setTxAction(e.target.value)} className="h-8 rounded-lg px-2 text-[11px] cursor-pointer" style={{ ...G.input, background: "#0d1117", color: "#e6edf3" }}>{["Sold","Loaned","Disposed","Returned"].map(a => <option key={a} value={a} style={{ background: "#0d1117", color: "#e6edf3" }}>{a}</option>)}</select></div><div className="flex gap-2"><input type="number" value={txQty} onChange={e => setTxQty(e.target.value)} placeholder="Qty" className="w-24 h-8 rounded-lg px-2 text-[11px] text-white" style={G.input} /><input value={txPurpose} onChange={e => setTxPurpose(e.target.value)} placeholder="Purpose" className="flex-1 h-8 rounded-lg px-2 text-[11px] text-white" style={G.input} /></div><input value={txNotes} onChange={e => setTxNotes(e.target.value)} placeholder="Notes" className="w-full h-8 rounded-lg px-2 text-[11px] text-white" style={G.input} /><button onClick={() => handleAddTransaction(showTransaction)} className="w-full h-8 rounded-lg text-white text-[11px] font-bold cursor-pointer" style={{ background: "#10b981" }}>Save Transaction</button></div>)}
-          {transactions.length > 0 && (<div className="rounded-2xl overflow-hidden" style={G.card}><div className="px-4 py-3" style={{ borderBottom: "1px solid rgba(255,255,255,0.06)" }}><h3 className="text-white text-[13px] font-bold">Recent Transactions</h3></div><div className="overflow-x-auto"><table className="w-full" style={{ minWidth: "500px" }}><thead><tr><th className="px-3 py-2 text-[#484f58] text-[9px] font-bold uppercase text-left">Item</th><th className="px-3 py-2 text-[#484f58] text-[9px] font-bold uppercase text-left">User</th><th className="px-3 py-2 text-[#484f58] text-[9px] font-bold uppercase text-left">Action</th><th className="px-3 py-2 text-[#484f58] text-[9px] font-bold uppercase text-center">Qty</th><th className="px-3 py-2 text-[#484f58] text-[9px] font-bold uppercase text-left">Date</th></tr></thead><tbody>{transactions.map(tx => (<tr key={tx.id} style={{ borderBottom: "1px solid rgba(255,255,255,0.03)" }}><td className="px-3 py-2 text-white text-[10px] font-semibold">{tx.itemName}</td><td className="px-3 py-2 text-[#8b949e] text-[10px]">{tx.userName}</td><td className="px-3 py-2 text-[#8b949e] text-[10px]">{tx.action}</td><td className="px-3 py-2 text-white text-[10px] text-center">{tx.quantity}</td><td className="px-3 py-2 text-[#484f58] text-[10px]">{new Date(tx.createdAt).toLocaleDateString()}</td></tr>))}</tbody></table></div></div>)}
+      {showSupportTask && (
+        <div className="rounded-xl p-3 space-y-2 mb-3" style={G.card}>
+          <input value={stName} onChange={e => setStName(e.target.value)} placeholder="Task name" className="w-full h-8 rounded-lg px-2 text-[11px] text-white" style={G.input} />
+          <button onClick={handleSupportTask} className="w-full h-8 rounded-lg text-white text-[11px] font-bold cursor-pointer" style={{ background: "#10b981" }}>Add</button>
         </div>
+      )}
+      {projects.length === 0 && zones.length === 0 ? <EmptyState icon={CheckSquare} title="No active installs" description="Projects in Installation stage will appear here." /> : (
+        <>
+          <div className="rounded-2xl p-4 md:p-5 mb-4" style={G.card}>
+            <div className="flex flex-col md:flex-row md:items-center justify-between mb-4 gap-3">
+              <div><p className="text-white text-[1.6rem] md:text-[2rem] font-bold">{pct}%</p><p className="text-[#8b949e] text-[10px]">{complete} of {total} complete</p></div>
+              <div className="grid grid-cols-4 gap-3">
+                {[
+                  { label: "Complete", count: complete, color: "text-emerald-400" },
+                  { label: "In Progress", count: allDevices.filter(d=>d.status==="in-progress").length, color: "text-blue-400" },
+                  { label: "Failed", count: allDevices.filter(d=>d.status==="failed").length, color: "text-rose-400" },
+                  { label: "Pending", count: allDevices.filter(d=>d.status==="pending").length, color: "text-[#8b949e]" },
+                ].map((s) => (<div key={s.label}><p className={clsx("text-[1.1rem] font-bold", s.color)}>{s.count}</p><p className="text-[#8b949e] text-[9px]">{s.label}</p></div>))}
+              </div>
+            </div>
+            <div className="relative w-full h-3 rounded-full overflow-hidden" style={{ background: "rgba(255,255,255,0.07)" }}><div className="absolute left-0 top-0 h-full bg-gradient-to-r from-blue-600 to-emerald-500 rounded-full" style={{ width: `${pct}%` }} /></div>
+          </div>
+          <div className="flex items-center gap-1 mb-3">
+            {(["all","pending","in-progress","complete","failed"] as const).map(s => (
+              <button key={s} onClick={() => setStatusFilter(s)} className={clsx("h-7 px-2.5 rounded-lg text-[10px] font-semibold cursor-pointer", statusFilter === s ? "text-white" : "text-[#8b949e]")} style={statusFilter === s ? { background: "rgba(255,255,255,0.10)" } : G.btn}>{s === "all" ? "All" : s === "in-progress" ? "In Progress" : s.charAt(0).toUpperCase() + s.slice(1)}</button>
+            ))}
+          </div>
+          <div className="space-y-3">
+            {projects.map((project) => {
+              const projectZones = zones.filter((z) => z.projectId === project.id);
+              const projectDevices = projectZones.flatMap((z) => z.devices).filter(d => statusFilter === "all" || d.status === statusFilter);
+              const isExpanded = expandedProject === project.id;
+              return (
+                <div key={project.id} className="rounded-2xl overflow-hidden" style={G.card}>
+                  <button onClick={() => setExpandedProject(isExpanded ? null : project.id)} className="w-full flex items-center gap-3 px-4 py-3 hover:bg-white/[0.02] cursor-pointer min-h-[44px]">
+                    <div className="flex-1 min-w-0"><p className="text-white text-[12px] font-bold text-left">{project.name}</p><p className="text-[#8b949e] text-[10px]">{projectDevices.length} devices</p></div>
+                    {isExpanded ? <ChevronUp className="w-4 h-4 text-[#8b949e]" /> : <ChevronDown className="w-4 h-4 text-[#8b949e]" />}
+                  </button>
+                  {isExpanded && projectDevices.map((device) => {
+                    const meta = STATUS_META[device.status];
+                    const TypeIcon = typeIcons[device.type] ?? Camera;
+                    return (
+                      <div key={device.id} className="grid gap-2 px-3 py-3 items-center" style={{ gridTemplateColumns: "36px 2fr 1fr 120px", borderTop: "1px solid rgba(255,255,255,0.04)" }}>
+                        <div className="w-7 h-7 rounded-xl flex items-center justify-center" style={{ background: "rgba(255,255,255,0.04)" }}><TypeIcon className="w-3.5 h-3.5 text-[#8b949e]" /></div>
+                        <div className="min-w-0"><p className="text-white text-[11px] font-semibold truncate">{device.name}</p><p className="text-[#8b949e] text-[9px]">{device.location}</p></div>
+                        <span className="text-[#8b949e] text-[10px] truncate">{device.assignee}</span>
+                        <select value={device.status} onChange={(e) => { const z = projectZones.find(z => z.devices.some(d => d.id === device.id)); if (z) updateStatus(z.id, device.id, e.target.value as InstallStatus); }} className={clsx("w-full h-7 rounded-xl border px-2 text-[10px] font-bold appearance-none cursor-pointer", meta.bg, meta.color)} style={{ background: "#0d1117" }}>
+                          {Object.entries(STATUS_META).map(([val, m]) => (<option key={val} value={val} style={{ background: "#0d1117", color: "#e6edf3" }}>{m.label}</option>))}
+                        </select>
+                      </div>
+                    );
+                  })}
+                </div>
+              );
+            })}
+            {zones.filter(z => z.isQuickSupport).map(zone => {
+              const zoneDevices = zone.devices.filter(d => statusFilter === "all" || d.status === statusFilter);
+              const isExpanded = expandedProject === zone.id;
+              return (
+                <div key={zone.id} className="rounded-2xl overflow-hidden" style={G.card}>
+                  <button onClick={() => setExpandedProject(isExpanded ? null : zone.id)} className="w-full flex items-center gap-3 px-4 py-3 cursor-pointer min-h-[44px]">
+                    <div className="flex-1 min-w-0"><p className="text-white text-[12px] font-bold text-left">{zone.name}</p><p className="text-[#8b949e] text-[10px]">Support Task · {zoneDevices.length} devices</p></div>
+                    {isExpanded ? <ChevronUp className="w-4 h-4 text-[#8b949e]" /> : <ChevronDown className="w-4 h-4 text-[#8b949e]" />}
+                  </button>
+                  {isExpanded && zoneDevices.map((device) => {
+                    const meta = STATUS_META[device.status];
+                    const TypeIcon = typeIcons[device.type] ?? Camera;
+                    return (
+                      <div key={device.id} className="grid gap-2 px-3 py-3 items-center" style={{ gridTemplateColumns: "36px 2fr 1fr 120px", borderTop: "1px solid rgba(255,255,255,0.04)" }}>
+                        <div className="w-7 h-7 rounded-xl flex items-center justify-center" style={{ background: "rgba(255,255,255,0.04)" }}><TypeIcon className="w-3.5 h-3.5 text-[#8b949e]" /></div>
+                        <div className="min-w-0"><p className="text-white text-[11px] font-semibold truncate">{device.name}</p><p className="text-[#8b949e] text-[9px]">{device.location}</p></div>
+                        <span className="text-[#8b949e] text-[10px] truncate">{device.assignee}</span>
+                        <select value={device.status} onChange={(e) => updateStatus(zone.id, device.id, e.target.value as InstallStatus)} className={clsx("w-full h-7 rounded-xl border px-2 text-[10px] font-bold appearance-none cursor-pointer", meta.bg, meta.color)} style={{ background: "#0d1117" }}>
+                          {Object.entries(STATUS_META).map(([val, m]) => (<option key={val} value={val} style={{ background: "#0d1117", color: "#e6edf3" }}>{m.label}</option>))}
+                        </select>
+                      </div>
+                    );
+                  })}
+                </div>
+              );
+            })}
+          </div>
+        </>
       )}
     </div>
   );
 }
 
 function LoginPage({ onLogin }: { onLogin: () => void }) {
-  const [email, setEmail] = useState(""); const [password, setPassword] = useState(""); const [showPw, setShowPw] = useState(false); const [loading, setLoading] = useState(false);
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [showPw, setShowPw] = useState(false);
+  const [loading, setLoading] = useState(false);
   const submit = (e?: React.FormEvent) => { e?.preventDefault(); setLoading(true); setTimeout(() => { setLoading(false); onLogin(); }, 1100); };
-  const inputCls = "w-full h-11 rounded-2xl px-4 text-[#e6edf3] text-[13px] placeholder:text-[#484f58] focus:outline-none transition-all";
+  const inputCls = "w-full h-11 rounded-2xl px-4 text-[#e6edf3] text-[13px] placeholder:text-[#8b949e] focus:outline-none transition-all";
   return (
     <div className="h-screen flex overflow-hidden">
-      <div className="hidden lg:flex w-[48%] flex-shrink-0 flex-col relative overflow-hidden" style={{ background: "#070c1a" }}><div className="absolute inset-0" style={{ backgroundImage: "radial-gradient(ellipse 80% 60% at 10% 10%, rgba(30,64,175,0.45) 0%, transparent 65%), radial-gradient(ellipse 60% 55% at 90% 90%, rgba(88,28,135,0.35) 0%, transparent 65%)" }} /><div className="relative z-10 flex flex-col h-full p-8 md:p-12"><div className="mb-auto"><img src={logoImg} alt="E-Tech Systems" className="h-8 md:h-10 object-contain object-left" style={{ filter: "brightness(1.1)" }} /></div><div className="flex flex-col justify-center flex-1 py-8"><span className="text-blue-400 text-[10px] md:text-[11px] font-bold tracking-[0.15em] uppercase mb-4 block">Security System Design & Integration Platform</span><h1 className="text-white text-[2rem] md:text-[2.6rem] font-bold leading-[1.12] tracking-tight mb-4">Full-Lifecycle<br />Security Project<br /><span className="text-transparent" style={{ backgroundImage: "linear-gradient(135deg, #60a5fa, #a78bfa)", WebkitBackgroundClip: "text", backgroundClip: "text" }}>Management.</span></h1><p className="text-[#8b949e] text-[11px] md:text-[13px] leading-relaxed mb-8 max-w-[380px]">From New lead to New client, from Site Assessment to Final Installation. Track Leads, Design Site Plans, Build Financial Workbooks, Manage Installations, and Auto-Generate Reports in One Platform.</p><div className="space-y-2">{[{ icon: Camera, title: "System Design Studio", desc: "Place Cameras, Map Cable Routes, Build Floorplans", color: "#3b82f6" },{ icon: BarChart3, title: "Sales & Tech Pipeline Tracker", desc: "Track Leads, Manage Tech Projects, Generate Workbooks and Reports", color: "#8b5cf6" }].map(({ icon: Icon, title, desc, color }) => (<div key={title} className="flex items-start gap-3 p-3 rounded-2xl" style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.09)" }}><div className="w-8 h-8 rounded-xl flex items-center justify-center" style={{ background: `${color}20` }}><Icon className="w-4 h-4" style={{ color }} /></div><div><p className="text-white text-[12px] font-bold mb-0.5">{title}</p><p className="text-[#8b949e] text-[11px]">{desc}</p></div></div>))}</div></div><p className="text-[#484f58] text-[10px]">© 2026 E-Tech Systems</p></div></div>
-      <div className="flex-1 flex items-center justify-center p-6 md:p-8 relative" style={{ background: "rgba(255,255,255,0.03)", backdropFilter: "blur(40px)" }}><motion.div initial={{ opacity: 0, y: 18 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.3 }} className="relative z-10 w-full max-w-[380px]"><div className="rounded-3xl p-6 md:p-8" style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.12)", backdropFilter: "blur(40px) saturate(160%)", boxShadow: "0 24px 64px rgba(0,0,0,0.6)" }}><h2 className="text-white text-[1.3rem] md:text-[1.5rem] font-bold mb-1">Welcome back</h2><p className="text-[#8b949e] text-[12px] mb-6">Sign in to your workspace</p><button onClick={submit} className="w-full flex items-center justify-center gap-3 h-11 rounded-2xl text-white text-[12px] font-bold transition-all mb-5 hover:bg-white/[0.12] cursor-pointer min-h-[44px]" style={{ background: "rgba(255,255,255,0.08)", border: "1px solid rgba(255,255,255,0.14)" }}><svg width="20" height="20" viewBox="0 0 21 21" fill="none"><rect width="10" height="10" fill="#f25022" /><rect x="11" width="10" height="10" fill="#7fba00" /><rect y="11" width="10" height="10" fill="#00a4ef" /><rect x="11" y="11" width="10" height="10" fill="#ffb900" /></svg>Continue with Microsoft</button><div className="flex items-center gap-3 mb-5"><div className="flex-1 h-px" style={{ background: "rgba(255,255,255,0.08)" }} /><span className="text-[#484f58] text-[10px] font-semibold">or continue with email</span><div className="flex-1 h-px" style={{ background: "rgba(255,255,255,0.08)" }} /></div><form onSubmit={submit} className="space-y-3"><div><input type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="you@company.com" className={inputCls} style={G.input} /></div><div className="relative"><input type={showPw?"text":"password"} value={password} onChange={(e) => setPassword(e.target.value)} placeholder="••••••••" className={clsx(inputCls, "pr-11")} style={G.input} /><button type="button" onClick={() => setShowPw(!showPw)} className="absolute right-3.5 top-1/2 -translate-y-1/2 text-[#484f58]"><Eye className="w-4 h-4" /></button></div><button type="submit" disabled={loading} className="w-full h-11 rounded-2xl text-white font-bold text-[12px] transition-all flex items-center justify-center gap-2 disabled:opacity-60 cursor-pointer min-h-[44px]" style={{ background: "linear-gradient(135deg, #3b82f6, #2563eb)", boxShadow: "0 4px 20px rgba(59,130,246,0.45)" }}>{loading && <Loader2 className="w-4 h-4 animate-spin" />}{loading?"Signing in…":"Sign in"}</button></form></div></motion.div></div>
+      <div className="hidden lg:flex w-[48%] flex-shrink-0 flex-col relative overflow-hidden" style={{ background: "#070c1a" }}>
+        <div className="absolute inset-0" style={{ backgroundImage: "radial-gradient(ellipse 80% 60% at 10% 10%, rgba(30,64,175,0.45) 0%, transparent 65%), radial-gradient(ellipse 60% 55% at 90% 90%, rgba(88,28,135,0.35) 0%, transparent 65%)" }} />
+        <div className="relative z-10 flex flex-col h-full p-8 md:p-12">
+          <div className="mb-auto"><img src={logoImg} alt="E-Tech Systems" className="h-8 md:h-10 object-contain object-left" style={{ filter: "brightness(1.1)" }} /></div>
+          <div className="flex flex-col justify-center flex-1 py-8">
+            <span className="text-blue-400 text-[10px] md:text-[11px] font-bold tracking-[0.15em] uppercase mb-4 block">Security System Design & Integration Platform</span>
+            <h1 className="text-white text-[2rem] md:text-[2.6rem] font-bold leading-[1.12] tracking-tight mb-4">Full-Lifecycle<br />Security Project<br /><span className="text-transparent" style={{ backgroundImage: "linear-gradient(135deg, #60a5fa, #a78bfa)", WebkitBackgroundClip: "text", backgroundClip: "text" }}>Management.</span></h1>
+            <p className="text-[#8b949e] text-[11px] md:text-[13px] leading-relaxed mb-8 max-w-[380px]">From New lead to New client, from Site Assessment to Final Installation. Track Leads, Design Site Plans, Build Financial Workbooks, Manage Installations, and Auto-Generate Reports in One Platform.</p>
+            <div className="space-y-2">
+              {[
+                { icon: Camera, title: "System Design Studio", desc: "Place Cameras, Map Cable Routes, Build Floorplans", color: "#3b82f6" },
+                { icon: BarChart3, title: "Sales & Tech Pipeline Tracker", desc: "Track Leads, Manage Tech Projects, Generate Workbooks and Reports", color: "#8b5cf6" },
+              ].map(({ icon: Icon, title, desc, color }) => (
+                <div key={title} className="flex items-start gap-3 p-3 rounded-2xl" style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.09)" }}>
+                  <div className="w-8 h-8 rounded-xl flex items-center justify-center" style={{ background: `${color}20` }}><Icon className="w-4 h-4" style={{ color }} /></div>
+                  <div><p className="text-white text-[12px] font-bold mb-0.5">{title}</p><p className="text-[#8b949e] text-[11px]">{desc}</p></div>
+                </div>
+              ))}
+            </div>
+          </div>
+          <p className="text-[#8b949e] text-[10px]">© 2026 E-Tech Systems</p>
+        </div>
+      </div>
+      <div className="flex-1 flex items-center justify-center p-6 md:p-8 relative" style={{ background: "rgba(255,255,255,0.03)", backdropFilter: "blur(40px)" }}>
+        <motion.div initial={{ opacity: 0, y: 18 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.3 }} className="relative z-10 w-full max-w-[380px]">
+          <div className="rounded-3xl p-6 md:p-8" style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.12)", backdropFilter: "blur(40px) saturate(160%)", boxShadow: "0 24px 64px rgba(0,0,0,0.6)" }}>
+            <h2 className="text-white text-[1.3rem] md:text-[1.5rem] font-bold mb-1">Welcome back</h2>
+            <p className="text-[#8b949e] text-[12px] mb-6">Sign in to your workspace</p>
+            <button onClick={submit} className="w-full flex items-center justify-center gap-3 h-11 rounded-2xl text-white text-[12px] font-bold transition-all mb-5 hover:bg-white/[0.12] cursor-pointer min-h-[44px]" style={{ background: "rgba(255,255,255,0.08)", border: "1px solid rgba(255,255,255,0.14)" }}>
+              <svg width="20" height="20" viewBox="0 0 21 21" fill="none"><rect width="10" height="10" fill="#f25022" /><rect x="11" width="10" height="10" fill="#7fba00" /><rect y="11" width="10" height="10" fill="#00a4ef" /><rect x="11" y="11" width="10" height="10" fill="#ffb900" /></svg>
+              Continue with Microsoft
+            </button>
+            <div className="flex items-center gap-3 mb-5"><div className="flex-1 h-px" style={{ background: "rgba(255,255,255,0.08)" }} /><span className="text-[#8b949e] text-[10px] font-semibold">or continue with email</span><div className="flex-1 h-px" style={{ background: "rgba(255,255,255,0.08)" }} /></div>
+            <form onSubmit={submit} className="space-y-3">
+              <div><input type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="you@company.com" className={inputCls} style={G.input} /></div>
+              <div className="relative"><input type={showPw?"text":"password"} value={password} onChange={(e) => setPassword(e.target.value)} placeholder="••••••••" className={clsx(inputCls, "pr-11")} style={G.input} /><button type="button" onClick={() => setShowPw(!showPw)} className="absolute right-3.5 top-1/2 -translate-y-1/2 text-[#8b949e]"><Eye className="w-4 h-4" /></button></div>
+              <button type="submit" disabled={loading} className="w-full h-11 rounded-2xl text-white font-bold text-[12px] transition-all flex items-center justify-center gap-2 disabled:opacity-60 cursor-pointer min-h-[44px]" style={{ background: "linear-gradient(135deg, #3b82f6, #2563eb)", boxShadow: "0 4px 20px rgba(59,130,246,0.45)" }}>{loading && <Loader2 className="w-4 h-4 animate-spin" />}{loading?"Signing in…":"Sign in"}</button>
+            </form>
+          </div>
+        </motion.div>
+      </div>
     </div>
   );
 }
-
 export default function App() {
-  const [page, setPage] = useState<Page>(() => { const saved = localStorage.getItem("app_page"); const loggedIn = localStorage.getItem("auth_token") || localStorage.getItem("app_logged_in"); return loggedIn && saved ? (saved as Page) : "login"; });
+  const [page, setPage] = useState<Page>(() => {
+    const saved = localStorage.getItem("app_page");
+    const loggedIn = localStorage.getItem("auth_token") || localStorage.getItem("app_logged_in");
+    return loggedIn && saved ? (saved as Page) : "login";
+  });
   const [currency, setCurrency] = useState<"USD" | "JMD">("USD");
   const [currentQuote, setCurrentQuote] = useState<Quote | null>(null);
   const [showOnboarding, setShowOnboarding] = useState(() => !localStorage.getItem("onboarding_complete"));
@@ -1758,10 +3511,40 @@ export default function App() {
   useEffect(() => { if (page !== "login") localStorage.setItem("app_page", page); }, [page]);
   useEffect(() => { API.fx.getRate(); const interval = setInterval(() => API.fx.getRate(), 24 * 60 * 60 * 1000); return () => clearInterval(interval); }, []);
 
-  const handleLogin = () => { localStorage.setItem("auth_token", "stub-jwt-token"); localStorage.setItem("app_logged_in", "true"); setPage("dashboard"); };
+  const handleLogin = () => {
+    localStorage.setItem("auth_token", "stub-jwt-token");
+    localStorage.setItem("app_logged_in", "true");
+    setPage("dashboard");
+  };
+
   const currencyCtx: CurrencyCtx = useMemo(() => ({ currency, setCurrency, fmt: makeFmt(currency) }), [currency]);
 
-  const addToQuote = (device: CatalogDevice) => { const price = device.price; if (!price || !currentQuote) return; setCurrentQuote((prev) => { if (!prev) return prev; const firstCat = prev.categories[0]; if (!firstCat) return prev; const sellPrice = price * 1.35; const newItem: QuoteLineItem = { id: crypto.randomUUID?.() || `li${Date.now()}`, itemNumber: String(firstCat.lineItems.length + 1).padStart(2, "0"), description: `${device.manufacturer} ${device.model}`, unitCost: price, quantity: 1, markupPercent: 0.35, sellPrice, costTotal: price, sellTotal: sellPrice, profit: sellPrice - price, jmdConversion: sellPrice * (parseFloat(localStorage.getItem("fx_rate") || "157.4")) }; return { ...prev, categories: prev.categories.map((c, i) => i === 0 ? { ...c, lineItems: [...c.lineItems, newItem] } : c) }; }); toast.success(`${device.model} added to quote`); };
+  const addToQuote = (device: CatalogDevice) => {
+    const price = device.price;
+    if (!price || !currentQuote) return;
+    setCurrentQuote((prev) => {
+      if (!prev) return prev;
+      const firstCat = prev.categories[0];
+      if (!firstCat) return prev;
+      const sellPrice = price * 1.35;
+      const newItem: QuoteLineItem = {
+        id: crypto.randomUUID?.() || `li${Date.now()}`,
+        itemNumber: String(firstCat.lineItems.length + 1).padStart(2, "0"),
+        description: `${device.manufacturer} ${device.model}`,
+        unitCost: price,
+        quantity: 1,
+        markupPercent: 0.35,
+        sellPrice,
+        costTotal: price,
+        sellTotal: sellPrice,
+        profit: sellPrice - price,
+        jmdConversion: sellPrice * (parseFloat(localStorage.getItem("fx_rate") || String(DEFAULT_EXCHANGE_RATE))),
+      };
+      return { ...prev, categories: prev.categories.map((c, i) => i === 0 ? { ...c, lineItems: [...c.lineItems, newItem] } : c) };
+    });
+    toast.success(`${device.model} added to quote`);
+  };
+
   const quoteCtx: QuoteCtx = { currentQuote, setCurrentQuote, addToQuote };
 
   if (page === "login") return (<CurrencyContext.Provider value={currencyCtx}><LoginPage onLogin={handleLogin} /></CurrencyContext.Provider>);
@@ -1777,25 +3560,34 @@ export default function App() {
           <AppTopbar page={page} navigate={setPage} breadcrumb={breadcrumb} />
           <div className="pt-14">
             <AnimatePresence mode="wait">
-              {page === "dashboard" && <Dashboard key="dashboard" navigate={setPage} />}
-              {page === "design-studio" && <DesignStudio key="design-studio" navigate={setPage} />}
-              {page === "project-detail" && <ProjectDetail key="project-detail" navigate={setPage} />}
-              {page === "workbook" && <Workbook key="workbook" navigate={setPage} />}
-              {page === "install-tracker" && <InstallTracker key="install-tracker" navigate={setPage} />}
-              {page === "device-library" && <DeviceLibrary key="device-library" navigate={setPage} />}
+              <motion.div key={page} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }} transition={{ duration: 0.2, ease: "easeOut" }}>
+                {page === "dashboard" && <Dashboard navigate={setPage} />}
+                {page === "design-studio" && <DesignStudio navigate={setPage} />}
+                {page === "project-detail" && <ProjectDetail navigate={setPage} />}
+                {page === "workbook" && <Workbook navigate={setPage} />}
+                {page === "install-tracker" && <InstallTracker navigate={setPage} />}
+                {page === "device-library" && <DeviceLibrary navigate={setPage} />}
+              </motion.div>
             </AnimatePresence>
           </div>
         </div>
         {showOnboarding && (
           <div className="fixed inset-0 z-[500] flex items-center justify-center p-4" onClick={() => { setShowOnboarding(false); localStorage.setItem("onboarding_complete", "true"); }}>
             <div className="absolute inset-0" style={{ background: "rgba(0,0,0,0.8)", backdropFilter: "blur(12px)" }} />
-            <motion.div initial={{ opacity: 0, scale: 0.93 }} animate={{ opacity: 1, scale: 1 }} onClick={(e) => e.stopPropagation()} className="relative z-10 w-full max-w-[500px] rounded-3xl p-8 text-center" style={G.liquidGlass}>
+            <motion.div initial={{ opacity: 0, scale: 0.93 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.93 }} transition={{ type: "spring", damping: 26, stiffness: 360 }} onClick={(e) => e.stopPropagation()} className="relative z-10 w-full max-w-[500px] rounded-3xl p-8 text-center" style={G.liquidGlass}>
               <div className="w-16 h-16 rounded-2xl flex items-center justify-center mx-auto mb-5" style={{ background: "rgba(59,130,246,0.15)", border: "1px solid rgba(59,130,246,0.25)" }}><Zap className="w-8 h-8 text-blue-400" /></div>
               <h2 className="text-white text-[1.2rem] font-bold mb-2">Welcome to EEST</h2>
               <p className="text-[#8b949e] text-[12px] mb-6">Your full-lifecycle security project platform.</p>
               <div className="space-y-3 mb-6 text-left">
-                {[{ icon: BarChart3, label: "Pipeline", desc: "Track sales leads and manage projects through every stage", color: "#3b82f6" },{ icon: Layers, label: "Design Studio", desc: "Upload floor plans, place cameras, map cable routes", color: "#8b5cf6" },{ icon: FileText, label: "Workbook", desc: "Auto-generate BOMs, cost summaries, and proposals", color: "#10b981" }].map(item => (
-                  <div key={item.label} className="flex items-start gap-3 p-3 rounded-xl" style={{ background: "rgba(255,255,255,0.03)" }}><div className="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0" style={{ background: `${item.color}20` }}><item.icon className="w-4 h-4" style={{ color: item.color }} /></div><div><p className="text-white text-[12px] font-semibold">{item.label}</p><p className="text-[#484f58] text-[10px]">{item.desc}</p></div></div>
+                {[
+                  { icon: BarChart3, label: "Pipeline", desc: "Track sales leads and manage projects through every stage", color: "#3b82f6" },
+                  { icon: Layers, label: "Design Studio", desc: "Upload floor plans, place cameras, map cable routes", color: "#8b5cf6" },
+                  { icon: FileText, label: "Workbook", desc: "Auto-generate BOMs, cost summaries, and proposals", color: "#10b981" },
+                ].map(item => (
+                  <div key={item.label} className="flex items-start gap-3 p-3 rounded-xl" style={{ background: "rgba(255,255,255,0.03)" }}>
+                    <div className="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0" style={{ background: `${item.color}20` }}><item.icon className="w-4 h-4" style={{ color: item.color }} /></div>
+                    <div><p className="text-white text-[12px] font-semibold">{item.label}</p><p className="text-[#8b949e] text-[10px]">{item.desc}</p></div>
+                  </div>
                 ))}
               </div>
               <button onClick={() => { setShowOnboarding(false); localStorage.setItem("onboarding_complete", "true"); }} className="w-full h-11 rounded-xl text-white text-[13px] font-bold cursor-pointer" style={{ background: "#3b82f6", boxShadow: "0 4px 20px rgba(59,130,246,0.4)" }}>Get Started</button>
