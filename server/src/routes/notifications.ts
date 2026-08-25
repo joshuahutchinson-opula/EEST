@@ -57,9 +57,6 @@ router.post("/sales-win", async (req: Request, res: Response) => {
       ]
     );
 
-    // In production: send email to support@e-techsystemsja.com via nodemailer/SendGrid
-    // Email includes a deep link to move the project from Sales Win → Projects Planning
-
     res.json({ success: true, message: "Win notification sent" });
   } catch (err) {
     console.error("POST /notifications/sales-win error:", err);

@@ -28,12 +28,15 @@ router.post("/:projectId", async (req: Request, res: Response) => {
   try {
     const { projectId } = req.params;
     const { deviceId, deviceName, location } = req.body;
+    if (!deviceName || !deviceName.trim()) {
+      return res.status(400).json({ error: "deviceName is required" });
+    }
     const result = await pool.query(
       `INSERT INTO commissioning_checklists (project_id, device_id, device_name, location)
        VALUES ($1, $2, $3, $4)
        RETURNING id, project_id AS "projectId", device_id AS "deviceId", 
                  device_name AS "deviceName", location, status, notes, photos`,
-      [projectId, deviceId || null, deviceName || "", location || null]
+      [projectId, deviceId || null, deviceName.trim(), location || null]
     );
     res.status(201).json(result.rows[0]);
   } catch (err) {

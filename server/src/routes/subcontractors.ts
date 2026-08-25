@@ -42,7 +42,7 @@ router.post("/:projectId", async (req: Request, res: Response) => {
     const result = await pool.query(
       `INSERT INTO subcontractors (project_id, name, trade, email)
        VALUES ($1, $2, $3, $4)
-       RETURNING id, project_id AS "projectId", name, trade, email, rating, created_at AS "createdAt"`,
+       RETURNING id, project_id AS "projectId", name, trade, email, rating, created_at AS "createdAt", '[]'::jsonb AS documents`,
       [projectId, name.trim(), trade || null, email || null]
     );
     res.status(201).json(result.rows[0]);
