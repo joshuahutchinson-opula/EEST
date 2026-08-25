@@ -1,4 +1,4 @@
-import { useState, useMemo, createContext, useContext, useEffect, useCallback, useRef, Suspense } from "react";
+import { useState, useMemo, createContext, useContext, useEffect, useCallback, useRef, Suspense, Fragment } from "react";
 import { toast, Toaster } from "sonner";
 import { motion, AnimatePresence } from "motion/react";
 import {
@@ -762,7 +762,7 @@ function KanbanCard({ project, column, dragging, onDragStart, onDragEnd, onClick
   return (
     <>
       {confirmDelete && <ConfirmDialog open={confirmDelete} title="Delete Project" message={`Are you sure you want to delete "${project.name}"? This action cannot be undone.`} onConfirm={() => { onDelete(project.id); setConfirmDelete(false); toast.success("Project deleted"); }} onCancel={() => setConfirmDelete(false)} />}
-      <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, scale: 0.95 }} draggable onDragStart={(e) => { e.stopPropagation(); onDragStart(e, project.id); }} onDragEnd={onDragEnd} onClick={onClick} className={clsx("group relative rounded-2xl cursor-pointer select-none transition-all duration-200", isDragging ? "opacity-25 scale-[0.96]" : "md:hover:-translate-y-1")} style={{ background: "rgba(255,255,255,0.055)", backdropFilter: "blur(24px)", border: isDragging ? "1px solid rgba(255,255,255,0.05)" : "1px solid rgba(255,255,255,0.11)", borderLeft: `3px solid ${isProjectPipeline ? (psBadge?.color || "#3b82f6") : column.color}`, boxShadow: isDragging ? "none" : "0 2px 16px rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,255,255,0.09)" }}>
+      <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, scale: 0.95 }} draggable onDragStart={(e) => { e.stopPropagation(); onDragStart(e as unknown as React.DragEvent<HTMLDivElement>, project.id); }} onDragEnd={onDragEnd} onClick={onClick} className={clsx("group relative rounded-2xl cursor-pointer select-none transition-all duration-200", isDragging ? "opacity-25 scale-[0.96]" : "md:hover:-translate-y-1")} style={{ background: "rgba(255,255,255,0.055)", backdropFilter: "blur(24px)", border: isDragging ? "1px solid rgba(255,255,255,0.05)" : "1px solid rgba(255,255,255,0.11)", borderLeft: `3px solid ${isProjectPipeline ? (psBadge?.color || "#3b82f6") : column.color}`, boxShadow: isDragging ? "none" : "0 2px 16px rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,255,255,0.09)" }}>
         <div className="p-3 md:p-4 md:pl-5">
           <div className="flex items-start justify-between gap-2 mb-2">
             <div className="flex items-center gap-1.5 flex-1 min-w-0">
@@ -931,7 +931,7 @@ function Dashboard({ navigate }: { navigate: (p: Page) => void }) {
     const updated: Project = { ...project, pipelineType: "project", projectStage: "planning", leadSource: undefined, stageHistory, updatedAt: new Date().toISOString() };
     setProjects(prev => prev.map(p => p.id === projectId ? updated : p));
     try {
-      await API.projects.update(projectId, { pipelineType: "project", projectStage: "planning", leadSource: null, stageHistory });
+      await API.projects.update(projectId, { pipelineType: "project", projectStage: "planning", leadSource: undefined, stageHistory });
       await API.audit.log(projectId, "Moved to Projects", "Moved from Sales Win to Projects Planning");
       toast.success("Moved to Projects Pipeline");
     } catch { fetchProjects(); }
@@ -2641,7 +2641,7 @@ function CostMarginTab({ quoteCategories, exchangeRate, fmt, onLineItemUpdate, f
             <thead><tr style={{ borderBottom: "1px solid rgba(255,255,255,0.08)", background: "rgba(255,255,255,0.03)" }}><th className="px-3 py-2.5 text-[#8b949e] text-[9px] font-bold uppercase tracking-widest text-left">Item No</th><th className="px-3 py-2.5 text-[#8b949e] text-[9px] font-bold uppercase tracking-widest text-left">Description</th><th className="px-3 py-2.5 text-[#8b949e] text-[9px] font-bold uppercase tracking-widest text-center">Qty</th><th className="px-3 py-2.5 text-[#8b949e] text-[9px] font-bold uppercase tracking-widest text-right">Cost (USD)</th><th className="px-3 py-2.5 text-[#8b949e] text-[9px] font-bold uppercase tracking-widest text-right">Markup %</th><th className="px-3 py-2.5 text-[#8b949e] text-[9px] font-bold uppercase tracking-widest text-right">Sell (USD)</th><th className="px-3 py-2.5 text-[#8b949e] text-[9px] font-bold uppercase tracking-widest text-right">Total Cost</th><th className="px-3 py-2.5 text-[#8b949e] text-[9px] font-bold uppercase tracking-widest text-right">Total Sell</th><th className="px-3 py-2.5 text-[#8b949e] text-[9px] font-bold uppercase tracking-widest text-right">Profit</th></tr></thead>
             <tbody>
               {filteredCategories.map(category => (
-                <React.Fragment key={category.id}>
+                <Fragment key={category.id}>
                   <tr style={{ background: "rgba(255,255,255,0.02)" }}><td colSpan={9} className="px-3 py-2 text-white text-[11px] font-bold">{category.sectionNumber} — {category.name}</td></tr>
                   {category.lineItems.filter(li => li.quantity > 0).map((li, i) => {
                     const r = recalcLineItem(li, exchangeRate);
@@ -2669,7 +2669,7 @@ function CostMarginTab({ quoteCategories, exchangeRate, fmt, onLineItemUpdate, f
                       <td colSpan={2}></td>
                     </tr>
                   )}
-                </React.Fragment>
+                </Fragment>
               ))}
               <tr style={{ background: "rgba(255,255,255,0.04)" }}><td colSpan={6} className="px-3 py-2.5 text-right text-white text-[11px] font-bold uppercase">System Subtotal</td><td className="px-3 py-2.5 text-right text-white text-[12px] font-bold">{systemSubtotal.toFixed(2)}</td><td className="px-3 py-2.5 text-right text-white text-[12px] font-bold">{systemSellTotal.toFixed(2)}</td><td className="px-3 py-2.5 text-right text-emerald-400 text-[12px] font-bold">{systemProfit.toFixed(2)}</td></tr>
               <tr style={{ background: "rgba(255,255,255,0.02)" }}><td colSpan={6} className="px-3 py-2 text-right text-[#8b949e] text-[10px]">Cost Total</td><td className="px-3 py-2 text-right text-white text-[11px] font-bold">{systemCostTotal.toFixed(2)}</td><td colSpan={2}></td></tr>
