@@ -22,7 +22,7 @@ import {
   UserCheck, Send, EyeOff, GanttChartSquare, Boxes, PackageOpen,
 } from "lucide-react";
 import { clsx } from "clsx";
-import { TransformWrapper, TransformComponent } from "react-zoom-pan-pinch";
+import { Stage as KonvaStage, Layer as KonvaLayer, Rect as KonvaRect, Circle as KonvaCircle, Line as KonvaLine, Text as KonvaText, Image as KonvaImage, Group as KonvaGroup, Arc as KonvaArc } from "react-konva";
 import { Canvas as ThreeCanvas } from "@react-three/fiber";
 import { OrbitControls, useGLTF, Environment, ContactShadows } from "@react-three/drei";
 import * as pdfjsLib from "pdfjs-dist";
@@ -304,7 +304,7 @@ function ConfirmDialog({ open, title, message, onConfirm, onCancel }: { open: bo
       <motion.div initial={{ opacity: 0, scale: 0.93 }} animate={{ opacity: 1, scale: 1 }} onClick={(e) => e.stopPropagation()} className="relative z-10 w-full max-w-[380px] rounded-2xl p-6" style={G.liquidGlass}>
         <div className="flex items-center gap-3 mb-4"><div className="w-10 h-10 rounded-xl flex items-center justify-center" style={{ background: "rgba(244,63,94,0.15)" }}><AlertTriangle className="w-5 h-5 text-rose-400" /></div><h3 className="text-white text-[14px] font-bold">{title}</h3></div>
         <p className="text-[#8b949e] text-[12px] mb-5">{message}</p>
-        <div className="flex gap-2"><button onClick={onCancel} className="flex-1 h-9 rounded-xl text-[#8b949e] text-[12px] font-semibold cursor-pointer active:scale-[0.97] transition-transform" style={G.btn}>Cancel</button><button onClick={onConfirm} className="flex-1 h-9 rounded-xl text-white text-[12px] font-bold cursor-pointer active:scale-[0.97] transition-transform" style={{ background: "#f43f5e" }}>Delete</button></div>
+        <div className="flex gap-2"><button onClick={onCancel} className="flex-1 h-9 rounded-xl text-[#8b949e] text-[12px] font-semibold cursor-pointer" style={G.btn}>Cancel</button><button onClick={onConfirm} className="flex-1 h-9 rounded-xl text-white text-[12px] font-bold cursor-pointer" style={{ background: "#f43f5e" }}>Delete</button></div>
       </motion.div>
     </div>
   );
@@ -314,7 +314,7 @@ function CurrencyToggle() {
   const { currency, setCurrency } = useCurrency();
   return (
     <div className="flex items-center h-8 rounded-xl overflow-hidden" style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.10)" }}>
-      {(["USD", "JMD"] as const).map((c) => (<button key={c} onClick={() => setCurrency(c)} className="h-full px-2.5 text-[11px] font-bold transition-all cursor-pointer active:scale-[0.97] transition-transform" style={currency === c ? { background: "#3b82f6", color: "#fff" } : { color: "#8b949e" }}>{c}</button>))}
+      {(["USD", "JMD"] as const).map((c) => (<button key={c} onClick={() => setCurrency(c)} className="h-full px-2.5 text-[11px] font-bold transition-all cursor-pointer" style={currency === c ? { background: "#3b82f6", color: "#fff" } : { color: "#8b949e" }}>{c}</button>))}
     </div>
   );
 }
@@ -326,7 +326,7 @@ function NotificationBell() {
   const handleMarkAllRead = async () => { await API.notifications.markAllRead(); setNotifications(prev => prev.map(n => ({ ...n, isRead: true }))); };
   return (
     <div className="relative">
-      <button onClick={() => setOpen(!open)} className="relative w-8 h-8 rounded-xl flex items-center justify-center hover:bg-white/[0.08] transition-colors cursor-pointer active:scale-[0.97] transition-transform" style={G.btn}><Bell className="w-3.5 h-3.5 text-[#8b949e]" />{unreadCount > 0 && <span className="absolute -top-0.5 -right-0.5 w-4 h-4 rounded-full bg-rose-500 text-white text-[8px] font-bold flex items-center justify-center">{unreadCount > 9 ? "9+" : unreadCount}</span>}</button>
+      <button onClick={() => setOpen(!open)} className="relative w-8 h-8 rounded-xl flex items-center justify-center hover:bg-white/[0.08] transition-colors cursor-pointer" style={G.btn}><Bell className="w-3.5 h-3.5 text-[#8b949e]" />{unreadCount > 0 && <span className="absolute -top-0.5 -right-0.5 w-4 h-4 rounded-full bg-rose-500 text-white text-[8px] font-bold flex items-center justify-center">{unreadCount > 9 ? "9+" : unreadCount}</span>}</button>
       {open && (<><div className="fixed inset-0 z-50" onClick={() => setOpen(false)} /><div className="absolute right-0 top-full mt-2 z-[60] w-80 rounded-2xl overflow-hidden" style={{ background: "rgba(7,12,26,0.97)", border: "1px solid rgba(255,255,255,0.12)", boxShadow: "0 8px 32px rgba(0,0,0,0.8)", backdropFilter: "blur(20px)" }}><div className="px-4 py-3 flex items-center justify-between" style={{ borderBottom: "1px solid rgba(255,255,255,0.07)" }}><p className="text-white text-[12px] font-bold">Notifications</p>{unreadCount > 0 && <button onClick={handleMarkAllRead} className="text-[10px] text-blue-400 font-semibold hover:text-blue-300 cursor-pointer">Mark all read</button>}</div><div className="max-h-[320px] overflow-y-auto" style={{ scrollbarWidth: "none" }}>{notifications.length === 0 ? <div className="px-4 py-6 text-center"><p className="text-[#484f58] text-[11px]">No notifications yet</p></div> : notifications.map(n => (<div key={n.id} className={clsx("px-4 py-2.5 hover:bg-white/[0.03] transition-colors cursor-pointer", !n.isRead && "bg-white/[0.02]")} style={{ borderBottom: "1px solid rgba(255,255,255,0.03)" }} onClick={() => { API.notifications.markRead(n.id); setNotifications(prev => prev.map(x => x.id === n.id ? { ...x, isRead: true } : x)); }}><div className="flex items-start gap-2"><div className={clsx("w-1.5 h-1.5 rounded-full mt-1.5 flex-shrink-0", !n.isRead ? "bg-blue-400" : "bg-transparent")} /><div className="flex-1 min-w-0"><p className="text-white text-[11px] font-semibold">{n.event}</p>{n.details && <p className="text-[#8b949e] text-[10px] mt-0.5">{n.details}</p>}<p className="text-[#484f58] text-[9px] mt-1">{new Date(n.timestamp).toLocaleString()}</p></div></div></div>))}</div></div></>)}
     </div>
   );
@@ -336,8 +336,8 @@ function UserMenu() {
   const [open, setOpen] = useState(false);
   return (
     <div className="relative">
-      <button onClick={() => setOpen(!open)} className="flex items-center gap-2 h-8 pl-1.5 pr-2.5 rounded-xl hover:bg-white/[0.06] transition-colors cursor-pointer active:scale-[0.97] transition-transform min-h-[44px] md:min-h-0"><div className="w-6 h-6 rounded-full flex items-center justify-center text-white text-[9px] font-bold flex-shrink-0" style={{ background: "linear-gradient(135deg, #3b82f6, #8b5cf6)", boxShadow: "0 0 12px rgba(139,92,246,0.5)" }}>{CURRENT_USER.initials}</div><span className="text-white text-[12px] font-semibold hidden md:inline">{CURRENT_USER.name}</span><ChevronDown className="w-3 h-3 text-[#8b949e] hidden md:block" /></button>
-      {open && (<><div className="fixed inset-0 z-50" onClick={() => setOpen(false)} /><div className="absolute right-0 top-full mt-2 z-[60] w-56 rounded-2xl overflow-hidden" style={{ background: "rgba(7,12,26,0.97)", border: "1px solid rgba(255,255,255,0.12)", boxShadow: "0 8px 32px rgba(0,0,0,0.8)", backdropFilter: "blur(20px)" }}><div className="px-4 py-3 flex items-center gap-3" style={{ borderBottom: "1px solid rgba(255,255,255,0.07)" }}><div className="w-8 h-8 rounded-full flex items-center justify-center text-white text-[11px] font-bold flex-shrink-0" style={{ background: "linear-gradient(135deg, #3b82f6, #8b5cf6)", boxShadow: "0 0 12px rgba(139,92,246,0.5)" }}>{CURRENT_USER.initials}</div><div><p className="text-white text-[12px] font-semibold">{CURRENT_USER.name}</p><p className="text-[#484f58] text-[10px]">Administrator</p></div></div><div className="py-1"><button onClick={() => { setOpen(false); localStorage.removeItem("auth_token"); localStorage.removeItem("app_logged_in"); localStorage.removeItem("app_page"); window.location.href = "/"; }} className="w-full flex items-center gap-2.5 px-4 py-2.5 text-[#8b949e] hover:text-white hover:bg-white/[0.05] transition-colors text-left cursor-pointer active:scale-[0.97] transition-transform min-h-[44px] text-[12px] font-semibold"><LogOut className="w-3.5 h-3.5 text-rose-400" /> Sign Out</button></div></div></>)}
+      <button onClick={() => setOpen(!open)} className="flex items-center gap-2 h-8 pl-1.5 pr-2.5 rounded-xl hover:bg-white/[0.06] transition-colors cursor-pointer min-h-[44px] md:min-h-0"><div className="w-6 h-6 rounded-full flex items-center justify-center text-white text-[9px] font-bold flex-shrink-0" style={{ background: "linear-gradient(135deg, #3b82f6, #8b5cf6)", boxShadow: "0 0 12px rgba(139,92,246,0.5)" }}>{CURRENT_USER.initials}</div><span className="text-white text-[12px] font-semibold hidden md:inline">{CURRENT_USER.name}</span><ChevronDown className="w-3 h-3 text-[#8b949e] hidden md:block" /></button>
+      {open && (<><div className="fixed inset-0 z-50" onClick={() => setOpen(false)} /><div className="absolute right-0 top-full mt-2 z-[60] w-56 rounded-2xl overflow-hidden" style={{ background: "rgba(7,12,26,0.97)", border: "1px solid rgba(255,255,255,0.12)", boxShadow: "0 8px 32px rgba(0,0,0,0.8)", backdropFilter: "blur(20px)" }}><div className="px-4 py-3 flex items-center gap-3" style={{ borderBottom: "1px solid rgba(255,255,255,0.07)" }}><div className="w-8 h-8 rounded-full flex items-center justify-center text-white text-[11px] font-bold flex-shrink-0" style={{ background: "linear-gradient(135deg, #3b82f6, #8b5cf6)", boxShadow: "0 0 12px rgba(139,92,246,0.5)" }}>{CURRENT_USER.initials}</div><div><p className="text-white text-[12px] font-semibold">{CURRENT_USER.name}</p><p className="text-[#484f58] text-[10px]">Administrator</p></div></div><div className="py-1"><button onClick={() => { setOpen(false); localStorage.removeItem("auth_token"); localStorage.removeItem("app_logged_in"); localStorage.removeItem("app_page"); window.location.href = "/"; }} className="w-full flex items-center gap-2.5 px-4 py-2.5 text-[#8b949e] hover:text-white hover:bg-white/[0.05] transition-colors text-left cursor-pointer min-h-[44px] text-[12px] font-semibold"><LogOut className="w-3.5 h-3.5 text-rose-400" /> Sign Out</button></div></div></>)}
     </div>
   );
 }
@@ -366,10 +366,10 @@ function AppTopbar({ page, navigate, breadcrumb }: { page: Page; navigate: (p: P
   const activeTab = NAV_ITEMS.find((n) => n.id === page)?.id ?? null;
   return (
     <header className="fixed top-0 inset-x-0 z-50 h-14 flex items-center gap-3 md:gap-5 px-3 md:px-5" style={{ background: "rgba(7,12,26,0.65)", backdropFilter: "blur(40px) saturate(180%)", borderBottom: "1px solid rgba(255,255,255,0.08)", boxShadow: "0 1px 0 rgba(255,255,255,0.04), 0 8px 32px rgba(0,0,0,0.5)" }}>
-      <button onClick={() => navigate("dashboard")} className="flex items-center gap-2.5 flex-shrink-0 cursor-pointer active:scale-[0.97] transition-transform min-h-[44px]"><img src={logoImg} alt="E-Tech Systems" className="h-8 md:h-10 object-contain" style={{ filter: "brightness(1.1)", marginTop: "-2px", marginBottom: "-2px" }} /></button>
+      <button onClick={() => navigate("dashboard")} className="flex items-center gap-2.5 flex-shrink-0 cursor-pointer min-h-[44px]"><img src={logoImg} alt="E-Tech Systems" className="h-8 md:h-10 object-contain" style={{ filter: "brightness(1.1)", marginTop: "-2px", marginBottom: "-2px" }} /></button>
       <div className="w-px h-4 flex-shrink-0 hidden md:block" style={{ background: "rgba(255,255,255,0.12)" }} />
-      {breadcrumb ? (<div className="flex items-center gap-2"><button onClick={() => navigate(breadcrumb.parent)} className="flex items-center gap-1.5 text-[#8b949e] hover:text-white text-[12px] font-semibold transition-colors cursor-pointer active:scale-[0.97] transition-transform"><ArrowLeft className="w-3.5 h-3.5" />{breadcrumb.label}</button><ChevronRight className="w-3.5 h-3.5 text-[#484f58]" /><span className="text-white text-[12px] font-semibold">Project Detail</span></div>) : (
-        <nav className="flex items-center gap-0.5 overflow-x-auto" style={{ scrollbarWidth: "none" }}>{NAV_ITEMS.map((item) => (<button key={item.id} onClick={() => navigate(item.id)} className={clsx("h-8 px-2.5 md:px-3.5 rounded-xl text-[11px] md:text-[13px] font-semibold transition-all duration-150 whitespace-nowrap cursor-pointer active:scale-[0.97] transition-transform", activeTab === item.id ? "text-white" : "text-[#8b949e] hover:text-white")} style={activeTab === item.id ? { background: "rgba(255,255,255,0.10)", border: "1px solid rgba(255,255,255,0.13)", boxShadow: "inset 0 1px 0 rgba(255,255,255,0.08)" } : undefined}>{item.label}</button>))}</nav>
+      {breadcrumb ? (<div className="flex items-center gap-2"><button onClick={() => navigate(breadcrumb.parent)} className="flex items-center gap-1.5 text-[#8b949e] hover:text-white text-[12px] font-semibold cursor-pointer"><ArrowLeft className="w-3.5 h-3.5" />{breadcrumb.label}</button><ChevronRight className="w-3.5 h-3.5 text-[#484f58]" /><span className="text-white text-[12px] font-semibold">Project Detail</span></div>) : (
+        <nav className="flex items-center gap-0.5 overflow-x-auto" style={{ scrollbarWidth: "none" }}>{NAV_ITEMS.map((item) => (<button key={item.id} onClick={() => navigate(item.id)} className={clsx("h-8 px-2.5 md:px-3.5 rounded-xl text-[11px] md:text-[13px] font-semibold transition-all duration-150 whitespace-nowrap cursor-pointer", activeTab === item.id ? "text-white" : "text-[#8b949e] hover:text-white")} style={activeTab === item.id ? { background: "rgba(255,255,255,0.10)", border: "1px solid rgba(255,255,255,0.13)", boxShadow: "inset 0 1px 0 rgba(255,255,255,0.08)" } : undefined}>{item.label}</button>))}</nav>
       )}
       <div className="flex-1" />
       <div className="flex items-center gap-1 md:gap-1.5"><div className="hidden md:block"><CurrencyToggle /></div><NotificationBell /><UserMenu /></div>
@@ -392,13 +392,13 @@ function KanbanCard({ project, column, dragging, onDragStart, onDragEnd, onClick
     <div draggable onDragStart={(e) => { e.stopPropagation(); onDragStart(e, project.id); }} onDragEnd={onDragEnd} onClick={onClick} className={clsx("group relative rounded-2xl cursor-pointer select-none transition-all duration-200", isDragging ? "opacity-25 scale-[0.96]" : "md:hover:-translate-y-1")} style={{ background: "rgba(255,255,255,0.055)", backdropFilter: "blur(24px)", border: isDragging ? "1px solid rgba(255,255,255,0.05)" : "1px solid rgba(255,255,255,0.11)", borderLeft: `3px solid ${isProjectPipeline ? (psBadge?.color || "#3b82f6") : column.color}`, boxShadow: isDragging ? "none" : "0 2px 16px rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,255,255,0.09)" }}>
       <div className="p-3 md:p-4 md:pl-5">
         <div className="flex items-start justify-between gap-2 mb-2"><div className="flex items-center gap-1.5 flex-1 min-w-0">{isOverdue && <span className="w-2 h-2 rounded-full bg-rose-500 flex-shrink-0" title="Overdue" />}{isDueSoon && !isOverdue && <span className="w-2 h-2 rounded-full bg-amber-500 flex-shrink-0" title="Due soon" />}<h3 className="text-white text-[12px] md:text-[13px] font-semibold leading-snug truncate">{project.name}</h3></div>
-        <div className="relative flex-shrink-0"><button onClick={(e) => { e.stopPropagation(); setMenuOpen(!menuOpen); }} className="opacity-0 group-hover:opacity-100 transition-opacity w-8 h-8 rounded-lg hover:bg-white/10 flex items-center justify-center mt-0.5 cursor-pointer active:scale-[0.97] transition-transform min-w-[44px] min-h-[44px] md:min-w-0 md:min-h-0"><MoreHorizontal className="w-3.5 h-3.5 text-[#8b949e]" /></button>
-        {menuOpen && <><div className="fixed inset-0 z-10" onClick={(e) => { e.stopPropagation(); setMenuOpen(false); }} /><div className="absolute right-0 top-7 z-20 w-40 rounded-xl overflow-hidden py-1" style={{ background: "rgba(7,12,26,0.97)", border: "1px solid rgba(255,255,255,0.12)", boxShadow: "0 8px 32px rgba(0,0,0,0.8)", backdropFilter: "blur(20px)" }}><button onClick={(e) => { e.stopPropagation(); setConfirmDelete(true); setMenuOpen(false); }} className="w-full flex items-center gap-2.5 px-3 py-2.5 text-rose-400 text-[12px] font-semibold hover:bg-rose-500/10 transition-colors text-left cursor-pointer active:scale-[0.97] transition-transform min-h-[44px]"><Trash2 className="w-3.5 h-3.5" /> Delete</button></div></>}</div></div>
+        <div className="relative flex-shrink-0"><button onClick={(e) => { e.stopPropagation(); setMenuOpen(!menuOpen); }} className="opacity-0 group-hover:opacity-100 transition-opacity w-8 h-8 rounded-lg hover:bg-white/10 flex items-center justify-center mt-0.5 cursor-pointer min-w-[44px] min-h-[44px] md:min-w-0 md:min-h-0"><MoreHorizontal className="w-3.5 h-3.5 text-[#8b949e]" /></button>
+        {menuOpen && <><div className="fixed inset-0 z-10" onClick={(e) => { e.stopPropagation(); setMenuOpen(false); }} /><div className="absolute right-0 top-7 z-20 w-40 rounded-xl overflow-hidden py-1" style={{ background: "rgba(7,12,26,0.97)", border: "1px solid rgba(255,255,255,0.12)", boxShadow: "0 8px 32px rgba(0,0,0,0.8)", backdropFilter: "blur(20px)" }}><button onClick={(e) => { e.stopPropagation(); setConfirmDelete(true); setMenuOpen(false); }} className="w-full flex items-center gap-2.5 px-3 py-2.5 text-rose-400 text-[12px] font-semibold hover:bg-rose-500/10 transition-colors text-left cursor-pointer min-h-[44px]"><Trash2 className="w-3.5 h-3.5" /> Delete</button></div></>}</div></div>
         <div className="flex items-center gap-1.5 mb-1"><Building2 className="w-3 h-3 text-[#8b949e] flex-shrink-0" /><span className="text-[#8b949e] text-[10px] md:text-[11px] font-semibold truncate">{project.client}</span></div>
         <div className="flex items-center flex-wrap gap-1.5 mb-2">
           {isProjectPipeline ? (
             <>
-              {psBadge && <span className="text-[9px] font-bold px-1.5 py-0.5 rounded-full" style={{ background: psBadge.cls.split(" ")[0].replace("bg-", "").replace("/15", "") + "20", color: psBadge.cls.split(" ")[1] }}>{psBadge.label}</span>}
+              {psBadge && <span className={clsx("text-[9px] font-bold px-1.5 py-0.5 rounded-full", psBadge.cls)}>{psBadge.label}</span>}
               {project.supportType && <span className="text-[9px] font-bold px-1.5 py-0.5 rounded-full" style={{ background: "rgba(139,92,246,0.15)", color: "#a78bfa" }}>{SUPPORT_TYPE_LABELS[project.supportType]}</span>}
             </>
           ) : (
@@ -505,7 +505,7 @@ function Dashboard({ navigate }: { navigate: (p: Page) => void }) {
     const updated: Project = { ...project, pipelineType: "project", projectStage: "planning", leadSource: undefined, stageHistory, updatedAt: new Date().toISOString() };
     setProjects(prev => prev.map(p => p.id === projectId ? updated : p));
     try {
-      await API.projects.update(projectId, { pipelineType: "project", projectStage: "planning", leadSource: undefined, stageHistory });
+      await API.projects.update(projectId, { pipelineType: "project", projectStage: "planning", leadSource: null, stageHistory });
       await API.audit.log(projectId, "Moved to Projects", "Moved from Sales Win to Projects Planning");
       toast.success("Moved to Projects Pipeline");
     } catch { fetchProjects(); }
@@ -539,8 +539,8 @@ function Dashboard({ navigate }: { navigate: (p: Page) => void }) {
             <div className="flex items-center gap-3 mb-1">
               <h1 className="text-white font-bold text-lg md:text-xl tracking-tight">{pipelineType === "sales" ? "Sales Pipeline" : "Project Pipeline"}</h1>
               <div className="flex items-center h-7 rounded-xl overflow-hidden" style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.10)" }}>
-                <button onClick={() => setPipelineType("sales")} className={clsx("h-full px-3 text-[10px] font-bold transition-all cursor-pointer", pipelineType === "sales" ? "text-white" : "text-[#484f58]")} style={pipelineType === "sales" ? { background: "#3b82f6" } : undefined}>Sales</button>
-                <button onClick={() => setPipelineType("project")} className={clsx("h-full px-3 text-[10px] font-bold transition-all cursor-pointer", pipelineType === "project" ? "text-white" : "text-[#484f58]")} style={pipelineType === "project" ? { background: "#8b5cf6" } : undefined}>Projects</button>
+                <button onClick={() => setPipelineType("sales")} className={clsx("h-full px-3 text-[10px] font-bold cursor-pointer", pipelineType === "sales" ? "text-white" : "text-[#484f58]")} style={pipelineType === "sales" ? { background: "#3b82f6" } : undefined}>Sales</button>
+                <button onClick={() => setPipelineType("project")} className={clsx("h-full px-3 text-[10px] font-bold cursor-pointer", pipelineType === "project" ? "text-white" : "text-[#484f58]")} style={pipelineType === "project" ? { background: "#8b5cf6" } : undefined}>Projects</button>
               </div>
             </div>
             <p className="text-[#8b949e] text-[11px] md:text-[13px] mt-0.5">{currentProjects.length} projects</p>
@@ -587,6 +587,7 @@ function NewProjectModal({ onClose, onAdd, pipelineType }: { onClose: () => void
 
   const inputCls = "w-full h-9 rounded-xl px-3 text-[#e6edf3] text-[12px] placeholder:text-[#484f58] focus:outline-none focus:ring-1 focus:ring-blue-500/50 transition-all";
   const labelCls = "block text-[#8b949e] text-[10px] font-bold uppercase tracking-widest mb-1.5";
+  const selectStyle = { ...G.input, background: "#0d1117", color: "#e6edf3" };
 
   return (
     <div className="fixed inset-0 z-[200] flex items-center justify-center p-4" onClick={onClose}><div className="absolute inset-0" style={{ background: "rgba(0,0,0,0.65)", backdropFilter: "blur(8px)" }} /><motion.div initial={{ opacity: 0, scale: 0.94, y: 16 }} animate={{ opacity: 1, scale: 1, y: 0 }} transition={{ type: "spring", damping: 26, stiffness: 360 }} onClick={(e) => e.stopPropagation()} className="relative z-10 w-full max-w-[600px] max-h-[90vh] overflow-y-auto rounded-3xl" style={{ background: "rgba(7,12,26,0.92)", backdropFilter: "blur(52px) saturate(200%)", border: "1px solid rgba(255,255,255,0.13)", boxShadow: "0 32px 80px rgba(0,0,0,0.9)" }}>
@@ -594,20 +595,20 @@ function NewProjectModal({ onClose, onAdd, pipelineType }: { onClose: () => void
       <form onSubmit={handleSubmit}><div className="px-5 md:px-7 py-5 space-y-4">
         <div className="grid grid-cols-2 gap-4"><div className="col-span-2"><label className={labelCls}>Project Name *</label><input value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g. HQ — CCTV Upgrade" className={inputCls} style={G.input} /></div></div>
         <div className="grid grid-cols-2 gap-4"><div><label className={labelCls}>Client *</label><input value={client} onChange={(e) => setClient(e.target.value)} placeholder="Company name" className={inputCls} style={G.input} /></div><div><label className={labelCls}>Location</label><input value={location} onChange={(e) => setLocation(e.target.value)} placeholder="Site address" className={inputCls} style={G.input} /></div></div>
-        <div className="grid grid-cols-2 gap-4"><div><label className={labelCls}>Estimated Value</label><input value={value} onChange={(e) => setValue(e.target.value)} placeholder="e.g. 95000" className={inputCls} style={G.input} /></div>{pipelineType === "sales" && <div><label className={labelCls}>Lead Source</label><div className="relative"><select value={leadSource} onChange={(e) => setLeadSource(e.target.value as LeadSource)} className={`${inputCls} appearance-none cursor-pointer pr-7`} style={{ ...G.input, background: "#0d1117", color: "#e6edf3" }}>{(["Tender","Single Source","Inbound","Referral","Recurring Client","Outbound"] as LeadSource[]).map((ls) => (<option key={ls} value={ls} style={{ background: "#0d1117", color: "#e6edf3" }}>{ls}</option>))}</select><ChevronDown className="absolute right-2.5 top-1/2 -translate-y-1/2 w-3 h-3 text-[#484f58]" /></div></div>}</div>
+        <div className="grid grid-cols-2 gap-4"><div><label className={labelCls}>Estimated Value</label><input value={value} onChange={(e) => setValue(e.target.value)} placeholder="e.g. 95000" className={inputCls} style={G.input} /></div>{pipelineType === "sales" && <div><label className={labelCls}>Lead Source</label><div className="relative"><select value={leadSource} onChange={(e) => setLeadSource(e.target.value as LeadSource)} className={`${inputCls} appearance-none cursor-pointer pr-7`} style={selectStyle}>{(["Tender","Single Source","Inbound","Referral","Recurring Client","Outbound"] as LeadSource[]).map((ls) => (<option key={ls} value={ls} style={{ background: "#0d1117", color: "#e6edf3" }}>{ls}</option>))}</select><ChevronDown className="absolute right-2.5 top-1/2 -translate-y-1/2 w-3 h-3 text-[#484f58]" /></div></div>}</div>
         <div className="grid grid-cols-3 gap-4">
           {pipelineType === "sales" ? (
-            <div><label className={labelCls}>Stage</label><div className="relative"><select value={stage} onChange={(e) => setStage(e.target.value as Stage)} className={`${inputCls} appearance-none cursor-pointer pr-7`} style={{ ...G.input, background: "#0d1117", color: "#e6edf3" }}>{COLUMNS.map((c) => (<option key={c.id} value={c.id} style={{ background: "#0d1117", color: "#e6edf3" }}>{c.label}</option>))}</select><ChevronDown className="absolute right-2.5 top-1/2 -translate-y-1/2 w-3 h-3 text-[#484f58]" /></div></div>
+            <div><label className={labelCls}>Stage</label><div className="relative"><select value={stage} onChange={(e) => setStage(e.target.value as Stage)} className={`${inputCls} appearance-none cursor-pointer pr-7`} style={selectStyle}>{COLUMNS.map((c) => (<option key={c.id} value={c.id} style={{ background: "#0d1117", color: "#e6edf3" }}>{c.label}</option>))}</select><ChevronDown className="absolute right-2.5 top-1/2 -translate-y-1/2 w-3 h-3 text-[#484f58]" /></div></div>
           ) : (
-            <div><label className={labelCls}>Stage</label><div className="relative"><select value={projectStage} onChange={(e) => setProjectStage(e.target.value as ProjectStage)} className={`${inputCls} appearance-none cursor-pointer pr-7`} style={{ ...G.input, background: "#0d1117", color: "#e6edf3" }}>{PROJECT_COLUMNS.map((c) => (<option key={c.id} value={c.id} style={{ background: "#0d1117", color: "#e6edf3" }}>{c.label}</option>))}</select><ChevronDown className="absolute right-2.5 top-1/2 -translate-y-1/2 w-3 h-3 text-[#484f58]" /></div></div>
+            <div><label className={labelCls}>Stage</label><div className="relative"><select value={projectStage} onChange={(e) => setProjectStage(e.target.value as ProjectStage)} className={`${inputCls} appearance-none cursor-pointer pr-7`} style={selectStyle}>{PROJECT_COLUMNS.map((c) => (<option key={c.id} value={c.id} style={{ background: "#0d1117", color: "#e6edf3" }}>{c.label}</option>))}</select><ChevronDown className="absolute right-2.5 top-1/2 -translate-y-1/2 w-3 h-3 text-[#484f58]" /></div></div>
           )}
-          <div><label className={labelCls}>Risk</label><div className="relative"><select value={risk} onChange={(e) => setRisk(e.target.value as "low"|"medium"|"high")} className={`${inputCls} appearance-none cursor-pointer pr-7`} style={{ ...G.input, background: "#0d1117", color: "#e6edf3" }}>{["low","medium","high"].map((r) => (<option key={r} value={r} style={{ background: "#0d1117", color: "#e6edf3" }}>{r.charAt(0).toUpperCase()+r.slice(1)}</option>))}</select><ChevronDown className="absolute right-2.5 top-1/2 -translate-y-1/2 w-3 h-3 text-[#484f58]" /></div></div>
+          <div><label className={labelCls}>Risk</label><div className="relative"><select value={risk} onChange={(e) => setRisk(e.target.value as "low"|"medium"|"high")} className={`${inputCls} appearance-none cursor-pointer pr-7`} style={selectStyle}>{["low","medium","high"].map((r) => (<option key={r} value={r} style={{ background: "#0d1117", color: "#e6edf3" }}>{r.charAt(0).toUpperCase()+r.slice(1)}</option>))}</select><ChevronDown className="absolute right-2.5 top-1/2 -translate-y-1/2 w-3 h-3 text-[#484f58]" /></div></div>
           <div><label className={labelCls}>Due Date</label><input type="date" value={dueDate} onChange={(e) => setDueDate(e.target.value)} className={inputCls} style={{ ...G.input, colorScheme: "dark" }} /></div>
         </div>
         {pipelineType === "project" && (
-          <div><label className={labelCls}>Support Type</label><div className="relative"><select value={supportType} onChange={(e) => setSupportType(e.target.value as SupportType)} className={`${inputCls} appearance-none cursor-pointer pr-7`} style={{ ...G.input, background: "#0d1117", color: "#e6edf3" }}>{SUPPORT_TYPES.map((st) => (<option key={st.id} value={st.id} style={{ background: "#0d1117", color: "#e6edf3" }}>{st.label}</option>))}</select><ChevronDown className="absolute right-2.5 top-1/2 -translate-y-1/2 w-3 h-3 text-[#484f58]" /></div></div>
+          <div><label className={labelCls}>Support Type</label><div className="relative"><select value={supportType} onChange={(e) => setSupportType(e.target.value as SupportType)} className={`${inputCls} appearance-none cursor-pointer pr-7`} style={selectStyle}>{SUPPORT_TYPES.map((st) => (<option key={st.id} value={st.id} style={{ background: "#0d1117", color: "#e6edf3" }}>{st.label}</option>))}</select><ChevronDown className="absolute right-2.5 top-1/2 -translate-y-1/2 w-3 h-3 text-[#484f58]" /></div></div>
         )}
-        <div style={{ borderTop: "1px solid rgba(255,255,255,0.07)", paddingTop: "12px" }}><label className={labelCls}>Collaborators</label><div className="flex gap-2 mb-2"><div className="relative flex-1"><select value={collabSelect} onChange={(e) => setCollabSelect(e.target.value)} className={`${inputCls} appearance-none cursor-pointer`} style={{ ...G.input, background: "#0d1117", color: "#e6edf3" }}><option value="" style={{ background: "#0d1117", color: "#e6edf3" }}>Select team member</option>{TEAM.filter(t => !collaborators.find(c => c.name === t.name)).map((t) => (<option key={t.name} value={t.name} style={{ background: "#0d1117", color: "#e6edf3" }}>{t.name}</option>))}</select></div><input value={collabRole} onChange={(e) => setCollabRole(e.target.value)} placeholder="Role" className={`${inputCls} flex-1`} style={G.input} /><button type="button" onClick={addCollaborator} className="h-9 px-3 rounded-xl text-white text-[12px] font-bold cursor-pointer" style={{ background: "#3b82f6" }}><Plus className="w-3.5 h-3.5" /></button></div>{collaborators.length > 0 && <div className="flex flex-wrap gap-2">{collaborators.map((c, i) => (<span key={i} className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl text-[11px] font-semibold" style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.10)" }}><span className="w-5 h-5 rounded-full flex items-center justify-center text-[9px] font-bold text-white" style={{ background: c.color }}>{c.initials}</span>{c.name} · {c.role}<button type="button" onClick={() => setCollaborators((prev) => prev.filter((_, j) => j !== i))} className="ml-1 text-[#484f58] hover:text-rose-400"><X className="w-3 h-3" /></button></span>))}</div>}</div>
+        <div style={{ borderTop: "1px solid rgba(255,255,255,0.07)", paddingTop: "12px" }}><label className={labelCls}>Collaborators</label><div className="flex gap-2 mb-2"><div className="relative flex-1"><select value={collabSelect} onChange={(e) => setCollabSelect(e.target.value)} className={`${inputCls} appearance-none cursor-pointer`} style={selectStyle}><option value="" style={{ background: "#0d1117", color: "#e6edf3" }}>Select team member</option>{TEAM.filter(t => !collaborators.find(c => c.name === t.name)).map((t) => (<option key={t.name} value={t.name} style={{ background: "#0d1117", color: "#e6edf3" }}>{t.name}</option>))}</select></div><input value={collabRole} onChange={(e) => setCollabRole(e.target.value)} placeholder="Role" className={`${inputCls} flex-1`} style={G.input} /><button type="button" onClick={addCollaborator} className="h-9 px-3 rounded-xl text-white text-[12px] font-bold cursor-pointer" style={{ background: "#3b82f6" }}><Plus className="w-3.5 h-3.5" /></button></div>{collaborators.length > 0 && <div className="flex flex-wrap gap-2">{collaborators.map((c, i) => (<span key={i} className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl text-[11px] font-semibold" style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.10)" }}><span className="w-5 h-5 rounded-full flex items-center justify-center text-[9px] font-bold text-white" style={{ background: c.color }}>{c.initials}</span>{c.name} · {c.role}<button type="button" onClick={() => setCollaborators((prev) => prev.filter((_, j) => j !== i))} className="ml-1 text-[#484f58] hover:text-rose-400"><X className="w-3 h-3" /></button></span>))}</div>}</div>
         <div style={{ borderTop: "1px solid rgba(255,255,255,0.07)", paddingTop: "12px" }}><p className="text-[#484f58] text-[10px] font-bold uppercase tracking-widest mb-3">Contact (optional)</p><div className="grid grid-cols-2 gap-3"><div><label className={labelCls}>Name</label><input value={contactName} onChange={(e) => setContactName(e.target.value)} placeholder="Full name" className={inputCls} style={G.input} /></div><div><label className={labelCls}>Title</label><input value={contactTitle} onChange={(e) => setContactTitle(e.target.value)} placeholder="Job title" className={inputCls} style={G.input} /></div><div><label className={labelCls}>Email</label><input type="email" value={contactEmail} onChange={(e) => setContactEmail(e.target.value)} placeholder="email@company.com" className={inputCls} style={G.input} /></div><div><label className={labelCls}>Phone</label><input value={contactPhone} onChange={(e) => setContactPhone(e.target.value)} placeholder="+1 (876) 555-0000" className={inputCls} style={G.input} /></div></div></div>
         <div><label className={labelCls}>Project Scope</label><textarea value={summary} onChange={(e) => setSummary(e.target.value)} placeholder="Brief description…" rows={3} className="w-full rounded-xl px-3 py-2.5 text-[#e6edf3] text-[12px] placeholder:text-[#484f58] focus:outline-none resize-none" style={G.input} /></div>
         <div><label className={labelCls}>Notes</label><textarea value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="Internal notes…" rows={2} className="w-full rounded-xl px-3 py-2.5 text-[#e6edf3] text-[12px] placeholder:text-[#484f58] focus:outline-none resize-none" style={G.input} /></div>
@@ -748,7 +749,7 @@ function DealModal({ project, column, onClose, navigate, onUpdate, onDelete, pip
           <p className="text-[#8b949e] text-[12px] md:text-[13px] font-semibold mt-1 flex items-center gap-1.5"><Building2 className="w-3.5 h-3.5 flex-shrink-0" />{project.client}</p>
         </div>
         <div className="flex gap-1 flex-shrink-0"><button onClick={copyProjectLink} className="w-8 h-8 rounded-xl flex items-center justify-center hover:bg-white/[0.08] cursor-pointer" style={{ border: "1px solid rgba(255,255,255,0.10)" }}><Link2 className="w-3.5 h-3.5 text-[#8b949e]" /></button><button onClick={() => setEditing(!editing)} className="w-8 h-8 rounded-xl flex items-center justify-center hover:bg-white/[0.08] cursor-pointer" style={{ border: "1px solid rgba(255,255,255,0.10)" }}><Pencil className="w-4 h-4 text-[#8b949e]" /></button><button onClick={onClose} className="w-8 h-8 rounded-xl flex items-center justify-center hover:bg-white/[0.08] cursor-pointer" style={{ border: "1px solid rgba(255,255,255,0.10)" }}><X className="w-4 h-4 text-[#8b949e]" /></button></div></div>
-        {editing && <div className="grid grid-cols-2 gap-2 mt-3"><input value={editName} onChange={(e) => setEditName(e.target.value)} placeholder="Name" className="w-full h-8 rounded-xl px-2 text-[12px] bg-transparent text-white" style={G.input} /><input value={editClient} onChange={(e) => setEditClient(e.target.value)} placeholder="Client" className="w-full h-8 rounded-xl px-2 text-[12px] bg-transparent text-white" style={G.input} /><input value={editLocation} onChange={(e) => setEditLocation(e.target.value)} placeholder="Location" className="w-full h-8 rounded-xl px-2 text-[12px] bg-transparent text-white" style={G.input} /><input type="number" value={editValue} onChange={(e) => setEditValue(e.target.value)} placeholder="Value" className="w-full h-8 rounded-xl px-2 text-[12px] bg-transparent text-white" style={G.input} /><select value={editRisk} onChange={(e) => setEditRisk(e.target.value as "low"|"medium"|"high")} className="w-full h-8 rounded-xl px-2 text-[12px] cursor-pointer" style={{ ...G.input, background: "#0d1117", color: "#e6edf3" }}>{["low","medium","high"].map((r) => <option key={r} value={r} style={{ background: "#0d1117", color: "#e6edf3" }}>{r}</option>)}</select><input type="date" value={editDueDate} onChange={(e) => setEditDueDate(e.target.value)} className="w-full h-8 rounded-xl px-2 text-[12px]" style={{ ...G.input, colorScheme: "dark", background: "#0d1117", color: "#e6edf3" }} />{isProjectPipeline && <select value={editSupportType} onChange={(e) => setEditSupportType(e.target.value as SupportType)} className="w-full h-8 rounded-xl px-2 text-[12px] cursor-pointer" style={{ ...G.input, background: "#0d1117", color: "#e6edf3" }}>{SUPPORT_TYPES.map(st => <option key={st.id} value={st.id} style={{ background: "#0d1117", color: "#e6edf3" }}>{st.label}</option>)}</select>}</div>}
+        {editing && <div className="grid grid-cols-2 gap-2 mt-3"><input value={editName} onChange={(e) => setEditName(e.target.value)} placeholder="Name" className="w-full h-8 rounded-xl px-2 text-[12px]" style={G.input} /><input value={editClient} onChange={(e) => setEditClient(e.target.value)} placeholder="Client" className="w-full h-8 rounded-xl px-2 text-[12px]" style={G.input} /><input value={editLocation} onChange={(e) => setEditLocation(e.target.value)} placeholder="Location" className="w-full h-8 rounded-xl px-2 text-[12px]" style={G.input} /><input type="number" value={editValue} onChange={(e) => setEditValue(e.target.value)} placeholder="Value" className="w-full h-8 rounded-xl px-2 text-[12px]" style={G.input} /><select value={editRisk} onChange={(e) => setEditRisk(e.target.value as "low"|"medium"|"high")} className="w-full h-8 rounded-xl px-2 text-[12px] cursor-pointer" style={{ ...G.input, background: "#0d1117", color: "#e6edf3" }}>{["low","medium","high"].map((r) => <option key={r} value={r} style={{ background: "#0d1117", color: "#e6edf3" }}>{r}</option>)}</select><input type="date" value={editDueDate} onChange={(e) => setEditDueDate(e.target.value)} className="w-full h-8 rounded-xl px-2 text-[12px]" style={{ ...G.input, colorScheme: "dark", background: "#0d1117", color: "#e6edf3" }} />{isProjectPipeline && <select value={editSupportType} onChange={(e) => setEditSupportType(e.target.value as SupportType)} className="w-full h-8 rounded-xl px-2 text-[12px] cursor-pointer" style={{ ...G.input, background: "#0d1117", color: "#e6edf3" }}>{SUPPORT_TYPES.map(st => <option key={st.id} value={st.id} style={{ background: "#0d1117", color: "#e6edf3" }}>{st.label}</option>)}</select>}</div>}
         {editing && <div className="mt-3 flex gap-2"><button onClick={handleSave} disabled={saving} className="flex-1 h-9 rounded-xl text-white text-[13px] font-bold cursor-pointer" style={{ background: "#10b981" }}><Save className="w-3.5 h-3.5 inline mr-1" />{saving ? "Saving…" : "Save"}</button><button onClick={() => setEditing(false)} className="flex-1 h-9 rounded-xl text-[#8b949e] text-[13px] font-semibold cursor-pointer" style={G.btn}>Cancel</button></div>}
       </div>
       <div className="flex items-center gap-0.5 px-5 md:px-7 border-b overflow-x-auto" style={{ borderColor: "rgba(255,255,255,0.07)", scrollbarWidth: "none" }}>{tabs.map((tab) => (<button key={tab.id} onClick={() => setActiveTab(tab.id)} className={clsx("flex items-center gap-1.5 h-9 px-3 text-[11px] font-semibold border-b-2 -mb-px transition-all whitespace-nowrap cursor-pointer", activeTab === tab.id ? "border-blue-500 text-white" : "border-transparent text-[#8b949e]")}><tab.icon className="w-3 h-3" />{tab.label}</button>))}</div>
@@ -918,6 +919,7 @@ function SubcontractorTab({ projectId }: { projectId: string }) {
   const [showAdd, setShowAdd] = useState(false);
   const [name, setName] = useState(""); const [trade, setTrade] = useState(""); const [email, setEmail] = useState("");
   const [showDocs, setShowDocs] = useState<string | null>(null);
+  const [uploadingDoc, setUploadingDoc] = useState<string | null>(null);
 
   useEffect(() => { API.subcontractors.list(projectId).then(setSubs).catch(() => setSubs([])).finally(() => setLoading(false)); }, [projectId]);
 
@@ -927,13 +929,28 @@ function SubcontractorTab({ projectId }: { projectId: string }) {
 
   const handleDelete = async (subId: string) => { API.subcontractors.delete(subId).then(() => { setSubs(prev => prev.filter(x => x.id !== subId)); toast.success("Removed"); }).catch(() => toast.error("Failed to delete")); };
 
+  const handleDocUpload = async (subId: string, e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]; if (!file) return;
+    setUploadingDoc(subId);
+    try {
+      const fd = new FormData(); fd.append("file", file);
+      const result = await API.documents.upload(projectId, file);
+      await API.subcontractors.addDoc(subId, { filename: file.name, fileUrl: result.fileUrl, uploadedBy: CURRENT_USER.name });
+      const updated = await API.subcontractors.list(projectId);
+      setSubs(updated);
+      toast.success("Document uploaded");
+    } catch { toast.error("Upload failed"); }
+    setUploadingDoc(null);
+    e.target.value = "";
+  };
+
   if (loading) return <Skeleton className="h-48 rounded-2xl" />;
 
   return (
     <div className="space-y-3">
       <div className="flex items-center justify-between"><p className="text-[#8b949e] text-[11px]">{subs.length} subcontractors</p><button onClick={() => setShowAdd(!showAdd)} className="flex items-center gap-1 h-8 px-3 rounded-xl text-white text-[11px] font-bold cursor-pointer" style={{ background: "#3b82f6" }}><Plus className="w-3 h-3" /> Add</button></div>
       {showAdd && (<div className="rounded-xl p-3 space-y-2" style={G.card}><input value={name} onChange={e => setName(e.target.value)} placeholder="Company name" className="w-full h-8 rounded-lg px-2 text-[11px] text-white" style={G.input} /><input value={trade} onChange={e => setTrade(e.target.value)} placeholder="Trade (e.g. Electrical)" className="w-full h-8 rounded-lg px-2 text-[11px] text-white" style={G.input} /><input value={email} onChange={e => setEmail(e.target.value)} placeholder="Email" className="w-full h-8 rounded-lg px-2 text-[11px] text-white" style={G.input} /><button onClick={handleAdd} className="w-full h-8 rounded-lg text-white text-[11px] font-bold cursor-pointer" style={{ background: "#10b981" }}>Save</button></div>)}
-      {subs.length === 0 && !showAdd ? <EmptyState icon={UserCheck} title="No subcontractors" description="Add subcontractors working on this project." /> : subs.map((sub) => (<div key={sub.id} className="rounded-xl p-3" style={G.card}><div className="flex items-center justify-between"><div className="flex-1 min-w-0"><p className="text-white text-[12px] font-semibold">{sub.name}</p><p className="text-[#484f58] text-[10px]">{sub.trade}{sub.email ? ` · ${sub.email}` : ""}</p></div><div className="flex items-center gap-2 flex-shrink-0"><div className="flex items-center gap-1">{[1,2,3,4,5].map(s => <Star key={s} className={clsx("w-3 h-3 cursor-pointer", s <= (sub.rating || 0) ? "text-amber-400 fill-amber-400" : "text-[#484f58]")} onClick={() => handleRate(sub.id, s)} />)}</div><button onClick={() => setShowDocs(showDocs === sub.id ? null : sub.id)} className="w-7 h-7 rounded-lg flex items-center justify-center cursor-pointer hover:bg-white/10" style={G.btn}><Paperclip className="w-3.5 h-3.5 text-[#8b949e]" /></button><button onClick={() => handleDelete(sub.id)} className="w-7 h-7 rounded-lg flex items-center justify-center cursor-pointer hover:bg-rose-500/10"><Trash2 className="w-3 h-3 text-rose-400" /></button></div></div>{showDocs === sub.id && (<div className="mt-2 pt-2 space-y-1" style={{ borderTop: "1px solid rgba(255,255,255,0.06)" }}>{sub.documents.length === 0 ? <p className="text-[#484f58] text-[10px]">No documents</p> : sub.documents.map(doc => (<div key={doc.id} className="flex items-center gap-2"><Paperclip className="w-3 h-3 text-[#484f58]" /><a href={doc.fileUrl} target="_blank" rel="noopener noreferrer" className="text-white text-[10px] font-semibold hover:text-blue-400">{doc.filename}</a></div>))}</div>)}</div>))}
+      {subs.length === 0 && !showAdd ? <EmptyState icon={UserCheck} title="No subcontractors" description="Add subcontractors working on this project." /> : subs.map((sub) => (<div key={sub.id} className="rounded-xl p-3" style={G.card}><div className="flex items-center justify-between"><div className="flex-1 min-w-0"><p className="text-white text-[12px] font-semibold">{sub.name}</p><p className="text-[#484f58] text-[10px]">{sub.trade}{sub.email ? ` · ${sub.email}` : ""}</p></div><div className="flex items-center gap-2 flex-shrink-0"><div className="flex items-center gap-1">{[1,2,3,4,5].map(s => <Star key={s} className={clsx("w-3 h-3 cursor-pointer", s <= (sub.rating || 0) ? "text-amber-400 fill-amber-400" : "text-[#484f58]")} onClick={() => handleRate(sub.id, s)} />)}</div><button onClick={() => setShowDocs(showDocs === sub.id ? null : sub.id)} className="w-7 h-7 rounded-lg flex items-center justify-center cursor-pointer hover:bg-white/10" style={G.btn}><Paperclip className="w-3.5 h-3.5 text-[#8b949e]" /></button><button onClick={() => handleDelete(sub.id)} className="w-7 h-7 rounded-lg flex items-center justify-center cursor-pointer hover:bg-rose-500/10"><Trash2 className="w-3 h-3 text-rose-400" /></button></div></div>{showDocs === sub.id && (<div className="mt-2 pt-2 space-y-1" style={{ borderTop: "1px solid rgba(255,255,255,0.06)" }}><div className="flex items-center justify-between"><p className="text-[#484f58] text-[9px] font-bold uppercase">Documents</p><label className="text-[10px] text-blue-400 cursor-pointer flex items-center gap-1">{uploadingDoc === sub.id ? <Loader2 className="w-3 h-3 animate-spin" /> : <Upload className="w-3 h-3" />}{uploadingDoc === sub.id ? "Uploading..." : "Upload"}<input type="file" className="hidden" onChange={(e) => handleDocUpload(sub.id, e)} disabled={uploadingDoc === sub.id} /></label></div>{sub.documents.length === 0 ? <p className="text-[#484f58] text-[10px]">No documents</p> : sub.documents.map(doc => (<div key={doc.id} className="flex items-center gap-2"><Paperclip className="w-3 h-3 text-[#484f58]" /><a href={doc.fileUrl} target="_blank" rel="noopener noreferrer" className="text-white text-[10px] font-semibold hover:text-blue-400">{doc.filename}</a></div>))}</div>)}</div>))}
     </div>
   );
 }
@@ -946,7 +963,18 @@ function ProcurementTab({ projectId }: { projectId: string }) {
 
   useEffect(() => { API.procurement.list(projectId).then(setPos).catch(() => setPos([])).finally(() => setLoading(false)); }, [projectId]);
 
-  const handleGeneratePO = async () => { try { const quotes = await API.quotes.list(); const q = quotes.find(q => q.projectId === projectId); const items = q?.categories.flatMap(c => c.lineItems.filter(li => li.quantity > 0).map(li => ({ description: li.description, quantity: li.quantity, unitCost: li.unitCost }))) || []; const po = await API.procurement.createPO(projectId, { supplierName: supplierName.trim() || null, generatedFrom: "BOM", items }); setPos(prev => [po, ...prev]); setShowGenerate(false); setSupplierName(""); toast.success("PO generated from BOM"); } catch { toast.error("Failed to generate PO"); } };
+  const handleGeneratePO = async () => {
+    try {
+      const quotes = await API.quotes.list();
+      const q = quotes.find(q => q.projectId === projectId);
+      const items = q?.categories.flatMap(c => c.lineItems.filter(li => li.quantity > 0).map(li => ({ description: li.description, quantity: li.quantity, unitCost: li.unitCost }))) || [];
+      const po = await API.procurement.createPO(projectId, { supplierName: supplierName.trim() || null, generatedFrom: "BOM", items });
+      setPos(prev => [po, ...prev]);
+      setShowGenerate(false);
+      setSupplierName("");
+      toast.success(`PO generated with ${items.length} items`);
+    } catch { toast.error("Failed to generate PO"); }
+  };
 
   const toggleReceived = async (itemId: string, received: boolean) => { API.procurement.updateItem(itemId, { received }).then(() => setPos(prev => prev.map(po => ({ ...po, items: po.items.map(i => i.id === itemId ? { ...i, received } : i) })))).catch(() => {}); };
 
@@ -967,12 +995,31 @@ function CommissioningTab({ projectId }: { projectId: string }) {
   const [showAdd, setShowAdd] = useState(false);
   const [newDeviceName, setNewDeviceName] = useState("");
   const [newLocation, setNewLocation] = useState("");
+  const [uploadingPhoto, setUploadingPhoto] = useState<string | null>(null);
 
   useEffect(() => { API.commissioning.list(projectId).then(setChecklist).catch(() => setChecklist([])).finally(() => setLoading(false)); }, [projectId]);
 
   const handleAdd = async () => { if (!newDeviceName.trim()) return; try { const created = await API.commissioning.add(projectId, { deviceName: newDeviceName.trim(), location: newLocation.trim() || null, deviceId: crypto.randomUUID?.() }); setChecklist(prev => [...prev, created]); setNewDeviceName(""); setNewLocation(""); setShowAdd(false); toast.success("Added"); } catch { toast.error("Failed to add"); } };
 
-  const handleUpdate = async (deviceId: string, status: "pass" | "fail") => { API.commissioning.update(projectId, deviceId, { status }).then(() => setChecklist(prev => prev.map(x => x.deviceId === deviceId ? { ...x, status } : x))).catch(() => {}); if (status === "fail") { API.tasks.create(projectId, { title: `${checklist.find(x => x.deviceId === deviceId)?.deviceName || "Device"} failed commissioning`, priority: "high", status: "todo" }).catch(() => {}); } };
+  const handleUpdate = async (deviceId: string, status: "pass" | "fail") => {
+    API.commissioning.update(projectId, deviceId, { status }).then(() => setChecklist(prev => prev.map(x => x.deviceId === deviceId ? { ...x, status } : x))).catch(() => {});
+    if (status === "fail") { API.tasks.create(projectId, { title: `${checklist.find(x => x.deviceId === deviceId)?.deviceName || "Device"} failed commissioning`, priority: "high", status: "todo" }).catch(() => {}); }
+  };
+
+  const handlePhotoUpload = async (deviceId: string, e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]; if (!file) return;
+    setUploadingPhoto(deviceId);
+    try {
+      const result = await API.documents.upload(projectId, file);
+      const item = checklist.find(x => x.deviceId === deviceId);
+      const photos = [...(item?.photos || []), result.fileUrl];
+      await API.commissioning.update(projectId, deviceId, { photos });
+      setChecklist(prev => prev.map(x => x.deviceId === deviceId ? { ...x, photos } : x));
+      toast.success("Photo uploaded");
+    } catch { toast.error("Upload failed"); }
+    setUploadingPhoto(null);
+    e.target.value = "";
+  };
 
   const handleGenerateReport = async () => { try { const result = await API.commissioning.generateReport(projectId); toast.success("Report generated"); } catch { toast.error("Failed to generate report"); } };
 
@@ -982,7 +1029,7 @@ function CommissioningTab({ projectId }: { projectId: string }) {
     <div className="space-y-3">
       <div className="flex items-center justify-between"><p className="text-[#8b949e] text-[11px]">{checklist.length} devices</p><div className="flex gap-2"><button onClick={() => setShowAdd(!showAdd)} className="flex items-center gap-1 h-8 px-3 rounded-xl text-white text-[11px] font-bold cursor-pointer" style={{ background: "#3b82f6" }}><Plus className="w-3 h-3" /> Add</button><button onClick={handleGenerateReport} className="flex items-center gap-1 h-8 px-3 rounded-xl text-white text-[11px] font-bold cursor-pointer" style={{ background: "#10b981" }}><ClipboardCheck className="w-3 h-3" /> Handover Report</button></div></div>
       {showAdd && (<div className="rounded-xl p-3 space-y-2" style={G.card}><input value={newDeviceName} onChange={e => setNewDeviceName(e.target.value)} placeholder="Device name" className="w-full h-8 rounded-lg px-2 text-[11px] text-white" style={G.input} /><input value={newLocation} onChange={e => setNewLocation(e.target.value)} placeholder="Location" className="w-full h-8 rounded-lg px-2 text-[11px] text-white" style={G.input} /><button onClick={handleAdd} className="w-full h-8 rounded-lg text-white text-[11px] font-bold cursor-pointer" style={{ background: "#10b981" }}>Save</button></div>)}
-      {checklist.length === 0 && !showAdd ? <EmptyState icon={ClipboardCheck} title="No commissioning data" description="Add devices for final sign-off." /> : checklist.map((item) => (<div key={item.id} className="flex items-center justify-between rounded-xl p-3" style={G.card}><div className="flex items-center gap-3"><div className={clsx("w-6 h-6 rounded-full flex items-center justify-center", item.status === "pass" ? "bg-emerald-500/20" : item.status === "fail" ? "bg-rose-500/20" : "bg-white/5")}>{item.status === "pass" ? <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" /> : item.status === "fail" ? <X className="w-3.5 h-3.5 text-rose-400" /> : <Clock className="w-3.5 h-3.5 text-[#484f58]" />}</div><div><p className="text-white text-[12px] font-semibold">{item.deviceName}</p><p className="text-[#484f58] text-[10px]">{item.location || ""}</p></div></div><div className="flex gap-1"><button onClick={() => handleUpdate(item.deviceId || item.id, "pass")} className="h-7 px-2 rounded-lg text-[10px] font-bold text-emerald-400 cursor-pointer" style={{ background: "rgba(16,185,129,0.12)" }}>Pass</button><button onClick={() => handleUpdate(item.deviceId || item.id, "fail")} className="h-7 px-2 rounded-lg text-[10px] font-bold text-rose-400 cursor-pointer" style={{ background: "rgba(244,63,94,0.12)" }}>Fail</button></div></div>))}
+      {checklist.length === 0 && !showAdd ? <EmptyState icon={ClipboardCheck} title="No commissioning data" description="Add devices for final sign-off." /> : checklist.map((item) => (<div key={item.id} className="rounded-xl p-3" style={G.card}><div className="flex items-center justify-between"><div className="flex items-center gap-3"><div className={clsx("w-6 h-6 rounded-full flex items-center justify-center", item.status === "pass" ? "bg-emerald-500/20" : item.status === "fail" ? "bg-rose-500/20" : "bg-white/5")}>{item.status === "pass" ? <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" /> : item.status === "fail" ? <X className="w-3.5 h-3.5 text-rose-400" /> : <Clock className="w-3.5 h-3.5 text-[#484f58]" />}</div><div><p className="text-white text-[12px] font-semibold">{item.deviceName}</p><p className="text-[#484f58] text-[10px]">{item.location || ""}</p></div></div><div className="flex gap-1"><button onClick={() => handleUpdate(item.deviceId || item.id, "pass")} className="h-7 px-2 rounded-lg text-[10px] font-bold text-emerald-400 cursor-pointer" style={{ background: "rgba(16,185,129,0.12)" }}>Pass</button><button onClick={() => handleUpdate(item.deviceId || item.id, "fail")} className="h-7 px-2 rounded-lg text-[10px] font-bold text-rose-400 cursor-pointer" style={{ background: "rgba(244,63,94,0.12)" }}>Fail</button><label className="h-7 px-2 rounded-lg text-[10px] font-bold text-blue-400 cursor-pointer flex items-center gap-1" style={{ background: "rgba(59,130,246,0.12)" }}>{uploadingPhoto === (item.deviceId || item.id) ? <Loader2 className="w-3 h-3 animate-spin" /> : <Camera className="w-3 h-3" />} Photo<input type="file" accept="image/*" capture="environment" className="hidden" onChange={(e) => handlePhotoUpload(item.deviceId || item.id, e)} disabled={uploadingPhoto === (item.deviceId || item.id)} /></label></div></div>{item.photos && item.photos.length > 0 && <div className="flex gap-2 mt-2 flex-wrap">{item.photos.map((p, i) => <img key={i} src={p} alt="" className="w-16 h-16 rounded-lg object-cover" style={{ border: "1px solid rgba(255,255,255,0.10)" }} />)}</div>}</div>))}
     </div>
   );
 }
@@ -1012,12 +1059,14 @@ function ThreeDViewer({ file }: { file: FloorPlanFile }) {
     </ThreeCanvas>
   );
 }
-
 const CANVAS_TOOLS = [
-  { id: "select", icon: MousePointer, label: "Select" },{ id: "move", icon: Move, label: "Pan" },
-  { id: "camera", icon: Camera, label: "Camera" },{ id: "door", icon: DoorOpen, label: "Door" },
-  { id: "panel", icon: PanelRight, label: "Panel" },{ id: "power", icon: Zap, label: "Power" },
-  { id: "server", icon: Server, label: "NVR" },{ id: "cable", icon: Cable, label: "Cable" },
+  { id: "select", icon: MousePointer, label: "Select" },
+  { id: "camera", icon: Camera, label: "Camera" },
+  { id: "door", icon: DoorOpen, label: "Door" },
+  { id: "panel", icon: PanelRight, label: "Panel" },
+  { id: "power", icon: Zap, label: "Power" },
+  { id: "server", icon: Server, label: "NVR" },
+  { id: "cable", icon: Cable, label: "Cable" },
   { id: "trash", icon: Trash2, label: "Delete" },
 ];
 
@@ -1030,21 +1079,32 @@ function DesignCanvas({ navigate }: { navigate: (p: Page) => void }) {
   const [devices, setDevices] = useState<CanvasDevice[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [storeSearch, setStoreSearch] = useState("");
-  const [draggingDevice, setDraggingDevice] = useState<string | null>(null);
   const [cablePoints, setCablePoints] = useState<{ x: number; y: number }[]>([]);
   const [projectId, setProjectId] = useState<string>(() => localStorage.getItem("canvas_last_project") || "");
   const [storeDevices, setStoreDevices] = useState<CatalogDevice[]>([]);
   const [floorPlan2D, setFloorPlan2D] = useState<FloorPlanFile | null>(null);
   const [floorPlan3D, setFloorPlan3D] = useState<FloorPlanFile | null>(null);
   const [pdfRendering, setPdfRendering] = useState(false);
-  const [canvasRotation, setCanvasRotation] = useState(0);
-  const [floorPlanOpacity, setFloorPlanOpacity] = useState(1);
-  const transformRef = useRef<any>(null);
+  const [floorPlanImage, setFloorPlanImage] = useState<HTMLImageElement | null>(null);
+  const [stageSize, setStageSize] = useState({ width: 1200, height: 800 });
+  const [scale, setScale] = useState(1);
+  const [position, setPosition] = useState({ x: 0, y: 0 });
+  const stageRef = useRef<any>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
 
   const selected = devices.find((c) => c.id === selectedId);
   const storeDevice = selected?.deviceStoreRef ? storeDevices.find(d => d.id === selected.deviceStoreRef) : null;
 
   useEffect(() => { API.devices.list().then(setStoreDevices).catch(() => setStoreDevices([])); }, []);
+
+  useEffect(() => {
+    if (containerRef.current) {
+      setStageSize({ width: containerRef.current.clientWidth, height: containerRef.current.clientHeight });
+    }
+    const handler = () => { if (containerRef.current) setStageSize({ width: containerRef.current.clientWidth, height: containerRef.current.clientHeight }); };
+    window.addEventListener("resize", handler);
+    return () => window.removeEventListener("resize", handler);
+  }, []);
 
   useEffect(() => {
     const loadCanvas = async () => {
@@ -1055,8 +1115,17 @@ function DesignCanvas({ navigate }: { navigate: (p: Page) => void }) {
           setProjectId(pid);
           localStorage.setItem("canvas_last_project", pid);
           const data = await API.canvas.get(pid);
-          if (data.layoutData?.imageUrl) setFloorPlan2D({ id: "2d-" + pid, type: "2d", url: data.layoutData.imageUrl, originalName: "floor-plan", format: data.layoutData.imageUrl.match(/\.(\w+)(\?|$)/)?.[1] || "png" });
-          if (data.layoutData?.image3DUrl) { const is3DModel = /\.(glb|gltf|obj|stl|fbx)$/i.test(data.layoutData.image3DUrl); setFloorPlan3D({ id: "3d-" + pid, type: "3d", url: data.layoutData.image3DUrl, originalName: "3d-model", format: data.layoutData.image3DUrl.match(/\.(\w+)(\?|$)/)?.[1] || "png", is3DModel }); }
+          if (data.layoutData?.imageUrl) {
+            setFloorPlan2D({ id: "2d-" + pid, type: "2d", url: data.layoutData.imageUrl, originalName: "floor-plan", format: data.layoutData.imageUrl.match(/\.(\w+)(\?|$)/)?.[1] || "png" });
+            const img = new window.Image();
+            img.crossOrigin = "anonymous";
+            img.src = data.layoutData.imageUrl;
+            img.onload = () => setFloorPlanImage(img);
+          }
+          if (data.layoutData?.image3DUrl) {
+            const is3DModel = /\.(glb|gltf|obj|stl|fbx)$/i.test(data.layoutData.image3DUrl);
+            setFloorPlan3D({ id: "3d-" + pid, type: "3d", url: data.layoutData.image3DUrl, originalName: "3d-model", format: data.layoutData.image3DUrl.match(/\.(\w+)(\?|$)/)?.[1] || "png", is3DModel });
+          }
           if (data.layoutData?.devices) setDevices(data.layoutData.devices);
         }
       } catch {}
@@ -1064,16 +1133,28 @@ function DesignCanvas({ navigate }: { navigate: (p: Page) => void }) {
     loadCanvas();
   }, []);
 
-  const saveCanvas = useCallback(async () => { if (!projectId) return; try { await API.canvas.save(projectId, { layoutData: { devices, imageUrl: floorPlan2D?.url || "", image3DUrl: floorPlan3D?.url || "" } }); const camCount = devices.filter(d => d.type === "camera").length; const devCount = devices.filter(d => d.type !== "cable").length; API.projects.update(projectId, { cameras: camCount, devices: devCount }).catch(() => {}); } catch (err) { console.error("Canvas save failed:", err); } }, [devices, floorPlan2D, floorPlan3D, projectId]);
+  const saveCanvas = useCallback(async () => {
+    if (!projectId) return;
+    try {
+      await API.canvas.save(projectId, { layoutData: { devices, imageUrl: floorPlan2D?.url || "", image3DUrl: floorPlan3D?.url || "" } });
+      const camCount = devices.filter(d => d.type === "camera").length;
+      const devCount = devices.filter(d => d.type !== "cable").length;
+      API.projects.update(projectId, { cameras: camCount, devices: devCount }).catch(() => {});
+    } catch (err) { console.error("Canvas save failed:", err); }
+  }, [devices, floorPlan2D, floorPlan3D, projectId]);
 
-  useEffect(() => { const t = setTimeout(() => { if (devices.length > 0 || floorPlan2D || floorPlan3D) saveCanvas(); }, 1000); return () => clearTimeout(t); }, [devices, saveCanvas]);
+  useEffect(() => { const t = setTimeout(() => { if (devices.length > 0 || floorPlan2D || floorPlan3D) saveCanvas(); }, 800); return () => clearTimeout(t); }, [devices, saveCanvas]);
 
   const syncDeviceToWorkbook = async (device: CatalogDevice) => {
     if (!projectId) return;
     try {
       const quotes = await API.quotes.list();
       let projectQuote = quotes.find((q: Quote) => q.projectId === projectId);
-      if (!projectQuote) { const projects = await API.projects.list(); const proj = projects.find((p: Project) => p.id === projectId); projectQuote = await API.quotes.create({ clientName: proj?.client || "", refNumber: `Q-${projectId.slice(0, 8).toUpperCase()}`, date: new Date().toISOString().slice(0, 10), status: "draft", quoteType: "Both", exchangeRate: parseFloat(localStorage.getItem("fx_rate") || "157.4"), projectId, categories: [{ id: crypto.randomUUID?.() || "cat1", name: "Video Security Equipment", type: "Video Surveillance" as QuoteType, lineItems: [] },{ id: crypto.randomUUID?.() || "cat2", name: "Access Control Equipment", type: "Access Control" as QuoteType, lineItems: [] },{ id: crypto.randomUUID?.() || "cat3", name: "Software", type: "Both" as QuoteType, lineItems: [] },{ id: crypto.randomUUID?.() || "cat4", name: "Compute & Storage", type: "Both" as QuoteType, lineItems: [] },{ id: crypto.randomUUID?.() || "cat5", name: "Networking", type: "Both" as QuoteType, lineItems: [] },{ id: crypto.randomUUID?.() || "cat6", name: "Installation & Labor", type: "Both" as QuoteType, lineItems: [] }] }); }
+      if (!projectQuote) {
+        const projects = await API.projects.list();
+        const proj = projects.find((p: Project) => p.id === projectId);
+        projectQuote = await API.quotes.create({ clientName: proj?.client || "", refNumber: `Q-${projectId.slice(0, 8).toUpperCase()}`, date: new Date().toISOString().slice(0, 10), status: "draft", quoteType: "Both", exchangeRate: parseFloat(localStorage.getItem("fx_rate") || "157.4"), projectId, categories: [{ id: crypto.randomUUID?.() || "cat1", name: "Video Security Equipment", type: "Video Surveillance" as QuoteType, lineItems: [] },{ id: crypto.randomUUID?.() || "cat2", name: "Access Control Equipment", type: "Access Control" as QuoteType, lineItems: [] },{ id: crypto.randomUUID?.() || "cat3", name: "Software", type: "Both" as QuoteType, lineItems: [] },{ id: crypto.randomUUID?.() || "cat4", name: "Compute & Storage", type: "Both" as QuoteType, lineItems: [] },{ id: crypto.randomUUID?.() || "cat5", name: "Networking", type: "Both" as QuoteType, lineItems: [] },{ id: crypto.randomUUID?.() || "cat6", name: "Installation & Labor", type: "Both" as QuoteType, lineItems: [] }] });
+      }
       const targetCatName = device.category === "camera" ? "Video Security Equipment" : device.category === "access-control" ? "Access Control Equipment" : device.category === "nvr" ? "Compute & Storage" : "Video Security Equipment";
       const categories = projectQuote.categories || [];
       let targetCat = categories.find((c: QuoteCategory) => c.name === targetCatName);
@@ -1096,16 +1177,49 @@ function DesignCanvas({ navigate }: { navigate: (p: Page) => void }) {
     } catch (err) { console.error("Workbook remove failed:", err); }
   };
 
-  const addDevice = (type: CanvasDevice["type"], x: number, y: number, storeRef?: string, imgUrl?: string) => { const newDevice: CanvasDevice = { id: `dev${Date.now()}`, type, x, y, rot: 0, fov: type === "camera" ? 80 : undefined, range: type === "camera" ? 90 : undefined, label: `${type.toUpperCase()}-${String(devices.length + 1).padStart(2, "0")}`, doorConfig: type === "door" ? { swing: "inswinging", lockType: "Electric Strike", readers: [], accessType: "Card", keyOverride: true } : undefined, deviceStoreRef: storeRef, imageUrl: imgUrl }; setDevices((prev) => [...prev, newDevice]); setSelectedId(newDevice.id); };
-  const placeDeviceFromStore = (device: CatalogDevice, x: number, y: number) => { const typeMap: Record<string, CanvasDevice["type"]> = { camera: "camera", "access-control": "door", nvr: "server", analytics: "server", other: "camera" }; addDevice(typeMap[device.category] || "camera", x, y, device.id, device.imageUrl); syncDeviceToWorkbook(device); toast.success(`${device.model} placed`); };
+  const addDevice = (type: CanvasDevice["type"], x: number, y: number, storeRef?: string, imgUrl?: string) => {
+    const newDevice: CanvasDevice = { id: `dev${Date.now()}`, type, x, y, rot: 0, fov: type === "camera" ? 80 : undefined, range: type === "camera" ? 90 : undefined, label: `${type.toUpperCase()}-${String(devices.length + 1).padStart(2, "0")}`, doorConfig: type === "door" ? { swing: "inswinging", lockType: "Electric Strike", readers: [], accessType: "Card", keyOverride: true } : undefined, deviceStoreRef: storeRef, imageUrl: imgUrl };
+    setDevices((prev) => [...prev, newDevice]);
+    setSelectedId(newDevice.id);
+  };
+
+  const placeDeviceFromStore = (device: CatalogDevice) => {
+    const typeMap: Record<string, CanvasDevice["type"]> = { camera: "camera", "access-control": "door", nvr: "server", analytics: "server", other: "camera" };
+    addDevice(typeMap[device.category] || "camera", 400, 300, device.id, device.imageUrl);
+    syncDeviceToWorkbook(device);
+    toast.success(`${device.model} placed`);
+  };
+
   const getDeviceColor = (type: CanvasDevice["type"]) => { const colors: Record<string, string> = { camera: "#3b82f6", door: "#f59e0b", panel: "#f97316", power: "#ef4444", server: "#ec4899", cable: "#8b5cf6" }; return colors[type] || "#3b82f6"; };
-  const updateDoorConfig = (deviceId: string, config: Partial<CanvasDevice["doorConfig"]>) => { setDevices((prev) => prev.map((d) => d.id === deviceId ? { ...d, doorConfig: { ...d.doorConfig!, ...config } } : d)); };
-  const handleCanvasClick = (e: any) => { if (activeTool === "move" || activeTool === "select" || activeTool === "trash") return; const transformState = transformRef.current?.state; if (!transformState) return; const scale = transformState.scale; const posX = (e.clientX - transformState.positionX) / scale; const posY = (e.clientY - transformState.positionY) / scale; if (activeTool === "cable") { setCablePoints((prev) => [...prev, { x: posX, y: posY }]); return; } addDevice(activeTool as CanvasDevice["type"], posX, posY); };
-  const handleDoubleClick = () => { if (activeTool === "cable" && cablePoints.length >= 2) { setDevices((prev) => [...prev, { id: `dev${Date.now()}`, type: "cable", x: cablePoints[0].x, y: cablePoints[0].y, rot: 0, label: `CABLE-${String(prev.filter(d => d.type === "cable").length + 1).padStart(2, "0")}`, cablePoints: [...cablePoints] }]); setCablePoints([]); } };
-  const handleDeviceClick = (deviceId: string, e: React.MouseEvent) => { e.stopPropagation(); if (activeTool === "trash") { const dev = devices.find(d => d.id === deviceId); setDevices((prev) => prev.filter((d) => d.id !== deviceId)); if (dev) removeDeviceFromWorkbook(dev.label); if (selectedId === deviceId) setSelectedId(null); return; } if (activeTool === "select") { setSelectedId(deviceId); setDraggingDevice(deviceId); } };
-  const handleDeviceMouseDown = (deviceId: string, _e: React.MouseEvent) => { if (activeTool === "select") setDraggingDevice(deviceId); };
-  const handleCanvasMouseMove = (e: React.MouseEvent) => { if (!draggingDevice || activeTool !== "select") return; const transformState = transformRef.current?.state; if (!transformState) return; const scale = transformState.scale; const posX = (e.clientX - transformState.positionX) / scale; const posY = (e.clientY - transformState.positionY) / scale; setDevices((prev) => prev.map((d) => d.id === draggingDevice ? { ...d, x: posX, y: posY } : d)); };
-  const handleCanvasMouseUp = () => { setDraggingDevice(null); };
+
+  const handleStageClick = (e: any) => {
+    const stage = e.target.getStage();
+    const point = stage.getPointerPosition();
+    if (!point) return;
+    if (activeTool === "cable") { setCablePoints((prev) => [...prev, { x: point.x, y: point.y }]); return; }
+    if (activeTool !== "select" && activeTool !== "trash") { addDevice(activeTool as CanvasDevice["type"], point.x, point.y); }
+    if (activeTool === "select") setSelectedId(null);
+  };
+
+  const handleCableDoubleClick = () => {
+    if (activeTool === "cable" && cablePoints.length >= 2) {
+      setDevices((prev) => [...prev, { id: `dev${Date.now()}`, type: "cable", x: cablePoints[0].x, y: cablePoints[0].y, rot: 0, label: `CABLE-${String(prev.filter(d => d.type === "cable").length + 1).padStart(2, "0")}`, cablePoints: [...cablePoints] }]);
+      setCablePoints([]);
+    }
+  };
+
+  const handleDragEnd = (deviceId: string, e: any) => {
+    const node = e.target;
+    setDevices((prev) => prev.map((d) => d.id === deviceId ? { ...d, x: node.x(), y: node.y() } : d));
+  };
+
+  const handleDeviceDelete = (deviceId: string) => {
+    const dev = devices.find(d => d.id === deviceId);
+    setDevices((prev) => prev.filter((d) => d.id !== deviceId));
+    if (dev) removeDeviceFromWorkbook(dev.label);
+    if (selectedId === deviceId) setSelectedId(null);
+  };
+
   const filteredStoreDevices = storeSearch.trim() ? storeDevices.filter(d => d.model.toLowerCase().includes(storeSearch.toLowerCase()) || d.manufacturer.toLowerCase().includes(storeSearch.toLowerCase())) : storeDevices;
   const CAT_COLOR: Record<string, { bg: string; text: string; label: string }> = { camera: { bg: "rgba(59,130,246,0.12)", text: "#60a5fa", label: "Camera" }, "access-control": { bg: "rgba(139,92,246,0.12)", text: "#a78bfa", label: "Access" }, nvr: { bg: "rgba(16,185,129,0.12)", text: "#34d399", label: "NVR" }, analytics: { bg: "rgba(249,115,22,0.12)", text: "#fb923c", label: "VMS" }, other: { bg: "rgba(100,100,100,0.12)", text: "#8b949e", label: "Other" } };
 
@@ -1115,8 +1229,37 @@ function DesignCanvas({ navigate }: { navigate: (p: Page) => void }) {
     input.onchange = async (e: any) => {
       const file = e.target.files?.[0]; if (!file || !projectId) return;
       const ext = file.name.split(".").pop()?.toLowerCase() || "";
-      if (type === "2d" && ext === "pdf") { setPdfRendering(true); try { const arrayBuffer = await file.arrayBuffer(); const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise; const page = await pdf.getPage(1); const viewport = page.getViewport({ scale: 2 }); const canvas = document.createElement("canvas"); canvas.width = viewport.width; canvas.height = viewport.height; const ctx = canvas.getContext("2d")!; await page.render({ canvasContext: ctx, viewport, canvas }).promise; const dataUrl = canvas.toDataURL("image/png"); const result = await API.canvas.upload(projectId, new File([await (await fetch(dataUrl)).blob()], file.name.replace(".pdf", ".png"), { type: "image/png" })); setFloorPlan2D({ id: "2d-" + projectId, type: "2d", url: result.url, originalName: file.name, format: "png" }); toast.success("PDF rendered and uploaded"); } catch { toast.error("Failed to render PDF"); } setPdfRendering(false); return; }
-      try { const result = await API.canvas.upload(projectId, file); if (type === "2d") setFloorPlan2D({ id: "2d-" + projectId, type: "2d", url: result.url, originalName: file.name, format: ext }); else { const is3DModel = /\.(glb|gltf|obj|stl|fbx)$/i.test(file.name); setFloorPlan3D({ id: "3d-" + projectId, type: "3d", url: result.url, originalName: file.name, format: ext, is3DModel }); } toast.success(type === "2d" ? "Floor plan uploaded" : "3D file uploaded"); } catch { toast.error("Upload failed"); }
+      if (type === "2d" && ext === "pdf") {
+        setPdfRendering(true);
+        try {
+          const arrayBuffer = await file.arrayBuffer();
+          const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+          const page = await pdf.getPage(1);
+          const viewport = page.getViewport({ scale: 2 });
+          const canvas = document.createElement("canvas");
+          canvas.width = viewport.width; canvas.height = viewport.height;
+          const ctx = canvas.getContext("2d")!;
+          await page.render({ canvasContext: ctx, viewport, canvas }).promise;
+          const dataUrl = canvas.toDataURL("image/png");
+          const result = await API.canvas.upload(projectId, new File([await (await fetch(dataUrl)).blob()], file.name.replace(".pdf", ".png"), { type: "image/png" }));
+          setFloorPlan2D({ id: "2d-" + projectId, type: "2d", url: result.url, originalName: file.name, format: "png" });
+          const img = new window.Image(); img.crossOrigin = "anonymous"; img.src = result.url; img.onload = () => setFloorPlanImage(img);
+          toast.success("PDF rendered and uploaded");
+        } catch { toast.error("Failed to render PDF"); }
+        setPdfRendering(false);
+        return;
+      }
+      try {
+        const result = await API.canvas.upload(projectId, file);
+        if (type === "2d") {
+          setFloorPlan2D({ id: "2d-" + projectId, type: "2d", url: result.url, originalName: file.name, format: ext });
+          const img = new window.Image(); img.crossOrigin = "anonymous"; img.src = result.url; img.onload = () => setFloorPlanImage(img);
+        } else {
+          const is3DModel = /\.(glb|gltf|obj|stl|fbx)$/i.test(file.name);
+          setFloorPlan3D({ id: "3d-" + projectId, type: "3d", url: result.url, originalName: file.name, format: ext, is3DModel });
+        }
+        toast.success(type === "2d" ? "Floor plan uploaded" : "3D file uploaded");
+      } catch { toast.error("Upload failed"); }
     };
     input.click();
   };
@@ -1133,51 +1276,126 @@ function DesignCanvas({ navigate }: { navigate: (p: Page) => void }) {
         <button onClick={() => setShowFov(!showFov)} className={clsx("flex items-center gap-1.5 h-7 px-2 rounded-xl text-[10px] font-semibold cursor-pointer", showFov ? "text-blue-400" : "text-[#8b949e]")} style={showFov ? { background: "rgba(59,130,246,0.15)" } : G.btn}><Eye className="w-3 h-3" /> FOV</button>
         <button onClick={() => setShowDeviceTray(!showDeviceTray)} className={clsx("flex items-center gap-1.5 h-7 px-2 rounded-xl text-[10px] font-semibold cursor-pointer", showDeviceTray ? "text-white" : "text-[#8b949e]")} style={G.btn}><Store className="w-3 h-3" /> Store</button>
       </header>
-      <div className="flex-1 relative overflow-hidden" onMouseMove={handleCanvasMouseMove} onMouseUp={handleCanvasMouseUp}>
+      <div className="flex-1 relative overflow-hidden" ref={containerRef}>
         <motion.div className="absolute left-0 top-0 bottom-0 w-80 z-30 flex flex-col" style={G.liquidGlass} animate={{ x: showDeviceTray ? 0 : -320 }} transition={{ type: "spring", stiffness: 300, damping: 30 }}>
           <div className="px-4 py-3 flex items-center justify-between" style={{ borderBottom: "1px solid rgba(255,255,255,0.07)" }}><p className="text-white text-[12px] font-bold">Device Store</p><button onClick={() => setShowDeviceTray(false)} className="w-6 h-6 rounded-lg hover:bg-white/[0.08] flex items-center justify-center cursor-pointer min-w-[44px] min-h-[44px]"><X className="w-3.5 h-3.5 text-[#8b949e]" /></button></div>
           <div className="px-3 py-2.5"><div className="relative"><Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3 h-3 text-[#484f58]" /><input value={storeSearch} onChange={(e) => setStoreSearch(e.target.value)} placeholder="Search device store..." className="w-full h-7 rounded-xl pl-7 pr-2.5 text-[11px] text-[#e6edf3] focus:outline-none" style={G.input} /></div></div>
           <div className="flex-1 overflow-y-auto" style={{ scrollbarWidth: "none" }}>
-            {filteredStoreDevices.map((device) => { const cc = CAT_COLOR[device.category] ?? CAT_COLOR.other; return (<button key={device.id} onClick={() => { setActiveTool("select"); placeDeviceFromStore(device, 400, 300); }} className="w-full flex items-center gap-2.5 px-3 py-2.5 hover:bg-white/[0.04] transition-colors cursor-pointer text-left" style={{ borderBottom: "1px solid rgba(255,255,255,0.04)" }}><div className="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0" style={{ background: "rgba(255,255,255,0.04)" }}>{device.imageUrl ? <img src={device.imageUrl} alt="" className="w-full h-full object-contain p-0.5 opacity-70" /> : <Camera className="w-3.5 h-3.5 text-[#484f58]" />}</div><div className="flex-1 min-w-0"><p className="text-white text-[11px] font-semibold truncate">{device.model}</p><p className="text-[#484f58] text-[9px]">{device.manufacturer}{device.price ? ` · $${device.price.toFixed(0)}` : ""}</p></div><span className="inline-block px-1.5 py-0.5 rounded text-[8px] font-bold uppercase flex-shrink-0" style={{ background: cc.bg, color: cc.text }}>{cc.label}</span></button>); })}
+            {filteredStoreDevices.map((device) => { const cc = CAT_COLOR[device.category] ?? CAT_COLOR.other; return (<button key={device.id} onClick={() => placeDeviceFromStore(device)} className="w-full flex items-center gap-2.5 px-3 py-2.5 hover:bg-white/[0.04] transition-colors cursor-pointer text-left" style={{ borderBottom: "1px solid rgba(255,255,255,0.04)" }}><div className="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0" style={{ background: "rgba(255,255,255,0.04)" }}>{device.imageUrl ? <img src={device.imageUrl} alt="" className="w-full h-full object-contain p-0.5 opacity-70" /> : <Camera className="w-3.5 h-3.5 text-[#484f58]" />}</div><div className="flex-1 min-w-0"><p className="text-white text-[11px] font-semibold truncate">{device.model}</p><p className="text-[#484f58] text-[9px]">{device.manufacturer}{device.price ? ` · $${device.price.toFixed(0)}` : ""}</p></div><span className="inline-block px-1.5 py-0.5 rounded text-[8px] font-bold uppercase flex-shrink-0" style={{ background: cc.bg, color: cc.text }}>{cc.label}</span></button>); })}
             {filteredStoreDevices.length === 0 && <div className="px-4 py-8 text-center"><p className="text-[#484f58] text-[11px]">No devices found</p></div>}
           </div>
         </motion.div>
-        {view3D && floorPlan3D ? (<div className="absolute inset-0"><ThreeDViewer file={floorPlan3D} /><div className="absolute bottom-4 left-4 px-3 py-1.5 rounded-xl text-[10px] font-semibold text-white" style={G.liquidGlass}>3D View — {floorPlan3D.originalName}</div></div>) : (
-          <TransformWrapper ref={transformRef} initialScale={1} minScale={0.2} maxScale={5} centerOnInit wheel={{ step: 0.1 }} panning={{ excluded: ["device-icon"] }}>
-            {({ zoomIn, zoomOut, resetTransform }: any) => (<>
-              <TransformComponent wrapperStyle={{ width: "100%", height: "100%" }} contentStyle={{ width: "100%", height: "100%" }}>
-                <div className="relative" style={{ width: "100%", height: "100%", minWidth: "2000px", minHeight: "1500px", background: "#070c1a", backgroundImage: "radial-gradient(circle, rgba(255,255,255,0.015) 1px, transparent 1px)", backgroundSize: "20px 20px", transform: `rotate(${canvasRotation}deg)`, transformOrigin: "center center" }} onClick={handleCanvasClick} onDoubleClick={handleDoubleClick}>
-                  {floorPlan2D && <img src={floorPlan2D.url} alt="Floor Plan" className="absolute left-1/2 top-1/2" style={{ transform: "translate(-50%, -50%)", opacity: floorPlanOpacity, maxWidth: "90%", maxHeight: "90%", pointerEvents: "none", userSelect: "none" }} draggable={false} />}
-                  {activeTool === "cable" && cablePoints.length > 0 && (<svg className="absolute inset-0 w-full h-full pointer-events-none" style={{ zIndex: 10 }}><polyline points={cablePoints.map(p => `${p.x},${p.y}`).join(" ")} fill="none" stroke="#8b5cf6" strokeWidth="2" strokeDasharray="6,3" />{cablePoints.map((p, i) => (<circle key={i} cx={p.x} cy={p.y} r="4" fill="#8b5cf6" />))}</svg>)}
-                  {devices.map((dev) => { const color = getDeviceColor(dev.type); const isSelected = dev.id === selectedId; const deviceStoreItem = dev.deviceStoreRef ? storeDevices.find(d => d.id === dev.deviceStoreRef) : null; return (<div key={dev.id} className="device-icon absolute cursor-pointer" style={{ left: dev.x, top: dev.y, transform: "translate(-50%, -50%)", zIndex: 20 }} onClick={(e) => handleDeviceClick(dev.id, e)} onMouseDown={(e) => handleDeviceMouseDown(dev.id, e)}>
-                    {dev.type === "camera" && (<div className="relative">{deviceStoreItem?.imageUrl ? <img src={deviceStoreItem.imageUrl} alt="" className="w-8 h-8 object-contain rounded" style={{ border: isSelected ? "2px solid #3b82f6" : "1px solid rgba(255,255,255,0.3)", background: "rgba(0,0,0,0.6)" }} /> : <div className="w-6 h-6 rounded-full flex items-center justify-center" style={{ background: color, border: isSelected ? "2px solid #fff" : "1px solid rgba(255,255,255,0.5)", boxShadow: isSelected ? `0 0 12px ${color}` : "none" }}><Camera className="w-3 h-3 text-white" /></div>}{showFov && <svg className="absolute" style={{ left: "-45px", top: "-45px", width: "100px", height: "100px", pointerEvents: "none", transform: `rotate(${dev.rot}deg)` }}><path d={fovPath(50, 50, 0, dev.fov || 80, dev.range || 45)} fill={isSelected ? "rgba(59,130,246,0.22)" : "rgba(59,130,246,0.08)"} /></svg>}</div>)}
-                    {dev.type === "door" && <div className="px-1.5 py-0.5 rounded" style={{ background: "rgba(245,158,11,0.2)", border: isSelected ? "2px solid #f59e0b" : "1px solid rgba(245,158,11,0.5)" }}><DoorOpen className="w-3.5 h-3.5 text-amber-400" /></div>}
-                    {dev.type === "panel" && <div className="px-1.5 py-0.5 rounded text-[9px] font-bold" style={{ background: "rgba(249,115,22,0.2)", color: "#f97316" }}>PNL</div>}
-                    {dev.type === "power" && <div className="px-1.5 py-0.5 rounded text-[9px] font-bold" style={{ background: "rgba(239,68,68,0.2)", color: "#ef4444" }}>PWR</div>}
-                    {dev.type === "server" && <div className="px-1.5 py-0.5 rounded text-[9px] font-bold" style={{ background: "rgba(236,72,153,0.2)", color: "#ec4899" }}>NVR</div>}
-                    {dev.type === "cable" && dev.cablePoints && <svg className="absolute pointer-events-none" style={{ left: 0, top: 0, width: "100%", height: "100%", overflow: "visible" }}><polyline points={dev.cablePoints.map(p => `${p.x - dev.x},${p.y - dev.y}`).join(" ")} fill="none" stroke={color} strokeWidth={isSelected ? 2.5 : 1.5} strokeDasharray={isSelected ? "none" : "6,3"} /></svg>}
-                    <div className="absolute -bottom-4 left-1/2 -translate-x-1/2 text-[8px] font-semibold whitespace-nowrap" style={{ color: isSelected ? "#fff" : "#484f58" }}>{dev.label}</div>
-                  </div>); })}
-                  {!floorPlan2D && (<div className="absolute inset-0 flex items-center justify-center pointer-events-none"><div className="text-center"><Upload className="w-12 h-12 text-[#484f58] mx-auto mb-3" /><p className="text-[#484f58] text-[14px] font-semibold">Upload a floor plan or 3D model to begin</p></div></div>)}
-                </div>
-              </TransformComponent>
-              <div className="absolute bottom-20 right-4 z-40 flex flex-col gap-1"><button onClick={() => zoomIn()} className="w-8 h-8 rounded-xl flex items-center justify-center text-white cursor-pointer" style={G.btn}><ZoomIn className="w-3.5 h-3.5" /></button><button onClick={() => zoomOut()} className="w-8 h-8 rounded-xl flex items-center justify-center text-white cursor-pointer" style={G.btn}><ZoomOut className="w-3.5 h-3.5" /></button><button onClick={() => resetTransform()} className="w-8 h-8 rounded-xl flex items-center justify-center text-white cursor-pointer" style={G.btn}><Maximize2 className="w-3.5 h-3.5" /></button></div>
-            </>)}
-          </TransformWrapper>
+
+        {view3D && floorPlan3D ? (
+          <div className="absolute inset-0"><ThreeDViewer file={floorPlan3D} /><div className="absolute bottom-4 left-4 px-3 py-1.5 rounded-xl text-[10px] font-semibold text-white" style={G.liquidGlass}>3D View — {floorPlan3D.originalName}</div></div>
+        ) : (
+          <KonvaStage
+            ref={stageRef}
+            width={stageSize.width}
+            height={stageSize.height}
+            scaleX={scale}
+            scaleY={scale}
+            x={position.x}
+            y={position.y}
+            draggable={activeTool === "select"}
+            onClick={handleStageClick}
+            onDblClick={handleCableDoubleClick}
+            onWheel={(e) => { const scaleBy = 1.05; const stage = e.target.getStage(); const oldScale = stage.scaleX(); const pointer = stage.getPointerPosition(); if (!pointer) return; const mousePointTo = { x: (pointer.x - stage.x()) / oldScale, y: (pointer.y - stage.y()) / oldScale }; const newScale = e.evt.deltaY < 0 ? oldScale * scaleBy : oldScale / scaleBy; setScale(newScale); setPosition({ x: pointer.x - mousePointTo.x * newScale, y: pointer.y - mousePointTo.y * newScale }); }}
+            style={{ background: "#070c1a" }}
+          >
+            <KonvaLayer>
+              {floorPlanImage && <KonvaImage image={floorPlanImage} x={50} y={50} width={stageSize.width - 100} height={stageSize.height - 100} opacity={0.5} />}
+              {activeTool === "cable" && cablePoints.length > 0 && (
+                <KonvaLine points={cablePoints.flatMap(p => [p.x, p.y])} stroke="#8b5cf6" strokeWidth={2} dash={[6, 3]} />
+              )}
+              {devices.map((dev) => {
+                const color = getDeviceColor(dev.type);
+                const isSelected = dev.id === selectedId;
+                if (dev.type === "cable" && dev.cablePoints) {
+                  return <KonvaLine key={dev.id} points={dev.cablePoints.flatMap(p => [p.x, p.y])} stroke={color} strokeWidth={isSelected ? 2.5 : 1.5} dash={isSelected ? [] : [6, 3]} />;
+                }
+                return (
+                  <KonvaGroup
+                    key={dev.id}
+                    x={dev.x}
+                    y={dev.y}
+                    draggable={activeTool === "select"}
+                    onClick={(e) => { e.cancelBubble = true; setSelectedId(dev.id); }}
+                    onDragEnd={(e) => handleDragEnd(dev.id, e)}
+                    onTap={(e) => { e.cancelBubble = true; setSelectedId(dev.id); }}
+                  >
+                    {showFov && dev.type === "camera" && (
+                      <KonvaArc
+                        x={0}
+                        y={0}
+                        innerRadius={0}
+                        outerRadius={dev.range || 45}
+                        angle={dev.fov || 80}
+                        rotation={dev.rot - (dev.fov || 80) / 2}
+                        fill={isSelected ? "rgba(59,130,246,0.22)" : "rgba(59,130,246,0.08)"}
+                      />
+                    )}
+                    {dev.type === "camera" && (
+                      <KonvaCircle radius={12} fill={color} stroke={isSelected ? "#fff" : "rgba(255,255,255,0.5)"} strokeWidth={isSelected ? 2 : 1} />
+                    )}
+                    {dev.type === "door" && (
+                      <KonvaRect x={-10} y={-6} width={20} height={12} fill="rgba(245,158,11,0.2)" stroke={isSelected ? "#f59e0b" : "rgba(245,158,11,0.5)"} strokeWidth={isSelected ? 2 : 1} cornerRadius={2} />
+                    )}
+                    {dev.type === "panel" && (
+                      <KonvaRect x={-12} y={-8} width={24} height={16} fill="rgba(249,115,22,0.2)" stroke={isSelected ? "#f97316" : "rgba(249,115,22,0.5)"} strokeWidth={isSelected ? 2 : 1} cornerRadius={2} />
+                    )}
+                    {dev.type === "power" && (
+                      <KonvaRect x={-10} y={-10} width={20} height={20} fill="rgba(239,68,68,0.2)" stroke={isSelected ? "#ef4444" : "rgba(239,68,68,0.5)"} strokeWidth={isSelected ? 2 : 1} cornerRadius={2} />
+                    )}
+                    {dev.type === "server" && (
+                      <KonvaRect x={-14} y={-8} width={28} height={16} fill="rgba(236,72,153,0.2)" stroke={isSelected ? "#ec4899" : "rgba(236,72,153,0.5)"} strokeWidth={isSelected ? 2 : 1} cornerRadius={2} />
+                    )}
+                    <KonvaText
+                      text={dev.label}
+                      fontSize={8}
+                      fill={isSelected ? "#fff" : "#484f58"}
+                      y={16}
+                      align="center"
+                      width={80}
+                      x={-40}
+                    />
+                  </KonvaGroup>
+                );
+              })}
+              {!floorPlan2D && (
+                <KonvaText
+                  text="Upload a floor plan or 3D model to begin"
+                  fontSize={14}
+                  fill="#484f58"
+                  x={stageSize.width / 2 - 120}
+                  y={stageSize.height / 2 - 10}
+                />
+              )}
+            </KonvaLayer>
+          </KonvaStage>
         )}
+
         {showProperties && selected && (
           <div className="absolute right-0 top-0 bottom-0 w-72 z-30 flex flex-col" style={G.liquidGlass}>
             <div className="px-4 py-3 flex items-center justify-between" style={{ borderBottom: "1px solid rgba(255,255,255,0.07)" }}><p className="text-white text-[12px] font-bold">Properties</p><button onClick={() => setShowProperties(false)} className="w-6 h-6 rounded-lg hover:bg-white/[0.08] flex items-center justify-center cursor-pointer min-w-[44px] min-h-[44px]"><X className="w-3.5 h-3.5 text-[#8b949e]" /></button></div>
             <div className="flex-1 p-4 overflow-y-auto space-y-4" style={{ scrollbarWidth: "none" }}>
               <div><p className="text-[#484f58] text-[10px] font-bold uppercase tracking-widest mb-2">Device</p><div className="rounded-xl p-3" style={G.card}><p className="text-white text-[12px] font-bold">{selected.label}</p><p className="text-[#484f58] text-[10px] mt-1 capitalize">{selected.type}</p></div></div>
               {storeDevice && (<div><p className="text-[#484f58] text-[10px] font-bold uppercase tracking-widest mb-2">Device Store Info</p><div className="rounded-xl p-3 space-y-2" style={G.card}><p className="text-white text-[12px] font-bold">{storeDevice.model}</p><p className="text-[#8b949e] text-[10px]">{storeDevice.manufacturer}</p>{storeDevice.price && <div className="flex justify-between"><span className="text-[#484f58] text-[10px]">Price</span><span className="text-white text-[10px] font-bold">${storeDevice.price.toFixed(2)}</span></div>}</div></div>)}
-              {selected.type === "camera" && (<div><p className="text-[#484f58] text-[10px] font-bold uppercase tracking-widest mb-2">Camera Settings</p><div className="rounded-xl p-3 space-y-2" style={G.card}><div className="flex items-center justify-between"><span className="text-[#8b949e] text-[11px]">Rotation</span><input type="range" min="0" max="360" value={selected.rot} onChange={(e) => setDevices((prev) => prev.map((d) => d.id === selected.id ? { ...d, rot: parseInt(e.target.value) } : d))} className="w-24" /><span className="text-white text-[10px] font-bold">{selected.rot}°</span></div><div className="flex items-center justify-between"><span className="text-[#8b949e] text-[11px]">FOV</span><select value={selected.fov || 80} onChange={(e) => setDevices((prev) => prev.map((d) => d.id === selected.id ? { ...d, fov: parseInt(e.target.value) } : d))} className="cursor-pointer" style={{ ...G.input, background: "#0d1117", color: "#e6edf3", padding: "2px 6px", borderRadius: "6px" }}><option value="60">60°</option><option value="80">80°</option><option value="100">100°</option><option value="120">120°</option><option value="180">180°</option><option value="360">360°</option></select></div></div></div>)}
-              <button onClick={() => { const dev = devices.find(d => d.id === selected.id); setDevices((prev) => prev.filter((d) => d.id !== selected.id)); if (dev) removeDeviceFromWorkbook(dev.label); setSelectedId(null); }} className="w-full h-8 rounded-xl text-rose-400 text-[11px] font-semibold flex items-center justify-center gap-1.5 cursor-pointer" style={{ background: "rgba(244,63,94,0.10)", border: "1px solid rgba(244,63,94,0.20)" }}><Trash2 className="w-3 h-3" /> Delete</button>
+              {selected.type === "camera" && (
+                <div><p className="text-[#484f58] text-[10px] font-bold uppercase tracking-widest mb-2">Camera Settings</p><div className="rounded-xl p-3 space-y-2" style={G.card}>
+                  <div className="flex items-center justify-between"><span className="text-[#8b949e] text-[11px]">Rotation</span><input type="range" min="0" max="360" value={selected.rot} onChange={(e) => setDevices((prev) => prev.map((d) => d.id === selected.id ? { ...d, rot: parseInt(e.target.value) } : d))} className="w-24" /><span className="text-white text-[10px] font-bold">{selected.rot}°</span></div>
+                  <div className="flex items-center justify-between"><span className="text-[#8b949e] text-[11px]">FOV</span><select value={selected.fov || 80} onChange={(e) => setDevices((prev) => prev.map((d) => d.id === selected.id ? { ...d, fov: parseInt(e.target.value) } : d))} className="cursor-pointer" style={{ ...G.input, background: "#0d1117", color: "#e6edf3", padding: "2px 6px", borderRadius: "6px" }}><option value="60">60°</option><option value="80">80°</option><option value="100">100°</option><option value="120">120°</option><option value="180">180°</option><option value="360">360°</option></select></div>
+                </div></div>
+              )}
+              <button onClick={() => handleDeviceDelete(selected.id)} className="w-full h-8 rounded-xl text-rose-400 text-[11px] font-semibold flex items-center justify-center gap-1.5 cursor-pointer" style={{ background: "rgba(244,63,94,0.10)", border: "1px solid rgba(244,63,94,0.20)" }}><Trash2 className="w-3 h-3" /> Delete</button>
             </div>
           </div>
         )}
+
         <div className="absolute bottom-5 left-1/2 -translate-x-1/2 z-40 flex items-center gap-1 px-2 py-2 rounded-2xl overflow-x-auto max-w-[95vw]" style={G.liquidGlass}>
-          {CANVAS_TOOLS.map((tool) => (<button key={tool.id} onClick={() => { setActiveTool(tool.id); if (tool.id !== "cable") setCablePoints([]); }} title={tool.label} className={clsx("w-8 h-8 rounded-xl flex items-center justify-center flex-shrink-0 cursor-pointer min-w-[44px] min-h-[44px] md:min-w-0 md:min-h-0", activeTool === tool.id ? "text-white" : "text-[#8b949e]")} style={activeTool === tool.id ? { background: "#3b82f6", boxShadow: "0 4px 16px rgba(59,130,246,0.45)" } : undefined}><tool.icon className="w-3.5 h-3.5" /></button>))}
+          {CANVAS_TOOLS.map((tool) => (
+            <button key={tool.id} onClick={() => { setActiveTool(tool.id); if (tool.id !== "cable") setCablePoints([]); }} title={tool.label} className={clsx("w-8 h-8 rounded-xl flex items-center justify-center flex-shrink-0 cursor-pointer min-w-[44px] min-h-[44px] md:min-w-0 md:min-h-0", activeTool === tool.id ? "text-white" : "text-[#8b949e]")} style={activeTool === tool.id ? { background: "#3b82f6", boxShadow: "0 4px 16px rgba(59,130,246,0.45)" } : undefined}><tool.icon className="w-3.5 h-3.5" /></button>
+          ))}
           <div className="w-px h-6 mx-1" style={{ background: "rgba(255,255,255,0.10)" }} />
           <span className="text-[#484f58] text-[9px] ml-1">{devices.length} devices</span>
         </div>
@@ -1458,7 +1676,6 @@ function InstallTracker({ navigate: _navigate }: { navigate: (p: Page) => void }
     </div>
   );
 }
-
 const CAT_COLOR_DS: Record<string, { bg: string; text: string; label: string }> = { camera: { bg: "rgba(59,130,246,0.12)", text: "#60a5fa", label: "Camera" }, "access-control": { bg: "rgba(139,92,246,0.12)", text: "#a78bfa", label: "Access" }, nvr: { bg: "rgba(16,185,129,0.12)", text: "#34d399", label: "NVR" }, analytics: { bg: "rgba(249,115,22,0.12)", text: "#fb923c", label: "VMS" }, other: { bg: "rgba(100,100,100,0.12)", text: "#8b949e", label: "Other" } };
 
 function DeviceSpecModal({ device, onClose }: { device: CatalogDevice; onClose: () => void }) {
@@ -1584,7 +1801,7 @@ export default function App() {
                   <div key={item.label} className="flex items-start gap-3 p-3 rounded-xl" style={{ background: "rgba(255,255,255,0.03)" }}><div className="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0" style={{ background: `${item.color}20` }}><item.icon className="w-4 h-4" style={{ color: item.color }} /></div><div><p className="text-white text-[12px] font-semibold">{item.label}</p><p className="text-[#484f58] text-[10px]">{item.desc}</p></div></div>
                 ))}
               </div>
-              <button onClick={() => { setShowOnboarding(false); localStorage.setItem("onboarding_complete", "true"); }} className="w-full h-11 rounded-xl text-white text-[13px] font-bold cursor-pointer active:scale-[0.97] transition-transform" style={{ background: "#3b82f6", boxShadow: "0 4px 20px rgba(59,130,246,0.4)" }}>Get Started</button>
+              <button onClick={() => { setShowOnboarding(false); localStorage.setItem("onboarding_complete", "true"); }} className="w-full h-11 rounded-xl text-white text-[13px] font-bold cursor-pointer" style={{ background: "#3b82f6", boxShadow: "0 4px 20px rgba(59,130,246,0.4)" }}>Get Started</button>
             </motion.div>
           </div>
         )}
