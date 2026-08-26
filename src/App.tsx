@@ -789,31 +789,31 @@ function KanbanCard({ project, column, dragging, onDragStart, onDragEnd, onClick
           <div className="flex items-center flex-wrap gap-1.5 mb-2">
             {isProjectPipeline ? (
               <>
-                {psBadge && <span className={clsx("text-[9px] font-bold px-1.5 py-0.5 rounded-full", psBadge.cls)}>{psBadge.label}</span>}
-                {project.supportType && <span className="text-[9px] font-bold px-1.5 py-0.5 rounded-full" style={{ background: "rgba(139,92,246,0.15)", color: "#a78bfa" }}>{SUPPORT_TYPE_LABELS[project.supportType]}</span>}
+                {psBadge && <span className={clsx("text-[10px] font-bold px-1.5 py-0.5 rounded-full", psBadge.cls)}>{psBadge.label}</span>}
+                {project.supportType && <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full" style={{ background: "rgba(139,92,246,0.15)", color: "#a78bfa" }}>{SUPPORT_TYPE_LABELS[project.supportType]}</span>}
               </>
             ) : (
               <>
-                {ls && <span className="text-[9px] font-bold px-1.5 py-0.5 rounded-full" style={{ background: ls.bg, color: ls.text }}>{project.leadSource}</span>}
-                <span className={clsx("text-[9px] md:text-[10px] font-bold px-1.5 py-0.5 rounded-full uppercase tracking-wide", project.risk === "high" ? "bg-rose-500/20 text-rose-400" : project.risk === "medium" ? "bg-amber-500/20 text-amber-400" : "bg-emerald-500/20 text-emerald-400")}>{project.risk}</span>
+                {ls && <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full" style={{ background: ls.bg, color: ls.text }}>{project.leadSource}</span>}
+                <span className={clsx("text-[10px] md:text-[11px] font-bold px-1.5 py-0.5 rounded-full uppercase tracking-wide", project.risk === "high" ? "bg-rose-500/20 text-rose-400" : project.risk === "medium" ? "bg-amber-500/20 text-amber-400" : "bg-emerald-500/20 text-emerald-400")}>{project.risk}</span>
               </>
             )}
           </div>
           {!isProjectPipeline && <div className="flex items-center gap-2 mb-2.5"><span className="text-white font-bold text-[14px] md:text-[15px] tracking-tight">{fmt(project.value, true)}</span></div>}
           <div className="flex items-center gap-3 mb-3">
-            <span className="flex items-center gap-1 text-[#8b949e] text-[10px] md:text-[11px]"><Camera className="w-3 h-3" />{project.cameras} cams</span>
-            <span className="flex items-center gap-1 text-[#8b949e] text-[10px] md:text-[11px]"><Fingerprint className="w-3 h-3" />{project.devices} devices</span>
+            <span className="flex items-center gap-1 text-[#8b949e] text-[12px] md:text-[13px] font-medium"><Camera className="w-3 h-3" />{project.cameras} cams</span>
+            <span className="flex items-center gap-1 text-[#8b949e] text-[12px] md:text-[13px] font-medium"><Fingerprint className="w-3 h-3" />{project.devices} devices</span>
           </div>
           {project.notes && (
             <div className="relative mb-2">
-              <button onClick={(e) => { e.stopPropagation(); setShowNotes(!showNotes); }} className="text-[10px] text-[#8b949e] hover:text-[#e6edf3] font-semibold cursor-pointer flex items-center gap-1"><StickyNote className="w-3 h-3" /> Notes</button>
-              {showNotes && <div className="absolute top-full left-0 mt-1 w-48 rounded-xl p-2 z-30 text-[10px] text-[#8b949e]" style={{ background: "rgba(7,12,26,0.97)", border: "1px solid rgba(255,255,255,0.10)", boxShadow: "0 4px 16px rgba(0,0,0,0.6)" }}>{project.notes}</div>}
+              <button onClick={(e) => { e.stopPropagation(); setShowNotes(!showNotes); }} className="text-[11px] text-[#8b949e] hover:text-[#e6edf3] font-bold cursor-pointer flex items-center gap-1"><StickyNote className="w-3 h-3" /> Notes</button>
+              {showNotes && <div className="absolute top-full left-0 mt-1 w-48 rounded-xl p-2 z-30 text-[11px] text-[#8b949e]" style={{ background: "rgba(7,12,26,0.97)", border: "1px solid rgba(255,255,255,0.10)", boxShadow: "0 4px 16px rgba(0,0,0,0.6)" }}>{project.notes}</div>}
             </div>
           )}
           <div className="flex items-center justify-between pt-2.5" style={{ borderTop: "1px solid rgba(255,255,255,0.06)" }}>
             <div className="flex items-center gap-1">
               <div className="w-5 h-5 rounded-full flex items-center justify-center text-[9px] font-bold text-white flex-shrink-0" style={{ background: project.assignee.color, boxShadow: `0 0 8px ${project.assignee.color}60` }}>{project.assignee.initials}</div>
-              <span className="text-[#8b949e] text-[10px] md:text-[11px] font-medium truncate max-w-[60px]">{project.assignee.name}</span>
+              <span className="text-[#8b949e] text-[12px] md:text-[13px] font-semibold truncate max-w-[60px]">{project.assignee.name}</span>
               {allCollaborators.length > 0 && (
                 <div className="flex items-center -space-x-1.5 ml-0.5">
                   {allCollaborators.slice(0, 3).map((c, i) => (
@@ -823,7 +823,7 @@ function KanbanCard({ project, column, dragging, onDragStart, onDragEnd, onClick
                 </div>
               )}
             </div>
-            <span className={clsx("flex items-center gap-1 text-[10px] md:text-[11px]", isOverdue ? "text-rose-400" : isDueSoon ? "text-amber-400" : "text-[#484f58]")}><Calendar className="w-3 h-3" />{fmtDate(project.dueDate)}</span>
+            <span className={clsx("flex items-center gap-1 text-[12px] md:text-[13px] font-semibold", isOverdue ? "text-rose-400" : isDueSoon ? "text-amber-400" : "text-[#484f58]")}><Calendar className="w-3 h-3" />{fmtDate(project.dueDate)}</span>
           </div>
           {project.stage === "win" && !isProjectPipeline && onMoveToProjects && (
             <button onClick={(e) => { e.stopPropagation(); onMoveToProjects(project.id); }} className="mt-2 w-full h-7 rounded-lg text-[10px] font-bold text-white cursor-pointer" style={{ background: "#8b5cf6" }}>Move to Projects</button>
@@ -845,9 +845,9 @@ function KanbanColumn({ column, projects, totalValue, dragging, isOver, onDragSt
             <div className="w-2 h-2 rounded-full flex-shrink-0" style={{ background: column.color, boxShadow: `0 0 10px ${column.color}88` }} />
             <span className="text-white text-[11px] md:text-[12px] font-bold truncate leading-tight">{column.label}</span>
           </div>
-          <span className="text-[#8b949e] text-[10px] md:text-[11px] px-1.5 py-0.5 rounded-full font-bold" style={{ background: "rgba(255,255,255,0.08)" }}>{projects.length}</span>
+          <span className="text-[#8b949e] text-[11px] md:text-[12px] px-1.5 py-0.5 rounded-full font-bold" style={{ background: "rgba(255,255,255,0.08)" }}>{projects.length}</span>
         </div>
-        {!isProjectColumn && <p className="text-[#484f58] text-[10px] md:text-[11px] font-semibold ml-4">{fmt(totalValue, true)}</p>}
+        {!isProjectColumn && <p className="text-[#484f58] text-[12px] md:text-[13px] font-bold ml-4">{fmt(totalValue, true)}</p>}
       </div>
       <div className="flex-1 p-2 space-y-2 overflow-y-auto" style={{ scrollbarWidth: "none", scrollBehavior: "smooth", WebkitOverflowScrolling: "touch", minHeight: "120px", maxHeight: "calc(100vh - 250px)" }}>
         <AnimatePresence mode="popLayout">
@@ -855,8 +855,8 @@ function KanbanColumn({ column, projects, totalValue, dragging, isOver, onDragSt
             <KanbanCard key={p.id} project={p} column={column} dragging={dragging} onDragStart={onDragStart} onDragEnd={onDragEnd} onClick={() => onCardClick(p)} onDelete={onDelete} onMoveToProjects={onMoveToProjects} />
           ))}
         </AnimatePresence>
-        {isOver && <div className="h-14 rounded-xl border-2 border-dashed border-blue-500/35 bg-blue-500/[0.04] flex items-center justify-center"><p className="text-blue-400/60 text-[11px] font-semibold">Drop here</p></div>}
-        {projects.length === 0 && !isOver && <div className="h-14 rounded-xl border border-dashed border-white/[0.04] flex items-center justify-center"><p className="text-[#484f58] text-[11px]">No projects</p></div>}
+        {isOver && <div className="h-14 rounded-xl border-2 border-dashed border-blue-500/35 bg-blue-500/[0.04] flex items-center justify-center"><p className="text-blue-400/60 text-[12px] font-bold">Drop here</p></div>}
+        {projects.length === 0 && !isOver && <div className="h-14 rounded-xl border border-dashed border-white/[0.04] flex items-center justify-center"><p className="text-[#484f58] text-[12px] font-medium">No projects</p></div>}
       </div>
     </div>
   );
