@@ -2261,6 +2261,16 @@ function DesignCanvas({ navigate }: { navigate: (p: Page) => void }) {
   const [stageSize, setStageSize] = useState({ width: 1200, height: 800 });
   const [scale, setScale] = useState(1);
   const [position, setPosition] = useState({ x: 0, y: 0 });
+  const floorPlanRect = useMemo(() => {
+    if (!floorPlanImage) return null;
+    const padding = 20;
+    const availableWidth = stageSize.width - padding * 2;
+    const availableHeight = stageSize.height - padding * 2;
+    const fitScale = Math.min(availableWidth / floorPlanImage.width, availableHeight / floorPlanImage.height);
+    const width = floorPlanImage.width * fitScale;
+    const height = floorPlanImage.height * fitScale;
+    return { x: (stageSize.width - width) / 2, y: (stageSize.height - height) / 2, width, height };
+  }, [floorPlanImage, stageSize.width, stageSize.height]);
   const stageRef = useRef<any>(null);
   const containerRef = useRef<HTMLDivElement>(null);
 
@@ -2503,7 +2513,7 @@ function DesignCanvas({ navigate }: { navigate: (p: Page) => void }) {
         ) : (
           <KonvaStage ref={stageRef} width={stageSize.width} height={stageSize.height} scaleX={scale} scaleY={scale} x={position.x} y={position.y} draggable onClick={handleStageClick} onDblClick={handleDoubleClick} onWheel={handleWheel} style={{ background: "#070c1a", cursor: activeTool === "select" ? "default" : "crosshair" }}>
             <KonvaLayer>
-              {floorPlanImage && <KonvaImage image={floorPlanImage} x={50} y={50} width={stageSize.width - 100} height={stageSize.height - 100} opacity={0.5} listening={false} />}
+              {floorPlanImage && floorPlanRect && <KonvaImage image={floorPlanImage} x={floorPlanRect.x} y={floorPlanRect.y} width={floorPlanRect.width} height={floorPlanRect.height} opacity={0.5} listening={false} />}
               {activeTool === "cable" && cablePoints.length > 0 && <KonvaLine points={cablePoints.flatMap(p => [p.x, p.y])} stroke="#8b5cf6" strokeWidth={2} dash={[6, 3]} listening={false} />}
               {devices.map((dev) => {
                 const color = getDeviceColor(dev.type);
