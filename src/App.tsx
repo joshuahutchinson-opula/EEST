@@ -541,8 +541,8 @@ function EmptyState({ icon: Icon, title, description, action }: { icon: IconType
   return (
     <div className="flex flex-col items-center justify-center py-16 px-4 text-center">
       <div className="w-16 h-16 rounded-2xl flex items-center justify-center mb-4" style={{ background: "rgba(59,130,246,0.10)", border: "1px solid rgba(59,130,246,0.18)" }}><Icon className="w-8 h-8 text-blue-400" /></div>
-      <h3 className="text-white text-[16px] font-extrabold mb-1.5">{title}</h3><p className="text-[#8b949e] text-[14px] max-w-sm mb-5">{description}</p>
-      {action && <button onClick={action.onClick} className="h-9 px-5 rounded-xl text-white text-[14px] font-extrabold cursor-pointer min-h-[44px]" style={{ background: "#3b82f6", boxShadow: "0 4px 16px rgba(59,130,246,0.35)" }}>{action.label}</button>}
+      <h3 className="text-white text-[17px] font-extrabold mb-1.5">{title}</h3><p className="text-[#8b949e] text-[15px] max-w-sm mb-5">{description}</p>
+      {action && <button onClick={action.onClick} className="h-9 px-5 rounded-xl text-white text-[15px] font-extrabold cursor-pointer min-h-[44px]" style={{ background: "#3b82f6", boxShadow: "0 4px 16px rgba(59,130,246,0.35)" }}>{action.label}</button>}
     </div>
   );
 }
@@ -553,9 +553,9 @@ function ConfirmDialog({ open, title, message, onConfirm, onCancel }: { open: bo
     <div className="fixed inset-0 z-[400] flex items-center justify-center p-4" onClick={onCancel}>
       <div className="absolute inset-0" style={{ background: "rgba(0,0,0,0.65)", backdropFilter: "blur(8px)" }} />
       <motion.div initial={{ opacity: 0, scale: 0.93 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.93 }} transition={{ type: "spring", damping: 26, stiffness: 360 }} onClick={(e) => e.stopPropagation()} className="relative z-10 w-full max-w-[380px] rounded-2xl p-6" style={G.liquidGlass}>
-        <div className="flex items-center gap-3 mb-4"><div className="w-10 h-10 rounded-xl flex items-center justify-center" style={{ background: "rgba(244,63,94,0.15)" }}><AlertTriangle className="w-5 h-5 text-rose-400" /></div><h3 className="text-white text-[15px] font-extrabold">{title}</h3></div>
-        <p className="text-[#8b949e] text-[13px] mb-5">{message}</p>
-        <div className="flex gap-2"><button onClick={onCancel} className="flex-1 h-9 rounded-xl text-[#8b949e] text-[13px] font-bold cursor-pointer" style={G.btn}>Cancel</button><button onClick={onConfirm} className="flex-1 h-9 rounded-xl text-white text-[13px] font-extrabold cursor-pointer" style={{ background: "#f43f5e" }}>Delete</button></div>
+        <div className="flex items-center gap-3 mb-4"><div className="w-10 h-10 rounded-xl flex items-center justify-center" style={{ background: "rgba(244,63,94,0.15)" }}><AlertTriangle className="w-5 h-5 text-rose-400" /></div><h3 className="text-white text-[16px] font-extrabold">{title}</h3></div>
+        <p className="text-[#8b949e] text-[14px] mb-5">{message}</p>
+        <div className="flex gap-2"><button onClick={onCancel} className="flex-1 h-9 rounded-xl text-[#8b949e] text-[14px] font-bold cursor-pointer" style={G.btn}>Cancel</button><button onClick={onConfirm} className="flex-1 h-9 rounded-xl text-white text-[14px] font-extrabold cursor-pointer" style={{ background: "#f43f5e" }}>Delete</button></div>
       </motion.div>
     </div>
   );
@@ -565,7 +565,7 @@ function CurrencyToggle() {
   const { currency, setCurrency } = useCurrency();
   return (
     <div className="flex items-center h-8 rounded-xl overflow-hidden" style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.10)" }}>
-      {(["USD", "JMD"] as const).map((c) => (<button key={c} onClick={() => setCurrency(c)} className="h-full px-2.5 text-[12px] font-extrabold transition-all cursor-pointer" style={currency === c ? { background: "#3b82f6", color: "#fff" } : { color: "#8b949e" }}>{c}</button>))}
+      {(["USD", "JMD"] as const).map((c) => (<button key={c} onClick={() => setCurrency(c)} className="h-full px-2.5 text-[13px] font-extrabold transition-all cursor-pointer" style={currency === c ? { background: "#3b82f6", color: "#fff" } : { color: "#8b949e" }}>{c}</button>))}
     </div>
   );
 }
@@ -619,34 +619,34 @@ function NotificationBell() {
     <div className="relative">
       <button onClick={() => setOpen(!open)} className="relative w-8 h-8 rounded-xl flex items-center justify-center hover:bg-white/[0.08] transition-colors cursor-pointer" style={G.btn}>
         <Bell className="w-3.5 h-3.5 text-[#8b949e]" />
-        {unreadCount > 0 && <span className="absolute -top-0.5 -right-0.5 w-4 h-4 rounded-full bg-rose-500 text-white text-[9px] font-extrabold flex items-center justify-center">{unreadCount > 9 ? "9+" : unreadCount}</span>}
+        {unreadCount > 0 && <span className="absolute -top-0.5 -right-0.5 w-4 h-4 rounded-full bg-rose-500 text-white text-[10px] font-extrabold flex items-center justify-center">{unreadCount > 9 ? "9+" : unreadCount}</span>}
       </button>
       {open && (
         <>
           <div className="fixed inset-0 z-50" onClick={() => setOpen(false)} />
           <motion.div initial={{ opacity: 0, scale: 0.95, y: -8 }} animate={{ opacity: 1, scale: 1, y: 0 }} exit={{ opacity: 0, scale: 0.95, y: -8 }} transition={{ type: "spring", damping: 26, stiffness: 360 }} className="absolute right-0 top-full mt-2 z-[60] w-80 rounded-2xl overflow-hidden" style={{ background: "rgba(7,12,26,0.97)", border: "1px solid rgba(255,255,255,0.12)", boxShadow: "0 8px 32px rgba(0,0,0,0.8)", backdropFilter: "blur(20px)" }}>
             <div className="px-4 py-3 flex items-center justify-between" style={{ borderBottom: "1px solid rgba(255,255,255,0.07)" }}>
-              <p className="text-white text-[13px] font-extrabold">Notifications</p>
+              <p className="text-white text-[14px] font-extrabold">Notifications</p>
               <div className="flex items-center gap-2">
-                {unreadCount > 0 && <button onClick={handleMarkAllRead} className="text-[11px] text-blue-400 font-bold hover:text-blue-300 cursor-pointer">Mark all read</button>}
-                <button onClick={() => setFilter(filter === "all" ? "unread" : "all")} className="text-[11px] text-[#8b949e] font-bold cursor-pointer">{filter === "all" ? "Unread" : "All"}</button>
+                {unreadCount > 0 && <button onClick={handleMarkAllRead} className="text-[12px] text-blue-400 font-bold hover:text-blue-300 cursor-pointer">Mark all read</button>}
+                <button onClick={() => setFilter(filter === "all" ? "unread" : "all")} className="text-[12px] text-[#8b949e] font-bold cursor-pointer">{filter === "all" ? "Unread" : "All"}</button>
               </div>
             </div>
             <div className="max-h-[360px] overflow-y-auto" style={{ scrollbarWidth: "none" }}>
               {filtered.length === 0 ? (
-                <div className="px-4 py-10 text-center"><Bell className="w-8 h-8 text-[#484f58] mx-auto mb-2" /><p className="text-[#484f58] text-[12px]">No notifications</p></div>
+                <div className="px-4 py-10 text-center"><Bell className="w-8 h-8 text-[#484f58] mx-auto mb-2" /><p className="text-[#484f58] text-[13px]">No notifications</p></div>
               ) : (
                 grouped.map(group => (
                   <div key={group.label}>
-                    <div className="px-4 py-2 text-[#484f58] text-[10px] font-extrabold uppercase tracking-widest" style={{ background: "rgba(255,255,255,0.02)" }}>{group.label}</div>
+                    <div className="px-4 py-2 text-[#484f58] text-[11px] font-extrabold uppercase tracking-widest" style={{ background: "rgba(255,255,255,0.02)" }}>{group.label}</div>
                     {group.items.map(n => (
                       <div key={n.id} className={clsx("px-4 py-3 hover:bg-white/[0.03] transition-colors cursor-pointer", !n.isRead && "bg-white/[0.02]")} style={{ borderBottom: "1px solid rgba(255,255,255,0.03)" }} onClick={() => handleNotificationClick(n)}>
                         <div className="flex items-start gap-2">
                           <div className={clsx("w-1.5 h-1.5 rounded-full mt-1.5 flex-shrink-0", !n.isRead ? "bg-blue-400" : "bg-transparent")} />
                           <div className="flex-1 min-w-0">
-                            <p className="text-white text-[12px] font-bold">{n.event}</p>
-                            {n.details && <p className="text-[#8b949e] text-[11px] mt-0.5">{n.details}</p>}
-                            <p className="text-[#484f58] text-[10px] mt-1">{new Date(n.timestamp).toLocaleString()}</p>
+                            <p className="text-white text-[13px] font-bold">{n.event}</p>
+                            {n.details && <p className="text-[#8b949e] text-[12px] mt-0.5">{n.details}</p>}
+                            <p className="text-[#484f58] text-[11px] mt-1">{new Date(n.timestamp).toLocaleString()}</p>
                           </div>
                         </div>
                       </div>
@@ -667,8 +667,8 @@ function UserMenu() {
   return (
     <div className="relative">
       <button onClick={() => setOpen(!open)} className="flex items-center gap-2 h-8 pl-1.5 pr-2.5 rounded-xl hover:bg-white/[0.06] transition-colors cursor-pointer min-h-[44px] md:min-h-0">
-        <div className="w-6 h-6 rounded-full flex items-center justify-center text-white text-[10px] font-extrabold flex-shrink-0" style={{ background: "linear-gradient(135deg, #3b82f6, #8b5cf6)", boxShadow: "0 0 12px rgba(139,92,246,0.5)" }}>{CURRENT_USER.initials}</div>
-        <span className="text-white text-[13px] font-bold hidden md:inline">{CURRENT_USER.name}</span>
+        <div className="w-6 h-6 rounded-full flex items-center justify-center text-white text-[11px] font-extrabold flex-shrink-0" style={{ background: "linear-gradient(135deg, #3b82f6, #8b5cf6)", boxShadow: "0 0 12px rgba(139,92,246,0.5)" }}>{CURRENT_USER.initials}</div>
+        <span className="text-white text-[14px] font-bold hidden md:inline">{CURRENT_USER.name}</span>
         <ChevronDown className="w-3 h-3 text-[#8b949e] hidden md:block" />
       </button>
       {open && (
@@ -676,11 +676,11 @@ function UserMenu() {
           <div className="fixed inset-0 z-50" onClick={() => setOpen(false)} />
           <motion.div initial={{ opacity: 0, scale: 0.95, y: -8 }} animate={{ opacity: 1, scale: 1, y: 0 }} exit={{ opacity: 0, scale: 0.95, y: -8 }} transition={{ type: "spring", damping: 26, stiffness: 360 }} className="absolute right-0 top-full mt-2 z-[60] w-56 rounded-2xl overflow-hidden" style={{ background: "rgba(7,12,26,0.97)", border: "1px solid rgba(255,255,255,0.12)", boxShadow: "0 8px 32px rgba(0,0,0,0.8)", backdropFilter: "blur(20px)" }}>
             <div className="px-4 py-3 flex items-center gap-3" style={{ borderBottom: "1px solid rgba(255,255,255,0.07)" }}>
-              <div className="w-8 h-8 rounded-full flex items-center justify-center text-white text-[12px] font-extrabold flex-shrink-0" style={{ background: "linear-gradient(135deg, #3b82f6, #8b5cf6)", boxShadow: "0 0 12px rgba(139,92,246,0.5)" }}>{CURRENT_USER.initials}</div>
-              <div><p className="text-white text-[13px] font-bold">{CURRENT_USER.name}</p><p className="text-[#484f58] text-[11px]">Administrator</p></div>
+              <div className="w-8 h-8 rounded-full flex items-center justify-center text-white text-[13px] font-extrabold flex-shrink-0" style={{ background: "linear-gradient(135deg, #3b82f6, #8b5cf6)", boxShadow: "0 0 12px rgba(139,92,246,0.5)" }}>{CURRENT_USER.initials}</div>
+              <div><p className="text-white text-[14px] font-bold">{CURRENT_USER.name}</p><p className="text-[#484f58] text-[12px]">Administrator</p></div>
             </div>
             <div className="py-1">
-              <button onClick={() => { setOpen(false); localStorage.removeItem("auth_token"); localStorage.removeItem("app_logged_in"); localStorage.removeItem("app_page"); window.location.href = "/"; }} className="w-full flex items-center gap-2.5 px-4 py-2.5 text-[#8b949e] hover:text-white hover:bg-white/[0.05] transition-colors text-left cursor-pointer min-h-[44px] text-[13px] font-bold"><LogOut className="w-3.5 h-3.5 text-rose-400" /> Sign Out</button>
+              <button onClick={() => { setOpen(false); localStorage.removeItem("auth_token"); localStorage.removeItem("app_logged_in"); localStorage.removeItem("app_page"); window.location.href = "/"; }} className="w-full flex items-center gap-2.5 px-4 py-2.5 text-[#8b949e] hover:text-white hover:bg-white/[0.05] transition-colors text-left cursor-pointer min-h-[44px] text-[14px] font-bold"><LogOut className="w-3.5 h-3.5 text-rose-400" /> Sign Out</button>
             </div>
           </motion.div>
         </>
@@ -707,7 +707,7 @@ function Breadcrumb({ page, projectName }: { page: Page; projectName?: string })
   else if (page === "design-canvas") crumbs.push({ label: "Projects", page: "design-studio" }, { label: "Design Canvas" });
   else if (page === "project-detail") crumbs.push({ label: "Projects", page: "design-studio" }, { label: projectName || "Project Detail" });
   return (
-    <div className="flex items-center gap-1.5 text-[12px]">
+    <div className="flex items-center gap-1.5 text-[13px]">
       {crumbs.map((crumb, i) => (
         <span key={i} className="flex items-center gap-1.5">
           {i > 0 && <ChevronRight className="w-3 h-3 text-[#484f58]" />}
@@ -728,14 +728,14 @@ function AppTopbar({ page, navigate, breadcrumb }: { page: Page; navigate: (p: P
       <div className="w-px h-4 flex-shrink-0 hidden md:block" style={{ background: "rgba(255,255,255,0.12)" }} />
       {breadcrumb ? (
         <div className="flex items-center gap-2">
-          <button onClick={() => navigate(breadcrumb.parent)} className="flex items-center gap-1.5 text-[#8b949e] hover:text-white text-[13px] font-bold transition-colors cursor-pointer"><ArrowLeft className="w-3.5 h-3.5" />{breadcrumb.label}</button>
+          <button onClick={() => navigate(breadcrumb.parent)} className="flex items-center gap-1.5 text-[#8b949e] hover:text-white text-[14px] font-bold transition-colors cursor-pointer"><ArrowLeft className="w-3.5 h-3.5" />{breadcrumb.label}</button>
           <ChevronRight className="w-3.5 h-3.5 text-[#484f58]" />
-          <span className="text-white text-[13px] font-bold">Project Detail</span>
+          <span className="text-white text-[14px] font-bold">Project Detail</span>
         </div>
       ) : (
         <nav className="flex items-center gap-0.5 overflow-x-auto" style={{ scrollbarWidth: "none" }}>
           {NAV_ITEMS.map((item) => (
-            <button key={item.id} onClick={() => navigate(item.id)} className={clsx("h-8 px-2.5 md:px-3.5 rounded-xl text-[12px] md:text-[14px] font-bold transition-all duration-150 whitespace-nowrap cursor-pointer", activeTab === item.id ? "text-white" : "text-[#8b949e] hover:text-white")} style={activeTab === item.id ? { background: "rgba(255,255,255,0.10)", border: "1px solid rgba(255,255,255,0.13)", boxShadow: "inset 0 1px 0 rgba(255,255,255,0.08)" } : undefined}>{item.label}</button>
+            <button key={item.id} onClick={() => navigate(item.id)} className={clsx("h-8 px-2.5 md:px-3.5 rounded-xl text-[13px] md:text-[15px] font-bold transition-all duration-150 whitespace-nowrap cursor-pointer", activeTab === item.id ? "text-white" : "text-[#8b949e] hover:text-white")} style={activeTab === item.id ? { background: "rgba(255,255,255,0.10)", border: "1px solid rgba(255,255,255,0.13)", boxShadow: "inset 0 1px 0 rgba(255,255,255,0.08)" } : undefined}>{item.label}</button>
           ))}
         </nav>
       )}
@@ -771,7 +771,7 @@ function KanbanCard({ project, column, dragging, onDragStart, onDragEnd, onClick
             <div className="flex items-center gap-1.5 flex-1 min-w-0">
               {isOverdue && <span className="w-2 h-2 rounded-full bg-rose-500 flex-shrink-0" title="Overdue" />}
               {isDueSoon && !isOverdue && <span className="w-2 h-2 rounded-full bg-amber-500 flex-shrink-0" title="Due soon" />}
-              <h3 className="text-white text-[13px] md:text-[14px] font-bold leading-snug truncate">{project.name}</h3>
+              <h3 className="text-white text-[14px] md:text-[15px] font-bold leading-snug truncate">{project.name}</h3>
             </div>
             <div className="relative flex-shrink-0">
               <button onClick={(e) => { e.stopPropagation(); setMenuOpen(!menuOpen); }} className="opacity-0 group-hover:opacity-100 transition-opacity w-8 h-8 rounded-lg hover:bg-white/10 flex items-center justify-center mt-0.5 cursor-pointer min-w-[44px] min-h-[44px] md:min-w-0 md:min-h-0"><MoreHorizontal className="w-3.5 h-3.5 text-[#8b949e]" /></button>
@@ -779,54 +779,54 @@ function KanbanCard({ project, column, dragging, onDragStart, onDragEnd, onClick
                 <>
                   <div className="fixed inset-0 z-10" onClick={(e) => { e.stopPropagation(); setMenuOpen(false); }} />
                   <div className="absolute right-0 top-7 z-20 w-40 rounded-xl overflow-hidden py-1" style={{ background: "rgba(7,12,26,0.97)", border: "1px solid rgba(255,255,255,0.12)", boxShadow: "0 8px 32px rgba(0,0,0,0.8)", backdropFilter: "blur(20px)" }}>
-                    <button onClick={(e) => { e.stopPropagation(); setConfirmDelete(true); setMenuOpen(false); }} className="w-full flex items-center gap-2.5 px-3 py-2.5 text-rose-400 text-[13px] font-bold hover:bg-rose-500/10 transition-colors text-left cursor-pointer min-h-[44px]"><Trash2 className="w-3.5 h-3.5" /> Delete</button>
+                    <button onClick={(e) => { e.stopPropagation(); setConfirmDelete(true); setMenuOpen(false); }} className="w-full flex items-center gap-2.5 px-3 py-2.5 text-rose-400 text-[14px] font-bold hover:bg-rose-500/10 transition-colors text-left cursor-pointer min-h-[44px]"><Trash2 className="w-3.5 h-3.5" /> Delete</button>
                   </div>
                 </>
               )}
             </div>
           </div>
-          <div className="flex items-center gap-1.5 mb-1"><Building2 className="w-3 h-3 text-[#8b949e] flex-shrink-0" /><span className="text-[#8b949e] text-[11px] md:text-[12px] font-bold truncate">{project.client}</span></div>
+          <div className="flex items-center gap-1.5 mb-1"><Building2 className="w-3 h-3 text-[#8b949e] flex-shrink-0" /><span className="text-[#8b949e] text-[12px] md:text-[13px] font-bold truncate">{project.client}</span></div>
           <div className="flex items-center flex-wrap gap-1.5 mb-2">
             {isProjectPipeline ? (
               <>
-                {psBadge && <span className={clsx("text-[11px] font-extrabold px-1.5 py-0.5 rounded-full", psBadge.cls)}>{psBadge.label}</span>}
-                {project.supportType && <span className="text-[11px] font-extrabold px-1.5 py-0.5 rounded-full" style={{ background: "rgba(139,92,246,0.15)", color: "#a78bfa" }}>{SUPPORT_TYPE_LABELS[project.supportType]}</span>}
+                {psBadge && <span className={clsx("text-[12px] font-extrabold px-1.5 py-0.5 rounded-full", psBadge.cls)}>{psBadge.label}</span>}
+                {project.supportType && <span className="text-[12px] font-extrabold px-1.5 py-0.5 rounded-full" style={{ background: "rgba(139,92,246,0.15)", color: "#a78bfa" }}>{SUPPORT_TYPE_LABELS[project.supportType]}</span>}
               </>
             ) : (
               <>
-                {ls && <span className="text-[11px] font-extrabold px-1.5 py-0.5 rounded-full" style={{ background: ls.bg, color: ls.text }}>{project.leadSource}</span>}
-                <span className={clsx("text-[11px] md:text-[12px] font-extrabold px-1.5 py-0.5 rounded-full uppercase tracking-wide", project.risk === "high" ? "bg-rose-500/20 text-rose-400" : project.risk === "medium" ? "bg-amber-500/20 text-amber-400" : "bg-emerald-500/20 text-emerald-400")}>{project.risk}</span>
+                {ls && <span className="text-[12px] font-extrabold px-1.5 py-0.5 rounded-full" style={{ background: ls.bg, color: ls.text }}>{project.leadSource}</span>}
+                <span className={clsx("text-[12px] md:text-[13px] font-extrabold px-1.5 py-0.5 rounded-full uppercase tracking-wide", project.risk === "high" ? "bg-rose-500/20 text-rose-400" : project.risk === "medium" ? "bg-amber-500/20 text-amber-400" : "bg-emerald-500/20 text-emerald-400")}>{project.risk}</span>
               </>
             )}
           </div>
-          {!isProjectPipeline && <div className="flex items-center gap-2 mb-2.5"><span className="text-white font-extrabold text-[15px] md:text-[16px] tracking-tight">{fmt(project.value, true)}</span></div>}
+          {!isProjectPipeline && <div className="flex items-center gap-2 mb-2.5"><span className="text-white font-extrabold text-[16px] md:text-[17px] tracking-tight">{fmt(project.value, true)}</span></div>}
           <div className="flex items-center gap-3 mb-3">
-            <span className="flex items-center gap-1 text-[#8b949e] text-[13px] md:text-[14px] font-semibold"><Camera className="w-3 h-3" />{project.cameras} cams</span>
-            <span className="flex items-center gap-1 text-[#8b949e] text-[13px] md:text-[14px] font-semibold"><Fingerprint className="w-3 h-3" />{project.devices} devices</span>
+            <span className="flex items-center gap-1 text-[#8b949e] text-[14px] md:text-[15px] font-semibold"><Camera className="w-3 h-3" />{project.cameras} cams</span>
+            <span className="flex items-center gap-1 text-[#8b949e] text-[14px] md:text-[15px] font-semibold"><Fingerprint className="w-3 h-3" />{project.devices} devices</span>
           </div>
           {project.notes && (
             <div className="relative mb-2">
-              <button onClick={(e) => { e.stopPropagation(); setShowNotes(!showNotes); }} className="text-[12px] text-[#8b949e] hover:text-[#e6edf3] font-extrabold cursor-pointer flex items-center gap-1"><StickyNote className="w-3 h-3" /> Notes</button>
-              {showNotes && <div className="absolute top-full left-0 mt-1 w-48 rounded-xl p-2 z-30 text-[12px] text-[#8b949e]" style={{ background: "rgba(7,12,26,0.97)", border: "1px solid rgba(255,255,255,0.10)", boxShadow: "0 4px 16px rgba(0,0,0,0.6)" }}>{project.notes}</div>}
+              <button onClick={(e) => { e.stopPropagation(); setShowNotes(!showNotes); }} className="text-[13px] text-[#8b949e] hover:text-[#e6edf3] font-extrabold cursor-pointer flex items-center gap-1"><StickyNote className="w-3 h-3" /> Notes</button>
+              {showNotes && <div className="absolute top-full left-0 mt-1 w-48 rounded-xl p-2 z-30 text-[13px] text-[#8b949e]" style={{ background: "rgba(7,12,26,0.97)", border: "1px solid rgba(255,255,255,0.10)", boxShadow: "0 4px 16px rgba(0,0,0,0.6)" }}>{project.notes}</div>}
             </div>
           )}
           <div className="flex items-center justify-between pt-2.5" style={{ borderTop: "1px solid rgba(255,255,255,0.06)" }}>
             <div className="flex items-center gap-1">
-              <div className="w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-extrabold text-white flex-shrink-0" style={{ background: project.assignee.color, boxShadow: `0 0 8px ${project.assignee.color}60` }}>{project.assignee.initials}</div>
-              <span className="text-[#8b949e] text-[13px] md:text-[14px] font-bold truncate max-w-[60px]">{project.assignee.name}</span>
+              <div className="w-5 h-5 rounded-full flex items-center justify-center text-[11px] font-extrabold text-white flex-shrink-0" style={{ background: project.assignee.color, boxShadow: `0 0 8px ${project.assignee.color}60` }}>{project.assignee.initials}</div>
+              <span className="text-[#8b949e] text-[14px] md:text-[15px] font-bold truncate max-w-[60px]">{project.assignee.name}</span>
               {allCollaborators.length > 0 && (
                 <div className="flex items-center -space-x-1.5 ml-0.5">
                   {allCollaborators.slice(0, 3).map((c, i) => (
-                    <div key={i} className="w-4 h-4 rounded-full flex items-center justify-center text-[8px] font-extrabold text-white ring-1 ring-black/30" style={{ background: c.color }} title={c.name}>{c.initials}</div>
+                    <div key={i} className="w-4 h-4 rounded-full flex items-center justify-center text-[9px] font-extrabold text-white ring-1 ring-black/30" style={{ background: c.color }} title={c.name}>{c.initials}</div>
                   ))}
-                  {allCollaborators.length > 3 && <span className="text-[#8b949e] text-[9px] ml-1">+{allCollaborators.length - 3}</span>}
+                  {allCollaborators.length > 3 && <span className="text-[#8b949e] text-[10px] ml-1">+{allCollaborators.length - 3}</span>}
                 </div>
               )}
             </div>
-            <span className={clsx("flex items-center gap-1 text-[13px] md:text-[14px] font-bold", isOverdue ? "text-rose-400" : isDueSoon ? "text-amber-400" : "text-[#484f58]")}><Calendar className="w-3 h-3" />{fmtDate(project.dueDate)}</span>
+            <span className={clsx("flex items-center gap-1 text-[14px] md:text-[15px] font-bold", isOverdue ? "text-rose-400" : isDueSoon ? "text-amber-400" : "text-[#484f58]")}><Calendar className="w-3 h-3" />{fmtDate(project.dueDate)}</span>
           </div>
           {project.stage === "win" && !isProjectPipeline && onMoveToProjects && (
-            <button onClick={(e) => { e.stopPropagation(); onMoveToProjects(project.id); }} className="mt-2 w-full h-7 rounded-lg text-[11px] font-extrabold text-white cursor-pointer" style={{ background: "#8b5cf6" }}>Move to Projects</button>
+            <button onClick={(e) => { e.stopPropagation(); onMoveToProjects(project.id); }} className="mt-2 w-full h-7 rounded-lg text-[12px] font-extrabold text-white cursor-pointer" style={{ background: "#8b5cf6" }}>Move to Projects</button>
           )}
         </div>
       </motion.div>
@@ -843,11 +843,11 @@ function KanbanColumn({ column, projects, totalValue, dragging, isOver, onDragSt
         <div className="flex items-center justify-between mb-1">
           <div className="flex items-center gap-2 min-w-0">
             <div className="w-2 h-2 rounded-full flex-shrink-0" style={{ background: column.color, boxShadow: `0 0 10px ${column.color}88` }} />
-            <span className="text-white text-[12px] md:text-[13px] font-extrabold truncate leading-tight">{column.label}</span>
+            <span className="text-white text-[13px] md:text-[14px] font-extrabold truncate leading-tight">{column.label}</span>
           </div>
-          <span className="text-[#8b949e] text-[12px] md:text-[13px] px-1.5 py-0.5 rounded-full font-extrabold" style={{ background: "rgba(255,255,255,0.08)" }}>{projects.length}</span>
+          <span className="text-[#8b949e] text-[13px] md:text-[14px] px-1.5 py-0.5 rounded-full font-extrabold" style={{ background: "rgba(255,255,255,0.08)" }}>{projects.length}</span>
         </div>
-        {!isProjectColumn && <p className="text-[#484f58] text-[13px] md:text-[14px] font-extrabold ml-4">{fmt(totalValue, true)}</p>}
+        {!isProjectColumn && <p className="text-[#484f58] text-[14px] md:text-[15px] font-extrabold ml-4">{fmt(totalValue, true)}</p>}
       </div>
       <div className="flex-1 p-2 space-y-2 overflow-y-auto" style={{ scrollbarWidth: "none", scrollBehavior: "smooth", WebkitOverflowScrolling: "touch", minHeight: "120px", maxHeight: "calc(100vh - 250px)" }}>
         <AnimatePresence mode="popLayout">
@@ -855,8 +855,8 @@ function KanbanColumn({ column, projects, totalValue, dragging, isOver, onDragSt
             <KanbanCard key={p.id} project={p} column={column} dragging={dragging} onDragStart={onDragStart} onDragEnd={onDragEnd} onClick={() => onCardClick(p)} onDelete={onDelete} onMoveToProjects={onMoveToProjects} />
           ))}
         </AnimatePresence>
-        {isOver && <div className="h-14 rounded-xl border-2 border-dashed border-blue-500/35 bg-blue-500/[0.04] flex items-center justify-center"><p className="text-blue-400/60 text-[13px] font-extrabold">Drop here</p></div>}
-        {projects.length === 0 && !isOver && <div className="h-14 rounded-xl border border-dashed border-white/[0.04] flex items-center justify-center"><p className="text-[#484f58] text-[13px] font-semibold">No projects</p></div>}
+        {isOver && <div className="h-14 rounded-xl border-2 border-dashed border-blue-500/35 bg-blue-500/[0.04] flex items-center justify-center"><p className="text-blue-400/60 text-[14px] font-extrabold">Drop here</p></div>}
+        {projects.length === 0 && !isOver && <div className="h-14 rounded-xl border border-dashed border-white/[0.04] flex items-center justify-center"><p className="text-[#484f58] text-[14px] font-semibold">No projects</p></div>}
       </div>
     </div>
   );
@@ -1020,29 +1020,29 @@ function Dashboard({ navigate }: { navigate: (p: Page) => void }) {
       {progressAnim && (
         <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -20 }} className="fixed bottom-6 left-1/2 -translate-x-1/2 z-[250] px-5 py-3 rounded-2xl flex items-center gap-3" style={{ background: "rgba(16,185,129,0.95)", backdropFilter: "blur(20px)", boxShadow: "0 8px 32px rgba(16,185,129,0.4)" }}>
           <CheckCircle2 className="w-5 h-5 text-white" />
-          <span className="text-white text-[14px] font-extrabold">Project advanced to {columns.find((c) => c.id === progressAnim.stage)?.label}</span>
+          <span className="text-white text-[15px] font-extrabold">Project advanced to {columns.find((c) => c.id === progressAnim.stage)?.label}</span>
         </motion.div>
       )}
       <div className="px-3 md:px-5 pt-4 md:pt-6 pb-4 md:pb-5 flex-shrink-0" style={{ borderBottom: "1px solid rgba(255,255,255,0.06)" }}>
         <div className="flex items-center justify-between mb-4 md:mb-5">
           <div>
             <div className="flex items-center gap-3 mb-1">
-              <h1 className="text-white font-extrabold text-xl md:text-2xl tracking-tight">{pipelineType === "sales" ? "Sales Pipeline" : "Project Pipeline"}</h1>
+              <h1 className="text-white font-extrabold text-2xl md:text-3xl tracking-tight">{pipelineType === "sales" ? "Sales Pipeline" : "Project Pipeline"}</h1>
               <div className="flex items-center h-7 rounded-xl overflow-hidden" style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.10)" }}>
-                <button onClick={() => setPipelineType("sales")} className={clsx("h-full px-3 text-[11px] font-extrabold cursor-pointer", pipelineType === "sales" ? "text-white" : "text-[#484f58]")} style={pipelineType === "sales" ? { background: "#3b82f6" } : undefined}>Sales</button>
-                <button onClick={() => setPipelineType("project")} className={clsx("h-full px-3 text-[11px] font-extrabold cursor-pointer", pipelineType === "project" ? "text-white" : "text-[#484f58]")} style={pipelineType === "project" ? { background: "#8b5cf6" } : undefined}>Projects</button>
+                <button onClick={() => setPipelineType("sales")} className={clsx("h-full px-3 text-[12px] font-extrabold cursor-pointer", pipelineType === "sales" ? "text-white" : "text-[#484f58]")} style={pipelineType === "sales" ? { background: "#3b82f6" } : undefined}>Sales</button>
+                <button onClick={() => setPipelineType("project")} className={clsx("h-full px-3 text-[12px] font-extrabold cursor-pointer", pipelineType === "project" ? "text-white" : "text-[#484f58]")} style={pipelineType === "project" ? { background: "#8b5cf6" } : undefined}>Projects</button>
               </div>
             </div>
-            <p className="text-[#8b949e] text-[12px] md:text-[14px] mt-0.5">{currentProjects.length} projects</p>
+            <p className="text-[#8b949e] text-[13px] md:text-[15px] mt-0.5">{currentProjects.length} projects</p>
           </div>
-          <button onClick={() => setShowNewProject(true)} className="flex items-center gap-1.5 h-8 px-3 md:px-4 rounded-xl text-white text-[12px] md:text-[13px] font-extrabold cursor-pointer min-h-[44px]" style={{ background: "#3b82f6", boxShadow: "0 4px 16px rgba(59,130,246,0.35)" }}><Plus className="w-3.5 h-3.5" /> New Project</button>
+          <button onClick={() => setShowNewProject(true)} className="flex items-center gap-1.5 h-8 px-3 md:px-4 rounded-xl text-white text-[13px] md:text-[14px] font-extrabold cursor-pointer min-h-[44px]" style={{ background: "#3b82f6", boxShadow: "0 4px 16px rgba(59,130,246,0.35)" }}><Plus className="w-3.5 h-3.5" /> New Project</button>
         </div>
         {pipelineType === "sales" ? (
           <div className="grid grid-cols-2 md:grid-cols-4 gap-2 md:gap-3">
             {[{ label: "Active Pipeline", value: pipeline, icon: TrendingUp },{ label: "Win Rate", value: winRate, icon: Star, isPct: true },{ label: "In Negotiation", value: negoValue, icon: BarChart3 },{ label: "Avg Deal Size", value: avgDeal, icon: DollarSign }].map((stat, i) => (
               <div key={stat.label} className="rounded-2xl p-3 md:p-4" style={G.card}>
-                <div className="flex items-center justify-between mb-2"><span className="text-[#8b949e] text-[11px] md:text-[13px] font-black uppercase tracking-[0.08em]">{stat.label}</span><div className="w-7 h-7 md:w-8 md:h-8 rounded-xl flex items-center justify-center" style={{ background: `${STAT_COLORS[i]}18` }}><stat.icon className="w-3 h-3 md:w-3.5 md:h-3.5" style={{ color: STAT_COLORS[i] }} /></div></div>
-                <p className="text-white text-[1.5rem] md:text-[2.1rem] font-black tracking-tight leading-none">{stat.isPct ? `${stat.value}%` : fmt(stat.value as number, true)}</p>
+                <div className="flex items-center justify-between mb-2"><span className="text-[#8b949e] text-[12px] md:text-[14px] font-black uppercase tracking-[0.08em]">{stat.label}</span><div className="w-7 h-7 md:w-8 md:h-8 rounded-xl flex items-center justify-center" style={{ background: `${STAT_COLORS[i]}18` }}><stat.icon className="w-3 h-3 md:w-3.5 md:h-3.5" style={{ color: STAT_COLORS[i] }} /></div></div>
+                <p className="text-white text-[1.6rem] md:text-[2.2rem] font-black tracking-tight leading-none">{stat.isPct ? `${stat.value}%` : fmt(stat.value as number, true)}</p>
               </div>
             ))}
           </div>
@@ -1050,8 +1050,8 @@ function Dashboard({ navigate }: { navigate: (p: Page) => void }) {
           <div className="grid grid-cols-2 md:grid-cols-4 gap-2 md:gap-3">
             {[{ label: "Active Projects", value: activeProjects, icon: Activity },{ label: "In Installation", value: inInstallation, icon: Wrench },{ label: "Overdue", value: overdueProjects, icon: AlertTriangle },{ label: "Tickets Resolved", value: ticketsResolved, icon: CheckCircle2 }].map((stat, i) => (
               <div key={stat.label} className="rounded-2xl p-3 md:p-4" style={G.card}>
-                <div className="flex items-center justify-between mb-2"><span className="text-[#8b949e] text-[11px] md:text-[13px] font-black uppercase tracking-[0.08em]">{stat.label}</span><div className="w-7 h-7 md:w-8 md:h-8 rounded-xl flex items-center justify-center" style={{ background: `${STAT_COLORS[i]}18` }}><stat.icon className="w-3 h-3 md:w-3.5 md:h-3.5" style={{ color: STAT_COLORS[i] }} /></div></div>
-                <p className="text-white text-[1.5rem] md:text-[2.1rem] font-black tracking-tight leading-none">{stat.value}</p>
+                <div className="flex items-center justify-between mb-2"><span className="text-[#8b949e] text-[12px] md:text-[14px] font-black uppercase tracking-[0.08em]">{stat.label}</span><div className="w-7 h-7 md:w-8 md:h-8 rounded-xl flex items-center justify-center" style={{ background: `${STAT_COLORS[i]}18` }}><stat.icon className="w-3 h-3 md:w-3.5 md:h-3.5" style={{ color: STAT_COLORS[i] }} /></div></div>
+                <p className="text-white text-[1.6rem] md:text-[2.2rem] font-black tracking-tight leading-none">{stat.value}</p>
               </div>
             ))}
           </div>
@@ -1160,8 +1160,8 @@ function NewProjectModal({ onClose, onAdd, pipelineType }: { onClose: () => void
     onClose();
   };
 
-  const inputCls = "w-full h-9 rounded-xl px-3 text-[#e6edf3] text-[13px] placeholder:text-[#484f58] focus:outline-none focus:ring-1 focus:ring-blue-500/50 transition-all";
-  const labelCls = "block text-[#8b949e] text-[11px] font-extrabold uppercase tracking-widest mb-1.5";
+  const inputCls = "w-full h-9 rounded-xl px-3 text-[#e6edf3] text-[14px] placeholder:text-[#484f58] focus:outline-none focus:ring-1 focus:ring-blue-500/50 transition-all";
+  const labelCls = "block text-[#8b949e] text-[12px] font-extrabold uppercase tracking-widest mb-1.5";
   const selectStyle = { ...G.input, background: "#0d1117", color: "#e6edf3" };
 
   return (
@@ -1169,7 +1169,7 @@ function NewProjectModal({ onClose, onAdd, pipelineType }: { onClose: () => void
       <div className="absolute inset-0" style={{ background: "rgba(0,0,0,0.65)", backdropFilter: "blur(8px)" }} />
       <motion.div initial={{ opacity: 0, scale: 0.94, y: 16 }} animate={{ opacity: 1, scale: 1, y: 0 }} exit={{ opacity: 0, scale: 0.94, y: 16 }} transition={{ type: "spring", damping: 26, stiffness: 360 }} onClick={(e) => e.stopPropagation()} className="relative z-10 w-full max-w-[600px] max-h-[90vh] overflow-y-auto rounded-3xl" style={{ background: "rgba(7,12,26,0.92)", backdropFilter: "blur(52px) saturate(200%)", border: "1px solid rgba(255,255,255,0.13)", boxShadow: "0 32px 80px rgba(0,0,0,0.9)" }}>
         <div className="flex items-center justify-between px-5 md:px-7 pt-5 md:pt-7 pb-5" style={{ borderBottom: "1px solid rgba(255,255,255,0.07)" }}>
-          <div><h2 className="text-white text-[1.1rem] md:text-[1.2rem] font-extrabold">New {pipelineType === "sales" ? "Sales" : "Project"} Project</h2><p className="text-[#8b949e] text-[13px] mt-0.5">Account Owner: {CURRENT_USER.name}</p></div>
+          <div><h2 className="text-white text-[1.2rem] md:text-[1.3rem] font-extrabold">New {pipelineType === "sales" ? "Sales" : "Project"} Project</h2><p className="text-[#8b949e] text-[14px] mt-0.5">Account Owner: {CURRENT_USER.name}</p></div>
           <button onClick={onClose} className="w-8 h-8 rounded-xl flex items-center justify-center hover:bg-white/[0.08] cursor-pointer min-w-[44px] min-h-[44px]" style={{ border: "1px solid rgba(255,255,255,0.10)" }}><X className="w-4 h-4 text-[#8b949e]" /></button>
         </div>
         <form onSubmit={handleSubmit}>
@@ -1250,13 +1250,13 @@ function NewProjectModal({ onClose, onAdd, pipelineType }: { onClose: () => void
                   </select>
                 </div>
                 <input value={collabRole} onChange={(e) => setCollabRole(e.target.value)} placeholder="Role" className={`${inputCls} flex-1`} style={G.input} />
-                <button type="button" onClick={addCollaborator} className="h-9 px-3 rounded-xl text-white text-[13px] font-extrabold cursor-pointer" style={{ background: "#3b82f6" }}><Plus className="w-3.5 h-3.5" /></button>
+                <button type="button" onClick={addCollaborator} className="h-9 px-3 rounded-xl text-white text-[14px] font-extrabold cursor-pointer" style={{ background: "#3b82f6" }}><Plus className="w-3.5 h-3.5" /></button>
               </div>
               {collaborators.length > 0 && (
                 <div className="flex flex-wrap gap-2">
                   {collaborators.map((c, i) => (
-                    <span key={i} className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl text-[12px] font-bold" style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.10)" }}>
-                      <span className="w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-extrabold text-white" style={{ background: c.color }}>{c.initials}</span>
+                    <span key={i} className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl text-[13px] font-bold" style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.10)" }}>
+                      <span className="w-5 h-5 rounded-full flex items-center justify-center text-[11px] font-extrabold text-white" style={{ background: c.color }}>{c.initials}</span>
                       {c.name} · {c.role}
                       <button type="button" onClick={() => setCollaborators((prev) => prev.filter((_, j) => j !== i))} className="ml-1 text-[#8b949e] hover:text-rose-400"><X className="w-3 h-3" /></button>
                     </span>
@@ -1265,7 +1265,7 @@ function NewProjectModal({ onClose, onAdd, pipelineType }: { onClose: () => void
               )}
             </div>
             <div style={{ borderTop: "1px solid rgba(255,255,255,0.07)", paddingTop: "12px" }}>
-              <p className="text-[#8b949e] text-[11px] font-extrabold uppercase tracking-widest mb-3">Contact (optional)</p>
+              <p className="text-[#8b949e] text-[12px] font-extrabold uppercase tracking-widest mb-3">Contact (optional)</p>
               <div className="grid grid-cols-2 gap-3">
                 <div><label className={labelCls}>Name</label><input value={contactName} onChange={(e) => setContactName(e.target.value)} placeholder="Full name" className={inputCls} style={G.input} /></div>
                 <div><label className={labelCls}>Title</label><input value={contactTitle} onChange={(e) => setContactTitle(e.target.value)} placeholder="Job title" className={inputCls} style={G.input} /></div>
@@ -1273,12 +1273,12 @@ function NewProjectModal({ onClose, onAdd, pipelineType }: { onClose: () => void
                 <div><label className={labelCls}>Phone</label><input value={contactPhone} onChange={(e) => setContactPhone(e.target.value)} placeholder="+1 (876) 555-0000" className={inputCls} style={G.input} /></div>
               </div>
             </div>
-            <div><label className={labelCls}>Project Scope</label><textarea value={summary} onChange={(e) => setSummary(e.target.value)} placeholder="Brief description…" rows={3} className="w-full rounded-xl px-3 py-2.5 text-[#e6edf3] text-[13px] placeholder:text-[#484f58] focus:outline-none resize-none" style={G.input} /></div>
-            <div><label className={labelCls}>Notes</label><textarea value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="Internal notes…" rows={2} className="w-full rounded-xl px-3 py-2.5 text-[#e6edf3] text-[13px] placeholder:text-[#484f58] focus:outline-none resize-none" style={G.input} /></div>
+            <div><label className={labelCls}>Project Scope</label><textarea value={summary} onChange={(e) => setSummary(e.target.value)} placeholder="Brief description…" rows={3} className="w-full rounded-xl px-3 py-2.5 text-[#e6edf3] text-[14px] placeholder:text-[#484f58] focus:outline-none resize-none" style={G.input} /></div>
+            <div><label className={labelCls}>Notes</label><textarea value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="Internal notes…" rows={2} className="w-full rounded-xl px-3 py-2.5 text-[#e6edf3] text-[14px] placeholder:text-[#484f58] focus:outline-none resize-none" style={G.input} /></div>
           </div>
           <div className="px-5 md:px-7 pb-7 pt-4 flex gap-3" style={{ borderTop: "1px solid rgba(255,255,255,0.07)" }}>
-            <button type="button" onClick={onClose} className="flex-1 h-10 rounded-xl text-[#8b949e] text-[14px] font-bold cursor-pointer min-h-[44px]" style={G.btn}>Cancel</button>
-            <button type="submit" disabled={!canSubmit || submitting} className="flex-1 h-10 rounded-xl text-white text-[14px] font-extrabold disabled:opacity-40 cursor-pointer min-h-[44px]" style={{ background: "#3b82f6", boxShadow: canSubmit ? "0 4px 20px rgba(59,130,246,0.4)" : "none" }}>{submitting ? "Adding…" : "Add to Pipeline"}</button>
+            <button type="button" onClick={onClose} className="flex-1 h-10 rounded-xl text-[#8b949e] text-[15px] font-bold cursor-pointer min-h-[44px]" style={G.btn}>Cancel</button>
+            <button type="submit" disabled={!canSubmit || submitting} className="flex-1 h-10 rounded-xl text-white text-[15px] font-extrabold disabled:opacity-40 cursor-pointer min-h-[44px]" style={{ background: "#3b82f6", boxShadow: canSubmit ? "0 4px 20px rgba(59,130,246,0.4)" : "none" }}>{submitting ? "Adding…" : "Add to Pipeline"}</button>
           </div>
         </form>
       </motion.div>
@@ -1355,51 +1355,51 @@ function TaskList({ projectId }: { projectId: string }) {
       <div className="flex items-center justify-between gap-2 flex-wrap">
         <div className="flex items-center gap-1">
           {(["all","todo","in-progress","review","complete"] as const).map(s => (
-            <button key={s} onClick={() => setStatusFilter(s)} className={clsx("h-7 px-2.5 rounded-lg text-[11px] font-bold cursor-pointer", statusFilter === s ? "text-white" : "text-[#484f58]")} style={statusFilter === s ? { background: "rgba(255,255,255,0.10)" } : G.btn}>{s === "all" ? "All" : s === "in-progress" ? "In Progress" : s.charAt(0).toUpperCase() + s.slice(1)}</button>
+            <button key={s} onClick={() => setStatusFilter(s)} className={clsx("h-7 px-2.5 rounded-lg text-[12px] font-bold cursor-pointer", statusFilter === s ? "text-white" : "text-[#484f58]")} style={statusFilter === s ? { background: "rgba(255,255,255,0.10)" } : G.btn}>{s === "all" ? "All" : s === "in-progress" ? "In Progress" : s.charAt(0).toUpperCase() + s.slice(1)}</button>
           ))}
         </div>
-        <button onClick={() => setShowNew(!showNew)} className="flex items-center gap-1 h-7 px-2.5 rounded-lg text-[11px] font-bold text-white cursor-pointer" style={{ background: "#3b82f6" }}><Plus className="w-3 h-3" /> Add Task <span className="text-[9px] text-blue-200 ml-1">(T)</span></button>
+        <button onClick={() => setShowNew(!showNew)} className="flex items-center gap-1 h-7 px-2.5 rounded-lg text-[12px] font-bold text-white cursor-pointer" style={{ background: "#3b82f6" }}><Plus className="w-3 h-3" /> Add Task <span className="text-[10px] text-blue-200 ml-1">(T)</span></button>
       </div>
       {showNew && (
         <motion.div initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }} className="rounded-xl p-3 space-y-2" style={G.card}>
-          <input value={newTitle} onChange={(e) => setNewTitle(e.target.value)} placeholder="Task title..." className="w-full h-8 rounded-lg px-2.5 text-[12px] text-[#e6edf3] focus:outline-none" style={G.input} />
-          <textarea value={newDescription} onChange={(e) => setNewDescription(e.target.value)} placeholder="Description (optional)" rows={2} className="w-full rounded-lg px-2.5 py-2 text-[12px] text-[#e6edf3] focus:outline-none resize-none" style={G.input} />
+          <input value={newTitle} onChange={(e) => setNewTitle(e.target.value)} placeholder="Task title..." className="w-full h-8 rounded-lg px-2.5 text-[13px] text-[#e6edf3] focus:outline-none" style={G.input} />
+          <textarea value={newDescription} onChange={(e) => setNewDescription(e.target.value)} placeholder="Description (optional)" rows={2} className="w-full rounded-lg px-2.5 py-2 text-[13px] text-[#e6edf3] focus:outline-none resize-none" style={G.input} />
           <div className="flex gap-2 flex-wrap">
-            <select value={newAssignee} onChange={(e) => setNewAssignee(e.target.value)} className="h-7 rounded-lg px-2 text-[11px] cursor-pointer" style={{ ...G.input, background: "#0d1117", color: "#e6edf3" }}>
+            <select value={newAssignee} onChange={(e) => setNewAssignee(e.target.value)} className="h-7 rounded-lg px-2 text-[12px] cursor-pointer" style={{ ...G.input, background: "#0d1117", color: "#e6edf3" }}>
               <option value="">Assignee</option>
               {TEAM.map(t => <option key={t.name} value={t.name} style={{ background: "#0d1117", color: "#e6edf3" }}>● {t.name}</option>)}
             </select>
-            <select value={newPriority} onChange={(e) => setNewPriority(e.target.value as TaskPriority)} className="h-7 rounded-lg px-2 text-[11px] cursor-pointer" style={{ ...G.input, background: "#0d1117", color: "#e6edf3" }}>
+            <select value={newPriority} onChange={(e) => setNewPriority(e.target.value as TaskPriority)} className="h-7 rounded-lg px-2 text-[12px] cursor-pointer" style={{ ...G.input, background: "#0d1117", color: "#e6edf3" }}>
               <option value="low" style={{ background: "#0d1117", color: "#94a3b8" }}>● Low</option>
               <option value="medium" style={{ background: "#0d1117", color: "#fbbf24" }}>● Medium</option>
               <option value="high" style={{ background: "#0d1117", color: "#f87171" }}>● High</option>
             </select>
-            <input type="date" value={newDueDate} onChange={(e) => setNewDueDate(e.target.value)} className="h-7 rounded-lg px-2 text-[11px]" style={{ ...G.input, colorScheme: "dark", background: "#0d1117", color: "#e6edf3" }} />
-            <input type="time" value={newDueTime} onChange={(e) => setNewDueTime(e.target.value)} className="h-7 rounded-lg px-2 text-[11px]" style={{ ...G.input, colorScheme: "dark", background: "#0d1117", color: "#e6edf3" }} />
-            <button onClick={handleCreate} className="h-7 px-3 rounded-lg text-[11px] font-extrabold text-white cursor-pointer" style={{ background: "#10b981" }}>Save</button>
+            <input type="date" value={newDueDate} onChange={(e) => setNewDueDate(e.target.value)} className="h-7 rounded-lg px-2 text-[12px]" style={{ ...G.input, colorScheme: "dark", background: "#0d1117", color: "#e6edf3" }} />
+            <input type="time" value={newDueTime} onChange={(e) => setNewDueTime(e.target.value)} className="h-7 rounded-lg px-2 text-[12px]" style={{ ...G.input, colorScheme: "dark", background: "#0d1117", color: "#e6edf3" }} />
+            <button onClick={handleCreate} className="h-7 px-3 rounded-lg text-[12px] font-extrabold text-white cursor-pointer" style={{ background: "#10b981" }}>Save</button>
           </div>
         </motion.div>
       )}
       {editingTask && (
         <motion.div initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }} className="rounded-xl p-3 space-y-2" style={{ ...G.card, border: "1px solid rgba(59,130,246,0.35)" }}>
-          <input value={editingTask.title} onChange={(e) => setEditingTask({ ...editingTask, title: e.target.value })} className="w-full h-8 rounded-lg px-2.5 text-[12px] text-[#e6edf3]" style={G.input} />
-          <textarea value={editingTask.description || ""} onChange={(e) => setEditingTask({ ...editingTask, description: e.target.value })} rows={2} className="w-full rounded-lg px-2.5 py-2 text-[12px] text-[#e6edf3] resize-none" style={G.input} />
+          <input value={editingTask.title} onChange={(e) => setEditingTask({ ...editingTask, title: e.target.value })} className="w-full h-8 rounded-lg px-2.5 text-[13px] text-[#e6edf3]" style={G.input} />
+          <textarea value={editingTask.description || ""} onChange={(e) => setEditingTask({ ...editingTask, description: e.target.value })} rows={2} className="w-full rounded-lg px-2.5 py-2 text-[13px] text-[#e6edf3] resize-none" style={G.input} />
           <div className="flex gap-2 flex-wrap">
-            <select value={editingTask.assignee || ""} onChange={(e) => setEditingTask({ ...editingTask, assignee: e.target.value })} className="h-7 rounded-lg px-2 text-[11px] cursor-pointer" style={{ ...G.input, background: "#0d1117", color: "#e6edf3" }}>
+            <select value={editingTask.assignee || ""} onChange={(e) => setEditingTask({ ...editingTask, assignee: e.target.value })} className="h-7 rounded-lg px-2 text-[12px] cursor-pointer" style={{ ...G.input, background: "#0d1117", color: "#e6edf3" }}>
               <option value="">Assignee</option>
               {TEAM.map(t => <option key={t.name} value={t.name} style={{ background: "#0d1117", color: "#e6edf3" }}>{t.name}</option>)}
             </select>
-            <select value={editingTask.priority} onChange={(e) => setEditingTask({ ...editingTask, priority: e.target.value as TaskPriority })} className="h-7 rounded-lg px-2 text-[11px] cursor-pointer" style={{ ...G.input, background: "#0d1117", color: "#e6edf3" }}>
+            <select value={editingTask.priority} onChange={(e) => setEditingTask({ ...editingTask, priority: e.target.value as TaskPriority })} className="h-7 rounded-lg px-2 text-[12px] cursor-pointer" style={{ ...G.input, background: "#0d1117", color: "#e6edf3" }}>
               <option value="low">Low</option><option value="medium">Medium</option><option value="high">High</option>
             </select>
-            <input type="date" value={editingTask.dueDate?.split("T")[0] || ""} onChange={(e) => setEditingTask({ ...editingTask, dueDate: e.target.value })} className="h-7 rounded-lg px-2 text-[11px]" style={{ ...G.input, colorScheme: "dark", background: "#0d1117", color: "#e6edf3" }} />
-            <button onClick={handleEditSave} className="h-7 px-3 rounded-lg text-[11px] font-extrabold text-white cursor-pointer" style={{ background: "#10b981" }}>Update</button>
-            <button onClick={() => setEditingTask(null)} className="h-7 px-3 rounded-lg text-[11px] font-bold cursor-pointer" style={G.btn}>Cancel</button>
+            <input type="date" value={editingTask.dueDate?.split("T")[0] || ""} onChange={(e) => setEditingTask({ ...editingTask, dueDate: e.target.value })} className="h-7 rounded-lg px-2 text-[12px]" style={{ ...G.input, colorScheme: "dark", background: "#0d1117", color: "#e6edf3" }} />
+            <button onClick={handleEditSave} className="h-7 px-3 rounded-lg text-[12px] font-extrabold text-white cursor-pointer" style={{ background: "#10b981" }}>Update</button>
+            <button onClick={() => setEditingTask(null)} className="h-7 px-3 rounded-lg text-[12px] font-bold cursor-pointer" style={G.btn}>Cancel</button>
           </div>
         </motion.div>
       )}
       {filteredTasks.length === 0 ? (
-        <div className="text-center py-6"><p className="text-[#8b949e] text-[12px]">{statusFilter === "all" ? "No tasks yet" : `No ${statusFilter} tasks`}</p></div>
+        <div className="text-center py-6"><p className="text-[#8b949e] text-[13px]">{statusFilter === "all" ? "No tasks yet" : `No ${statusFilter} tasks`}</p></div>
       ) : (
         <div className="space-y-1.5">
           <AnimatePresence mode="popLayout">
@@ -1409,12 +1409,12 @@ function TaskList({ projectId }: { projectId: string }) {
                 <motion.div key={task.id} initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, x: -20 }} onClick={() => setEditingTask(task)} className="flex items-center gap-3 px-3 py-2.5 rounded-xl group hover:bg-white/[0.03] cursor-pointer" style={G.subtle}>
                   <button onClick={(e) => { e.stopPropagation(); handleStatusChange(task.id, task.status === "complete" ? "todo" : task.status === "todo" ? "in-progress" : task.status === "in-progress" ? "review" : "complete"); }} className={clsx("w-5 h-5 rounded-full border-2 flex items-center justify-center flex-shrink-0 cursor-pointer", task.status === "complete" ? "bg-emerald-500 border-emerald-500" : "border-[#484f58] hover:border-white/50")}>{task.status === "complete" && <CheckCircle2 className="w-3 h-3 text-white" />}</button>
                   <div className="flex-1 min-w-0">
-                    <p className={clsx("text-[12px] font-bold", task.status === "complete" ? "text-[#484f58] line-through" : "text-white")}>{task.title}</p>
-                    {task.description && <p className="text-[#8b949e] text-[11px] mt-0.5 truncate">{task.description}</p>}
+                    <p className={clsx("text-[13px] font-bold", task.status === "complete" ? "text-[#484f58] line-through" : "text-white")}>{task.title}</p>
+                    {task.description && <p className="text-[#8b949e] text-[12px] mt-0.5 truncate">{task.description}</p>}
                     <div className="flex items-center gap-2 mt-1">
-                      {assignee && <span className="text-[#8b949e] text-[11px] flex items-center gap-1"><div className="w-3.5 h-3.5 rounded-full flex items-center justify-center text-[8px] font-extrabold text-white" style={{ background: assignee.color }}>{assignee.initials}</div><span className="text-[#e6edf3]">{assignee.name}</span></span>}
-                      <span className="text-[11px] font-extrabold" style={{ color: priorityColors[task.priority] }}>{task.priority}</span>
-                      {task.dueDate && <span className="text-[#8b949e] text-[11px]">{new Date(task.dueDate).toLocaleString("en-US", { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" })}</span>}
+                      {assignee && <span className="text-[#8b949e] text-[12px] flex items-center gap-1"><div className="w-3.5 h-3.5 rounded-full flex items-center justify-center text-[9px] font-extrabold text-white" style={{ background: assignee.color }}>{assignee.initials}</div><span className="text-[#e6edf3]">{assignee.name}</span></span>}
+                      <span className="text-[12px] font-extrabold" style={{ color: priorityColors[task.priority] }}>{task.priority}</span>
+                      {task.dueDate && <span className="text-[#8b949e] text-[12px]">{new Date(task.dueDate).toLocaleString("en-US", { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" })}</span>}
                     </div>
                   </div>
                   <button onClick={(e) => { e.stopPropagation(); setConfirmDelete(task.id); }} className="opacity-0 group-hover:opacity-100 w-6 h-6 rounded-lg hover:bg-rose-500/10 flex items-center justify-center cursor-pointer"><Trash2 className="w-3 h-3 text-rose-400" /></button>
@@ -1455,16 +1455,16 @@ function DocumentList({ projectId }: { projectId: string }) {
   return (
     <div className="space-y-2">
       {confirmDelete && <ConfirmDialog open={true} title="Delete File" message="Are you sure you want to delete this file?" onConfirm={() => handleDelete(confirmDelete)} onCancel={() => setConfirmDelete(null)} />}
-      <label className="flex items-center gap-2 h-8 px-3 rounded-xl text-[#8b949e] text-[12px] font-bold hover:text-white cursor-pointer w-fit" style={G.btn}>
+      <label className="flex items-center gap-2 h-8 px-3 rounded-xl text-[#8b949e] text-[13px] font-bold hover:text-white cursor-pointer w-fit" style={G.btn}>
         <Upload className="w-3.5 h-3.5" /> {uploading ? "Uploading..." : "Upload File"}
         <input type="file" className="hidden" onChange={handleUpload} disabled={uploading} />
       </label>
-      {documents.length === 0 ? <p className="text-[#8b949e] text-[12px]">No files uploaded yet</p> : documents.map(doc => (
+      {documents.length === 0 ? <p className="text-[#8b949e] text-[13px]">No files uploaded yet</p> : documents.map(doc => (
         <div key={doc.id} className="flex items-center justify-between px-3 py-2 rounded-xl group hover:bg-white/[0.02]" style={G.subtle}>
           <div className="flex items-center gap-2 min-w-0">
             <Paperclip className="w-3.5 h-3.5 text-[#484f58] flex-shrink-0" />
-            <a href={doc.fileUrl} target="_blank" rel="noopener noreferrer" className="text-white text-[12px] font-bold truncate hover:text-blue-400">{doc.filename}</a>
-            <span className="text-[#8b949e] text-[10px] flex-shrink-0">{doc.fileSize ? `${(doc.fileSize / 1024).toFixed(0)} KB` : ""}</span>
+            <a href={doc.fileUrl} target="_blank" rel="noopener noreferrer" className="text-white text-[13px] font-bold truncate hover:text-blue-400">{doc.filename}</a>
+            <span className="text-[#8b949e] text-[11px] flex-shrink-0">{doc.fileSize ? `${(doc.fileSize / 1024).toFixed(0)} KB` : ""}</span>
           </div>
           <button onClick={() => setConfirmDelete(doc.id)} className="opacity-0 group-hover:opacity-100 w-6 h-6 rounded-lg hover:bg-rose-500/10 flex items-center justify-center cursor-pointer flex-shrink-0"><Trash2 className="w-3 h-3 text-rose-400" /></button>
         </div>
@@ -1522,17 +1522,17 @@ function DealModal({ project, column, onClose, navigate, onUpdate, onDelete, pip
             <div className="flex-1 min-w-0">
               <div className="flex flex-wrap items-center gap-1.5 mb-2.5">
                 {isProjectPipeline && psBadge ? (
-                  <span className="inline-flex items-center gap-1.5 text-[11px] font-extrabold uppercase tracking-[0.14em] px-2.5 py-1 rounded-full" style={{ background: `${psBadge.color}22`, color: psBadge.color, border: `1px solid ${psBadge.color}44` }}><span className="w-1.5 h-1.5 rounded-full" style={{ background: psBadge.color }} />{psBadge.label}</span>
+                  <span className="inline-flex items-center gap-1.5 text-[12px] font-extrabold uppercase tracking-[0.14em] px-2.5 py-1 rounded-full" style={{ background: `${psBadge.color}22`, color: psBadge.color, border: `1px solid ${psBadge.color}44` }}><span className="w-1.5 h-1.5 rounded-full" style={{ background: psBadge.color }} />{psBadge.label}</span>
                 ) : (
                   <>
-                    <span className="inline-flex items-center gap-1.5 text-[11px] font-extrabold uppercase tracking-[0.14em] px-2.5 py-1 rounded-full" style={{ background: `${column.color}22`, color: column.color, border: `1px solid ${column.color}44` }}><span className="w-1.5 h-1.5 rounded-full" style={{ background: column.color }} />{column.label}</span>
-                    {ls && <span className="text-[10px] font-extrabold px-2 py-0.5 rounded-full" style={{ background: ls.bg, color: ls.text }}>{project.leadSource}</span>}
+                    <span className="inline-flex items-center gap-1.5 text-[12px] font-extrabold uppercase tracking-[0.14em] px-2.5 py-1 rounded-full" style={{ background: `${column.color}22`, color: column.color, border: `1px solid ${column.color}44` }}><span className="w-1.5 h-1.5 rounded-full" style={{ background: column.color }} />{column.label}</span>
+                    {ls && <span className="text-[11px] font-extrabold px-2 py-0.5 rounded-full" style={{ background: ls.bg, color: ls.text }}>{project.leadSource}</span>}
                   </>
                 )}
-                {isProjectPipeline && project.supportType && <span className="text-[10px] font-extrabold px-2 py-0.5 rounded-full" style={{ background: "rgba(139,92,246,0.15)", color: "#a78bfa" }}>{SUPPORT_TYPE_LABELS[project.supportType]}</span>}
+                {isProjectPipeline && project.supportType && <span className="text-[11px] font-extrabold px-2 py-0.5 rounded-full" style={{ background: "rgba(139,92,246,0.15)", color: "#a78bfa" }}>{SUPPORT_TYPE_LABELS[project.supportType]}</span>}
               </div>
-              <h2 className="text-white text-[1.1rem] md:text-[1.2rem] font-extrabold leading-snug">{project.name}</h2>
-              <p className="text-[#8b949e] text-[13px] md:text-[14px] font-bold mt-1 flex items-center gap-1.5"><Building2 className="w-3.5 h-3.5 flex-shrink-0" />{project.client}</p>
+              <h2 className="text-white text-[1.2rem] md:text-[1.3rem] font-extrabold leading-snug">{project.name}</h2>
+              <p className="text-[#8b949e] text-[14px] md:text-[15px] font-bold mt-1 flex items-center gap-1.5"><Building2 className="w-3.5 h-3.5 flex-shrink-0" />{project.client}</p>
             </div>
             <div className="flex gap-1 flex-shrink-0">
               <button onClick={copyProjectLink} className="w-8 h-8 rounded-xl flex items-center justify-center hover:bg-white/[0.08] cursor-pointer" style={{ border: "1px solid rgba(255,255,255,0.10)" }}><Link2 className="w-3.5 h-3.5 text-[#8b949e]" /></button>
@@ -1542,25 +1542,25 @@ function DealModal({ project, column, onClose, navigate, onUpdate, onDelete, pip
           </div>
           {editing && (
             <div className="grid grid-cols-2 gap-2 mt-3">
-              <input value={editName} onChange={(e) => setEditName(e.target.value)} placeholder="Name" className="w-full h-8 rounded-xl px-2 text-[13px]" style={G.input} />
-              <input value={editClient} onChange={(e) => setEditClient(e.target.value)} placeholder="Client" className="w-full h-8 rounded-xl px-2 text-[13px]" style={G.input} />
-              <input value={editLocation} onChange={(e) => setEditLocation(e.target.value)} placeholder="Location" className="w-full h-8 rounded-xl px-2 text-[13px]" style={G.input} />
-              {!isProjectPipeline && <input type="number" value={editValue} onChange={(e) => setEditValue(e.target.value)} placeholder="Value" className="w-full h-8 rounded-xl px-2 text-[13px]" style={G.input} />}
-              <select value={editRisk} onChange={(e) => setEditRisk(e.target.value as "low"|"medium"|"high")} className="w-full h-8 rounded-xl px-2 text-[13px] cursor-pointer" style={{ ...G.input, background: "#0d1117", color: "#e6edf3" }}>{["low","medium","high"].map((r) => <option key={r} value={r} style={{ background: "#0d1117", color: "#e6edf3" }}>{r}</option>)}</select>
-              <input type="date" value={editDueDate} onChange={(e) => setEditDueDate(e.target.value)} className="w-full h-8 rounded-xl px-2 text-[13px]" style={{ ...G.input, colorScheme: "dark", background: "#0d1117", color: "#e6edf3" }} />
-              {isProjectPipeline && <select value={editSupportType} onChange={(e) => setEditSupportType(e.target.value as SupportType)} className="w-full h-8 rounded-xl px-2 text-[13px] cursor-pointer" style={{ ...G.input, background: "#0d1117", color: "#e6edf3" }}>{SUPPORT_TYPES.map(st => <option key={st.id} value={st.id} style={{ background: "#0d1117", color: "#e6edf3" }}>{st.label}</option>)}</select>}
+              <input value={editName} onChange={(e) => setEditName(e.target.value)} placeholder="Name" className="w-full h-8 rounded-xl px-2 text-[14px]" style={G.input} />
+              <input value={editClient} onChange={(e) => setEditClient(e.target.value)} placeholder="Client" className="w-full h-8 rounded-xl px-2 text-[14px]" style={G.input} />
+              <input value={editLocation} onChange={(e) => setEditLocation(e.target.value)} placeholder="Location" className="w-full h-8 rounded-xl px-2 text-[14px]" style={G.input} />
+              {!isProjectPipeline && <input type="number" value={editValue} onChange={(e) => setEditValue(e.target.value)} placeholder="Value" className="w-full h-8 rounded-xl px-2 text-[14px]" style={G.input} />}
+              <select value={editRisk} onChange={(e) => setEditRisk(e.target.value as "low"|"medium"|"high")} className="w-full h-8 rounded-xl px-2 text-[14px] cursor-pointer" style={{ ...G.input, background: "#0d1117", color: "#e6edf3" }}>{["low","medium","high"].map((r) => <option key={r} value={r} style={{ background: "#0d1117", color: "#e6edf3" }}>{r}</option>)}</select>
+              <input type="date" value={editDueDate} onChange={(e) => setEditDueDate(e.target.value)} className="w-full h-8 rounded-xl px-2 text-[14px]" style={{ ...G.input, colorScheme: "dark", background: "#0d1117", color: "#e6edf3" }} />
+              {isProjectPipeline && <select value={editSupportType} onChange={(e) => setEditSupportType(e.target.value as SupportType)} className="w-full h-8 rounded-xl px-2 text-[14px] cursor-pointer" style={{ ...G.input, background: "#0d1117", color: "#e6edf3" }}>{SUPPORT_TYPES.map(st => <option key={st.id} value={st.id} style={{ background: "#0d1117", color: "#e6edf3" }}>{st.label}</option>)}</select>}
             </div>
           )}
           {editing && (
             <div className="mt-3 flex gap-2">
-              <button onClick={handleSave} disabled={saving} className="flex-1 h-9 rounded-xl text-white text-[14px] font-extrabold cursor-pointer" style={{ background: "#10b981" }}><Save className="w-3.5 h-3.5 inline mr-1" />{saving ? "Saving…" : "Save"}</button>
-              <button onClick={() => setEditing(false)} className="flex-1 h-9 rounded-xl text-[#8b949e] text-[14px] font-bold cursor-pointer" style={G.btn}>Cancel</button>
+              <button onClick={handleSave} disabled={saving} className="flex-1 h-9 rounded-xl text-white text-[15px] font-extrabold cursor-pointer" style={{ background: "#10b981" }}><Save className="w-3.5 h-3.5 inline mr-1" />{saving ? "Saving…" : "Save"}</button>
+              <button onClick={() => setEditing(false)} className="flex-1 h-9 rounded-xl text-[#8b949e] text-[15px] font-bold cursor-pointer" style={G.btn}>Cancel</button>
             </div>
           )}
         </div>
         <div className="flex items-center gap-0.5 px-5 md:px-7 border-b overflow-x-auto" style={{ borderColor: "rgba(255,255,255,0.07)", scrollbarWidth: "none" }}>
           {tabs.map((tab) => (
-            <button key={tab.id} onClick={() => setActiveTab(tab.id)} className={clsx("flex items-center gap-1.5 h-9 px-3 text-[12px] font-bold border-b-2 -mb-px transition-all whitespace-nowrap cursor-pointer", activeTab === tab.id ? "border-blue-500 text-white" : "border-transparent text-[#8b949e]")}><tab.icon className="w-3 h-3" />{tab.label}</button>
+            <button key={tab.id} onClick={() => setActiveTab(tab.id)} className={clsx("flex items-center gap-1.5 h-9 px-3 text-[13px] font-bold border-b-2 -mb-px transition-all whitespace-nowrap cursor-pointer", activeTab === tab.id ? "border-blue-500 text-white" : "border-transparent text-[#8b949e]")}><tab.icon className="w-3 h-3" />{tab.label}</button>
           ))}
         </div>
         <div className="px-5 md:px-7 py-4">
@@ -1574,18 +1574,18 @@ function DealModal({ project, column, onClose, navigate, onUpdate, onDelete, pip
                   { label: "Due Date", value: fmtDateFull(project.dueDate), color: "#f59e0b" },
                 ].map((s) => (
                   <div key={s.label} className="rounded-2xl px-3 py-3 text-center" style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)" }}>
-                    <p className="text-[11px] font-extrabold uppercase tracking-widest mb-1" style={{ color: "rgba(139,148,158,0.85)" }}>{s.label}</p>
-                    <p className="text-[1.3rem] font-extrabold tracking-tight leading-none" style={{ color: s.color }}>{s.value}</p>
+                    <p className="text-[12px] font-extrabold uppercase tracking-widest mb-1" style={{ color: "rgba(139,148,158,0.85)" }}>{s.label}</p>
+                    <p className="text-[1.4rem] font-extrabold tracking-tight leading-none" style={{ color: s.color }}>{s.value}</p>
                   </div>
                 ))}
               </div>
-              {project.summary && <div className="rounded-xl p-3" style={G.subtle}><p className="text-[#8b949e] text-[10px] font-extrabold uppercase tracking-widest mb-1">Scope</p><p className="text-[#8b949e] text-[12px]">{project.summary}</p></div>}
+              {project.summary && <div className="rounded-xl p-3" style={G.subtle}><p className="text-[#8b949e] text-[11px] font-extrabold uppercase tracking-widest mb-1">Scope</p><p className="text-[#8b949e] text-[13px]">{project.summary}</p></div>}
               <div className="space-y-2">
                 {team.map((m) => (
                   <div key={m.name} className="flex items-center gap-2">
-                    <div className="w-7 h-7 rounded-lg flex items-center justify-center text-[11px] font-extrabold text-white" style={{ background: m.color }}>{m.initials}</div>
-                    <span className="text-white text-[13px] font-bold">{m.name}</span>
-                    <span className="text-[#8b949e] text-[11px]">· {m.roles.join(", ")}</span>
+                    <div className="w-7 h-7 rounded-lg flex items-center justify-center text-[12px] font-extrabold text-white" style={{ background: m.color }}>{m.initials}</div>
+                    <span className="text-white text-[14px] font-bold">{m.name}</span>
+                    <span className="text-[#8b949e] text-[12px]">· {m.roles.join(", ")}</span>
                   </div>
                 ))}
               </div>
@@ -1597,26 +1597,26 @@ function DealModal({ project, column, onClose, navigate, onUpdate, onDelete, pip
             <div className="space-y-2">
               {project.contact ? (
                 <div className="space-y-2">
-                  {project.contact.name && <div className="flex items-center gap-2 text-[#e6edf3] text-[13px]"><Users className="w-3.5 h-3.5 text-[#8b949e]" />{project.contact.name}{project.contact.title && <span className="text-[#8b949e]">· {project.contact.title}</span>}</div>}
-                  {project.contact.email && <div className="flex items-center gap-2 text-[#e6edf3] text-[13px]"><Mail className="w-3.5 h-3.5 text-[#8b949e]" />{project.contact.email}</div>}
-                  {project.contact.phone && <div className="flex items-center gap-2 text-[#e6edf3] text-[13px]"><Phone className="w-3.5 h-3.5 text-[#8b949e]" />{project.contact.phone}</div>}
+                  {project.contact.name && <div className="flex items-center gap-2 text-[#e6edf3] text-[14px]"><Users className="w-3.5 h-3.5 text-[#8b949e]" />{project.contact.name}{project.contact.title && <span className="text-[#8b949e]">· {project.contact.title}</span>}</div>}
+                  {project.contact.email && <div className="flex items-center gap-2 text-[#e6edf3] text-[14px]"><Mail className="w-3.5 h-3.5 text-[#8b949e]" />{project.contact.email}</div>}
+                  {project.contact.phone && <div className="flex items-center gap-2 text-[#e6edf3] text-[14px]"><Phone className="w-3.5 h-3.5 text-[#8b949e]" />{project.contact.phone}</div>}
                 </div>
-              ) : <p className="text-[#8b949e] text-[13px]">No contact info added yet.</p>}
+              ) : <p className="text-[#8b949e] text-[14px]">No contact info added yet.</p>}
             </div>
           )}
-          {activeTab === "notes" && <div>{project.notes ? <p className="text-[#8b949e] text-[13px] whitespace-pre-wrap">{project.notes}</p> : <p className="text-[#8b949e] text-[13px]">No notes yet.</p>}</div>}
+          {activeTab === "notes" && <div>{project.notes ? <p className="text-[#8b949e] text-[14px] whitespace-pre-wrap">{project.notes}</p> : <p className="text-[#8b949e] text-[14px]">No notes yet.</p>}</div>}
           {activeTab === "workbook" && (
             <div className="flex flex-col items-center gap-3 py-4">
               <FileText className="w-10 h-10 text-[#484f58]" />
-              <p className="text-[#8b949e] text-[13px]">View full workbook for this project</p>
-              <button onClick={() => { navigate("workbook"); onClose(); }} className="h-9 px-5 rounded-xl text-white text-[13px] font-extrabold cursor-pointer min-h-[44px]" style={{ background: "#3b82f6", boxShadow: "0 4px 20px rgba(59,130,246,0.4)" }}>Open Workbook <ExternalLink className="w-3 h-3 inline ml-1" /></button>
+              <p className="text-[#8b949e] text-[14px]">View full workbook for this project</p>
+              <button onClick={() => { navigate("workbook"); onClose(); }} className="h-9 px-5 rounded-xl text-white text-[14px] font-extrabold cursor-pointer min-h-[44px]" style={{ background: "#3b82f6", boxShadow: "0 4px 20px rgba(59,130,246,0.4)" }}>Open Workbook <ExternalLink className="w-3 h-3 inline ml-1" /></button>
             </div>
           )}
         </div>
         <div className="px-5 md:px-7 pb-7 flex gap-2.5">
-          <button onClick={() => { navigate("project-detail"); onClose(); }} className="flex-1 h-10 rounded-xl flex items-center justify-center gap-2 text-white text-[14px] font-extrabold cursor-pointer min-h-[44px]" style={{ background: "#3b82f6", boxShadow: "0 4px 20px rgba(59,130,246,0.4)" }}><ExternalLink className="w-3.5 h-3.5" />Open</button>
-          <button onClick={() => { navigate("design-canvas"); onClose(); }} className="flex-1 h-10 rounded-xl flex items-center justify-center gap-2 text-[#e6edf3] text-[14px] font-extrabold cursor-pointer min-h-[44px]" style={G.btn}><Layers className="w-3.5 h-3.5 text-violet-400" />Design</button>
-          <button onClick={() => { onDelete(project.id); onClose(); }} className="h-10 px-3 rounded-xl text-rose-400 text-[14px] font-extrabold cursor-pointer min-h-[44px]" style={{ background: "rgba(244,63,94,0.10)", border: "1px solid rgba(244,63,94,0.20)" }}><Trash2 className="w-3.5 h-3.5" /></button>
+          <button onClick={() => { navigate("project-detail"); onClose(); }} className="flex-1 h-10 rounded-xl flex items-center justify-center gap-2 text-white text-[15px] font-extrabold cursor-pointer min-h-[44px]" style={{ background: "#3b82f6", boxShadow: "0 4px 20px rgba(59,130,246,0.4)" }}><ExternalLink className="w-3.5 h-3.5" />Open</button>
+          <button onClick={() => { navigate("design-canvas"); onClose(); }} className="flex-1 h-10 rounded-xl flex items-center justify-center gap-2 text-[#e6edf3] text-[15px] font-extrabold cursor-pointer min-h-[44px]" style={G.btn}><Layers className="w-3.5 h-3.5 text-violet-400" />Design</button>
+          <button onClick={() => { onDelete(project.id); onClose(); }} className="h-10 px-3 rounded-xl text-rose-400 text-[15px] font-extrabold cursor-pointer min-h-[44px]" style={{ background: "rgba(244,63,94,0.10)", border: "1px solid rgba(244,63,94,0.20)" }}><Trash2 className="w-3.5 h-3.5" /></button>
         </div>
       </motion.div>
     </div>
@@ -1626,7 +1626,7 @@ function DealModal({ project, column, onClose, navigate, onUpdate, onDelete, pip
 function MiniFloorPlan({ project }: { project: Project }) {
   const hasDesign = ["proposal", "negotiation", "win"].includes(project.stage) || ["planning", "procurement", "installation", "commissioning", "complete"].includes(project.projectStage as string);
   const variant = parseInt(project.id.replace(/\D/g, "").slice(-1) || "0") % 3;
-  if (!hasDesign) return <div className="w-full h-full flex flex-col items-center justify-center rounded-lg border border-dashed" style={{ background: "rgba(255,255,255,0.03)", borderColor: "rgba(255,255,255,0.09)" }}><Upload className="w-5 h-5 text-[#484f58] mb-1.5" /><p className="text-[#8b949e] text-[11px] font-bold">No floor plan</p></div>;
+  if (!hasDesign) return <div className="w-full h-full flex flex-col items-center justify-center rounded-lg border border-dashed" style={{ background: "rgba(255,255,255,0.03)", borderColor: "rgba(255,255,255,0.09)" }}><Upload className="w-5 h-5 text-[#484f58] mb-1.5" /><p className="text-[#8b949e] text-[12px] font-bold">No floor plan</p></div>;
   if (variant === 0) return <svg viewBox="0 0 200 112" className="w-full h-full"><rect width="200" height="112" fill="#070c1a" /><rect x="8" y="8" width="184" height="96" fill="rgba(255,255,255,0.02)" stroke="rgba(255,255,255,0.09)" strokeWidth="1" rx="1" /><rect x="8" y="8" width="60" height="40" fill="rgba(59,130,246,0.05)" /><rect x="8" y="56" width="60" height="48" fill="rgba(255,255,255,0.02)" /><rect x="130" y="8" width="62" height="96" fill="rgba(139,92,246,0.04)" /><text x="38" y="30" textAnchor="middle" fill="rgba(255,255,255,0.12)" fontSize="5" fontFamily="sans-serif">RECEPTION</text><text x="38" y="82" textAnchor="middle" fill="rgba(255,255,255,0.12)" fontSize="5" fontFamily="sans-serif">OFFICE</text><text x="161" y="56" textAnchor="middle" fill="rgba(255,255,255,0.12)" fontSize="5" fontFamily="sans-serif">SERVER</text><path d={fovPath(18,18,135,80,28)} fill="rgba(59,130,246,0.18)" /><circle cx="18" cy="18" r="2.5" fill="#3b82f6" /><path d={fovPath(182,18,225,80,28)} fill="rgba(59,130,246,0.18)" /><circle cx="182" cy="18" r="2.5" fill="#3b82f6" /><path d={fovPath(18,96,45,80,28)} fill="rgba(59,130,246,0.18)" /><circle cx="18" cy="96" r="2.5" fill="#3b82f6" /><text x="186" y="109" textAnchor="end" fill="rgba(59,130,246,0.4)" fontSize="5" fontFamily="sans-serif">{project.cameras} cams</text></svg>;
   if (variant === 1) return <svg viewBox="0 0 200 112" className="w-full h-full"><rect width="200" height="112" fill="#070c1a" /><rect x="8" y="8" width="184" height="96" fill="rgba(255,255,255,0.02)" stroke="rgba(255,255,255,0.09)" strokeWidth="1" rx="1" /><rect x="8" y="8" width="184" height="22" fill="rgba(59,130,246,0.04)" /><rect x="8" y="8" width="60" height="96" fill="rgba(255,255,255,0.015)" /><text x="100" y="21" textAnchor="middle" fill="rgba(255,255,255,0.12)" fontSize="5" fontFamily="sans-serif">LOADING DOCK</text><text x="38" y="68" textAnchor="middle" fill="rgba(255,255,255,0.12)" fontSize="5" fontFamily="sans-serif">STORAGE</text><text x="133" y="72" textAnchor="middle" fill="rgba(255,255,255,0.12)" fontSize="5" fontFamily="sans-serif">WAREHOUSE</text>{[30,80,130,180].map((x,i) => <g key={i}><path d={fovPath(x,9,90,100,40)} fill="rgba(59,130,246,0.12)" /><circle cx={x} cy={9} r="2.5" fill="#3b82f6" /></g>)}<text x="186" y="109" textAnchor="end" fill="rgba(59,130,246,0.4)" fontSize="5" fontFamily="sans-serif">{project.cameras} cams</text></svg>;
   return <svg viewBox="0 0 200 112" className="w-full h-full"><rect width="200" height="112" fill="#070c1a" /><rect x="8" y="8" width="86" height="46" fill="rgba(59,130,246,0.05)" /><rect x="106" y="8" width="86" height="46" fill="rgba(139,92,246,0.04)" /><rect x="8" y="62" width="86" height="42" fill="rgba(16,185,129,0.03)" /><rect x="106" y="62" width="86" height="42" fill="rgba(245,158,11,0.03)" /><text x="51" y="30" textAnchor="middle" fill="rgba(255,255,255,0.12)" fontSize="5" fontFamily="sans-serif">DATA HALL A</text><text x="149" y="30" textAnchor="middle" fill="rgba(255,255,255,0.12)" fontSize="5" fontFamily="sans-serif">DATA HALL B</text><text x="51" y="84" textAnchor="middle" fill="rgba(255,255,255,0.12)" fontSize="5" fontFamily="sans-serif">SERVER ROOM</text><text x="149" y="84" textAnchor="middle" fill="rgba(255,255,255,0.12)" fontSize="5" fontFamily="sans-serif">NOC</text>{[[18,18,135],[78,18,225],[18,98,45],[78,98,315],[118,18,135],[178,18,225],[118,98,45],[178,98,315]].map(([x,y,r],i) => <g key={i}><path d={fovPath(x,y,r,80,24)} fill="rgba(59,130,246,0.15)" /><circle cx={x} cy={y} r="2" fill="#3b82f6" /></g>)}<text x="186" y="109" textAnchor="end" fill="rgba(59,130,246,0.4)" fontSize="5" fontFamily="sans-serif">{project.cameras} cams</text></svg>;
@@ -1644,7 +1644,7 @@ function UploadFloorPlanModal({ onClose, onUpload, mode }: { onClose: () => void
       <div className="absolute inset-0" style={{ background: "rgba(0,0,0,0.65)", backdropFilter: "blur(8px)" }} />
       <motion.div initial={{ opacity: 0, scale: 0.94, y: 16 }} animate={{ opacity: 1, scale: 1, y: 0 }} exit={{ opacity: 0, scale: 0.94, y: 16 }} transition={{ type: "spring", damping: 26, stiffness: 360 }} onClick={(e) => e.stopPropagation()} className="relative z-10 w-full max-w-[480px] rounded-3xl" style={{ background: "rgba(7,12,26,0.92)", backdropFilter: "blur(52px) saturate(200%)", border: "1px solid rgba(255,255,255,0.13)", boxShadow: "0 32px 80px rgba(0,0,0,0.9)" }}>
         <div className="flex items-center justify-between px-6 pt-6 pb-5" style={{ borderBottom: "1px solid rgba(255,255,255,0.07)" }}>
-          <div><h2 className="text-white text-[1.1rem] font-extrabold">Upload {mode === "2d" ? "Floor Plan" : "3D Model / Rendering"}</h2><p className="text-[#8b949e] text-[11px] mt-1">{mode === "2d" ? "PNG, JPG, PDF, DWG, DXF" : "PNG, JPG, GLB, GLTF, OBJ, STL, FBX"}</p></div>
+          <div><h2 className="text-white text-[1.2rem] font-extrabold">Upload {mode === "2d" ? "Floor Plan" : "3D Model / Rendering"}</h2><p className="text-[#8b949e] text-[12px] mt-1">{mode === "2d" ? "PNG, JPG, PDF, DWG, DXF" : "PNG, JPG, GLB, GLTF, OBJ, STL, FBX"}</p></div>
           <button onClick={onClose} className="w-8 h-8 rounded-xl flex items-center justify-center hover:bg-white/[0.08] cursor-pointer min-w-[44px] min-h-[44px]" style={{ border: "1px solid rgba(255,255,255,0.10)" }}><X className="w-4 h-4 text-[#8b949e]" /></button>
         </div>
         <div className="p-6">
@@ -1653,19 +1653,19 @@ function UploadFloorPlanModal({ onClose, onUpload, mode }: { onClose: () => void
             {file ? (
               <div className="space-y-2">
                 <div className="w-12 h-12 rounded-xl mx-auto flex items-center justify-center" style={{ background: "rgba(16,185,129,0.15)" }}><CheckCircle2 className="w-6 h-6 text-emerald-400" /></div>
-                <p className="text-white text-[14px] font-bold">{file.name}</p>
-                <p className="text-[#8b949e] text-[12px]">{(file.size / 1024).toFixed(0)} KB</p>
+                <p className="text-white text-[15px] font-bold">{file.name}</p>
+                <p className="text-[#8b949e] text-[13px]">{(file.size / 1024).toFixed(0)} KB</p>
               </div>
             ) : (
               <div className="space-y-3">
                 <div className="w-14 h-14 rounded-2xl mx-auto flex items-center justify-center" style={{ background: "rgba(139,92,246,0.12)" }}><Upload className="w-6 h-6 text-violet-400" /></div>
-                <div><p className="text-white text-[14px] font-bold">Drag & drop your {mode === "2d" ? "floor plan" : "3D file"}</p><p className="text-[#8b949e] text-[12px] mt-1">or click to browse files</p></div>
+                <div><p className="text-white text-[15px] font-bold">Drag & drop your {mode === "2d" ? "floor plan" : "3D file"}</p><p className="text-[#8b949e] text-[13px] mt-1">or click to browse files</p></div>
               </div>
             )}
           </div>
           <div className="flex gap-3 mt-5">
-            <button onClick={onClose} className="flex-1 h-10 rounded-xl text-[#8b949e] text-[14px] font-bold cursor-pointer min-h-[44px]" style={G.btn}>Cancel</button>
-            <button onClick={handleUpload} disabled={!file || uploading} className="flex-1 h-10 rounded-xl text-white text-[14px] font-extrabold disabled:opacity-40 flex items-center justify-center gap-2 cursor-pointer min-h-[44px]" style={{ background: "#8b5cf6", boxShadow: file ? "0 4px 20px rgba(139,92,246,0.4)" : "none" }}>{uploading ? "Uploading…" : "Upload"}</button>
+            <button onClick={onClose} className="flex-1 h-10 rounded-xl text-[#8b949e] text-[15px] font-bold cursor-pointer min-h-[44px]" style={G.btn}>Cancel</button>
+            <button onClick={handleUpload} disabled={!file || uploading} className="flex-1 h-10 rounded-xl text-white text-[15px] font-extrabold disabled:opacity-40 flex items-center justify-center gap-2 cursor-pointer min-h-[44px]" style={{ background: "#8b5cf6", boxShadow: file ? "0 4px 20px rgba(139,92,246,0.4)" : "none" }}>{uploading ? "Uploading…" : "Upload"}</button>
           </div>
         </div>
       </motion.div>
@@ -1680,13 +1680,13 @@ function SelectProjectModal({ onClose, onSelect, currentId, projects }: { onClos
     <div className="fixed inset-0 z-[200] flex items-center justify-center p-4" onClick={onClose}>
       <div className="absolute inset-0" style={{ background: "rgba(0,0,0,0.55)", backdropFilter: "blur(6px)" }} />
       <motion.div initial={{ opacity: 0, scale: 0.94, y: 14 }} animate={{ opacity: 1, scale: 1, y: 0 }} exit={{ opacity: 0, scale: 0.94, y: 14 }} transition={{ type: "spring", damping: 26, stiffness: 360 }} onClick={(e) => e.stopPropagation()} className="relative z-10 w-full max-w-[500px] max-h-[80vh] overflow-y-auto rounded-3xl" style={{ background: "rgba(7,12,26,0.95)", backdropFilter: "blur(52px) saturate(200%)", border: "1px solid rgba(255,255,255,0.13)", boxShadow: "0 32px 80px rgba(0,0,0,0.9)" }}>
-        <div className="flex items-center justify-between px-6 pt-6 pb-4" style={{ borderBottom: "1px solid rgba(255,255,255,0.07)" }}><h2 className="text-white text-[1.1rem] font-extrabold">Select Project</h2><button onClick={onClose} className="w-8 h-8 rounded-xl flex items-center justify-center hover:bg-white/[0.08] cursor-pointer min-w-[44px] min-h-[44px]" style={{ border: "1px solid rgba(255,255,255,0.10)" }}><X className="w-4 h-4 text-[#8b949e]" /></button></div>
-        <div className="px-4 py-3"><div className="relative"><Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-[#484f58]" /><input autoFocus value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search projects…" className="w-full h-9 rounded-xl pl-8 pr-3 text-[14px] text-[#e6edf3] focus:outline-none" style={G.input} /></div></div>
+        <div className="flex items-center justify-between px-6 pt-6 pb-4" style={{ borderBottom: "1px solid rgba(255,255,255,0.07)" }}><h2 className="text-white text-[1.2rem] font-extrabold">Select Project</h2><button onClick={onClose} className="w-8 h-8 rounded-xl flex items-center justify-center hover:bg-white/[0.08] cursor-pointer min-w-[44px] min-h-[44px]" style={{ border: "1px solid rgba(255,255,255,0.10)" }}><X className="w-4 h-4 text-[#8b949e]" /></button></div>
+        <div className="px-4 py-3"><div className="relative"><Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-[#484f58]" /><input autoFocus value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search projects…" className="w-full h-9 rounded-xl pl-8 pr-3 text-[15px] text-[#e6edf3] focus:outline-none" style={G.input} /></div></div>
         <div className="max-h-[340px] overflow-y-auto" style={{ scrollbarWidth: "none" }}>
           {filtered.map((p) => (
             <button key={p.id} onClick={() => { onSelect(p.id); onClose(); }} className="w-full flex items-center gap-3 px-5 py-3 hover:bg-white/[0.04] transition-colors text-left cursor-pointer min-h-[44px]" style={{ borderBottom: "1px solid rgba(255,255,255,0.04)", background: p.id === currentId ? "rgba(59,130,246,0.06)" : "transparent" }}>
-              <div className="w-8 h-8 rounded-xl flex items-center justify-center text-[11px] font-extrabold text-white flex-shrink-0" style={{ background: p.assignee.color }}>{p.assignee.initials}</div>
-              <div className="flex-1 min-w-0"><p className="text-white text-[14px] font-bold truncate">{p.name}</p><p className="text-[#8b949e] text-[12px] truncate">{p.client}</p></div>
+              <div className="w-8 h-8 rounded-xl flex items-center justify-center text-[12px] font-extrabold text-white flex-shrink-0" style={{ background: p.assignee.color }}>{p.assignee.initials}</div>
+              <div className="flex-1 min-w-0"><p className="text-white text-[15px] font-bold truncate">{p.name}</p><p className="text-[#8b949e] text-[13px] truncate">{p.client}</p></div>
               {p.id === currentId && <CheckCircle2 className="w-4 h-4 text-blue-400" />}
             </button>
           ))}
@@ -1734,11 +1734,11 @@ function DesignStudio({ navigate }: { navigate: (p: Page) => void }) {
   return (
     <div className="px-3 md:px-5 py-4 md:py-6">
       <div className="flex items-center justify-between mb-4 md:mb-6">
-        <div><h1 className="text-white font-extrabold text-xl md:text-2xl tracking-tight">System Design Studio</h1></div>
+        <div><h1 className="text-white font-extrabold text-2xl md:text-3xl tracking-tight">System Design Studio</h1></div>
         <div className="flex items-center gap-2">
           <div className="flex items-center rounded-xl p-0.5 gap-0.5" style={G.btn}>
-            <button onClick={() => setStudioView("projects")} className={clsx("h-7 px-3 rounded-lg text-[12px] md:text-[13px] font-bold cursor-pointer", studioView === "projects" ? "text-white" : "text-[#8b949e]")} style={studioView === "projects" ? { background: "rgba(255,255,255,0.12)" } : undefined}>Projects</button>
-            <button onClick={() => setStudioView("canvas")} className={clsx("h-7 px-3 rounded-lg text-[12px] md:text-[13px] font-bold cursor-pointer", studioView === "canvas" ? "text-white" : "text-[#8b949e]")} style={studioView === "canvas" ? { background: "rgba(255,255,255,0.12)" } : undefined}>Canvas</button>
+            <button onClick={() => setStudioView("projects")} className={clsx("h-7 px-3 rounded-lg text-[13px] md:text-[14px] font-bold cursor-pointer", studioView === "projects" ? "text-white" : "text-[#8b949e]")} style={studioView === "projects" ? { background: "rgba(255,255,255,0.12)" } : undefined}>Projects</button>
+            <button onClick={() => setStudioView("canvas")} className={clsx("h-7 px-3 rounded-lg text-[13px] md:text-[14px] font-bold cursor-pointer", studioView === "canvas" ? "text-white" : "text-[#8b949e]")} style={studioView === "canvas" ? { background: "rgba(255,255,255,0.12)" } : undefined}>Canvas</button>
           </div>
           {studioView === "projects" && (
             <div className="flex items-center rounded-xl p-0.5 gap-0.5" style={G.btn}>
@@ -1750,15 +1750,15 @@ function DesignStudio({ navigate }: { navigate: (p: Page) => void }) {
         </div>
       </div>
       {studioView === "canvas" ? (
-        <div className="rounded-2xl p-8 text-center" style={G.card}><Layers className="w-12 h-12 text-[#484f58] mx-auto mb-3" /><p className="text-[#8b949e] text-[14px]">Open the Design Canvas to place devices on floor plans and 3D models.</p><button onClick={() => navigate("design-canvas")} className="mt-4 h-9 px-5 rounded-xl text-white text-[13px] font-extrabold cursor-pointer min-h-[44px]" style={{ background: "#3b82f6" }}>Open Canvas</button></div>
+        <div className="rounded-2xl p-8 text-center" style={G.card}><Layers className="w-12 h-12 text-[#484f58] mx-auto mb-3" /><p className="text-[#8b949e] text-[15px]">Open the Design Canvas to place devices on floor plans and 3D models.</p><button onClick={() => navigate("design-canvas")} className="mt-4 h-9 px-5 rounded-xl text-white text-[14px] font-extrabold cursor-pointer min-h-[44px]" style={{ background: "#3b82f6" }}>Open Canvas</button></div>
       ) : (
         <>
           <div className="flex items-center gap-2 mb-4 md:mb-5 flex-wrap">
             {stageFilters.map((f) => (
-              <button key={f.id} onClick={() => setFilter(f.id)} className={clsx("h-7 px-3 rounded-full text-[12px] md:text-[13px] font-bold cursor-pointer", filter === f.id ? "text-white" : "text-[#8b949e]")} style={filter === f.id ? { background: "#3b82f6", boxShadow: "0 2px 12px rgba(59,130,246,0.3)" } : G.subtle}>{f.label}</button>
+              <button key={f.id} onClick={() => setFilter(f.id)} className={clsx("h-7 px-3 rounded-full text-[13px] md:text-[14px] font-bold cursor-pointer", filter === f.id ? "text-white" : "text-[#8b949e]")} style={filter === f.id ? { background: "#3b82f6", boxShadow: "0 2px 12px rgba(59,130,246,0.3)" } : G.subtle}>{f.label}</button>
             ))}
-            <div className="relative ml-1"><Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3 h-3 text-[#484f58]" /><input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search…" className="h-7 rounded-xl pl-7 pr-3 text-[12px] md:text-[13px] text-[#e6edf3] focus:outline-none w-36 md:w-44" style={G.input} /></div>
-            <span className="text-[#8b949e] text-[12px] md:text-[13px] ml-1">{filtered.length} projects</span>
+            <div className="relative ml-1"><Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3 h-3 text-[#484f58]" /><input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search…" className="h-7 rounded-xl pl-7 pr-3 text-[13px] md:text-[14px] text-[#e6edf3] focus:outline-none w-36 md:w-44" style={G.input} /></div>
+            <span className="text-[#8b949e] text-[13px] md:text-[14px] ml-1">{filtered.length} projects</span>
           </div>
           {filtered.length === 0 ? <EmptyState icon={Layers} title="No projects found" description="" /> : viewMode === "grid" ? (
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 md:gap-4">
@@ -1768,8 +1768,8 @@ function DesignStudio({ navigate }: { navigate: (p: Page) => void }) {
                   const badge = isProjPipe ? projectStageBadge(project.projectStage || "planning") : stageBadge(project.stage);
                   return (
                     <motion.div key={project.id} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, scale: 0.95 }} className="group rounded-2xl overflow-hidden cursor-pointer transition-all md:hover:-translate-y-1" style={{ ...G.card }} onClick={() => openProject(project.id)}>
-                      <div className="relative h-[100px] md:h-[112px] bg-[#070c1a]"><MiniFloorPlan project={project} /><div className={clsx("absolute top-2 right-2 text-[11px] font-extrabold px-2 py-0.5 rounded-full", badge.cls)}>{badge.label}</div></div>
-                      <div className="p-3 md:p-4"><h3 className="text-white text-[13px] md:text-[14px] font-bold leading-snug mb-1 line-clamp-1">{project.name}</h3><p className="text-[#8b949e] text-[11px] md:text-[12px] font-semibold mb-2 flex items-center gap-1"><Building2 className="w-3 h-3" /> {project.client}</p><div className="flex items-center justify-between"><div className="flex items-center gap-2"><span className="flex items-center gap-1 text-[#8b949e] text-[11px]"><Camera className="w-3 h-3" />{project.cameras}</span></div><div className="w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-extrabold text-white" style={{ background: project.assignee.color }}>{project.assignee.initials}</div></div></div>
+                      <div className="relative h-[100px] md:h-[112px] bg-[#070c1a]"><MiniFloorPlan project={project} /><div className={clsx("absolute top-2 right-2 text-[12px] font-extrabold px-2 py-0.5 rounded-full", badge.cls)}>{badge.label}</div></div>
+                      <div className="p-3 md:p-4"><h3 className="text-white text-[14px] md:text-[15px] font-bold leading-snug mb-1 line-clamp-1">{project.name}</h3><p className="text-[#8b949e] text-[12px] md:text-[13px] font-semibold mb-2 flex items-center gap-1"><Building2 className="w-3 h-3" /> {project.client}</p><div className="flex items-center justify-between"><div className="flex items-center gap-2"><span className="flex items-center gap-1 text-[#8b949e] text-[12px]"><Camera className="w-3 h-3" />{project.cameras}</span></div><div className="w-5 h-5 rounded-full flex items-center justify-center text-[11px] font-extrabold text-white" style={{ background: project.assignee.color }}>{project.assignee.initials}</div></div></div>
                     </motion.div>
                   );
                 })}
@@ -1778,17 +1778,17 @@ function DesignStudio({ navigate }: { navigate: (p: Page) => void }) {
           ) : (
             <div className="rounded-2xl overflow-hidden" style={G.card}>
               <div className="overflow-x-auto">
-                <div className="grid gap-3 px-3 py-2.5" style={{ gridTemplateColumns: "2fr 1fr 80px 80px 100px", minWidth: "600px", borderBottom: "1px solid rgba(255,255,255,0.06)" }}>{["Project","Client","Cameras","Devices","Stage"].map((h) => (<span key={h} className="text-[#8b949e] text-[11px] font-extrabold uppercase tracking-widest">{h}</span>))}</div>
+                <div className="grid gap-3 px-3 py-2.5" style={{ gridTemplateColumns: "2fr 1fr 80px 80px 100px", minWidth: "600px", borderBottom: "1px solid rgba(255,255,255,0.06)" }}>{["Project","Client","Cameras","Devices","Stage"].map((h) => (<span key={h} className="text-[#8b949e] text-[12px] font-extrabold uppercase tracking-widest">{h}</span>))}</div>
                 {filtered.map((project) => {
                   const isProjPipe = project.pipelineType === "project";
                   const badge = isProjPipe ? projectStageBadge(project.projectStage || "planning") : stageBadge(project.stage);
                   return (
                     <div key={project.id} className="grid gap-3 px-3 py-3.5 items-center cursor-pointer hover:bg-white/[0.03]" style={{ gridTemplateColumns: "2fr 1fr 80px 80px 100px", minWidth: "600px", borderBottom: "1px solid rgba(255,255,255,0.04)" }} onClick={() => openProject(project.id)}>
-                      <div><p className="text-white text-[13px] font-bold truncate">{project.name}</p><p className="text-[#8b949e] text-[11px] truncate">{project.location}</p></div>
-                      <p className="text-[#8b949e] text-[12px] truncate">{project.client}</p>
-                      <p className="text-[#8b949e] text-[12px]">{project.cameras}</p>
-                      <p className="text-[#8b949e] text-[12px]">{project.devices}</p>
-                      <span className={clsx("text-[11px] font-extrabold px-2 py-0.5 rounded-full w-fit", badge.cls)}>{badge.label}</span>
+                      <div><p className="text-white text-[14px] font-bold truncate">{project.name}</p><p className="text-[#8b949e] text-[12px] truncate">{project.location}</p></div>
+                      <p className="text-[#8b949e] text-[13px] truncate">{project.client}</p>
+                      <p className="text-[#8b949e] text-[13px]">{project.cameras}</p>
+                      <p className="text-[#8b949e] text-[13px]">{project.devices}</p>
+                      <span className={clsx("text-[12px] font-extrabold px-2 py-0.5 rounded-full w-fit", badge.cls)}>{badge.label}</span>
                     </div>
                   );
                 })}
@@ -1870,29 +1870,29 @@ function ProjectDetail({ navigate }: { navigate: (p: Page) => void }) {
         <div className="fixed inset-0 z-[400] flex items-center justify-center p-4" onClick={() => setShowShareModal(false)}>
           <div className="absolute inset-0" style={{ background: "rgba(0,0,0,0.65)", backdropFilter: "blur(8px)" }} />
           <motion.div initial={{ opacity: 0, scale: 0.93 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.93 }} transition={{ type: "spring", damping: 26, stiffness: 360 }} onClick={e => e.stopPropagation()} className="relative z-10 w-full max-w-[440px] rounded-2xl p-6" style={G.liquidGlass}>
-            <h3 className="text-white text-[15px] font-extrabold mb-2">Shareable Link</h3>
-            <p className="text-[#8b949e] text-[12px] mb-4">Clients can view project progress without logging in.</p>
-            <div className="flex items-center gap-2 mb-4"><input value={shareUrl} readOnly className="flex-1 h-9 rounded-xl px-3 text-[12px] text-white" style={G.input} /><button onClick={() => { navigator.clipboard.writeText(shareUrl); toast.success("Copied"); }} className="h-9 px-3 rounded-xl text-white text-[12px] font-extrabold cursor-pointer" style={{ background: "#3b82f6" }}><Copy className="w-3.5 h-3.5" /></button></div>
-            <button onClick={() => setShowShareModal(false)} className="w-full h-9 rounded-xl text-[#8b949e] text-[13px] font-bold cursor-pointer" style={G.btn}>Close</button>
+            <h3 className="text-white text-[16px] font-extrabold mb-2">Shareable Link</h3>
+            <p className="text-[#8b949e] text-[13px] mb-4">Clients can view project progress without logging in.</p>
+            <div className="flex items-center gap-2 mb-4"><input value={shareUrl} readOnly className="flex-1 h-9 rounded-xl px-3 text-[13px] text-white" style={G.input} /><button onClick={() => { navigator.clipboard.writeText(shareUrl); toast.success("Copied"); }} className="h-9 px-3 rounded-xl text-white text-[13px] font-extrabold cursor-pointer" style={{ background: "#3b82f6" }}><Copy className="w-3.5 h-3.5" /></button></div>
+            <button onClick={() => setShowShareModal(false)} className="w-full h-9 rounded-xl text-[#8b949e] text-[14px] font-bold cursor-pointer" style={G.btn}>Close</button>
           </motion.div>
         </div>
       )}
       <div className="flex flex-col md:flex-row md:items-start justify-between mb-4 md:mb-6 gap-4">
         <div className="min-w-0">
           <div className="flex items-center gap-2 mb-2 flex-wrap">
-            <span className={clsx("text-[11px] font-extrabold px-2 py-0.5 rounded-full", badge.cls)}>{badge.label}</span>
-            {!isProjPipe && ls && <span className="text-[11px] font-extrabold px-2 py-0.5 rounded-full" style={{ background: ls.bg, color: ls.text }}>{p.leadSource}</span>}
-            {!isProjPipe && <span className="text-rose-400 text-[11px] font-extrabold px-2 py-0.5 rounded-full bg-rose-500/12">{p.risk.toUpperCase()} RISK</span>}
-            {isProjPipe && p.supportType && <span className="text-[11px] font-extrabold px-2 py-0.5 rounded-full" style={{ background: "rgba(139,92,246,0.15)", color: "#a78bfa" }}>{SUPPORT_TYPE_LABELS[p.supportType]}</span>}
+            <span className={clsx("text-[12px] font-extrabold px-2 py-0.5 rounded-full", badge.cls)}>{badge.label}</span>
+            {!isProjPipe && ls && <span className="text-[12px] font-extrabold px-2 py-0.5 rounded-full" style={{ background: ls.bg, color: ls.text }}>{p.leadSource}</span>}
+            {!isProjPipe && <span className="text-rose-400 text-[12px] font-extrabold px-2 py-0.5 rounded-full bg-rose-500/12">{p.risk.toUpperCase()} RISK</span>}
+            {isProjPipe && p.supportType && <span className="text-[12px] font-extrabold px-2 py-0.5 rounded-full" style={{ background: "rgba(139,92,246,0.15)", color: "#a78bfa" }}>{SUPPORT_TYPE_LABELS[p.supportType]}</span>}
           </div>
-          <h1 className="text-white font-extrabold text-2xl md:text-3xl tracking-tight mb-1">{p.name}</h1>
-          <p className="text-[#8b949e] text-[13px] md:text-[14px] flex items-center gap-1.5"><Building2 className="w-3.5 h-3.5" /> {p.client} · <MapPin className="w-3.5 h-3.5 ml-1" /> {p.location}</p>
+          <h1 className="text-white font-extrabold text-3xl md:text-4xl tracking-tight mb-1">{p.name}</h1>
+          <p className="text-[#8b949e] text-[14px] md:text-[15px] flex items-center gap-1.5"><Building2 className="w-3.5 h-3.5" /> {p.client} · <MapPin className="w-3.5 h-3.5 ml-1" /> {p.location}</p>
         </div>
         <div className="flex items-center gap-2 flex-shrink-0 flex-wrap">
           {[{ label: "Design", icon: Layers, action: () => navigate("design-canvas") },{ label: "Install", icon: CheckSquare, action: () => navigate("install-tracker") }].map(({ label, icon: Icon, action }) => (
-            <button key={label} onClick={action} className="flex items-center gap-1.5 h-9 px-3 md:px-4 rounded-xl text-white text-[12px] md:text-[13px] font-bold hover:bg-white/[0.10] cursor-pointer min-h-[44px]" style={G.btn}><Icon className="w-3.5 h-3.5" /> {label}</button>
+            <button key={label} onClick={action} className="flex items-center gap-1.5 h-9 px-3 md:px-4 rounded-xl text-white text-[13px] md:text-[14px] font-bold hover:bg-white/[0.10] cursor-pointer min-h-[44px]" style={G.btn}><Icon className="w-3.5 h-3.5" /> {label}</button>
           ))}
-          <button onClick={handleGenerateShareLink} className="flex items-center gap-1.5 h-9 px-3 rounded-xl text-white text-[12px] font-bold cursor-pointer" style={G.btn}><Share2 className="w-3.5 h-3.5" /> Share</button>
+          <button onClick={handleGenerateShareLink} className="flex items-center gap-1.5 h-9 px-3 rounded-xl text-white text-[13px] font-bold cursor-pointer" style={G.btn}><Share2 className="w-3.5 h-3.5" /> Share</button>
         </div>
       </div>
       <div className="grid grid-cols-2 md:grid-cols-5 gap-2 md:gap-3 mb-4 md:mb-6">
@@ -1904,32 +1904,32 @@ function ProjectDetail({ navigate }: { navigate: (p: Page) => void }) {
           { label: "Progress", value: "0%", icon: Activity, color: "#10b981" },
         ].map((s) => (
           <div key={s.label} className="rounded-2xl p-3 md:p-4" style={G.card}>
-            <div className="flex items-center justify-between mb-2 md:mb-3"><span className="text-[#8b949e] text-[10px] md:text-[11px] font-extrabold uppercase">{s.label}</span><div className="w-6 h-6 md:w-7 md:h-7 rounded-xl flex items-center justify-center" style={{ background: `${s.color}18` }}><s.icon className="w-3 h-3" style={{ color: s.color }} /></div></div>
-            <p className="text-white text-xl md:text-2xl font-extrabold">{s.value}</p>
+            <div className="flex items-center justify-between mb-2 md:mb-3"><span className="text-[#8b949e] text-[11px] md:text-[12px] font-extrabold uppercase">{s.label}</span><div className="w-6 h-6 md:w-7 md:h-7 rounded-xl flex items-center justify-center" style={{ background: `${s.color}18` }}><s.icon className="w-3 h-3" style={{ color: s.color }} /></div></div>
+            <p className="text-white text-2xl md:text-3xl font-extrabold">{s.value}</p>
           </div>
         ))}
       </div>
       <div className="flex items-center gap-0.5 mb-4 md:mb-5 overflow-x-auto" style={{ borderBottom: "1px solid rgba(255,255,255,0.07)", scrollbarWidth: "none" }}>
         {tabs.map((tab) => (
-          <button key={tab} onClick={() => setActiveTab(tab)} className={clsx("h-10 px-3 md:px-4 text-[13px] md:text-[14px] font-bold border-b-2 transition-all -mb-px whitespace-nowrap cursor-pointer min-h-[44px]", activeTab === tab ? "border-blue-500 text-white" : "border-transparent text-[#8b949e]")}>{tabLabels[tab]}</button>
+          <button key={tab} onClick={() => setActiveTab(tab)} className={clsx("h-10 px-3 md:px-4 text-[14px] md:text-[15px] font-bold border-b-2 transition-all -mb-px whitespace-nowrap cursor-pointer min-h-[44px]", activeTab === tab ? "border-blue-500 text-white" : "border-transparent text-[#8b949e]")}>{tabLabels[tab]}</button>
         ))}
       </div>
       {activeTab === "overview" && (
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <div className="md:col-span-2 space-y-4">
-            <div className="rounded-2xl p-4 md:p-5" style={G.card}><h3 className="text-white text-[14px] md:text-[15px] font-extrabold mb-3">Project Scope</h3><p className="text-[#8b949e] text-[13px] leading-relaxed">{p.summary ?? "No scope defined yet."}</p></div>
-            <div className="rounded-2xl p-4 md:p-5" style={G.card}><h3 className="text-white text-[14px] md:text-[15px] font-extrabold mb-4">Team</h3><div className="space-y-3">{team.map((m) => (<div key={m.name} className="flex items-center gap-3"><div className="w-8 h-8 rounded-xl flex items-center justify-center text-[12px] font-extrabold text-white" style={{ background: m.color }}>{m.initials}</div><div><p className="text-white text-[13px] font-bold">{m.name}</p><p className="text-[#8b949e] text-[11px]">{m.roles.join(", ")}</p></div></div>))}</div></div>
+            <div className="rounded-2xl p-4 md:p-5" style={G.card}><h3 className="text-white text-[15px] md:text-[16px] font-extrabold mb-3">Project Scope</h3><p className="text-[#8b949e] text-[14px] leading-relaxed">{p.summary ?? "No scope defined yet."}</p></div>
+            <div className="rounded-2xl p-4 md:p-5" style={G.card}><h3 className="text-white text-[15px] md:text-[16px] font-extrabold mb-4">Team</h3><div className="space-y-3">{team.map((m) => (<div key={m.name} className="flex items-center gap-3"><div className="w-8 h-8 rounded-xl flex items-center justify-center text-[13px] font-extrabold text-white" style={{ background: m.color }}>{m.initials}</div><div><p className="text-white text-[14px] font-bold">{m.name}</p><p className="text-[#8b949e] text-[12px]">{m.roles.join(", ")}</p></div></div>))}</div></div>
           </div>
           <div className="space-y-4">
             <div className="rounded-2xl p-4 md:p-5" style={G.card}>
-              <h3 className="text-white text-[14px] md:text-[15px] font-extrabold mb-4">Timeline</h3>
+              <h3 className="text-white text-[15px] md:text-[16px] font-extrabold mb-4">Timeline</h3>
               <div className="space-y-2">
                 {stageHistory.map((entry, i) => {
                   const isLast = i === stageHistory.length - 1;
                   return (
                     <div key={i} className="flex items-center gap-3">
                       <div className={clsx("w-5 h-5 rounded-full flex items-center justify-center flex-shrink-0", isLast ? "bg-blue-500/20 ring-2 ring-blue-500/40" : "bg-emerald-500/20")}>{isLast ? <Clock className="w-3 h-3 text-blue-400" /> : <CheckCircle2 className="w-3 h-3 text-emerald-400" />}</div>
-                      <div className="flex-1 flex items-center justify-between"><span className={clsx("text-[12px] font-bold", isLast ? "text-white" : "text-[#8b949e]")}>{typeof entry.stage === "string" ? entry.stage.replace(/-/g, " ").replace(/\b\w/g, c => c.toUpperCase()) : entry.stage}</span><span className="text-[#8b949e] text-[11px]">{fmtDateFull(entry.date)}</span></div>
+                      <div className="flex-1 flex items-center justify-between"><span className={clsx("text-[13px] font-bold", isLast ? "text-white" : "text-[#8b949e]")}>{typeof entry.stage === "string" ? entry.stage.replace(/-/g, " ").replace(/\b\w/g, c => c.toUpperCase()) : entry.stage}</span><span className="text-[#8b949e] text-[12px]">{fmtDateFull(entry.date)}</span></div>
                     </div>
                   );
                 })}
@@ -1940,29 +1940,29 @@ function ProjectDetail({ navigate }: { navigate: (p: Page) => void }) {
       )}
       {activeTab === "tasks" && <TaskList projectId={p.id} />}
       {activeTab === "documents" && <DocumentList projectId={p.id} />}
-      {activeTab === "quotes" && (quotes.length === 0 ? <EmptyState icon={DollarSign} title="No workbook yet" description="" /> : <div className="space-y-3">{quotes.map((q) => (<div key={q.id} className="flex items-center justify-between rounded-2xl p-4" style={G.card}><div className="flex items-center gap-4"><DollarSign className="w-4 h-4 text-blue-400" /><div><p className="text-white text-[14px] font-bold">{q.refNumber}</p><p className="text-[#8b949e] text-[12px]">{q.date} · {q.status}</p></div></div><button onClick={() => navigate("workbook")} className="h-8 px-3 rounded-xl text-[#8b949e] text-[13px] font-bold hover:text-white cursor-pointer" style={G.btn}>Open</button></div>))}</div>)}
+      {activeTab === "quotes" && (quotes.length === 0 ? <EmptyState icon={DollarSign} title="No workbook yet" description="" /> : <div className="space-y-3">{quotes.map((q) => (<div key={q.id} className="flex items-center justify-between rounded-2xl p-4" style={G.card}><div className="flex items-center gap-4"><DollarSign className="w-4 h-4 text-blue-400" /><div><p className="text-white text-[15px] font-bold">{q.refNumber}</p><p className="text-[#8b949e] text-[13px]">{q.date} · {q.status}</p></div></div><button onClick={() => navigate("workbook")} className="h-8 px-3 rounded-xl text-[#8b949e] text-[14px] font-bold hover:text-white cursor-pointer" style={G.btn}>Open</button></div>))}</div>)}
       {activeTab === "change-orders" && (
         <div>
-          <div className="flex items-center justify-between mb-3"><p className="text-[#8b949e] text-[12px]">{changeOrders.length} change orders</p><button onClick={() => setShowNewCO(true)} className="flex items-center gap-1.5 h-8 px-3 rounded-xl text-white text-[12px] font-extrabold cursor-pointer" style={{ background: "#3b82f6" }}><Plus className="w-3 h-3" /> New Change Order</button></div>
+          <div className="flex items-center justify-between mb-3"><p className="text-[#8b949e] text-[13px]">{changeOrders.length} change orders</p><button onClick={() => setShowNewCO(true)} className="flex items-center gap-1.5 h-8 px-3 rounded-xl text-white text-[13px] font-extrabold cursor-pointer" style={{ background: "#3b82f6" }}><Plus className="w-3 h-3" /> New Change Order</button></div>
           {showNewCO && (
             <div className="rounded-2xl p-4 mb-3" style={G.card}>
               <div className="space-y-2">
-                <input value={newCOTitle} onChange={(e) => setNewCOTitle(e.target.value)} placeholder="Title" className="w-full h-9 rounded-xl px-3 text-[13px] text-[#e6edf3] focus:outline-none" style={G.input} />
-                <textarea value={newCODesc} onChange={(e) => setNewCODesc(e.target.value)} placeholder="Description" rows={2} className="w-full rounded-xl px-3 py-2 text-[13px] text-[#e6edf3] focus:outline-none resize-none" style={G.input} />
-                <input type="number" value={newCOCost} onChange={(e) => setNewCOCost(e.target.value)} placeholder="Cost Impact" className="w-full h-9 rounded-xl px-3 text-[13px] text-[#e6edf3] focus:outline-none" style={G.input} />
-                <div className="flex gap-2"><button onClick={handleCreateCO} className="flex-1 h-9 rounded-xl text-white text-[13px] font-extrabold cursor-pointer" style={{ background: "#10b981" }}>Create</button><button onClick={() => setShowNewCO(false)} className="flex-1 h-9 rounded-xl text-[#8b949e] text-[13px] font-bold cursor-pointer" style={G.btn}>Cancel</button></div>
+                <input value={newCOTitle} onChange={(e) => setNewCOTitle(e.target.value)} placeholder="Title" className="w-full h-9 rounded-xl px-3 text-[14px] text-[#e6edf3] focus:outline-none" style={G.input} />
+                <textarea value={newCODesc} onChange={(e) => setNewCODesc(e.target.value)} placeholder="Description" rows={2} className="w-full rounded-xl px-3 py-2 text-[14px] text-[#e6edf3] focus:outline-none resize-none" style={G.input} />
+                <input type="number" value={newCOCost} onChange={(e) => setNewCOCost(e.target.value)} placeholder="Cost Impact" className="w-full h-9 rounded-xl px-3 text-[14px] text-[#e6edf3] focus:outline-none" style={G.input} />
+                <div className="flex gap-2"><button onClick={handleCreateCO} className="flex-1 h-9 rounded-xl text-white text-[14px] font-extrabold cursor-pointer" style={{ background: "#10b981" }}>Create</button><button onClick={() => setShowNewCO(false)} className="flex-1 h-9 rounded-xl text-[#8b949e] text-[14px] font-bold cursor-pointer" style={G.btn}>Cancel</button></div>
               </div>
             </div>
           )}
           {changeOrders.length === 0 && !showNewCO ? <EmptyState icon={AlertTriangle} title="No change orders" description="Create one to track scope changes." /> : (
-            <div className="space-y-2">{changeOrders.map((co) => (<div key={co.id} className="rounded-2xl p-4" style={G.card}><div className="flex items-center justify-between"><div><p className="text-white text-[14px] font-bold">{co.title}</p>{co.description && <p className="text-[#8b949e] text-[12px] mt-0.5">{co.description}</p>}</div><span className={clsx("text-[11px] font-extrabold px-2 py-0.5 rounded-full", co.status === "approved" ? "bg-emerald-500/12 text-emerald-400" : co.status === "submitted" ? "bg-blue-500/12 text-blue-400" : co.status === "rejected" ? "bg-rose-500/12 text-rose-400" : "bg-amber-500/12 text-amber-400")}>{co.status}</span></div><div className="flex items-center justify-between mt-2"><span className="text-[#8b949e] text-[11px]">{co.createdBy} · {fmtDateFull(co.createdAt)}</span>{co.costImpact !== 0 && <span className="text-white text-[13px] font-extrabold">{fmt(co.costImpact)}</span>}</div></div>))}</div>
+            <div className="space-y-2">{changeOrders.map((co) => (<div key={co.id} className="rounded-2xl p-4" style={G.card}><div className="flex items-center justify-between"><div><p className="text-white text-[15px] font-bold">{co.title}</p>{co.description && <p className="text-[#8b949e] text-[13px] mt-0.5">{co.description}</p>}</div><span className={clsx("text-[12px] font-extrabold px-2 py-0.5 rounded-full", co.status === "approved" ? "bg-emerald-500/12 text-emerald-400" : co.status === "submitted" ? "bg-blue-500/12 text-blue-400" : co.status === "rejected" ? "bg-rose-500/12 text-rose-400" : "bg-amber-500/12 text-amber-400")}>{co.status}</span></div><div className="flex items-center justify-between mt-2"><span className="text-[#8b949e] text-[12px]">{co.createdBy} · {fmtDateFull(co.createdAt)}</span>{co.costImpact !== 0 && <span className="text-white text-[14px] font-extrabold">{fmt(co.costImpact)}</span>}</div></div>))}</div>
           )}
         </div>
       )}
       {activeTab === "audit-log" && (
         <div>
           {auditLog.length === 0 ? <EmptyState icon={History} title="No audit entries" description="Activity will appear here automatically." /> : (
-            <div className="space-y-1">{auditLog.map((entry) => (<div key={entry.id} className="flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-white/[0.02]" style={{ borderBottom: "1px solid rgba(255,255,255,0.03)" }}><div className="w-7 h-7 rounded-full flex items-center justify-center text-[10px] font-extrabold text-white flex-shrink-0" style={{ background: TEAM.find(t => t.name === entry.user)?.color || "#3b82f6" }}>{(TEAM.find(t => t.name === entry.user)?.initials || "??")}</div><div className="flex-1 min-w-0"><p className="text-white text-[12px] font-bold">{entry.event}</p><p className="text-[#8b949e] text-[11px]">{entry.details}</p></div><span className="text-[#8b949e] text-[11px] flex-shrink-0">{new Date(entry.timestamp).toLocaleString()}</span></div>))}</div>
+            <div className="space-y-1">{auditLog.map((entry) => (<div key={entry.id} className="flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-white/[0.02]" style={{ borderBottom: "1px solid rgba(255,255,255,0.03)" }}><div className="w-7 h-7 rounded-full flex items-center justify-center text-[11px] font-extrabold text-white flex-shrink-0" style={{ background: TEAM.find(t => t.name === entry.user)?.color || "#3b82f6" }}>{(TEAM.find(t => t.name === entry.user)?.initials || "??")}</div><div className="flex-1 min-w-0"><p className="text-white text-[13px] font-bold">{entry.event}</p><p className="text-[#8b949e] text-[12px]">{entry.details}</p></div><span className="text-[#8b949e] text-[12px] flex-shrink-0">{new Date(entry.timestamp).toLocaleString()}</span></div>))}</div>
           )}
         </div>
       )}
@@ -1989,9 +1989,9 @@ function GanttView({ projectId }: { projectId: string }) {
   return (
     <div className="rounded-2xl p-4 overflow-x-auto" style={G.card}>
       <div style={{ minWidth: "700px" }}>
-        <div className="flex items-center mb-3"><GanttChartSquare className="w-4 h-4 text-blue-400 mr-2" /><span className="text-white text-[14px] font-extrabold">Project Timeline</span></div>
-        <div className="flex" style={{ marginLeft: "200px" }}>{Array.from({ length: Math.ceil(totalDays/30) }).map((_, i) => { const d = new Date(startDate); d.setDate(d.getDate() + i*30); return <div key={i} className="text-[#8b949e] text-[10px] font-extrabold flex-1 text-center border-l border-white/5">{months[d.getMonth()]}</div>; })}</div>
-        <div className="mt-3 space-y-2">{tasks.map(task => { const startPct = getX(task.createdAt); const duePct = task.dueDate ? getX(task.dueDate) : startPct + 15; const width = Math.max(duePct - startPct, 5); return (<div key={task.id} className="flex items-center gap-2"><div className="w-[200px] flex-shrink-0 text-white text-[12px] font-bold truncate">{task.title}</div><div className="flex-1 relative h-7"><div className="absolute rounded-full h-5 top-1" style={{ left: `${startPct}%`, width: `${width}%`, background: task.status === "complete" ? "rgba(16,185,129,0.4)" : task.status === "in-progress" ? "rgba(59,130,246,0.5)" : "rgba(255,255,255,0.15)", border: `1px solid ${task.status === "complete" ? "rgba(16,185,129,0.6)" : task.status === "in-progress" ? "rgba(59,130,246,0.6)" : "rgba(255,255,255,0.2)"}` }}><span className="absolute inset-0 flex items-center px-2 text-[9px] font-extrabold text-white truncate">{task.assignee || ""}</span></div></div></div>); })}</div>
+        <div className="flex items-center mb-3"><GanttChartSquare className="w-4 h-4 text-blue-400 mr-2" /><span className="text-white text-[15px] font-extrabold">Project Timeline</span></div>
+        <div className="flex" style={{ marginLeft: "200px" }}>{Array.from({ length: Math.ceil(totalDays/30) }).map((_, i) => { const d = new Date(startDate); d.setDate(d.getDate() + i*30); return <div key={i} className="text-[#8b949e] text-[11px] font-extrabold flex-1 text-center border-l border-white/5">{months[d.getMonth()]}</div>; })}</div>
+        <div className="mt-3 space-y-2">{tasks.map(task => { const startPct = getX(task.createdAt); const duePct = task.dueDate ? getX(task.dueDate) : startPct + 15; const width = Math.max(duePct - startPct, 5); return (<div key={task.id} className="flex items-center gap-2"><div className="w-[200px] flex-shrink-0 text-white text-[13px] font-bold truncate">{task.title}</div><div className="flex-1 relative h-7"><div className="absolute rounded-full h-5 top-1" style={{ left: `${startPct}%`, width: `${width}%`, background: task.status === "complete" ? "rgba(16,185,129,0.4)" : task.status === "in-progress" ? "rgba(59,130,246,0.5)" : "rgba(255,255,255,0.15)", border: `1px solid ${task.status === "complete" ? "rgba(16,185,129,0.6)" : task.status === "in-progress" ? "rgba(59,130,246,0.6)" : "rgba(255,255,255,0.2)"}` }}><span className="absolute inset-0 flex items-center px-2 text-[10px] font-extrabold text-white truncate">{task.assignee || ""}</span></div></div></div>); })}</div>
       </div>
     </div>
   );
@@ -2063,31 +2063,31 @@ function SubcontractorTab({ projectId }: { projectId: string }) {
         <div className="fixed inset-0 z-[400] flex items-center justify-center p-4" onClick={() => setShareModalSub(null)}>
           <div className="absolute inset-0" style={{ background: "rgba(0,0,0,0.65)", backdropFilter: "blur(8px)" }} />
           <motion.div initial={{ opacity: 0, scale: 0.93 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.93 }} transition={{ type: "spring", damping: 26, stiffness: 360 }} onClick={e => e.stopPropagation()} className="relative z-10 w-full max-w-[440px] rounded-2xl p-6" style={G.liquidGlass}>
-            <h3 className="text-white text-[15px] font-extrabold mb-2">Shareable Link</h3>
-            <p className="text-[#8b949e] text-[12px] mb-4">{shareModalSub.name} can view their documents through this link, read-only, without logging in.</p>
-            <div className="flex items-center gap-2 mb-4"><input value={shareModalSub.shareToken ? shareUrlFor(shareModalSub.shareToken) : ""} readOnly className="flex-1 h-9 rounded-xl px-3 text-[12px] text-white" style={G.input} /><button onClick={() => { navigator.clipboard.writeText(shareUrlFor(shareModalSub.shareToken!)); toast.success("Copied"); }} className="h-9 px-3 rounded-xl text-white text-[12px] font-extrabold cursor-pointer" style={{ background: "#3b82f6" }}><Copy className="w-3.5 h-3.5" /></button></div>
+            <h3 className="text-white text-[16px] font-extrabold mb-2">Shareable Link</h3>
+            <p className="text-[#8b949e] text-[13px] mb-4">{shareModalSub.name} can view their documents through this link, read-only, without logging in.</p>
+            <div className="flex items-center gap-2 mb-4"><input value={shareModalSub.shareToken ? shareUrlFor(shareModalSub.shareToken) : ""} readOnly className="flex-1 h-9 rounded-xl px-3 text-[13px] text-white" style={G.input} /><button onClick={() => { navigator.clipboard.writeText(shareUrlFor(shareModalSub.shareToken!)); toast.success("Copied"); }} className="h-9 px-3 rounded-xl text-white text-[13px] font-extrabold cursor-pointer" style={{ background: "#3b82f6" }}><Copy className="w-3.5 h-3.5" /></button></div>
             <div className="flex items-center gap-2">
-              <button onClick={() => handleRevokeShare(shareModalSub.id)} className="flex-1 h-9 rounded-xl text-rose-400 text-[13px] font-bold cursor-pointer" style={G.btn}>Revoke Link</button>
-              <button onClick={() => setShareModalSub(null)} className="flex-1 h-9 rounded-xl text-[#8b949e] text-[13px] font-bold cursor-pointer" style={G.btn}>Close</button>
+              <button onClick={() => handleRevokeShare(shareModalSub.id)} className="flex-1 h-9 rounded-xl text-rose-400 text-[14px] font-bold cursor-pointer" style={G.btn}>Revoke Link</button>
+              <button onClick={() => setShareModalSub(null)} className="flex-1 h-9 rounded-xl text-[#8b949e] text-[14px] font-bold cursor-pointer" style={G.btn}>Close</button>
             </div>
           </motion.div>
         </div>
       )}
-      <div className="flex items-center justify-between"><p className="text-[#8b949e] text-[12px]">{subs.length} subcontractors</p><button onClick={() => setShowAdd(!showAdd)} className="flex items-center gap-1 h-8 px-3 rounded-xl text-white text-[12px] font-extrabold cursor-pointer" style={{ background: "#3b82f6" }}><Plus className="w-3 h-3" /> Add</button></div>
+      <div className="flex items-center justify-between"><p className="text-[#8b949e] text-[13px]">{subs.length} subcontractors</p><button onClick={() => setShowAdd(!showAdd)} className="flex items-center gap-1 h-8 px-3 rounded-xl text-white text-[13px] font-extrabold cursor-pointer" style={{ background: "#3b82f6" }}><Plus className="w-3 h-3" /> Add</button></div>
       {showAdd && (
         <div className="rounded-xl p-3 space-y-2" style={G.card}>
-          <input value={name} onChange={e => setName(e.target.value)} placeholder="Company name" className="w-full h-8 rounded-lg px-2 text-[12px] text-white" style={G.input} />
-          <input value={trade} onChange={e => setTrade(e.target.value)} placeholder="Trade (e.g. Electrical)" className="w-full h-8 rounded-lg px-2 text-[12px] text-white" style={G.input} />
-          <input value={email} onChange={e => setEmail(e.target.value)} placeholder="Email" className="w-full h-8 rounded-lg px-2 text-[12px] text-white" style={G.input} />
-          <button onClick={handleAdd} className="w-full h-8 rounded-lg text-white text-[12px] font-extrabold cursor-pointer" style={{ background: "#10b981" }}>Save</button>
+          <input value={name} onChange={e => setName(e.target.value)} placeholder="Company name" className="w-full h-8 rounded-lg px-2 text-[13px] text-white" style={G.input} />
+          <input value={trade} onChange={e => setTrade(e.target.value)} placeholder="Trade (e.g. Electrical)" className="w-full h-8 rounded-lg px-2 text-[13px] text-white" style={G.input} />
+          <input value={email} onChange={e => setEmail(e.target.value)} placeholder="Email" className="w-full h-8 rounded-lg px-2 text-[13px] text-white" style={G.input} />
+          <button onClick={handleAdd} className="w-full h-8 rounded-lg text-white text-[13px] font-extrabold cursor-pointer" style={{ background: "#10b981" }}>Save</button>
         </div>
       )}
       {subs.length === 0 && !showAdd ? <EmptyState icon={UserCheck} title="No subcontractors" description="Add subcontractors working on this project." /> : subs.map((sub) => (
         <div key={sub.id} className="rounded-xl p-3" style={G.card}>
           <div className="flex items-center justify-between">
-            <div className="flex-1 min-w-0"><p className="text-white text-[13px] font-bold">{sub.name}</p><p className="text-[#8b949e] text-[11px]">{sub.trade}{sub.email ? ` · ${sub.email}` : ""}</p></div>
+            <div className="flex-1 min-w-0"><p className="text-white text-[14px] font-bold">{sub.name}</p><p className="text-[#8b949e] text-[12px]">{sub.trade}{sub.email ? ` · ${sub.email}` : ""}</p></div>
             <div className="flex items-center gap-2 flex-shrink-0">
-              <button onClick={() => handleShare(sub)} disabled={sharingSub === sub.id} className={clsx("flex items-center gap-1.5 h-7 px-2.5 rounded-lg text-[11px] font-extrabold cursor-pointer", sub.shareToken ? "text-blue-400" : "text-[#8b949e] hover:text-white")} style={G.btn}>{sharingSub === sub.id ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Share2 className="w-3.5 h-3.5" />}{sub.shareToken ? "Link" : "Share"}</button>
+              <button onClick={() => handleShare(sub)} disabled={sharingSub === sub.id} className={clsx("flex items-center gap-1.5 h-7 px-2.5 rounded-lg text-[12px] font-extrabold cursor-pointer", sub.shareToken ? "text-blue-400" : "text-[#8b949e] hover:text-white")} style={G.btn}>{sharingSub === sub.id ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Share2 className="w-3.5 h-3.5" />}{sub.shareToken ? "Link" : "Share"}</button>
               <button onClick={() => setShowDocs(showDocs === sub.id ? null : sub.id)} className="w-7 h-7 rounded-lg flex items-center justify-center cursor-pointer hover:bg-white/10" style={G.btn}><Paperclip className="w-3.5 h-3.5 text-[#8b949e]" /></button>
               <button onClick={() => handleDelete(sub.id)} className="w-7 h-7 rounded-lg flex items-center justify-center cursor-pointer hover:bg-rose-500/10"><Trash2 className="w-3 h-3 text-rose-400" /></button>
             </div>
@@ -2095,10 +2095,10 @@ function SubcontractorTab({ projectId }: { projectId: string }) {
           {showDocs === sub.id && (
             <div className="mt-2 pt-2 space-y-1" style={{ borderTop: "1px solid rgba(255,255,255,0.06)" }}>
               <div className="flex items-center justify-between">
-                <p className="text-[#8b949e] text-[10px] font-extrabold uppercase">Documents</p>
-                <label className="text-[11px] text-blue-400 cursor-pointer flex items-center gap-1">{uploadingDoc === sub.id ? <Loader2 className="w-3 h-3 animate-spin" /> : <Upload className="w-3 h-3" />}{uploadingDoc === sub.id ? "Uploading..." : "Upload"}<input type="file" className="hidden" onChange={(e) => handleDocUpload(sub.id, e)} disabled={uploadingDoc === sub.id} /></label>
+                <p className="text-[#8b949e] text-[11px] font-extrabold uppercase">Documents</p>
+                <label className="text-[12px] text-blue-400 cursor-pointer flex items-center gap-1">{uploadingDoc === sub.id ? <Loader2 className="w-3 h-3 animate-spin" /> : <Upload className="w-3 h-3" />}{uploadingDoc === sub.id ? "Uploading..." : "Upload"}<input type="file" className="hidden" onChange={(e) => handleDocUpload(sub.id, e)} disabled={uploadingDoc === sub.id} /></label>
               </div>
-              {sub.documents.length === 0 ? <p className="text-[#8b949e] text-[11px]">No documents</p> : sub.documents.map(doc => (<div key={doc.id} className="flex items-center gap-2"><Paperclip className="w-3 h-3 text-[#8b949e]" /><a href={doc.fileUrl} target="_blank" rel="noopener noreferrer" className="text-white text-[11px] font-bold hover:text-blue-400">{doc.filename}</a></div>))}
+              {sub.documents.length === 0 ? <p className="text-[#8b949e] text-[12px]">No documents</p> : sub.documents.map(doc => (<div key={doc.id} className="flex items-center gap-2"><Paperclip className="w-3 h-3 text-[#8b949e]" /><a href={doc.fileUrl} target="_blank" rel="noopener noreferrer" className="text-white text-[12px] font-bold hover:text-blue-400">{doc.filename}</a></div>))}
             </div>
           )}
         </div>
@@ -2139,22 +2139,22 @@ function ProcurementTab({ projectId }: { projectId: string }) {
 
   return (
     <div className="space-y-3">
-      <div className="flex items-center justify-between"><p className="text-[#8b949e] text-[12px]">{pos.length} purchase orders</p><button onClick={() => setShowGenerate(!showGenerate)} className="flex items-center gap-1 h-8 px-3 rounded-xl text-white text-[12px] font-extrabold cursor-pointer" style={{ background: "#3b82f6" }}><FileText className="w-3 h-3" /> Generate PO from BOM</button></div>
+      <div className="flex items-center justify-between"><p className="text-[#8b949e] text-[13px]">{pos.length} purchase orders</p><button onClick={() => setShowGenerate(!showGenerate)} className="flex items-center gap-1 h-8 px-3 rounded-xl text-white text-[13px] font-extrabold cursor-pointer" style={{ background: "#3b82f6" }}><FileText className="w-3 h-3" /> Generate PO from BOM</button></div>
       {showGenerate && (
         <div className="rounded-xl p-3 space-y-2" style={G.card}>
-          <input value={supplierName} onChange={e => setSupplierName(e.target.value)} placeholder="Supplier name (optional)" className="w-full h-8 rounded-lg px-2 text-[12px] text-white" style={G.input} />
-          <button onClick={handleGeneratePO} className="w-full h-8 rounded-lg text-white text-[12px] font-extrabold cursor-pointer" style={{ background: "#10b981" }}>Generate</button>
+          <input value={supplierName} onChange={e => setSupplierName(e.target.value)} placeholder="Supplier name (optional)" className="w-full h-8 rounded-lg px-2 text-[13px] text-white" style={G.input} />
+          <button onClick={handleGeneratePO} className="w-full h-8 rounded-lg text-white text-[13px] font-extrabold cursor-pointer" style={{ background: "#10b981" }}>Generate</button>
         </div>
       )}
       {pos.length === 0 && !showGenerate ? <EmptyState icon={Truck} title="No purchase orders" description="Generate a PO from the workbook BOM." /> : pos.map((po) => (
         <div key={po.id} className="rounded-xl p-3" style={G.card}>
-          <div className="flex items-center justify-between mb-2"><p className="text-white text-[13px] font-bold">PO #{po.id.slice(0,8)}</p><span className="text-[11px] font-extrabold px-2 py-0.5 rounded-full bg-amber-500/12 text-amber-400">{po.status}</span></div>
-          {po.supplierName && <p className="text-[#8b949e] text-[11px]">Supplier: {po.supplierName}</p>}
-          <p className="text-[#8b949e] text-[11px]">Total: ${po.totalCost.toFixed(2)}</p>
+          <div className="flex items-center justify-between mb-2"><p className="text-white text-[14px] font-bold">PO #{po.id.slice(0,8)}</p><span className="text-[12px] font-extrabold px-2 py-0.5 rounded-full bg-amber-500/12 text-amber-400">{po.status}</span></div>
+          {po.supplierName && <p className="text-[#8b949e] text-[12px]">Supplier: {po.supplierName}</p>}
+          <p className="text-[#8b949e] text-[12px]">Total: ${po.totalCost.toFixed(2)}</p>
           <div className="mt-2 space-y-1">{po.items.map(item => (
             <div key={item.id} className="flex items-center gap-2">
               <button onClick={() => toggleReceived(item.id, !item.received)} className={clsx("w-4 h-4 rounded-full border-2 flex items-center justify-center flex-shrink-0", item.received ? "bg-emerald-500 border-emerald-500" : "border-[#484f58]")}>{item.received && <CheckCircle2 className="w-2.5 h-2.5 text-white" />}</button>
-              <span className={clsx("text-[11px] flex-1", item.received ? "text-[#8b949e] line-through" : "text-white")}>{item.description} × {item.quantity}</span>
+              <span className={clsx("text-[12px] flex-1", item.received ? "text-[#8b949e] line-through" : "text-white")}>{item.description} × {item.quantity}</span>
             </div>
           ))}</div>
         </div>
@@ -2259,24 +2259,24 @@ function CommissioningTab({ projectId }: { projectId: string }) {
   return (
     <div className="space-y-3">
       <div className="flex items-center justify-between">
-        <p className="text-[#8b949e] text-[12px]">{checklist.length} devices{selectedDevices.size > 0 && ` · ${selectedDevices.size} selected`}</p>
+        <p className="text-[#8b949e] text-[13px]">{checklist.length} devices{selectedDevices.size > 0 && ` · ${selectedDevices.size} selected`}</p>
         <div className="flex gap-2">
-          <button onClick={() => setShowAdd(!showAdd)} className="flex items-center gap-1 h-8 px-3 rounded-xl text-white text-[12px] font-extrabold cursor-pointer" style={{ background: "#3b82f6" }}><Plus className="w-3 h-3" /> Add</button>
-          <button onClick={handleGenerateReport} className="flex items-center gap-1 h-8 px-3 rounded-xl text-white text-[12px] font-extrabold cursor-pointer" style={{ background: "#10b981" }}><ClipboardCheck className="w-3 h-3" /> Handover Report</button>
+          <button onClick={() => setShowAdd(!showAdd)} className="flex items-center gap-1 h-8 px-3 rounded-xl text-white text-[13px] font-extrabold cursor-pointer" style={{ background: "#3b82f6" }}><Plus className="w-3 h-3" /> Add</button>
+          <button onClick={handleGenerateReport} className="flex items-center gap-1 h-8 px-3 rounded-xl text-white text-[13px] font-extrabold cursor-pointer" style={{ background: "#10b981" }}><ClipboardCheck className="w-3 h-3" /> Handover Report</button>
         </div>
       </div>
       {selectedDevices.size > 0 && (
         <div className="flex gap-2 px-3 py-2 rounded-xl" style={G.subtle}>
-          <button onClick={() => handleBulkAction("pass")} className="h-7 px-3 rounded-lg text-[11px] font-extrabold text-emerald-400 cursor-pointer" style={{ background: "rgba(16,185,129,0.12)" }}>Bulk Pass</button>
-          <button onClick={() => handleBulkAction("fail")} className="h-7 px-3 rounded-lg text-[11px] font-extrabold text-rose-400 cursor-pointer" style={{ background: "rgba(244,63,94,0.12)" }}>Bulk Fail</button>
-          <button onClick={() => setSelectedDevices(new Set())} className="h-7 px-3 rounded-lg text-[11px] font-bold cursor-pointer" style={G.btn}>Clear</button>
+          <button onClick={() => handleBulkAction("pass")} className="h-7 px-3 rounded-lg text-[12px] font-extrabold text-emerald-400 cursor-pointer" style={{ background: "rgba(16,185,129,0.12)" }}>Bulk Pass</button>
+          <button onClick={() => handleBulkAction("fail")} className="h-7 px-3 rounded-lg text-[12px] font-extrabold text-rose-400 cursor-pointer" style={{ background: "rgba(244,63,94,0.12)" }}>Bulk Fail</button>
+          <button onClick={() => setSelectedDevices(new Set())} className="h-7 px-3 rounded-lg text-[12px] font-bold cursor-pointer" style={G.btn}>Clear</button>
         </div>
       )}
       {showAdd && (
         <div className="rounded-xl p-3 space-y-2" style={G.card}>
-          <input value={newDeviceName} onChange={e => setNewDeviceName(e.target.value)} placeholder="Device name" className="w-full h-8 rounded-lg px-2 text-[12px] text-white" style={G.input} />
-          <input value={newLocation} onChange={e => setNewLocation(e.target.value)} placeholder="Location" className="w-full h-8 rounded-lg px-2 text-[12px] text-white" style={G.input} />
-          <button onClick={handleAdd} className="w-full h-8 rounded-lg text-white text-[12px] font-extrabold cursor-pointer" style={{ background: "#10b981" }}>Save</button>
+          <input value={newDeviceName} onChange={e => setNewDeviceName(e.target.value)} placeholder="Device name" className="w-full h-8 rounded-lg px-2 text-[13px] text-white" style={G.input} />
+          <input value={newLocation} onChange={e => setNewLocation(e.target.value)} placeholder="Location" className="w-full h-8 rounded-lg px-2 text-[13px] text-white" style={G.input} />
+          <button onClick={handleAdd} className="w-full h-8 rounded-lg text-white text-[13px] font-extrabold cursor-pointer" style={{ background: "#10b981" }}>Save</button>
         </div>
       )}
       {checklist.length === 0 && !showAdd ? <EmptyState icon={ClipboardCheck} title="No commissioning data" description="Sync from Install Tracker or add devices manually." action={{ label: "Sync Devices", onClick: async () => { await API.commissioning.sync(projectId); const data = await API.commissioning.list(projectId); setChecklist(data); toast.success("Synced"); } }} /> : checklist.map((item) => (
@@ -2285,20 +2285,20 @@ function CommissioningTab({ projectId }: { projectId: string }) {
             <div className="flex items-center gap-3">
               <button onClick={() => toggleSelect(item.deviceId || item.id)} className={clsx("w-4 h-4 rounded border-2 flex items-center justify-center", selectedDevices.has(item.deviceId || item.id) ? "bg-blue-500 border-blue-500" : "border-[#484f58]")}>{selectedDevices.has(item.deviceId || item.id) && <CheckCircle2 className="w-2.5 h-2.5 text-white" />}</button>
               <div className={clsx("w-6 h-6 rounded-full flex items-center justify-center", item.status === "pass" ? "bg-emerald-500/20" : item.status === "fail" ? "bg-rose-500/20" : "bg-white/5")}>{item.status === "pass" ? <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" /> : item.status === "fail" ? <X className="w-3.5 h-3.5 text-rose-400" /> : <Clock className="w-3.5 h-3.5 text-[#8b949e]" />}</div>
-              <div><p className="text-white text-[13px] font-bold">{item.deviceName}</p><p className="text-[#8b949e] text-[11px]">{item.location || ""}</p></div>
+              <div><p className="text-white text-[14px] font-bold">{item.deviceName}</p><p className="text-[#8b949e] text-[12px]">{item.location || ""}</p></div>
             </div>
             <div className="flex gap-1">
-              <button onClick={() => handleUpdate(item.deviceId || item.id, "pass")} className="h-7 px-2 rounded-lg text-[11px] font-extrabold text-emerald-400 cursor-pointer" style={{ background: "rgba(16,185,129,0.12)" }}>Pass</button>
-              <button onClick={() => handleUpdate(item.deviceId || item.id, "fail")} className="h-7 px-2 rounded-lg text-[11px] font-extrabold text-rose-400 cursor-pointer" style={{ background: "rgba(244,63,94,0.12)" }}>Fail</button>
-              <label className="h-7 px-2 rounded-lg text-[11px] font-extrabold text-blue-400 cursor-pointer flex items-center gap-1" style={{ background: "rgba(59,130,246,0.12)" }}>{uploadingPhoto === (item.deviceId || item.id) ? <Loader2 className="w-3 h-3 animate-spin" /> : <Camera className="w-3 h-3" />} Photo<input type="file" accept="image/*" capture="environment" className="hidden" onChange={(e) => handlePhotoUpload(item.deviceId || item.id, e)} disabled={uploadingPhoto === (item.deviceId || item.id)} /></label>
-              <button onClick={() => { setEditingNotes(editingNotes === (item.deviceId || item.id) ? null : (item.deviceId || item.id)); setNoteText(item.notes || ""); }} className="h-7 px-2 rounded-lg text-[11px] font-extrabold text-amber-400 cursor-pointer" style={{ background: "rgba(245,158,11,0.12)" }}>Note</button>
+              <button onClick={() => handleUpdate(item.deviceId || item.id, "pass")} className="h-7 px-2 rounded-lg text-[12px] font-extrabold text-emerald-400 cursor-pointer" style={{ background: "rgba(16,185,129,0.12)" }}>Pass</button>
+              <button onClick={() => handleUpdate(item.deviceId || item.id, "fail")} className="h-7 px-2 rounded-lg text-[12px] font-extrabold text-rose-400 cursor-pointer" style={{ background: "rgba(244,63,94,0.12)" }}>Fail</button>
+              <label className="h-7 px-2 rounded-lg text-[12px] font-extrabold text-blue-400 cursor-pointer flex items-center gap-1" style={{ background: "rgba(59,130,246,0.12)" }}>{uploadingPhoto === (item.deviceId || item.id) ? <Loader2 className="w-3 h-3 animate-spin" /> : <Camera className="w-3 h-3" />} Photo<input type="file" accept="image/*" capture="environment" className="hidden" onChange={(e) => handlePhotoUpload(item.deviceId || item.id, e)} disabled={uploadingPhoto === (item.deviceId || item.id)} /></label>
+              <button onClick={() => { setEditingNotes(editingNotes === (item.deviceId || item.id) ? null : (item.deviceId || item.id)); setNoteText(item.notes || ""); }} className="h-7 px-2 rounded-lg text-[12px] font-extrabold text-amber-400 cursor-pointer" style={{ background: "rgba(245,158,11,0.12)" }}>Note</button>
             </div>
           </div>
-          {item.notes && editingNotes !== (item.deviceId || item.id) && <p className="text-[#8b949e] text-[11px] mt-2">{item.notes}</p>}
+          {item.notes && editingNotes !== (item.deviceId || item.id) && <p className="text-[#8b949e] text-[12px] mt-2">{item.notes}</p>}
           {editingNotes === (item.deviceId || item.id) && (
             <div className="mt-2 space-y-2">
-              <textarea value={noteText} onChange={e => setNoteText(e.target.value)} rows={2} placeholder="Notes…" className="w-full rounded-lg px-2 py-1.5 text-[12px] text-white resize-none" style={G.input} />
-              <div className="flex gap-2"><button onClick={() => handleSaveNote(item.deviceId || item.id)} className="h-7 px-3 rounded-lg text-[11px] font-extrabold text-white cursor-pointer" style={{ background: "#10b981" }}>Save</button><button onClick={() => setEditingNotes(null)} className="h-7 px-3 rounded-lg text-[11px] font-bold cursor-pointer" style={G.btn}>Cancel</button></div>
+              <textarea value={noteText} onChange={e => setNoteText(e.target.value)} rows={2} placeholder="Notes…" className="w-full rounded-lg px-2 py-1.5 text-[13px] text-white resize-none" style={G.input} />
+              <div className="flex gap-2"><button onClick={() => handleSaveNote(item.deviceId || item.id)} className="h-7 px-3 rounded-lg text-[12px] font-extrabold text-white cursor-pointer" style={{ background: "#10b981" }}>Save</button><button onClick={() => setEditingNotes(null)} className="h-7 px-3 rounded-lg text-[12px] font-bold cursor-pointer" style={G.btn}>Cancel</button></div>
             </div>
           )}
           {item.photos && item.photos.length > 0 && <div className="flex gap-2 mt-2 flex-wrap">{item.photos.map((p, i) => <img key={i} src={p} alt="" className="w-16 h-16 rounded-lg object-cover" style={{ border: "1px solid rgba(255,255,255,0.10)" }} />)}</div>}
@@ -2587,32 +2587,32 @@ function DesignCanvas({ navigate }: { navigate: (p: Page) => void }) {
   return (
     <div className="fixed inset-0 flex flex-col" style={{ background: "#070c1a" }}>
       <header className="h-12 flex items-center gap-2 md:gap-4 px-3 md:px-4 flex-shrink-0 z-40" style={G.liquidGlass}>
-        <button onClick={() => navigate("design-studio")} className="flex items-center gap-1.5 text-[#8b949e] hover:text-white text-[12px] font-bold flex-shrink-0 cursor-pointer min-h-[44px]"><ArrowLeft className="w-3.5 h-3.5" /><span className="hidden md:inline">Back</span></button>
+        <button onClick={() => navigate("design-studio")} className="flex items-center gap-1.5 text-[#8b949e] hover:text-white text-[13px] font-bold flex-shrink-0 cursor-pointer min-h-[44px]"><ArrowLeft className="w-3.5 h-3.5" /><span className="hidden md:inline">Back</span></button>
         <div className="flex-1" />
-        {pdfRendering && <span className="text-[#8b949e] text-[11px] flex items-center gap-1"><Loader2 className="w-3 h-3 animate-spin" /> Rendering PDF...</span>}
-        <button onClick={() => uploadFile("2d")} className="flex items-center gap-1.5 h-7 px-2 rounded-xl text-[#8b949e] hover:text-white text-[11px] font-bold cursor-pointer" style={G.btn}><Upload className="w-3 h-3" /> 2D</button>
-        <button onClick={() => uploadFile("3d")} className="flex items-center gap-1.5 h-7 px-2 rounded-xl text-[#8b949e] hover:text-white text-[11px] font-bold cursor-pointer" style={G.btn}><Box className="w-3 h-3" /> 3D</button>
-        <button onClick={() => setView3D(!view3D)} className={clsx("flex items-center gap-1.5 h-7 px-2 rounded-xl text-[11px] font-bold cursor-pointer", view3D ? "text-violet-400" : "text-[#8b949e]")} style={view3D ? { background: "rgba(139,92,246,0.15)" } : G.btn}><Eye className="w-3 h-3" /> {view3D ? "2D" : "3D"}</button>
-        <button onClick={() => setShowFov(!showFov)} className={clsx("flex items-center gap-1.5 h-7 px-2 rounded-xl text-[11px] font-bold cursor-pointer", showFov ? "text-blue-400" : "text-[#8b949e]")} style={showFov ? { background: "rgba(59,130,246,0.15)" } : G.btn}><Eye className="w-3 h-3" /> FOV</button>
-        <button onClick={() => setShowDeviceTray(!showDeviceTray)} className={clsx("flex items-center gap-1.5 h-7 px-2 rounded-xl text-[11px] font-bold cursor-pointer", showDeviceTray ? "text-white" : "text-[#8b949e]")} style={G.btn}><Store className="w-3 h-3" /> Store</button>
+        {pdfRendering && <span className="text-[#8b949e] text-[12px] flex items-center gap-1"><Loader2 className="w-3 h-3 animate-spin" /> Rendering PDF...</span>}
+        <button onClick={() => uploadFile("2d")} className="flex items-center gap-1.5 h-7 px-2 rounded-xl text-[#8b949e] hover:text-white text-[12px] font-bold cursor-pointer" style={G.btn}><Upload className="w-3 h-3" /> 2D</button>
+        <button onClick={() => uploadFile("3d")} className="flex items-center gap-1.5 h-7 px-2 rounded-xl text-[#8b949e] hover:text-white text-[12px] font-bold cursor-pointer" style={G.btn}><Box className="w-3 h-3" /> 3D</button>
+        <button onClick={() => setView3D(!view3D)} className={clsx("flex items-center gap-1.5 h-7 px-2 rounded-xl text-[12px] font-bold cursor-pointer", view3D ? "text-violet-400" : "text-[#8b949e]")} style={view3D ? { background: "rgba(139,92,246,0.15)" } : G.btn}><Eye className="w-3 h-3" /> {view3D ? "2D" : "3D"}</button>
+        <button onClick={() => setShowFov(!showFov)} className={clsx("flex items-center gap-1.5 h-7 px-2 rounded-xl text-[12px] font-bold cursor-pointer", showFov ? "text-blue-400" : "text-[#8b949e]")} style={showFov ? { background: "rgba(59,130,246,0.15)" } : G.btn}><Eye className="w-3 h-3" /> FOV</button>
+        <button onClick={() => setShowDeviceTray(!showDeviceTray)} className={clsx("flex items-center gap-1.5 h-7 px-2 rounded-xl text-[12px] font-bold cursor-pointer", showDeviceTray ? "text-white" : "text-[#8b949e]")} style={G.btn}><Store className="w-3 h-3" /> Store</button>
       </header>
       <div className="flex-1 relative overflow-hidden" ref={containerRef}>
         <motion.div className="absolute left-0 top-0 bottom-0 w-80 z-30 flex flex-col" style={G.liquidGlass} animate={{ x: showDeviceTray ? 0 : -320 }} transition={{ type: "spring", stiffness: 300, damping: 30 }}>
-          <div className="px-4 py-3 flex items-center justify-between" style={{ borderBottom: "1px solid rgba(255,255,255,0.07)" }}><p className="text-white text-[13px] font-extrabold">Device Store</p><button onClick={() => setShowDeviceTray(false)} className="w-6 h-6 rounded-lg hover:bg-white/[0.08] flex items-center justify-center cursor-pointer min-w-[44px] min-h-[44px]"><X className="w-3.5 h-3.5 text-[#8b949e]" /></button></div>
-          <div className="px-3 py-2.5"><div className="relative"><Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3 h-3 text-[#484f58]" /><input value={storeSearch} onChange={(e) => setStoreSearch(e.target.value)} placeholder="Search device store..." className="w-full h-7 rounded-xl pl-7 pr-2.5 text-[12px] text-[#e6edf3] focus:outline-none" style={G.input} /></div></div>
+          <div className="px-4 py-3 flex items-center justify-between" style={{ borderBottom: "1px solid rgba(255,255,255,0.07)" }}><p className="text-white text-[14px] font-extrabold">Device Store</p><button onClick={() => setShowDeviceTray(false)} className="w-6 h-6 rounded-lg hover:bg-white/[0.08] flex items-center justify-center cursor-pointer min-w-[44px] min-h-[44px]"><X className="w-3.5 h-3.5 text-[#8b949e]" /></button></div>
+          <div className="px-3 py-2.5"><div className="relative"><Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3 h-3 text-[#484f58]" /><input value={storeSearch} onChange={(e) => setStoreSearch(e.target.value)} placeholder="Search device store..." className="w-full h-7 rounded-xl pl-7 pr-2.5 text-[13px] text-[#e6edf3] focus:outline-none" style={G.input} /></div></div>
           <div className="flex-1 overflow-y-auto" style={{ scrollbarWidth: "none" }}>
             {filteredStoreDevices.map((device) => { const cc = CAT_COLOR[device.category] ?? CAT_COLOR.other; return (
               <button key={device.id} onClick={() => placeDeviceFromStore(device)} className="w-full flex items-center gap-2.5 px-3 py-2.5 hover:bg-white/[0.04] transition-colors cursor-pointer text-left" style={{ borderBottom: "1px solid rgba(255,255,255,0.04)" }}>
                 <div className="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0" style={{ background: "rgba(255,255,255,0.04)" }}>{device.imageUrl ? <img src={device.imageUrl} alt="" className="w-full h-full object-contain p-0.5 opacity-70" /> : <Camera className="w-3.5 h-3.5 text-[#484f58]" />}</div>
-                <div className="flex-1 min-w-0"><p className="text-white text-[12px] font-bold truncate">{device.model}</p><p className="text-[#8b949e] text-[10px]">{device.manufacturer}{device.price ? ` · $${device.price.toFixed(0)}` : ""}</p></div>
-                <span className="inline-block px-1.5 py-0.5 rounded text-[9px] font-extrabold uppercase flex-shrink-0" style={{ background: cc.bg, color: cc.text }}>{cc.label}</span>
+                <div className="flex-1 min-w-0"><p className="text-white text-[13px] font-bold truncate">{device.model}</p><p className="text-[#8b949e] text-[11px]">{device.manufacturer}{device.price ? ` · $${device.price.toFixed(0)}` : ""}</p></div>
+                <span className="inline-block px-1.5 py-0.5 rounded text-[10px] font-extrabold uppercase flex-shrink-0" style={{ background: cc.bg, color: cc.text }}>{cc.label}</span>
               </button>
             ); })}
-            {filteredStoreDevices.length === 0 && <div className="px-4 py-8 text-center"><p className="text-[#8b949e] text-[12px]">No devices found</p></div>}
+            {filteredStoreDevices.length === 0 && <div className="px-4 py-8 text-center"><p className="text-[#8b949e] text-[13px]">No devices found</p></div>}
           </div>
         </motion.div>
         {view3D && floorPlan3D ? (
-          <div className="absolute inset-0"><ThreeDViewer file={floorPlan3D} /><div className="absolute bottom-4 left-4 px-3 py-1.5 rounded-xl text-[11px] font-bold text-white" style={G.liquidGlass}>3D View — {floorPlan3D.originalName}</div></div>
+          <div className="absolute inset-0"><ThreeDViewer file={floorPlan3D} /><div className="absolute bottom-4 left-4 px-3 py-1.5 rounded-xl text-[12px] font-bold text-white" style={G.liquidGlass}>3D View — {floorPlan3D.originalName}</div></div>
         ) : (
           <KonvaStage ref={stageRef} width={stageSize.width} height={stageSize.height} scaleX={scale} scaleY={scale} x={position.x} y={position.y} draggable onClick={handleStageClick} onDblClick={handleDoubleClick} onWheel={handleWheel} style={{ background: "#070c1a", cursor: activeTool === "select" ? "default" : "crosshair" }}>
             <KonvaLayer>
@@ -2641,17 +2641,17 @@ function DesignCanvas({ navigate }: { navigate: (p: Page) => void }) {
         )}
         {showProperties && selected && (
           <div className="absolute right-0 top-0 bottom-0 w-72 z-30 flex flex-col" style={G.liquidGlass}>
-            <div className="px-4 py-3 flex items-center justify-between" style={{ borderBottom: "1px solid rgba(255,255,255,0.07)" }}><p className="text-white text-[13px] font-extrabold">Properties</p><button onClick={() => setShowProperties(false)} className="w-6 h-6 rounded-lg hover:bg-white/[0.08] flex items-center justify-center cursor-pointer min-w-[44px] min-h-[44px]"><X className="w-3.5 h-3.5 text-[#8b949e]" /></button></div>
+            <div className="px-4 py-3 flex items-center justify-between" style={{ borderBottom: "1px solid rgba(255,255,255,0.07)" }}><p className="text-white text-[14px] font-extrabold">Properties</p><button onClick={() => setShowProperties(false)} className="w-6 h-6 rounded-lg hover:bg-white/[0.08] flex items-center justify-center cursor-pointer min-w-[44px] min-h-[44px]"><X className="w-3.5 h-3.5 text-[#8b949e]" /></button></div>
             <div className="flex-1 p-4 overflow-y-auto space-y-4" style={{ scrollbarWidth: "none" }}>
-              <div><p className="text-[#8b949e] text-[11px] font-extrabold uppercase tracking-widest mb-2">Device</p><div className="rounded-xl p-3" style={G.card}><p className="text-white text-[13px] font-extrabold">{selected.label}</p><p className="text-[#8b949e] text-[11px] mt-1 capitalize">{selected.type}</p></div></div>
-              {storeDevice && <div><p className="text-[#8b949e] text-[11px] font-extrabold uppercase tracking-widest mb-2">Device Store Info</p><div className="rounded-xl p-3 space-y-2" style={G.card}><p className="text-white text-[13px] font-extrabold">{storeDevice.model}</p><p className="text-[#8b949e] text-[11px]">{storeDevice.manufacturer}</p>{storeDevice.price && <div className="flex justify-between"><span className="text-[#8b949e] text-[11px]">Price</span><span className="text-white text-[11px] font-extrabold">${storeDevice.price.toFixed(2)}</span></div>}</div></div>}
+              <div><p className="text-[#8b949e] text-[12px] font-extrabold uppercase tracking-widest mb-2">Device</p><div className="rounded-xl p-3" style={G.card}><p className="text-white text-[14px] font-extrabold">{selected.label}</p><p className="text-[#8b949e] text-[12px] mt-1 capitalize">{selected.type}</p></div></div>
+              {storeDevice && <div><p className="text-[#8b949e] text-[12px] font-extrabold uppercase tracking-widest mb-2">Device Store Info</p><div className="rounded-xl p-3 space-y-2" style={G.card}><p className="text-white text-[14px] font-extrabold">{storeDevice.model}</p><p className="text-[#8b949e] text-[12px]">{storeDevice.manufacturer}</p>{storeDevice.price && <div className="flex justify-between"><span className="text-[#8b949e] text-[12px]">Price</span><span className="text-white text-[12px] font-extrabold">${storeDevice.price.toFixed(2)}</span></div>}</div></div>}
               {selected.type === "camera" && (
-                <div><p className="text-[#8b949e] text-[11px] font-extrabold uppercase tracking-widest mb-2">Camera Settings</p><div className="rounded-xl p-3 space-y-2" style={G.card}>
-                  <div className="flex items-center justify-between"><span className="text-[#8b949e] text-[12px]">Rotation</span><input type="range" min="0" max="360" value={selected.rot} onChange={(e) => setDevices((prev) => prev.map((d) => d.id === selected.id ? { ...d, rot: parseInt(e.target.value) } : d))} className="w-24" /><span className="text-white text-[11px] font-extrabold">{selected.rot}°</span></div>
-                  <div className="flex items-center justify-between"><span className="text-[#8b949e] text-[12px]">FOV</span><select value={selected.fov || 80} onChange={(e) => setDevices((prev) => prev.map((d) => d.id === selected.id ? { ...d, fov: parseInt(e.target.value) } : d))} className="cursor-pointer" style={{ ...G.input, background: "#0d1117", color: "#e6edf3", padding: "2px 6px", borderRadius: "6px" }}><option value="60">60°</option><option value="80">80°</option><option value="100">100°</option><option value="120">120°</option><option value="180">180°</option><option value="360">360°</option></select></div>
+                <div><p className="text-[#8b949e] text-[12px] font-extrabold uppercase tracking-widest mb-2">Camera Settings</p><div className="rounded-xl p-3 space-y-2" style={G.card}>
+                  <div className="flex items-center justify-between"><span className="text-[#8b949e] text-[13px]">Rotation</span><input type="range" min="0" max="360" value={selected.rot} onChange={(e) => setDevices((prev) => prev.map((d) => d.id === selected.id ? { ...d, rot: parseInt(e.target.value) } : d))} className="w-24" /><span className="text-white text-[12px] font-extrabold">{selected.rot}°</span></div>
+                  <div className="flex items-center justify-between"><span className="text-[#8b949e] text-[13px]">FOV</span><select value={selected.fov || 80} onChange={(e) => setDevices((prev) => prev.map((d) => d.id === selected.id ? { ...d, fov: parseInt(e.target.value) } : d))} className="cursor-pointer" style={{ ...G.input, background: "#0d1117", color: "#e6edf3", padding: "2px 6px", borderRadius: "6px" }}><option value="60">60°</option><option value="80">80°</option><option value="100">100°</option><option value="120">120°</option><option value="180">180°</option><option value="360">360°</option></select></div>
                 </div></div>
               )}
-              <button onClick={() => handleDeviceDelete(selected.id)} className="w-full h-8 rounded-xl text-rose-400 text-[12px] font-bold flex items-center justify-center gap-1.5 cursor-pointer" style={{ background: "rgba(244,63,94,0.10)", border: "1px solid rgba(244,63,94,0.20)" }}><Trash2 className="w-3 h-3" /> Delete</button>
+              <button onClick={() => handleDeviceDelete(selected.id)} className="w-full h-8 rounded-xl text-rose-400 text-[13px] font-bold flex items-center justify-center gap-1.5 cursor-pointer" style={{ background: "rgba(244,63,94,0.10)", border: "1px solid rgba(244,63,94,0.20)" }}><Trash2 className="w-3 h-3" /> Delete</button>
             </div>
           </div>
         )}
@@ -2660,7 +2660,7 @@ function DesignCanvas({ navigate }: { navigate: (p: Page) => void }) {
             <button key={tool.id} onClick={() => { setActiveTool(tool.id); if (tool.id !== "cable") setCablePoints([]); }} title={tool.label} className={clsx("w-8 h-8 rounded-xl flex items-center justify-center flex-shrink-0 cursor-pointer min-w-[44px] min-h-[44px] md:min-w-0 md:min-h-0", activeTool === tool.id ? "text-white" : "text-[#8b949e]")} style={activeTool === tool.id ? { background: "#3b82f6", boxShadow: "0 4px 16px rgba(59,130,246,0.45)" } : undefined}><tool.icon className="w-3.5 h-3.5" /></button>
           ))}
           <div className="w-px h-6 mx-1" style={{ background: "rgba(255,255,255,0.10)" }} />
-          <span className="text-[#8b949e] text-[10px] ml-1">{devices.length} devices</span>
+          <span className="text-[#8b949e] text-[11px] ml-1">{devices.length} devices</span>
         </div>
       </div>
     </div>
@@ -2677,7 +2677,7 @@ function InlineEditCell({ value, onChange, onSave, type = "text", disabled, plac
   const handleKeyDown = (e: React.KeyboardEvent) => { if (e.key === "Enter") { e.preventDefault(); handleCommit(); } else if (e.key === "Escape") { setLocalValue(String(value)); setEditing(false); } else if (e.key === "Tab") { e.preventDefault(); handleCommit(); } };
   return (
     <div className="relative group inline-flex items-center min-w-[40px]">
-      {editing ? (<input ref={inputRef} type={type} value={localValue} onChange={e => setLocalValue(e.target.value)} onKeyDown={handleKeyDown} onBlur={handleCommit} disabled={disabled} placeholder={placeholder} className="bg-transparent text-white text-[12px] font-bold w-full focus:outline-none px-1 py-0.5 rounded" style={{ background: "rgba(59,130,246,0.10)", border: "1px solid rgba(59,130,246,0.25)", minWidth: "60px" }} />) : (<span onClick={() => !disabled && setEditing(true)} className={clsx("px-1 py-0.5 rounded transition-colors hover:bg-white/[0.04]", disabled ? "cursor-default hover:bg-transparent" : "cursor-pointer")} tabIndex={disabled ? -1 : 0}>{String(value) || placeholder || "—"}</span>)}
+      {editing ? (<input ref={inputRef} type={type} value={localValue} onChange={e => setLocalValue(e.target.value)} onKeyDown={handleKeyDown} onBlur={handleCommit} disabled={disabled} placeholder={placeholder} className="bg-transparent text-white text-[13px] font-bold w-full focus:outline-none px-1 py-0.5 rounded" style={{ background: "rgba(59,130,246,0.10)", border: "1px solid rgba(59,130,246,0.25)", minWidth: "60px" }} />) : (<span onClick={() => !disabled && setEditing(true)} className={clsx("px-1 py-0.5 rounded transition-colors hover:bg-white/[0.04]", disabled ? "cursor-default hover:bg-transparent" : "cursor-pointer")} tabIndex={disabled ? -1 : 0}>{String(value) || placeholder || "—"}</span>)}
       {saveState === "saving" && <Loader2 className="w-2.5 h-2.5 animate-spin text-[#484f58] ml-1 flex-shrink-0" />}
       {saveState === "saved" && <CheckCircle2 className="w-2.5 h-2.5 text-emerald-400 ml-1 flex-shrink-0" />}
     </div>
@@ -2690,15 +2690,15 @@ function OverrideConflictModal({ open, sectionName, onUpdateOverride, onKeepOver
     <div className="fixed inset-0 z-[400] flex items-center justify-center p-4" onClick={onCancel}>
       <div className="absolute inset-0" style={{ background: "rgba(0,0,0,0.65)", backdropFilter: "blur(8px)" }} />
       <motion.div initial={{ opacity: 0, scale: 0.93 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.93 }} transition={{ type: "spring", damping: 26, stiffness: 360 }} onClick={e => e.stopPropagation()} className="relative z-10 w-full max-w-[440px] rounded-2xl p-6" style={G.liquidGlass}>
-        <div className="flex items-center gap-3 mb-4"><div className="w-10 h-10 rounded-xl flex items-center justify-center" style={{ background: "rgba(245,158,11,0.15)" }}><AlertTriangle className="w-5 h-5 text-amber-400" /></div><div><h3 className="text-white text-[15px] font-extrabold">Manual Override Detected</h3><p className="text-[#8b949e] text-[12px] mt-0.5">"{sectionName}" has a manual override in Synthesis.</p></div></div>
-        <p className="text-[#8b949e] text-[13px] mb-5">Editing the BOM will recalculate this section. Update override or keep the manual value?</p>
-        <div className="flex gap-2"><button onClick={onCancel} className="flex-1 h-10 rounded-xl text-[#8b949e] text-[13px] font-bold cursor-pointer" style={G.btn}>Cancel</button><button onClick={onKeepOverride} className="flex-1 h-10 rounded-xl text-white text-[13px] font-bold cursor-pointer" style={{ background: "rgba(255,255,255,0.08)", border: "1px solid rgba(255,255,255,0.14)" }}>Keep Override</button><button onClick={onUpdateOverride} className="flex-1 h-10 rounded-xl text-white text-[13px] font-extrabold cursor-pointer" style={{ background: "#f59e0b", boxShadow: "0 4px 16px rgba(245,158,11,0.35)" }}>Update Override</button></div>
+        <div className="flex items-center gap-3 mb-4"><div className="w-10 h-10 rounded-xl flex items-center justify-center" style={{ background: "rgba(245,158,11,0.15)" }}><AlertTriangle className="w-5 h-5 text-amber-400" /></div><div><h3 className="text-white text-[16px] font-extrabold">Manual Override Detected</h3><p className="text-[#8b949e] text-[13px] mt-0.5">"{sectionName}" has a manual override in Synthesis.</p></div></div>
+        <p className="text-[#8b949e] text-[14px] mb-5">Editing the BOM will recalculate this section. Update override or keep the manual value?</p>
+        <div className="flex gap-2"><button onClick={onCancel} className="flex-1 h-10 rounded-xl text-[#8b949e] text-[14px] font-bold cursor-pointer" style={G.btn}>Cancel</button><button onClick={onKeepOverride} className="flex-1 h-10 rounded-xl text-white text-[14px] font-bold cursor-pointer" style={{ background: "rgba(255,255,255,0.08)", border: "1px solid rgba(255,255,255,0.14)" }}>Keep Override</button><button onClick={onUpdateOverride} className="flex-1 h-10 rounded-xl text-white text-[14px] font-extrabold cursor-pointer" style={{ background: "#f59e0b", boxShadow: "0 4px 16px rgba(245,158,11,0.35)" }}>Update Override</button></div>
       </motion.div>
     </div>
   );
 }
 
-function PriceDeviationBadge({ deviation }: { deviation: number }) { if (Math.abs(deviation) <= 50) return null; const isHigh = deviation > 50; return (<span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[9px] font-extrabold cursor-help ml-1" style={{ background: isHigh ? "rgba(245,158,11,0.15)" : "rgba(239,68,68,0.15)", color: isHigh ? "#fbbf24" : "#f87171", border: `1px solid ${isHigh ? "rgba(245,158,11,0.30)" : "rgba(239,68,68,0.30)"}` }} title={`Price deviates ${deviation > 0 ? "+" : ""}${deviation.toFixed(0)}% from historical average`}><AlertTriangle className="w-2.5 h-2.5" />{deviation > 0 ? "+" : ""}{deviation.toFixed(0)}%</span>); }
+function PriceDeviationBadge({ deviation }: { deviation: number }) { if (Math.abs(deviation) <= 50) return null; const isHigh = deviation > 50; return (<span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[10px] font-extrabold cursor-help ml-1" style={{ background: isHigh ? "rgba(245,158,11,0.15)" : "rgba(239,68,68,0.15)", color: isHigh ? "#fbbf24" : "#f87171", border: `1px solid ${isHigh ? "rgba(245,158,11,0.30)" : "rgba(239,68,68,0.30)"}` }} title={`Price deviates ${deviation > 0 ? "+" : ""}${deviation.toFixed(0)}% from historical average`}><AlertTriangle className="w-2.5 h-2.5" />{deviation > 0 ? "+" : ""}{deviation.toFixed(0)}%</span>); }
 
 function OverrideIndicator({ isOverridden, onReset }: { isOverridden: boolean; onReset?: () => void }) { if (!isOverridden) return null; return (<button onClick={e => { e.stopPropagation(); onReset?.(); }} className="w-5 h-5 rounded-full flex items-center justify-center cursor-pointer ml-1 flex-shrink-0" style={{ background: "rgba(245,158,11,0.20)", border: "1px solid rgba(245,158,11,0.40)" }} title="Manually overridden — click to reset"><Pencil className="w-2.5 h-2.5 text-amber-400" /></button>); }
 
@@ -2708,8 +2708,8 @@ function FieldAuditModal({ open, entries, onClose }: { open: boolean; entries: W
     <div className="fixed inset-0 z-[400] flex items-center justify-center p-4" onClick={onClose}>
       <div className="absolute inset-0" style={{ background: "rgba(0,0,0,0.55)", backdropFilter: "blur(6px)" }} />
       <motion.div initial={{ opacity: 0, scale: 0.93 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.93 }} transition={{ type: "spring", damping: 26, stiffness: 360 }} onClick={e => e.stopPropagation()} className="relative z-10 w-full max-w-[500px] max-h-[70vh] overflow-y-auto rounded-2xl" style={G.liquidGlass}>
-        <div className="flex items-center justify-between px-5 py-4" style={{ borderBottom: "1px solid rgba(255,255,255,0.07)" }}><h3 className="text-white text-[15px] font-extrabold">Change History</h3><button onClick={onClose} className="w-8 h-8 rounded-xl flex items-center justify-center hover:bg-white/[0.08] cursor-pointer"><X className="w-4 h-4 text-[#8b949e]" /></button></div>
-        <div className="p-4 space-y-2">{entries.length === 0 ? <p className="text-[#8b949e] text-[13px] text-center py-4">No changes recorded</p> : entries.map(entry => (<div key={entry.id} className="flex items-start gap-3 p-3 rounded-xl" style={{ background: "rgba(255,255,255,0.03)" }}><div className="w-7 h-7 rounded-full flex items-center justify-center text-[10px] font-extrabold text-white flex-shrink-0" style={{ background: TEAM.find(t => t.name === entry.changedBy)?.color || "#3b82f6" }}>{TEAM.find(t => t.name === entry.changedBy)?.initials || "??"}</div><div className="flex-1 min-w-0"><p className="text-white text-[12px] font-bold">{entry.fieldPath}</p><div className="flex items-center gap-1.5 mt-1 text-[11px]"><span className="text-rose-400 line-through">{entry.oldValue}</span><ChevronRight className="w-3 h-3 text-[#484f58]" /><span className="text-emerald-400">{entry.newValue}</span></div><p className="text-[#8b949e] text-[10px] mt-1">{new Date(entry.changedAt).toLocaleString()}</p></div></div>))}</div>
+        <div className="flex items-center justify-between px-5 py-4" style={{ borderBottom: "1px solid rgba(255,255,255,0.07)" }}><h3 className="text-white text-[16px] font-extrabold">Change History</h3><button onClick={onClose} className="w-8 h-8 rounded-xl flex items-center justify-center hover:bg-white/[0.08] cursor-pointer"><X className="w-4 h-4 text-[#8b949e]" /></button></div>
+        <div className="p-4 space-y-2">{entries.length === 0 ? <p className="text-[#8b949e] text-[14px] text-center py-4">No changes recorded</p> : entries.map(entry => (<div key={entry.id} className="flex items-start gap-3 p-3 rounded-xl" style={{ background: "rgba(255,255,255,0.03)" }}><div className="w-7 h-7 rounded-full flex items-center justify-center text-[11px] font-extrabold text-white flex-shrink-0" style={{ background: TEAM.find(t => t.name === entry.changedBy)?.color || "#3b82f6" }}>{TEAM.find(t => t.name === entry.changedBy)?.initials || "??"}</div><div className="flex-1 min-w-0"><p className="text-white text-[13px] font-bold">{entry.fieldPath}</p><div className="flex items-center gap-1.5 mt-1 text-[12px]"><span className="text-rose-400 line-through">{entry.oldValue}</span><ChevronRight className="w-3 h-3 text-[#484f58]" /><span className="text-emerald-400">{entry.newValue}</span></div><p className="text-[#8b949e] text-[11px] mt-1">{new Date(entry.changedAt).toLocaleString()}</p></div></div>))}</div>
       </motion.div>
     </div>
   );
@@ -2718,13 +2718,13 @@ function FieldAuditModal({ open, entries, onClose }: { open: boolean; entries: W
 function SummaryBar({ totalCost, totalSell, blendedMargin, fmt, onGenerateProposal }: { totalCost: number; totalSell: number; blendedMargin: number; fmt: (n: number) => string; onGenerateProposal?: () => void; }) {
   return (
     <div className="sticky top-0 z-20 flex items-center gap-4 px-4 py-2.5 rounded-xl mb-3 flex-wrap" style={{ ...G.liquidGlass, borderColor: "rgba(59,130,246,0.25)" }}>
-      <div className="flex items-center gap-2"><span className="text-[#8b949e] text-[11px] font-extrabold uppercase">Total Cost</span><span className="text-white text-[15px] font-extrabold">{fmt(totalCost)}</span></div>
+      <div className="flex items-center gap-2"><span className="text-[#8b949e] text-[12px] font-extrabold uppercase">Total Cost</span><span className="text-white text-[16px] font-extrabold">{fmt(totalCost)}</span></div>
       <div className="w-px h-5" style={{ background: "rgba(255,255,255,0.10)" }} />
-      <div className="flex items-center gap-2"><span className="text-[#8b949e] text-[11px] font-extrabold uppercase">Total Sell</span><span className="text-emerald-400 text-[15px] font-extrabold">{fmt(totalSell)}</span></div>
+      <div className="flex items-center gap-2"><span className="text-[#8b949e] text-[12px] font-extrabold uppercase">Total Sell</span><span className="text-emerald-400 text-[16px] font-extrabold">{fmt(totalSell)}</span></div>
       <div className="w-px h-5" style={{ background: "rgba(255,255,255,0.10)" }} />
-      <div className="flex items-center gap-2"><span className="text-[#8b949e] text-[11px] font-extrabold uppercase">Blended Margin</span><span className={clsx("text-[15px] font-extrabold", blendedMargin >= 30 ? "text-emerald-400" : blendedMargin >= 15 ? "text-amber-400" : "text-rose-400")}>{blendedMargin.toFixed(1)}%</span></div>
+      <div className="flex items-center gap-2"><span className="text-[#8b949e] text-[12px] font-extrabold uppercase">Blended Margin</span><span className={clsx("text-[16px] font-extrabold", blendedMargin >= 30 ? "text-emerald-400" : blendedMargin >= 15 ? "text-amber-400" : "text-rose-400")}>{blendedMargin.toFixed(1)}%</span></div>
       <div className="flex-1" />
-      {onGenerateProposal && <button onClick={onGenerateProposal} className="flex items-center gap-1.5 h-7 px-3 rounded-lg text-white text-[11px] font-extrabold cursor-pointer" style={{ background: "#3b82f6" }}><FileDown className="w-3 h-3" /> Generate Proposal</button>}
+      {onGenerateProposal && <button onClick={onGenerateProposal} className="flex items-center gap-1.5 h-7 px-3 rounded-lg text-white text-[12px] font-extrabold cursor-pointer" style={{ background: "#3b82f6" }}><FileDown className="w-3 h-3" /> Generate Proposal</button>}
     </div>
   );
 }
@@ -2745,17 +2745,17 @@ function CostMarginTab({ quoteCategories, exchangeRate, fmt, onLineItemUpdate, f
     <div className="space-y-4">
       <div className="flex items-center gap-2">
         {(["VSS","EAC","Intercom"] as SystemType[]).map(s => (
-          <button key={s} onClick={() => setSystemFilter(s)} className={clsx("h-7 px-3 rounded-lg text-[11px] font-extrabold cursor-pointer", systemFilter === s ? "text-white" : "text-[#8b949e]")} style={systemFilter === s ? { background: s === "VSS" ? "#3b82f6" : s === "EAC" ? "#8b5cf6" : "#14b8a6" } : G.btn}>{s}</button>
+          <button key={s} onClick={() => setSystemFilter(s)} className={clsx("h-7 px-3 rounded-lg text-[12px] font-extrabold cursor-pointer", systemFilter === s ? "text-white" : "text-[#8b949e]")} style={systemFilter === s ? { background: s === "VSS" ? "#3b82f6" : s === "EAC" ? "#8b5cf6" : "#14b8a6" } : G.btn}>{s}</button>
         ))}
       </div>
       <div className="rounded-2xl overflow-hidden" style={G.card}>
         <div className="overflow-x-auto">
           <table className="w-full" style={{ minWidth: "900px" }}>
-            <thead><tr style={{ borderBottom: "1px solid rgba(255,255,255,0.08)", background: "rgba(255,255,255,0.03)" }}><th className="px-3 py-2.5 text-[#8b949e] text-[10px] font-extrabold uppercase tracking-widest text-left">Item No</th><th className="px-3 py-2.5 text-[#8b949e] text-[10px] font-extrabold uppercase tracking-widest text-left">Description</th><th className="px-3 py-2.5 text-[#8b949e] text-[10px] font-extrabold uppercase tracking-widest text-center">Qty</th><th className="px-3 py-2.5 text-[#8b949e] text-[10px] font-extrabold uppercase tracking-widest text-right">Cost (USD)</th><th className="px-3 py-2.5 text-[#8b949e] text-[10px] font-extrabold uppercase tracking-widest text-right">Markup %</th><th className="px-3 py-2.5 text-[#8b949e] text-[10px] font-extrabold uppercase tracking-widest text-right">Sell (USD)</th><th className="px-3 py-2.5 text-[#8b949e] text-[10px] font-extrabold uppercase tracking-widest text-right">Total Cost</th><th className="px-3 py-2.5 text-[#8b949e] text-[10px] font-extrabold uppercase tracking-widest text-right">Total Sell</th><th className="px-3 py-2.5 text-[#8b949e] text-[10px] font-extrabold uppercase tracking-widest text-right">Profit</th></tr></thead>
+            <thead><tr style={{ borderBottom: "1px solid rgba(255,255,255,0.08)", background: "rgba(255,255,255,0.03)" }}><th className="px-3 py-2.5 text-[#8b949e] text-[11px] font-extrabold uppercase tracking-widest text-left">Item No</th><th className="px-3 py-2.5 text-[#8b949e] text-[11px] font-extrabold uppercase tracking-widest text-left">Description</th><th className="px-3 py-2.5 text-[#8b949e] text-[11px] font-extrabold uppercase tracking-widest text-center">Qty</th><th className="px-3 py-2.5 text-[#8b949e] text-[11px] font-extrabold uppercase tracking-widest text-right">Cost (USD)</th><th className="px-3 py-2.5 text-[#8b949e] text-[11px] font-extrabold uppercase tracking-widest text-right">Markup %</th><th className="px-3 py-2.5 text-[#8b949e] text-[11px] font-extrabold uppercase tracking-widest text-right">Sell (USD)</th><th className="px-3 py-2.5 text-[#8b949e] text-[11px] font-extrabold uppercase tracking-widest text-right">Total Cost</th><th className="px-3 py-2.5 text-[#8b949e] text-[11px] font-extrabold uppercase tracking-widest text-right">Total Sell</th><th className="px-3 py-2.5 text-[#8b949e] text-[11px] font-extrabold uppercase tracking-widest text-right">Profit</th></tr></thead>
             <tbody>
               {filteredCategories.map(category => (
                 <Fragment key={category.id}>
-                  <tr style={{ background: "rgba(255,255,255,0.02)" }}><td colSpan={9} className="px-3 py-2 text-white text-[12px] font-extrabold">{category.sectionNumber} — {category.name}</td></tr>
+                  <tr style={{ background: "rgba(255,255,255,0.02)" }}><td colSpan={9} className="px-3 py-2 text-white text-[13px] font-extrabold">{category.sectionNumber} — {category.name}</td></tr>
                   {category.lineItems.filter(li => li.quantity > 0).map((li, i) => {
                     const r = recalcLineItem(li, exchangeRate);
                     const fieldKey = `cm-${category.id}-${li.id}`;
@@ -2763,36 +2763,36 @@ function CostMarginTab({ quoteCategories, exchangeRate, fmt, onLineItemUpdate, f
                     const itemNumber = category.lineItems.filter(x => x.quantity > 0).length > 1 ? `${category.sectionNumber}.${i + 1}` : String(category.sectionNumber);
                     return (
                       <tr key={li.id} style={{ borderBottom: "1px solid rgba(255,255,255,0.03)" }}>
-                        <td className="px-3 py-2 text-[#8b949e] text-[11px] font-mono">{itemNumber}</td>
-                        <td className="px-3 py-2 text-white text-[12px] font-bold">{li.description}</td>
+                        <td className="px-3 py-2 text-[#8b949e] text-[12px] font-mono">{itemNumber}</td>
+                        <td className="px-3 py-2 text-white text-[13px] font-bold">{li.description}</td>
                         <td className="px-3 py-2 text-center"><InlineEditCell type="number" value={li.quantity} onChange={(val) => onLineItemUpdate(category.id, li.id, { quantity: parseInt(val) || 0 })} /></td>
                         <td className="px-3 py-2 text-right"><InlineEditCell type="number" value={li.unitCost} onChange={(val) => onLineItemUpdate(category.id, li.id, { unitCost: parseFloat(val) || 0 })} /></td>
-                        <td className="px-3 py-2 text-right"><InlineEditCell type="number" value={Math.round(li.markupPercent * 100)} onChange={(val) => onLineItemUpdate(category.id, li.id, { markupPercent: (parseFloat(val) || 0) / 100 })} /><span className="text-[#8b949e] text-[11px]">%</span></td>
-                        <td className="px-3 py-2 text-right text-white text-[12px] font-extrabold">{r.sellPrice.toFixed(2)}</td>
-                        <td className="px-3 py-2 text-right text-[#8b949e] text-[12px]">{r.costTotal.toFixed(2)}</td>
-                        <td className="px-3 py-2 text-right text-white text-[12px] font-extrabold">{r.sellTotal.toFixed(2)}</td>
-                        <td className="px-3 py-2 text-right text-[12px] font-extrabold" style={{ color: r.profit >= 0 ? "#34d399" : "#f87171" }}>{r.profit.toFixed(2)}{fs === "saving" && <Loader2 className="w-2.5 h-2.5 animate-spin text-[#8b949e] ml-1 inline" />}{fs === "saved" && <CheckCircle2 className="w-2.5 h-2.5 text-emerald-400 ml-1 inline" />}</td>
+                        <td className="px-3 py-2 text-right"><InlineEditCell type="number" value={Math.round(li.markupPercent * 100)} onChange={(val) => onLineItemUpdate(category.id, li.id, { markupPercent: (parseFloat(val) || 0) / 100 })} /><span className="text-[#8b949e] text-[12px]">%</span></td>
+                        <td className="px-3 py-2 text-right text-white text-[13px] font-extrabold">{r.sellPrice.toFixed(2)}</td>
+                        <td className="px-3 py-2 text-right text-[#8b949e] text-[13px]">{r.costTotal.toFixed(2)}</td>
+                        <td className="px-3 py-2 text-right text-white text-[13px] font-extrabold">{r.sellTotal.toFixed(2)}</td>
+                        <td className="px-3 py-2 text-right text-[13px] font-extrabold" style={{ color: r.profit >= 0 ? "#34d399" : "#f87171" }}>{r.profit.toFixed(2)}{fs === "saving" && <Loader2 className="w-2.5 h-2.5 animate-spin text-[#8b949e] ml-1 inline" />}{fs === "saved" && <CheckCircle2 className="w-2.5 h-2.5 text-emerald-400 ml-1 inline" />}</td>
                       </tr>
                     );
                   })}
                   {category.importRatePercent > 0 && (
                     <tr style={{ borderBottom: "1px solid rgba(255,255,255,0.03)" }}>
-                      <td colSpan={6} className="px-3 py-2 text-right text-[#8b949e] text-[11px] font-bold">Import ({Math.round(category.importRatePercent * 100)}% of cost)</td>
-                      <td className="px-3 py-2 text-right text-amber-400 text-[12px] font-extrabold">{(category.lineItems.reduce((s, li) => s + recalcLineItem(li, exchangeRate).costTotal, 0) * category.importRatePercent).toFixed(2)}</td>
+                      <td colSpan={6} className="px-3 py-2 text-right text-[#8b949e] text-[12px] font-bold">Import ({Math.round(category.importRatePercent * 100)}% of cost)</td>
+                      <td className="px-3 py-2 text-right text-amber-400 text-[13px] font-extrabold">{(category.lineItems.reduce((s, li) => s + recalcLineItem(li, exchangeRate).costTotal, 0) * category.importRatePercent).toFixed(2)}</td>
                       <td colSpan={2}></td>
                     </tr>
                   )}
                 </Fragment>
               ))}
-              <tr style={{ background: "rgba(255,255,255,0.04)" }}><td colSpan={6} className="px-3 py-2.5 text-right text-white text-[12px] font-extrabold uppercase">System Subtotal</td><td className="px-3 py-2.5 text-right text-white text-[13px] font-extrabold">{systemSubtotal.toFixed(2)}</td><td className="px-3 py-2.5 text-right text-white text-[13px] font-extrabold">{systemSellTotal.toFixed(2)}</td><td className="px-3 py-2.5 text-right text-emerald-400 text-[13px] font-extrabold">{systemProfit.toFixed(2)}</td></tr>
-              <tr style={{ background: "rgba(255,255,255,0.02)" }}><td colSpan={6} className="px-3 py-2 text-right text-[#8b949e] text-[11px]">Cost Total</td><td className="px-3 py-2 text-right text-white text-[12px] font-extrabold">{systemCostTotal.toFixed(2)}</td><td colSpan={2}></td></tr>
-              <tr style={{ background: "rgba(255,255,255,0.02)" }}><td colSpan={6} className="px-3 py-2 text-right text-[#8b949e] text-[11px]">Import Total</td><td className="px-3 py-2 text-right text-white text-[12px] font-extrabold">{systemImportTotal.toFixed(2)}</td><td colSpan={2}></td></tr>
-              <tr style={{ background: "rgba(255,255,255,0.02)" }}><td colSpan={6} className="px-3 py-2 text-right text-[#8b949e] text-[11px]">Profit</td><td colSpan={2}></td><td className="px-3 py-2 text-right text-emerald-400 text-[12px] font-extrabold">{systemProfit.toFixed(2)}</td></tr>
+              <tr style={{ background: "rgba(255,255,255,0.04)" }}><td colSpan={6} className="px-3 py-2.5 text-right text-white text-[13px] font-extrabold uppercase">System Subtotal</td><td className="px-3 py-2.5 text-right text-white text-[14px] font-extrabold">{systemSubtotal.toFixed(2)}</td><td className="px-3 py-2.5 text-right text-white text-[14px] font-extrabold">{systemSellTotal.toFixed(2)}</td><td className="px-3 py-2.5 text-right text-emerald-400 text-[14px] font-extrabold">{systemProfit.toFixed(2)}</td></tr>
+              <tr style={{ background: "rgba(255,255,255,0.02)" }}><td colSpan={6} className="px-3 py-2 text-right text-[#8b949e] text-[12px]">Cost Total</td><td className="px-3 py-2 text-right text-white text-[13px] font-extrabold">{systemCostTotal.toFixed(2)}</td><td colSpan={2}></td></tr>
+              <tr style={{ background: "rgba(255,255,255,0.02)" }}><td colSpan={6} className="px-3 py-2 text-right text-[#8b949e] text-[12px]">Import Total</td><td className="px-3 py-2 text-right text-white text-[13px] font-extrabold">{systemImportTotal.toFixed(2)}</td><td colSpan={2}></td></tr>
+              <tr style={{ background: "rgba(255,255,255,0.02)" }}><td colSpan={6} className="px-3 py-2 text-right text-[#8b949e] text-[12px]">Profit</td><td colSpan={2}></td><td className="px-3 py-2 text-right text-emerald-400 text-[13px] font-extrabold">{systemProfit.toFixed(2)}</td></tr>
             </tbody>
           </table>
         </div>
       </div>
-      <div className="text-[#8b949e] text-[10px] italic">Internal only — never included in client exports. Cost/margin data stays hidden from proposals.</div>
+      <div className="text-[#8b949e] text-[11px] italic">Internal only — never included in client exports. Cost/margin data stays hidden from proposals.</div>
     </div>
   );
 }
@@ -2823,29 +2823,29 @@ function BomTab({ quoteCategories, synthesisOverrides, exchangeRate, fmt, onLine
     <div className="space-y-4">
       <div className="flex items-center gap-2">
         {(["VSS","EAC","Intercom"] as SystemType[]).map(s => (
-          <button key={s} onClick={() => setSystemFilter(s)} className={clsx("h-7 px-3 rounded-lg text-[11px] font-extrabold cursor-pointer", systemFilter === s ? "text-white" : "text-[#8b949e]")} style={systemFilter === s ? { background: s === "VSS" ? "#3b82f6" : s === "EAC" ? "#8b5cf6" : "#14b8a6" } : G.btn}>{s}</button>
+          <button key={s} onClick={() => setSystemFilter(s)} className={clsx("h-7 px-3 rounded-lg text-[12px] font-extrabold cursor-pointer", systemFilter === s ? "text-white" : "text-[#8b949e]")} style={systemFilter === s ? { background: s === "VSS" ? "#3b82f6" : s === "EAC" ? "#8b5cf6" : "#14b8a6" } : G.btn}>{s}</button>
         ))}
       </div>
       <div className="rounded-2xl overflow-hidden" style={G.card}>
         <div className="sticky top-0 z-10 overflow-hidden" style={{ borderBottom: "1px solid rgba(255,255,255,0.08)", background: "rgba(7,12,26,0.95)" }}>
           <div style={{ marginLeft: -stickyScrollLeft }}>
             <table style={{ minWidth: "900px" }}>
-              <thead><tr style={{ background: "rgba(255,255,255,0.03)" }}><th className="sticky left-0 z-20 px-3 py-2.5 text-[#8b949e] text-[10px] font-extrabold uppercase tracking-widest text-left" style={{ background: "rgba(7,12,26,0.95)", minWidth: "100px" }}>Item No</th><th className="px-3 py-2.5 text-[#8b949e] text-[10px] font-extrabold uppercase tracking-widest text-left" style={{ minWidth: "250px" }}>Products – Description</th><th className="px-3 py-2.5 text-[#8b949e] text-[10px] font-extrabold uppercase tracking-widest text-right" style={{ minWidth: "120px" }}>List (JMD)</th><th className="px-3 py-2.5 text-[#8b949e] text-[10px] font-extrabold uppercase tracking-widest text-center" style={{ minWidth: "60px" }}>Qty</th><th className="px-3 py-2.5 text-[#8b949e] text-[10px] font-extrabold uppercase tracking-widest text-right" style={{ minWidth: "140px" }}>Extended (JMD)</th></tr></thead>
+              <thead><tr style={{ background: "rgba(255,255,255,0.03)" }}><th className="sticky left-0 z-20 px-3 py-2.5 text-[#8b949e] text-[11px] font-extrabold uppercase tracking-widest text-left" style={{ background: "rgba(7,12,26,0.95)", minWidth: "100px" }}>Item No</th><th className="px-3 py-2.5 text-[#8b949e] text-[11px] font-extrabold uppercase tracking-widest text-left" style={{ minWidth: "250px" }}>Products – Description</th><th className="px-3 py-2.5 text-[#8b949e] text-[11px] font-extrabold uppercase tracking-widest text-right" style={{ minWidth: "120px" }}>List (JMD)</th><th className="px-3 py-2.5 text-[#8b949e] text-[11px] font-extrabold uppercase tracking-widest text-center" style={{ minWidth: "60px" }}>Qty</th><th className="px-3 py-2.5 text-[#8b949e] text-[11px] font-extrabold uppercase tracking-widest text-right" style={{ minWidth: "140px" }}>Extended (JMD)</th></tr></thead>
             </table>
           </div>
         </div>
         <div ref={bodyRef} className="overflow-x-auto" style={{ maxHeight: "calc(100vh - 420px)", scrollbarWidth: "thin" }}>
           <table style={{ minWidth: "900px" }}>
             <tbody>
-              <tr style={{ background: systemFilter === "VSS" ? "rgba(59,130,246,0.06)" : systemFilter === "EAC" ? "rgba(139,92,246,0.06)" : "rgba(20,184,166,0.06)" }}><td colSpan={5} className="sticky left-0 px-4 py-2.5 text-white text-[13px] font-extrabold uppercase tracking-widest" style={{ background: "rgba(7,12,26,0.9)" }}>{systemFilter === "VSS" ? "Video Surveillance" : systemFilter === "EAC" ? "Access Control" : "Intercom"}</td></tr>
+              <tr style={{ background: systemFilter === "VSS" ? "rgba(59,130,246,0.06)" : systemFilter === "EAC" ? "rgba(139,92,246,0.06)" : "rgba(20,184,166,0.06)" }}><td colSpan={5} className="sticky left-0 px-4 py-2.5 text-white text-[14px] font-extrabold uppercase tracking-widest" style={{ background: "rgba(7,12,26,0.9)" }}>{systemFilter === "VSS" ? "Video Surveillance" : systemFilter === "EAC" ? "Access Control" : "Intercom"}</td></tr>
               {bomData.map(section => {
                 if (section.children.length === 0) return (
                   <tr key={section.id} style={{ borderBottom: "1px solid rgba(255,255,255,0.03)" }}>
-                    <td className="sticky left-0 px-4 py-2 text-[#8b949e] text-[11px] font-mono" style={{ background: "rgba(7,12,26,0.9)" }}>{section.sectionNumber}</td>
-                    <td className="px-4 py-2 text-[#8b949e] text-[12px]">{section.name}</td>
-                    <td className="px-4 py-2 text-right text-white text-[12px]">—</td>
-                    <td className="px-4 py-2 text-center text-[#8b949e] text-[12px]">0</td>
-                    <td className="px-4 py-2 text-right text-white text-[12px] font-extrabold flex items-center justify-end gap-1">—{section.override && <OverrideIndicator isOverridden={true} />}</td>
+                    <td className="sticky left-0 px-4 py-2 text-[#8b949e] text-[12px] font-mono" style={{ background: "rgba(7,12,26,0.9)" }}>{section.sectionNumber}</td>
+                    <td className="px-4 py-2 text-[#8b949e] text-[13px]">{section.name}</td>
+                    <td className="px-4 py-2 text-right text-white text-[13px]">—</td>
+                    <td className="px-4 py-2 text-center text-[#8b949e] text-[13px]">0</td>
+                    <td className="px-4 py-2 text-right text-white text-[13px] font-extrabold flex items-center justify-end gap-1">—{section.override && <OverrideIndicator isOverridden={true} />}</td>
                   </tr>
                 );
                 return section.children.map((child, ci) => {
@@ -2855,27 +2855,27 @@ function BomTab({ quoteCategories, synthesisOverrides, exchangeRate, fmt, onLine
                   const fs = fieldSaveStatus[fieldKey];
                   return (
                     <tr key={child.item.id} style={{ borderBottom: "1px solid rgba(255,255,255,0.03)" }}>
-                      <td className="sticky left-0 px-4 py-2 text-[#8b949e] text-[11px] font-mono" style={{ background: "rgba(7,12,26,0.9)", paddingLeft: section.children.length > 1 ? "28px" : "16px" }}>{child.subNumber}</td>
-                      <td className="px-4 py-2 text-white text-[12px] font-bold max-w-[250px] truncate">{child.item.description}</td>
-                      <td className="px-4 py-2 text-right text-white text-[12px]">{fmt(listPriceJMD)}</td>
+                      <td className="sticky left-0 px-4 py-2 text-[#8b949e] text-[12px] font-mono" style={{ background: "rgba(7,12,26,0.9)", paddingLeft: section.children.length > 1 ? "28px" : "16px" }}>{child.subNumber}</td>
+                      <td className="px-4 py-2 text-white text-[13px] font-bold max-w-[250px] truncate">{child.item.description}</td>
+                      <td className="px-4 py-2 text-right text-white text-[13px]">{fmt(listPriceJMD)}</td>
                       <td className="px-4 py-2 text-center"><InlineEditCell type="number" value={child.item.quantity} onChange={(val) => onLineItemUpdate(section.id, child.item.id, { quantity: parseInt(val) || 0 })} /></td>
-                      <td className="px-4 py-2 text-right text-white text-[12px] font-extrabold flex items-center justify-end gap-1">{fmt(extendedJMD)}{fs === "saving" && <Loader2 className="w-2.5 h-2.5 animate-spin text-[#8b949e]" />}{fs === "saved" && <CheckCircle2 className="w-2.5 h-2.5 text-emerald-400" />}</td>
+                      <td className="px-4 py-2 text-right text-white text-[13px] font-extrabold flex items-center justify-end gap-1">{fmt(extendedJMD)}{fs === "saving" && <Loader2 className="w-2.5 h-2.5 animate-spin text-[#8b949e]" />}{fs === "saved" && <CheckCircle2 className="w-2.5 h-2.5 text-emerald-400" />}</td>
                     </tr>
                   );
                 });
               })}
               {bomData.filter(b => b.importAmount > 0).map(section => (
                 <tr key={`import-${section.id}`} style={{ borderBottom: "1px solid rgba(255,255,255,0.03)" }}>
-                  <td className="sticky left-0 px-4 py-2 text-[#8b949e] text-[11px] font-mono" style={{ background: "rgba(7,12,26,0.9)" }}>{section.sectionNumber}.9</td>
-                  <td className="px-4 py-2 text-amber-400 text-[12px] font-bold">Import ({Math.round(section.importRatePercent * 100)}%)</td>
-                  <td className="px-4 py-2 text-right text-amber-400 text-[12px]">{fmt(section.importAmount * exchangeRate)}</td>
-                  <td className="px-4 py-2 text-center text-[#8b949e] text-[12px]">1</td>
-                  <td className="px-4 py-2 text-right text-amber-400 text-[12px] font-extrabold">{fmt(section.importAmount * exchangeRate)}</td>
+                  <td className="sticky left-0 px-4 py-2 text-[#8b949e] text-[12px] font-mono" style={{ background: "rgba(7,12,26,0.9)" }}>{section.sectionNumber}.9</td>
+                  <td className="px-4 py-2 text-amber-400 text-[13px] font-bold">Import ({Math.round(section.importRatePercent * 100)}%)</td>
+                  <td className="px-4 py-2 text-right text-amber-400 text-[13px]">{fmt(section.importAmount * exchangeRate)}</td>
+                  <td className="px-4 py-2 text-center text-[#8b949e] text-[13px]">1</td>
+                  <td className="px-4 py-2 text-right text-amber-400 text-[13px] font-extrabold">{fmt(section.importAmount * exchangeRate)}</td>
                 </tr>
               ))}
-              <tr style={{ background: "rgba(255,255,255,0.04)" }}><td colSpan={4} className="px-4 py-2.5 text-right text-white text-[12px] font-extrabold uppercase">Subtotal</td><td className="px-4 py-2.5 text-right text-white text-[14px] font-extrabold">{fmt(grandTotal)}</td></tr>
-              <tr><td colSpan={4} className="px-4 py-2 text-right text-[#8b949e] text-[12px]">GCT (15%)</td><td className="px-4 py-2 text-right text-white text-[13px] font-extrabold">{fmt(tax)}</td></tr>
-              <tr style={{ background: "rgba(255,255,255,0.04)" }}><td colSpan={4} className="px-4 py-2.5 text-right text-white text-[14px] font-extrabold uppercase">Total</td><td className="px-4 py-2.5 text-right text-white text-[15px] font-black" style={{ color: "#60a5fa" }}>{fmt(totalWithTax)}</td></tr>
+              <tr style={{ background: "rgba(255,255,255,0.04)" }}><td colSpan={4} className="px-4 py-2.5 text-right text-white text-[13px] font-extrabold uppercase">Subtotal</td><td className="px-4 py-2.5 text-right text-white text-[15px] font-extrabold">{fmt(grandTotal)}</td></tr>
+              <tr><td colSpan={4} className="px-4 py-2 text-right text-[#8b949e] text-[13px]">GCT (15%)</td><td className="px-4 py-2 text-right text-white text-[14px] font-extrabold">{fmt(tax)}</td></tr>
+              <tr style={{ background: "rgba(255,255,255,0.04)" }}><td colSpan={4} className="px-4 py-2.5 text-right text-white text-[15px] font-extrabold uppercase">Total</td><td className="px-4 py-2.5 text-right text-white text-[16px] font-black" style={{ color: "#60a5fa" }}>{fmt(totalWithTax)}</td></tr>
             </tbody>
           </table>
         </div>
@@ -2925,11 +2925,11 @@ function SynthesisTab({ quoteCategories, synthesisOverrides, exchangeRate, fmt, 
     const fs = fieldSaveStatus[fieldKey];
     return (
       <tr key={section.section} style={{ borderBottom: "1px solid rgba(255,255,255,0.03)" }}>
-        <td className="px-4 py-2 text-[#8b949e] text-[11px] font-mono">{section.section}</td>
-        <td className="px-4 py-2 text-white text-[12px] font-bold">{section.name}</td>
-        <td className={clsx("px-4 py-2 text-[12px] font-extrabold text-right flex items-center justify-end gap-1", isOverridden ? "text-amber-400" : "text-[#8b949e]")}>
+        <td className="px-4 py-2 text-[#8b949e] text-[12px] font-mono">{section.section}</td>
+        <td className="px-4 py-2 text-white text-[13px] font-bold">{section.name}</td>
+        <td className={clsx("px-4 py-2 text-[13px] font-extrabold text-right flex items-center justify-end gap-1", isOverridden ? "text-amber-400" : "text-[#8b949e]")}>
           {editingSection === section.section ? (
-            <div className="flex items-center gap-1"><input type="number" value={editValue} onChange={e => setEditValue(e.target.value)} className="bg-transparent text-white text-[12px] w-24 text-right focus:outline-none" style={G.input} autoFocus onKeyDown={e => { if (e.key === "Enter") handleSaveEdit(section.section); if (e.key === "Escape") setEditingSection(null); }} /><button onClick={() => handleSaveEdit(section.section)} className="w-5 h-5 rounded flex items-center justify-center cursor-pointer" style={{ background: "rgba(16,185,129,0.15)" }}><CheckCircle2 className="w-3 h-3 text-emerald-400" /></button></div>
+            <div className="flex items-center gap-1"><input type="number" value={editValue} onChange={e => setEditValue(e.target.value)} className="bg-transparent text-white text-[13px] w-24 text-right focus:outline-none" style={G.input} autoFocus onKeyDown={e => { if (e.key === "Enter") handleSaveEdit(section.section); if (e.key === "Escape") setEditingSection(null); }} /><button onClick={() => handleSaveEdit(section.section)} className="w-5 h-5 rounded flex items-center justify-center cursor-pointer" style={{ background: "rgba(16,185,129,0.15)" }}><CheckCircle2 className="w-3 h-3 text-emerald-400" /></button></div>
           ) : (<span className="cursor-pointer" onClick={() => handleStartEdit(section.section, value)}>{value > 0 ? fmt(value) : "—"}</span>)}
           {isOverridden && <OverrideIndicator isOverridden={true} onReset={() => handleResetOverride(section.section)} />}
           {fs === "saving" && <Loader2 className="w-2.5 h-2.5 animate-spin text-[#8b949e]" />}
@@ -2944,35 +2944,35 @@ function SynthesisTab({ quoteCategories, synthesisOverrides, exchangeRate, fmt, 
       <div className="rounded-2xl overflow-hidden" style={G.card}>
         <div className="overflow-x-auto">
           <table className="w-full" style={{ minWidth: "700px" }}>
-            <thead><tr style={{ borderBottom: "1px solid rgba(255,255,255,0.08)", background: "rgba(255,255,255,0.03)" }}><th className="px-3 py-2.5 text-[#8b949e] text-[10px] font-extrabold uppercase tracking-widest text-left">Item No</th><th className="px-3 py-2.5 text-[#8b949e] text-[10px] font-extrabold uppercase tracking-widest text-left">DESIGNATION</th><th className="px-3 py-2.5 text-[#8b949e] text-[10px] font-extrabold uppercase tracking-widest text-right">Unit Price</th></tr></thead>
+            <thead><tr style={{ borderBottom: "1px solid rgba(255,255,255,0.08)", background: "rgba(255,255,255,0.03)" }}><th className="px-3 py-2.5 text-[#8b949e] text-[11px] font-extrabold uppercase tracking-widest text-left">Item No</th><th className="px-3 py-2.5 text-[#8b949e] text-[11px] font-extrabold uppercase tracking-widest text-left">DESIGNATION</th><th className="px-3 py-2.5 text-[#8b949e] text-[11px] font-extrabold uppercase tracking-widest text-right">Unit Price</th></tr></thead>
             <tbody>
-              <tr style={{ background: "rgba(59,130,246,0.06)", cursor: "pointer" }} onClick={() => setCollapsedVideo(!collapsedVideo)}><td colSpan={3} className="px-4 py-2.5 text-white text-[13px] font-extrabold uppercase tracking-widest flex items-center gap-2">{collapsedVideo ? <ChevronRight className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />} Video Surveillance</td></tr>
+              <tr style={{ background: "rgba(59,130,246,0.06)", cursor: "pointer" }} onClick={() => setCollapsedVideo(!collapsedVideo)}><td colSpan={3} className="px-4 py-2.5 text-white text-[14px] font-extrabold uppercase tracking-widest flex items-center gap-2">{collapsedVideo ? <ChevronRight className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />} Video Surveillance</td></tr>
               {!collapsedVideo && videoSections.map(renderSection)}
-              {!collapsedVideo && <tr style={{ background: "rgba(255,255,255,0.04)" }}><td colSpan={2} className="px-4 py-2 text-[#8b949e] text-[11px] font-extrabold text-right uppercase">Total Video</td><td className="px-4 py-2 text-white text-[13px] font-extrabold text-right">{fmt(videoTotal)}</td></tr>}
+              {!collapsedVideo && <tr style={{ background: "rgba(255,255,255,0.04)" }}><td colSpan={2} className="px-4 py-2 text-[#8b949e] text-[12px] font-extrabold text-right uppercase">Total Video</td><td className="px-4 py-2 text-white text-[14px] font-extrabold text-right">{fmt(videoTotal)}</td></tr>}
               <tr><td colSpan={3} className="px-4 py-1"></td></tr>
-              <tr style={{ background: "rgba(139,92,246,0.06)", cursor: "pointer" }} onClick={() => setCollapsedAccess(!collapsedAccess)}><td colSpan={3} className="px-4 py-2.5 text-white text-[13px] font-extrabold uppercase tracking-widest flex items-center gap-2">{collapsedAccess ? <ChevronRight className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />} Access Control</td></tr>
+              <tr style={{ background: "rgba(139,92,246,0.06)", cursor: "pointer" }} onClick={() => setCollapsedAccess(!collapsedAccess)}><td colSpan={3} className="px-4 py-2.5 text-white text-[14px] font-extrabold uppercase tracking-widest flex items-center gap-2">{collapsedAccess ? <ChevronRight className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />} Access Control</td></tr>
               {!collapsedAccess && accessSections.map(renderSection)}
-              {!collapsedAccess && <tr style={{ background: "rgba(255,255,255,0.04)" }}><td colSpan={2} className="px-4 py-2 text-[#8b949e] text-[11px] font-extrabold text-right uppercase">Total Access</td><td className="px-4 py-2 text-white text-[13px] font-extrabold text-right">{fmt(accessTotal)}</td></tr>}
+              {!collapsedAccess && <tr style={{ background: "rgba(255,255,255,0.04)" }}><td colSpan={2} className="px-4 py-2 text-[#8b949e] text-[12px] font-extrabold text-right uppercase">Total Access</td><td className="px-4 py-2 text-white text-[14px] font-extrabold text-right">{fmt(accessTotal)}</td></tr>}
               <tr><td colSpan={3} className="px-4 py-1"></td></tr>
-              <tr style={{ background: "rgba(20,184,166,0.06)", cursor: "pointer" }} onClick={() => setCollapsedIntercom(!collapsedIntercom)}><td colSpan={3} className="px-4 py-2.5 text-white text-[13px] font-extrabold uppercase tracking-widest flex items-center gap-2">{collapsedIntercom ? <ChevronRight className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />} Intercom</td></tr>
+              <tr style={{ background: "rgba(20,184,166,0.06)", cursor: "pointer" }} onClick={() => setCollapsedIntercom(!collapsedIntercom)}><td colSpan={3} className="px-4 py-2.5 text-white text-[14px] font-extrabold uppercase tracking-widest flex items-center gap-2">{collapsedIntercom ? <ChevronRight className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />} Intercom</td></tr>
               {!collapsedIntercom && intercomSections.map(renderSection)}
-              {!collapsedIntercom && <tr style={{ background: "rgba(255,255,255,0.04)" }}><td colSpan={2} className="px-4 py-2 text-[#8b949e] text-[11px] font-extrabold text-right uppercase">Total Intercom</td><td className="px-4 py-2 text-white text-[13px] font-extrabold text-right">{fmt(intercomTotal)}</td></tr>}
+              {!collapsedIntercom && <tr style={{ background: "rgba(255,255,255,0.04)" }}><td colSpan={2} className="px-4 py-2 text-[#8b949e] text-[12px] font-extrabold text-right uppercase">Total Intercom</td><td className="px-4 py-2 text-white text-[14px] font-extrabold text-right">{fmt(intercomTotal)}</td></tr>}
             </tbody>
           </table>
         </div>
       </div>
       <div className="rounded-2xl p-4 mt-4" style={{ ...G.card, background: "rgba(59,130,246,0.06)", border: "1px solid rgba(59,130,246,0.20)" }}>
         <div className="space-y-2">
-          <div className="flex justify-between py-1"><span className="text-[#8b949e] text-[12px]">Grand Total</span><span className="text-white text-[15px] font-extrabold">{fmt(grandTotal)}</span></div>
-          <div className="flex justify-between py-1"><span className="text-[#8b949e] text-[13px]">Tax (GCT 15%)</span><span className="text-[#8b949e] text-[13px] font-extrabold">{fmt(tax)}</span></div>
-          <div className="flex justify-between py-2 border-t-2 border-white/10"><span className="text-white text-[15px] font-extrabold">Grand Total with Tax</span><span className="text-white text-[1.2rem] font-black" style={{ color: "#60a5fa" }}>{fmt(totalWithTax)}</span></div>
+          <div className="flex justify-between py-1"><span className="text-[#8b949e] text-[13px]">Grand Total</span><span className="text-white text-[16px] font-extrabold">{fmt(grandTotal)}</span></div>
+          <div className="flex justify-between py-1"><span className="text-[#8b949e] text-[14px]">Tax (GCT 15%)</span><span className="text-[#8b949e] text-[14px] font-extrabold">{fmt(tax)}</span></div>
+          <div className="flex justify-between py-2 border-t-2 border-white/10"><span className="text-white text-[16px] font-extrabold">Grand Total with Tax</span><span className="text-white text-[1.3rem] font-black" style={{ color: "#60a5fa" }}>{fmt(totalWithTax)}</span></div>
         </div>
       </div>
       <div className="rounded-2xl p-4 mt-3" style={G.subtle}>
-        <p className="text-[#8b949e] text-[11px] font-extrabold uppercase tracking-widest mb-2">Reference</p>
-        <div className="flex justify-between py-1"><span className="text-[#8b949e] text-[12px]">Suggested PM (5%)</span><span className="text-[#8b949e] text-[13px] font-extrabold">{fmt(suggestedPM)}</span></div>
-        <div className="flex justify-between py-1"><span className="text-[#8b949e] text-[12px]">Suggested Contingency (10%)</span><span className="text-[#8b949e] text-[13px] font-extrabold">{fmt(suggestedContingency)}</span></div>
-        <p className="text-[#484f58] text-[10px] italic mt-2">Not applied to any total — informational only.</p>
+        <p className="text-[#8b949e] text-[12px] font-extrabold uppercase tracking-widest mb-2">Reference</p>
+        <div className="flex justify-between py-1"><span className="text-[#8b949e] text-[13px]">Suggested PM (5%)</span><span className="text-[#8b949e] text-[14px] font-extrabold">{fmt(suggestedPM)}</span></div>
+        <div className="flex justify-between py-1"><span className="text-[#8b949e] text-[13px]">Suggested Contingency (10%)</span><span className="text-[#8b949e] text-[14px] font-extrabold">{fmt(suggestedContingency)}</span></div>
+        <p className="text-[#484f58] text-[11px] italic mt-2">Not applied to any total — informational only.</p>
       </div>
     </div>
   );
@@ -3006,11 +3006,11 @@ function AssetListTab({ quoteCategories, canvasDevices, storeDevices, exchangeRa
   return (
     <div className="space-y-4">
       <SummaryBar totalCost={totalCost} totalSell={totalSell} blendedMargin={blendedMargin} fmt={fmt} />
-      <div className="flex items-center gap-2 mb-2"><button onClick={() => setClientExportMode(!clientExportMode)} className={clsx("h-7 px-3 rounded-lg text-[11px] font-bold cursor-pointer", clientExportMode ? "text-white" : "text-[#8b949e]")} style={clientExportMode ? { background: "rgba(16,185,129,0.15)", border: "1px solid rgba(16,185,129,0.30)" } : G.btn}><EyeOff className="w-3 h-3 mr-1" />{clientExportMode ? "Client View" : "Internal View"}</button></div>
+      <div className="flex items-center gap-2 mb-2"><button onClick={() => setClientExportMode(!clientExportMode)} className={clsx("h-7 px-3 rounded-lg text-[12px] font-bold cursor-pointer", clientExportMode ? "text-white" : "text-[#8b949e]")} style={clientExportMode ? { background: "rgba(16,185,129,0.15)", border: "1px solid rgba(16,185,129,0.30)" } : G.btn}><EyeOff className="w-3 h-3 mr-1" />{clientExportMode ? "Client View" : "Internal View"}</button></div>
       {canvasDevices.length > 0 && (
         <div className="rounded-2xl overflow-hidden" style={G.card}>
-          <div className="w-full px-4 py-3 flex items-center justify-between" style={{ borderBottom: "1px solid rgba(255,255,255,0.06)", background: "rgba(255,255,255,0.02)" }}><div className="flex items-center gap-2"><h3 className="text-white text-[14px] font-extrabold">Canvas Devices</h3><span className="text-[#8b949e] text-[11px]">({canvasDevices.length})</span></div></div>
-          <div className="overflow-x-auto"><table className="w-full" style={{ minWidth: clientExportMode ? "400px" : "800px" }}><thead><tr style={{ borderBottom: "1px solid rgba(255,255,255,0.06)" }}><th className="px-3 py-2.5 text-[#8b949e] text-[10px] font-extrabold uppercase tracking-widest text-left">Item</th><th className="px-3 py-2.5 text-[#8b949e] text-[10px] font-extrabold uppercase tracking-widest text-center">QTY</th>{!clientExportMode && <><th className="px-3 py-2.5 text-[#8b949e] text-[10px] font-extrabold uppercase tracking-widest text-right">Cost</th><th className="px-3 py-2.5 text-[#8b949e] text-[10px] font-extrabold uppercase tracking-widest text-right">Markup %</th></>}<th className="px-3 py-2.5 text-[#8b949e] text-[10px] font-extrabold uppercase tracking-widest text-right">Sell</th>{!clientExportMode && <th className="px-3 py-2.5 text-[#8b949e] text-[10px] font-extrabold uppercase tracking-widest text-right">Cost Total</th>}<th className="px-3 py-2.5 text-[#8b949e] text-[10px] font-extrabold uppercase tracking-widest text-right">Total</th>{!clientExportMode && <th className="px-3 py-2.5 text-[#8b949e] text-[10px] font-extrabold uppercase tracking-widest text-right">Profit</th>}</tr></thead><tbody>{allItems.filter(i => i.isCanvasDevice).map(item => (<tr key={item.id} style={{ borderBottom: "1px solid rgba(255,255,255,0.03)" }}><td className="px-3 py-2.5 text-white text-[12px] font-bold">{item.item}</td><td className="px-3 py-2.5 text-white text-[12px] text-center">{item.qty}</td>{!clientExportMode && <><td className="px-3 py-2.5 text-[#8b949e] text-[12px] text-right">{fmt(item.cost)}</td><td className="px-3 py-2.5 text-[#8b949e] text-[12px] text-right">{(item.markupPercent * 100).toFixed(0)}%</td></>}<td className="px-3 py-2.5 text-white text-[12px] font-extrabold text-right">{fmt(item.sell)}</td>{!clientExportMode && <td className="px-3 py-2.5 text-[#8b949e] text-[12px] text-right">{fmt(item.costTotal)}</td>}<td className="px-3 py-2.5 text-white text-[12px] font-extrabold text-right">{fmt(item.total)}</td>{!clientExportMode && <td className="px-3 py-2.5 text-[11px] font-extrabold text-right" style={{ color: item.profit >= 0 ? "#34d399" : "#f87171" }}>{fmt(item.profit)}</td>}</tr>))}</tbody></table></div>
+          <div className="w-full px-4 py-3 flex items-center justify-between" style={{ borderBottom: "1px solid rgba(255,255,255,0.06)", background: "rgba(255,255,255,0.02)" }}><div className="flex items-center gap-2"><h3 className="text-white text-[15px] font-extrabold">Canvas Devices</h3><span className="text-[#8b949e] text-[12px]">({canvasDevices.length})</span></div></div>
+          <div className="overflow-x-auto"><table className="w-full" style={{ minWidth: clientExportMode ? "400px" : "800px" }}><thead><tr style={{ borderBottom: "1px solid rgba(255,255,255,0.06)" }}><th className="px-3 py-2.5 text-[#8b949e] text-[11px] font-extrabold uppercase tracking-widest text-left">Item</th><th className="px-3 py-2.5 text-[#8b949e] text-[11px] font-extrabold uppercase tracking-widest text-center">QTY</th>{!clientExportMode && <><th className="px-3 py-2.5 text-[#8b949e] text-[11px] font-extrabold uppercase tracking-widest text-right">Cost</th><th className="px-3 py-2.5 text-[#8b949e] text-[11px] font-extrabold uppercase tracking-widest text-right">Markup %</th></>}<th className="px-3 py-2.5 text-[#8b949e] text-[11px] font-extrabold uppercase tracking-widest text-right">Sell</th>{!clientExportMode && <th className="px-3 py-2.5 text-[#8b949e] text-[11px] font-extrabold uppercase tracking-widest text-right">Cost Total</th>}<th className="px-3 py-2.5 text-[#8b949e] text-[11px] font-extrabold uppercase tracking-widest text-right">Total</th>{!clientExportMode && <th className="px-3 py-2.5 text-[#8b949e] text-[11px] font-extrabold uppercase tracking-widest text-right">Profit</th>}</tr></thead><tbody>{allItems.filter(i => i.isCanvasDevice).map(item => (<tr key={item.id} style={{ borderBottom: "1px solid rgba(255,255,255,0.03)" }}><td className="px-3 py-2.5 text-white text-[13px] font-bold">{item.item}</td><td className="px-3 py-2.5 text-white text-[13px] text-center">{item.qty}</td>{!clientExportMode && <><td className="px-3 py-2.5 text-[#8b949e] text-[13px] text-right">{fmt(item.cost)}</td><td className="px-3 py-2.5 text-[#8b949e] text-[13px] text-right">{(item.markupPercent * 100).toFixed(0)}%</td></>}<td className="px-3 py-2.5 text-white text-[13px] font-extrabold text-right">{fmt(item.sell)}</td>{!clientExportMode && <td className="px-3 py-2.5 text-[#8b949e] text-[13px] text-right">{fmt(item.costTotal)}</td>}<td className="px-3 py-2.5 text-white text-[13px] font-extrabold text-right">{fmt(item.total)}</td>{!clientExportMode && <td className="px-3 py-2.5 text-[12px] font-extrabold text-right" style={{ color: item.profit >= 0 ? "#34d399" : "#f87171" }}>{fmt(item.profit)}</td>}</tr>))}</tbody></table></div>
         </div>
       )}
       {quoteCategories.filter(c => !c.name.includes("Importation")).map(category => {
@@ -3020,10 +3020,10 @@ function AssetListTab({ quoteCategories, canvasDevices, storeDevices, exchangeRa
         return (
           <div key={category.id} className="rounded-2xl overflow-hidden" style={G.card}>
             <button onClick={() => toggleCollapse(category.id)} className="w-full px-4 py-3 flex items-center justify-between hover:bg-white/[0.02] cursor-pointer" style={{ borderBottom: isCollapsed ? "none" : "1px solid rgba(255,255,255,0.06)", background: "rgba(255,255,255,0.02)" }}>
-              <div className="flex items-center gap-2"><h3 className="text-white text-[14px] font-extrabold">{category.name}</h3><span className="text-[#8b949e] text-[11px]">({items.length})</span><span className="text-[#484f58] text-[10px] font-mono">[{category.system}]</span></div>
-              <div className="flex items-center gap-3"><span className="text-[#8b949e] text-[12px] font-extrabold">{fmt(items.reduce((s,i) => s + i.total, 0))}</span>{isCollapsed ? <ChevronDown className="w-4 h-4 text-[#8b949e]" /> : <ChevronUp className="w-4 h-4 text-[#8b949e]" />}</div>
+              <div className="flex items-center gap-2"><h3 className="text-white text-[15px] font-extrabold">{category.name}</h3><span className="text-[#8b949e] text-[12px]">({items.length})</span><span className="text-[#484f58] text-[11px] font-mono">[{category.system}]</span></div>
+              <div className="flex items-center gap-3"><span className="text-[#8b949e] text-[13px] font-extrabold">{fmt(items.reduce((s,i) => s + i.total, 0))}</span>{isCollapsed ? <ChevronDown className="w-4 h-4 text-[#8b949e]" /> : <ChevronUp className="w-4 h-4 text-[#8b949e]" />}</div>
             </button>
-            {!isCollapsed && <div className="overflow-x-auto"><table className="w-full" style={{ minWidth: clientExportMode ? "400px" : "800px" }}><thead><tr style={{ borderBottom: "1px solid rgba(255,255,255,0.06)" }}><th className="px-3 py-2.5 text-[#8b949e] text-[10px] font-extrabold uppercase tracking-widest text-left">Item</th><th className="px-3 py-2.5 text-[#8b949e] text-[10px] font-extrabold uppercase tracking-widest text-center">QTY</th>{!clientExportMode && <><th className="px-3 py-2.5 text-[#8b949e] text-[10px] font-extrabold uppercase tracking-widest text-right">Cost</th><th className="px-3 py-2.5 text-[#8b949e] text-[10px] font-extrabold uppercase tracking-widest text-right">Markup %</th></>}<th className="px-3 py-2.5 text-[#8b949e] text-[10px] font-extrabold uppercase tracking-widest text-right">Sell</th>{!clientExportMode && <th className="px-3 py-2.5 text-[#8b949e] text-[10px] font-extrabold uppercase tracking-widest text-right">Cost Total</th>}<th className="px-3 py-2.5 text-[#8b949e] text-[10px] font-extrabold uppercase tracking-widest text-right">Total</th>{!clientExportMode && <th className="px-3 py-2.5 text-[#8b949e] text-[10px] font-extrabold uppercase tracking-widest text-right">Profit</th>}</tr></thead><tbody>{items.map(item => (<tr key={item.id} className="hover:bg-white/[0.02]" style={{ borderBottom: "1px solid rgba(255,255,255,0.03)" }}><td className="px-3 py-2.5"><InlineEditCell value={item.item} onChange={(val) => { if (item.sourceCategory && item.sourceItemId) { const cat = quoteCategories.find(c => c.name === item.sourceCategory); if (cat) onLineItemUpdate(cat.id, item.sourceItemId!, { description: val }); } }} /></td><td className="px-3 py-2.5"><InlineEditCell type="number" value={item.qty} onChange={(val) => { if (item.sourceCategory && item.sourceItemId) { const cat = quoteCategories.find(c => c.name === item.sourceCategory); if (cat) onLineItemUpdate(cat.id, item.sourceItemId!, { quantity: parseInt(val) || 0 }); } }} /></td>{!clientExportMode && <><td className="px-3 py-2.5"><InlineEditCell type="number" value={item.cost} onChange={(val) => { if (item.sourceCategory && item.sourceItemId) { const cat = quoteCategories.find(c => c.name === item.sourceCategory); if (cat) onLineItemUpdate(cat.id, item.sourceItemId!, { unitCost: parseFloat(val) || 0 }); } }} /></td><td className="px-3 py-2.5 text-[#8b949e] text-[12px] text-right">{(item.markupPercent * 100).toFixed(0)}%</td></>}<td className="px-3 py-2.5 text-white text-[12px] font-extrabold text-right">{fmt(item.sell)}</td>{!clientExportMode && <td className="px-3 py-2.5 text-[#8b949e] text-[12px] text-right">{fmt(item.costTotal)}</td>}<td className="px-3 py-2.5 text-white text-[12px] font-extrabold text-right">{fmt(item.total)}</td>{!clientExportMode && <td className="px-3 py-2.5 text-[11px] font-extrabold text-right" style={{ color: item.profit >= 0 ? "#34d399" : "#f87171" }}>{fmt(item.profit)}</td>}</tr>))}</tbody></table></div>}
+            {!isCollapsed && <div className="overflow-x-auto"><table className="w-full" style={{ minWidth: clientExportMode ? "400px" : "800px" }}><thead><tr style={{ borderBottom: "1px solid rgba(255,255,255,0.06)" }}><th className="px-3 py-2.5 text-[#8b949e] text-[11px] font-extrabold uppercase tracking-widest text-left">Item</th><th className="px-3 py-2.5 text-[#8b949e] text-[11px] font-extrabold uppercase tracking-widest text-center">QTY</th>{!clientExportMode && <><th className="px-3 py-2.5 text-[#8b949e] text-[11px] font-extrabold uppercase tracking-widest text-right">Cost</th><th className="px-3 py-2.5 text-[#8b949e] text-[11px] font-extrabold uppercase tracking-widest text-right">Markup %</th></>}<th className="px-3 py-2.5 text-[#8b949e] text-[11px] font-extrabold uppercase tracking-widest text-right">Sell</th>{!clientExportMode && <th className="px-3 py-2.5 text-[#8b949e] text-[11px] font-extrabold uppercase tracking-widest text-right">Cost Total</th>}<th className="px-3 py-2.5 text-[#8b949e] text-[11px] font-extrabold uppercase tracking-widest text-right">Total</th>{!clientExportMode && <th className="px-3 py-2.5 text-[#8b949e] text-[11px] font-extrabold uppercase tracking-widest text-right">Profit</th>}</tr></thead><tbody>{items.map(item => (<tr key={item.id} className="hover:bg-white/[0.02]" style={{ borderBottom: "1px solid rgba(255,255,255,0.03)" }}><td className="px-3 py-2.5"><InlineEditCell value={item.item} onChange={(val) => { if (item.sourceCategory && item.sourceItemId) { const cat = quoteCategories.find(c => c.name === item.sourceCategory); if (cat) onLineItemUpdate(cat.id, item.sourceItemId!, { description: val }); } }} /></td><td className="px-3 py-2.5"><InlineEditCell type="number" value={item.qty} onChange={(val) => { if (item.sourceCategory && item.sourceItemId) { const cat = quoteCategories.find(c => c.name === item.sourceCategory); if (cat) onLineItemUpdate(cat.id, item.sourceItemId!, { quantity: parseInt(val) || 0 }); } }} /></td>{!clientExportMode && <><td className="px-3 py-2.5"><InlineEditCell type="number" value={item.cost} onChange={(val) => { if (item.sourceCategory && item.sourceItemId) { const cat = quoteCategories.find(c => c.name === item.sourceCategory); if (cat) onLineItemUpdate(cat.id, item.sourceItemId!, { unitCost: parseFloat(val) || 0 }); } }} /></td><td className="px-3 py-2.5 text-[#8b949e] text-[13px] text-right">{(item.markupPercent * 100).toFixed(0)}%</td></>}<td className="px-3 py-2.5 text-white text-[13px] font-extrabold text-right">{fmt(item.sell)}</td>{!clientExportMode && <td className="px-3 py-2.5 text-[#8b949e] text-[13px] text-right">{fmt(item.costTotal)}</td>}<td className="px-3 py-2.5 text-white text-[13px] font-extrabold text-right">{fmt(item.total)}</td>{!clientExportMode && <td className="px-3 py-2.5 text-[12px] font-extrabold text-right" style={{ color: item.profit >= 0 ? "#34d399" : "#f87171" }}>{fmt(item.profit)}</td>}</tr>))}</tbody></table></div>}
           </div>
         );
       })}
@@ -3047,11 +3047,11 @@ function ProposalGeneratorModal({ open, onClose, projectId }: { open: boolean; o
     <div className="fixed inset-0 z-[400] flex items-center justify-center p-4" onClick={onClose}>
       <div className="absolute inset-0" style={{ background: "rgba(0,0,0,0.65)", backdropFilter: "blur(8px)" }} />
       <motion.div initial={{ opacity: 0, scale: 0.93 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.93 }} transition={{ type: "spring", damping: 26, stiffness: 360 }} onClick={e => e.stopPropagation()} className="relative z-10 w-full max-w-[480px] rounded-2xl p-6" style={G.liquidGlass}>
-        <h3 className="text-white text-[15px] font-extrabold mb-2">Generate Proposal</h3>
-        <p className="text-[#8b949e] text-[12px] mb-4">Creates a formatted PDF with project scope, device list, pricing summary, company boilerplate, and terms.</p>
+        <h3 className="text-white text-[16px] font-extrabold mb-2">Generate Proposal</h3>
+        <p className="text-[#8b949e] text-[13px] mb-4">Creates a formatted PDF with project scope, device list, pricing summary, company boilerplate, and terms.</p>
         <div className="flex gap-2">
-          <button onClick={onClose} className="flex-1 h-10 rounded-xl text-[#8b949e] text-[13px] font-bold cursor-pointer" style={G.btn}>Cancel</button>
-          <button onClick={handleGenerate} disabled={generating} className="flex-1 h-10 rounded-xl text-white text-[13px] font-extrabold cursor-pointer flex items-center justify-center gap-2" style={{ background: "#3b82f6" }}>{generating ? <Loader2 className="w-4 h-4 animate-spin" /> : <FileDown className="w-4 h-4" />}{generating ? "Generating..." : "Generate PDF"}</button>
+          <button onClick={onClose} className="flex-1 h-10 rounded-xl text-[#8b949e] text-[14px] font-bold cursor-pointer" style={G.btn}>Cancel</button>
+          <button onClick={handleGenerate} disabled={generating} className="flex-1 h-10 rounded-xl text-white text-[14px] font-extrabold cursor-pointer flex items-center justify-center gap-2" style={{ background: "#3b82f6" }}>{generating ? <Loader2 className="w-4 h-4 animate-spin" /> : <FileDown className="w-4 h-4" />}{generating ? "Generating..." : "Generate PDF"}</button>
         </div>
       </motion.div>
     </div>
@@ -3176,17 +3176,17 @@ function Workbook({ navigate }: { navigate: (p: Page) => void }) {
       {showProposalModal && <ProposalGeneratorModal open={true} onClose={() => setShowProposalModal(false)} projectId={selectedProjectId} />}
       <div className="px-4 md:px-6 py-3 flex flex-col md:flex-row md:items-center justify-between flex-shrink-0 gap-2" style={{ borderBottom: "1px solid rgba(255,255,255,0.07)" }}>
         <div>
-          <h1 className="text-white font-extrabold text-xl md:text-2xl tracking-tight">Workbook</h1>
+          <h1 className="text-white font-extrabold text-2xl md:text-3xl tracking-tight">Workbook</h1>
           <div className="flex items-center gap-2 mt-1 flex-wrap">
-            <button onClick={() => setShowProjectSelect(true)} className="flex items-center gap-1.5 text-[#8b949e] hover:text-white text-[12px] font-bold cursor-pointer" style={{ ...G.btn, padding: "4px 10px", borderRadius: "8px" }}><Building2 className="w-3 h-3" />{selectedProject ? selectedProject.name : "Select project"}<ChevronDown className="w-3 h-3" /></button>
-            {selectedQuote && <span className="text-[11px] font-extrabold px-2 py-0.5 rounded-full bg-amber-500/12 text-amber-400">{selectedQuote.refNumber} · {selectedQuote.status}</span>}
-            {saveStatus === "saving" && <span className="text-[11px] text-[#8b949e] flex items-center gap-1"><Loader2 className="w-3 h-3 animate-spin" /> Saving…</span>}
-            {saveStatus === "saved" && <span className="text-[11px] text-emerald-400 flex items-center gap-1"><CheckCircle2 className="w-3 h-3" /> Saved</span>}
+            <button onClick={() => setShowProjectSelect(true)} className="flex items-center gap-1.5 text-[#8b949e] hover:text-white text-[13px] font-bold cursor-pointer" style={{ ...G.btn, padding: "4px 10px", borderRadius: "8px" }}><Building2 className="w-3 h-3" />{selectedProject ? selectedProject.name : "Select project"}<ChevronDown className="w-3 h-3" /></button>
+            {selectedQuote && <span className="text-[12px] font-extrabold px-2 py-0.5 rounded-full bg-amber-500/12 text-amber-400">{selectedQuote.refNumber} · {selectedQuote.status}</span>}
+            {saveStatus === "saving" && <span className="text-[12px] text-[#8b949e] flex items-center gap-1"><Loader2 className="w-3 h-3 animate-spin" /> Saving…</span>}
+            {saveStatus === "saved" && <span className="text-[12px] text-emerald-400 flex items-center gap-1"><CheckCircle2 className="w-3 h-3" /> Saved</span>}
           </div>
         </div>
         <div className="flex items-center gap-2">
-          <div className="flex items-center gap-2 px-3 py-1 rounded-xl" style={G.subtle}><span className="text-[#8b949e] text-[11px] font-extrabold uppercase">FX Rate</span><span className="text-white text-[13px] font-extrabold">J$ {exchangeRate.toFixed(2)}</span></div>
-          <button onClick={() => setShowProposalModal(true)} className="flex items-center gap-1.5 h-7 px-3 rounded-lg text-white text-[11px] font-extrabold cursor-pointer" style={{ background: "#3b82f6" }}><FileDown className="w-3 h-3" /> Proposal</button>
+          <div className="flex items-center gap-2 px-3 py-1 rounded-xl" style={G.subtle}><span className="text-[#8b949e] text-[12px] font-extrabold uppercase">FX Rate</span><span className="text-white text-[14px] font-extrabold">J$ {exchangeRate.toFixed(2)}</span></div>
+          <button onClick={() => setShowProposalModal(true)} className="flex items-center gap-1.5 h-7 px-3 rounded-lg text-white text-[12px] font-extrabold cursor-pointer" style={{ background: "#3b82f6" }}><FileDown className="w-3 h-3" /> Proposal</button>
         </div>
       </div>
       {!selectedQuote && canvasDevices.length === 0 ? (
@@ -3195,7 +3195,7 @@ function Workbook({ navigate }: { navigate: (p: Page) => void }) {
         <div className="flex-1 flex flex-col overflow-hidden">
           <div className="flex items-center gap-1 px-4 py-2 overflow-x-auto flex-shrink-0" style={{ borderBottom: "1px solid rgba(255,255,255,0.06)", scrollbarWidth: "none" }}>
             {wbTabs.map((tab) => (
-              <button key={tab.id} onClick={() => setActiveTab(tab.id)} className={clsx("h-8 px-3 rounded-lg text-[12px] font-bold whitespace-nowrap cursor-pointer", activeTab === tab.id ? "text-white" : "text-[#8b949e] hover:text-white")} style={activeTab === tab.id ? { background: "rgba(59,130,246,0.20)", border: "1px solid rgba(59,130,246,0.30)" } : undefined}>{tab.label}</button>
+              <button key={tab.id} onClick={() => setActiveTab(tab.id)} className={clsx("h-8 px-3 rounded-lg text-[13px] font-bold whitespace-nowrap cursor-pointer", activeTab === tab.id ? "text-white" : "text-[#8b949e] hover:text-white")} style={activeTab === tab.id ? { background: "rgba(59,130,246,0.20)", border: "1px solid rgba(59,130,246,0.30)" } : undefined}>{tab.label}</button>
             ))}
           </div>
           <div className="flex-1 overflow-y-auto px-3 md:px-5 py-4 space-y-4" style={{ scrollbarWidth: "thin", scrollbarColor: "rgba(255,255,255,0.08) transparent" }}>
@@ -3250,18 +3250,18 @@ function DeviceSpecModal({ device, onClose }: { device: CatalogDevice; onClose: 
         <div className="w-full md:w-56 flex-shrink-0 relative flex items-center justify-center" style={{ background: "rgba(255,255,255,0.03)", minHeight: "250px" }}>
           {device.imageUrl ? <img src={device.imageUrl} alt={device.model} className="w-full h-full object-contain p-4" style={{ maxHeight: "320px" }} /> : <div className="w-full h-full flex items-center justify-center"><Camera className="w-16 h-16 text-[#8b949e]" /></div>}
           <div className="absolute bottom-4 left-4 flex flex-wrap gap-1.5">
-            <span className="inline-block px-2 py-0.5 rounded-lg text-[11px] font-extrabold uppercase" style={{ background: cc.bg, color: cc.text }}>{cc.label}</span>
-            {device.cameraType && <span className="inline-block px-2 py-0.5 rounded-lg text-[10px] font-extrabold uppercase" style={{ background: "rgba(255,255,255,0.08)", color: "#e6edf3" }}>{device.cameraType}</span>}
-            {device.tags?.map((tag) => { const ts = TAG_STYLES[tag]; return ts ? <span key={tag} className="inline-block px-2 py-0.5 rounded-lg text-[10px] font-extrabold uppercase" style={{ background: ts.bg, color: ts.text, border: `1px solid ${ts.border}` }}>{tag}</span> : null; })}
+            <span className="inline-block px-2 py-0.5 rounded-lg text-[12px] font-extrabold uppercase" style={{ background: cc.bg, color: cc.text }}>{cc.label}</span>
+            {device.cameraType && <span className="inline-block px-2 py-0.5 rounded-lg text-[11px] font-extrabold uppercase" style={{ background: "rgba(255,255,255,0.08)", color: "#e6edf3" }}>{device.cameraType}</span>}
+            {device.tags?.map((tag) => { const ts = TAG_STYLES[tag]; return ts ? <span key={tag} className="inline-block px-2 py-0.5 rounded-lg text-[11px] font-extrabold uppercase" style={{ background: ts.bg, color: ts.text, border: `1px solid ${ts.border}` }}>{tag}</span> : null; })}
           </div>
         </div>
         <div className="flex-1 flex flex-col overflow-hidden">
           <div className="px-5 md:px-6 pt-5 md:pt-6 pb-4 flex items-start justify-between flex-shrink-0" style={{ borderBottom: "1px solid rgba(255,255,255,0.07)" }}>
-            <div><p className="text-[#8b949e] text-[12px] font-bold">{device.manufacturer}</p><h2 className="text-white text-[1.2rem] font-extrabold mt-0.5">{device.model}</h2>{device.price && <p className="text-[1rem] font-extrabold mt-1" style={{ color: cc.text }}>{fmt(device.price)} <span className="text-[#8b949e] text-[11px] font-medium">/ unit</span></p>}</div>
+            <div><p className="text-[#8b949e] text-[13px] font-bold">{device.manufacturer}</p><h2 className="text-white text-[1.3rem] font-extrabold mt-0.5">{device.model}</h2>{device.price && <p className="text-[1.1rem] font-extrabold mt-1" style={{ color: cc.text }}>{fmt(device.price)} <span className="text-[#8b949e] text-[12px] font-medium">/ unit</span></p>}</div>
             <button onClick={onClose} className="w-8 h-8 rounded-xl flex items-center justify-center hover:bg-white/[0.08] cursor-pointer min-w-[44px] min-h-[44px]" style={{ border: "1px solid rgba(255,255,255,0.10)" }}><X className="w-4 h-4 text-[#8b949e]" /></button>
           </div>
-          <div className="flex-1 overflow-y-auto px-5 md:px-6 py-4"><div className="grid grid-cols-1 md:grid-cols-2 gap-2 md:gap-3">{specs.map((s) => (<div key={s.label} className="rounded-xl p-3" style={G.subtle}><p className="text-[#8b949e] text-[10px] font-extrabold uppercase tracking-widest mb-1">{s.label}</p><p className="text-white text-[12px] font-bold">{s.value}</p></div>))}</div></div>
-          <div className="px-5 md:px-6 py-4 flex items-center gap-3 flex-shrink-0" style={{ borderTop: "1px solid rgba(255,255,255,0.07)" }}><button onClick={() => { addToQuote(device); onClose(); }} className="flex items-center gap-2 h-9 px-4 rounded-xl text-white text-[12px] font-extrabold cursor-pointer min-h-[44px]" style={{ background: "#3b82f6", boxShadow: "0 4px 16px rgba(59,130,246,0.35)" }}><Plus className="w-3.5 h-3.5" /> Add to Quote</button></div>
+          <div className="flex-1 overflow-y-auto px-5 md:px-6 py-4"><div className="grid grid-cols-1 md:grid-cols-2 gap-2 md:gap-3">{specs.map((s) => (<div key={s.label} className="rounded-xl p-3" style={G.subtle}><p className="text-[#8b949e] text-[11px] font-extrabold uppercase tracking-widest mb-1">{s.label}</p><p className="text-white text-[13px] font-bold">{s.value}</p></div>))}</div></div>
+          <div className="px-5 md:px-6 py-4 flex items-center gap-3 flex-shrink-0" style={{ borderTop: "1px solid rgba(255,255,255,0.07)" }}><button onClick={() => { addToQuote(device); onClose(); }} className="flex items-center gap-2 h-9 px-4 rounded-xl text-white text-[13px] font-extrabold cursor-pointer min-h-[44px]" style={{ background: "#3b82f6", boxShadow: "0 4px 16px rgba(59,130,246,0.35)" }}><Plus className="w-3.5 h-3.5" /> Add to Quote</button></div>
         </div>
       </motion.div>
     </div>
@@ -3338,24 +3338,24 @@ function DeviceLibrary({ navigate: _navigate }: { navigate: (p: Page) => void })
     <div className="px-3 md:px-5 py-4 md:py-6">
       {selectedDevice && <DeviceSpecModal device={selectedDevice} onClose={() => setSelectedDevice(null)} />}
       <div className="flex items-center justify-between mb-4 md:mb-6">
-        <div><h1 className="text-white font-extrabold text-xl md:text-2xl tracking-tight">Device Library</h1><p className="text-[#8b949e] text-[12px] mt-0.5">{activeTab === "store" ? `${filtered.length} products` : `${inventory.length} inventory items`}</p></div>
+        <div><h1 className="text-white font-extrabold text-2xl md:text-3xl tracking-tight">Device Library</h1><p className="text-[#8b949e] text-[13px] mt-0.5">{activeTab === "store" ? `${filtered.length} products` : `${inventory.length} inventory items`}</p></div>
         <div className="flex items-center h-8 rounded-xl overflow-hidden" style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.10)" }}>
-          <button onClick={() => setActiveTab("store")} className="h-full px-3 text-[11px] font-extrabold cursor-pointer" style={activeTab === "store" ? { background: "#3b82f6", color: "#fff" } : { color: "#8b949e" }}>Device Store</button>
-          <button onClick={() => setActiveTab("inventory")} className="h-full px-3 text-[11px] font-extrabold cursor-pointer" style={activeTab === "inventory" ? { background: "#8b5cf6", color: "#fff" } : { color: "#8b949e" }}>Inventory</button>
+          <button onClick={() => setActiveTab("store")} className="h-full px-3 text-[12px] font-extrabold cursor-pointer" style={activeTab === "store" ? { background: "#3b82f6", color: "#fff" } : { color: "#8b949e" }}>Device Store</button>
+          <button onClick={() => setActiveTab("inventory")} className="h-full px-3 text-[12px] font-extrabold cursor-pointer" style={activeTab === "inventory" ? { background: "#8b5cf6", color: "#fff" } : { color: "#8b949e" }}>Inventory</button>
         </div>
       </div>
       {activeTab === "store" ? (
         <>
           <div className="mb-4 md:mb-5 flex items-center gap-2 flex-wrap">
-            <div className="relative flex-1 min-w-[160px] max-w-sm"><Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[#8b949e]" /><input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search model, SKU, tags…" className="h-9 rounded-xl pl-9 w-full text-[13px] text-[#e6edf3] focus:outline-none" style={G.input} /></div>
-            <div className="flex gap-1.5 flex-wrap">{categories.map((c) => (<button key={c.id} onClick={() => setCategoryFilter(c.id)} className="h-8 px-2.5 rounded-xl text-[12px] font-bold cursor-pointer whitespace-nowrap" style={categoryFilter===c.id?{background:"rgba(59,130,246,0.15)",color:"#60a5fa",border:"1px solid rgba(59,130,246,0.35)"}:{...G.btn,color:"#8b949e"}}>{c.label}</button>))}</div>
-            <select value={systemFilter} onChange={(e) => setSystemFilter(e.target.value as SystemType | "all")} className="h-8 rounded-xl px-2 text-[12px] cursor-pointer" style={{ ...G.btn, background: "#0d1117", color: "#e6edf3" }}>
+            <div className="relative flex-1 min-w-[160px] max-w-sm"><Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[#8b949e]" /><input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search model, SKU, tags…" className="h-9 rounded-xl pl-9 w-full text-[14px] text-[#e6edf3] focus:outline-none" style={G.input} /></div>
+            <div className="flex gap-1.5 flex-wrap">{categories.map((c) => (<button key={c.id} onClick={() => setCategoryFilter(c.id)} className="h-8 px-2.5 rounded-xl text-[13px] font-bold cursor-pointer whitespace-nowrap" style={categoryFilter===c.id?{background:"rgba(59,130,246,0.15)",color:"#60a5fa",border:"1px solid rgba(59,130,246,0.35)"}:{...G.btn,color:"#8b949e"}}>{c.label}</button>))}</div>
+            <select value={systemFilter} onChange={(e) => setSystemFilter(e.target.value as SystemType | "all")} className="h-8 rounded-xl px-2 text-[13px] cursor-pointer" style={{ ...G.btn, background: "#0d1117", color: "#e6edf3" }}>
               <option value="all" style={{ background: "#0d1117", color: "#e6edf3" }}>All Systems</option>
               <option value="VSS" style={{ background: "#0d1117", color: "#e6edf3" }}>VSS</option>
               <option value="EAC" style={{ background: "#0d1117", color: "#e6edf3" }}>EAC</option>
               <option value="Intercom" style={{ background: "#0d1117", color: "#e6edf3" }}>Intercom</option>
             </select>
-            <label className="flex items-center gap-1.5 h-8 px-3 rounded-xl text-[#8b949e] text-[12px] font-bold hover:text-white cursor-pointer" style={G.btn}><Upload className="w-3.5 h-3.5" /> {csvUploading ? "Importing…" : "Import CSV"}<input type="file" accept=".csv" className="hidden" onChange={handleCSVUpload} disabled={csvUploading} /></label>
+            <label className="flex items-center gap-1.5 h-8 px-3 rounded-xl text-[#8b949e] text-[13px] font-bold hover:text-white cursor-pointer" style={G.btn}><Upload className="w-3.5 h-3.5" /> {csvUploading ? "Importing…" : "Import CSV"}<input type="file" accept=".csv" className="hidden" onChange={handleCSVUpload} disabled={csvUploading} /></label>
           </div>
           {devices.length === 0 ? <EmptyState icon={Store} title="Device store is empty" description="Import a CSV to populate the catalog." /> : filtered.length === 0 ? <EmptyState icon={Search} title="No devices match" description="Try adjusting filters." /> : (
             <div className="grid gap-3 md:gap-4" style={{ gridTemplateColumns: "repeat(auto-fill, minmax(200px, 1fr))" }}>
@@ -3366,16 +3366,16 @@ function DeviceLibrary({ navigate: _navigate }: { navigate: (p: Page) => void })
                     <div className="relative h-32 md:h-36 overflow-hidden" style={{ background: "rgba(255,255,255,0.03)" }}>
                       {device.imageUrl ? <img src={device.imageUrl} alt={device.model} className="w-full h-full object-contain p-3 opacity-70 group-hover:opacity-90" /> : <div className="w-full h-full flex items-center justify-center"><Camera className="w-12 h-12 text-[#8b949e]" /></div>}
                       <div className="absolute top-2.5 left-2.5 flex flex-wrap gap-1">
-                        <span className="inline-block px-2 py-0.5 rounded-lg text-[10px] font-extrabold uppercase" style={{ background: cc.bg, color: cc.text }}>{cc.label}</span>
-                        {device.cameraType && <span className="inline-block px-2 py-0.5 rounded-lg text-[9px] font-extrabold uppercase" style={{ background: "rgba(255,255,255,0.08)", color: "#e6edf3" }}>{device.cameraType}</span>}
+                        <span className="inline-block px-2 py-0.5 rounded-lg text-[11px] font-extrabold uppercase" style={{ background: cc.bg, color: cc.text }}>{cc.label}</span>
+                        {device.cameraType && <span className="inline-block px-2 py-0.5 rounded-lg text-[10px] font-extrabold uppercase" style={{ background: "rgba(255,255,255,0.08)", color: "#e6edf3" }}>{device.cameraType}</span>}
                       </div>
-                      <div className="absolute bottom-2 left-2"><span className="inline-block px-1.5 py-0.5 rounded text-[9px] font-extrabold uppercase" style={{ background: "rgba(0,0,0,0.5)", color: "#e6edf3" }}>{device.system}</span></div>
+                      <div className="absolute bottom-2 left-2"><span className="inline-block px-1.5 py-0.5 rounded text-[10px] font-extrabold uppercase" style={{ background: "rgba(0,0,0,0.5)", color: "#e6edf3" }}>{device.system}</span></div>
                     </div>
                     <div className="p-3">
-                      <p className="text-[#8b949e] text-[10px] font-bold">{device.manufacturer}</p>
-                      <p className="text-white text-[13px] font-extrabold mt-0.5 truncate">{device.model}</p>
-                      <div className="flex flex-wrap gap-1 mt-2">{device.tags?.slice(0,3).map((tag) => { const ts = TAG_STYLES[tag]; return ts ? <span key={tag} className="inline-block px-1.5 py-0.5 rounded-md text-[9px] font-extrabold uppercase" style={{ background: ts.bg, color: ts.text }}>{tag}</span> : null; })}</div>
-                      <div className="flex items-center justify-between mt-2 pt-2" style={{ borderTop: "1px solid rgba(255,255,255,0.06)" }}><span className="text-[#8b949e] text-[9px] font-mono">{device.sku}</span><span className="font-extrabold text-[12px]" style={{ color: cc.text }}>{device.price ? fmt(device.price) : "—"}</span></div>
+                      <p className="text-[#8b949e] text-[11px] font-bold">{device.manufacturer}</p>
+                      <p className="text-white text-[14px] font-extrabold mt-0.5 truncate">{device.model}</p>
+                      <div className="flex flex-wrap gap-1 mt-2">{device.tags?.slice(0,3).map((tag) => { const ts = TAG_STYLES[tag]; return ts ? <span key={tag} className="inline-block px-1.5 py-0.5 rounded-md text-[10px] font-extrabold uppercase" style={{ background: ts.bg, color: ts.text }}>{tag}</span> : null; })}</div>
+                      <div className="flex items-center justify-between mt-2 pt-2" style={{ borderTop: "1px solid rgba(255,255,255,0.06)" }}><span className="text-[#8b949e] text-[10px] font-mono">{device.sku}</span><span className="font-extrabold text-[13px]" style={{ color: cc.text }}>{device.price ? fmt(device.price) : "—"}</span></div>
                     </div>
                   </div>
                 );
@@ -3385,32 +3385,32 @@ function DeviceLibrary({ navigate: _navigate }: { navigate: (p: Page) => void })
         </>
       ) : (
         <div className="space-y-4">
-          <button onClick={() => setShowAddItem(!showAddItem)} className="flex items-center gap-1 h-8 px-3 rounded-xl text-white text-[12px] font-extrabold cursor-pointer" style={{ background: "#8b5cf6" }}><Plus className="w-3 h-3" /> Add Item</button>
+          <button onClick={() => setShowAddItem(!showAddItem)} className="flex items-center gap-1 h-8 px-3 rounded-xl text-white text-[13px] font-extrabold cursor-pointer" style={{ background: "#8b5cf6" }}><Plus className="w-3 h-3" /> Add Item</button>
           {showAddItem && (
             <div className="rounded-xl p-3 space-y-2" style={G.card}>
-              <input value={invName} onChange={e => setInvName(e.target.value)} placeholder="Item name" className="w-full h-8 rounded-lg px-2 text-[12px] text-white" style={G.input} />
-              <input type="number" value={invQty} onChange={e => setInvQty(e.target.value)} placeholder="Quantity on hand" className="w-full h-8 rounded-lg px-2 text-[12px] text-white" style={G.input} />
-              <input value={invLocation} onChange={e => setInvLocation(e.target.value)} placeholder="Storage location" className="w-full h-8 rounded-lg px-2 text-[12px] text-white" style={G.input} />
-              <button onClick={handleAddInventoryItem} className="w-full h-8 rounded-lg text-white text-[12px] font-extrabold cursor-pointer" style={{ background: "#10b981" }}>Save</button>
+              <input value={invName} onChange={e => setInvName(e.target.value)} placeholder="Item name" className="w-full h-8 rounded-lg px-2 text-[13px] text-white" style={G.input} />
+              <input type="number" value={invQty} onChange={e => setInvQty(e.target.value)} placeholder="Quantity on hand" className="w-full h-8 rounded-lg px-2 text-[13px] text-white" style={G.input} />
+              <input value={invLocation} onChange={e => setInvLocation(e.target.value)} placeholder="Storage location" className="w-full h-8 rounded-lg px-2 text-[13px] text-white" style={G.input} />
+              <button onClick={handleAddInventoryItem} className="w-full h-8 rounded-lg text-white text-[13px] font-extrabold cursor-pointer" style={{ background: "#10b981" }}>Save</button>
             </div>
           )}
           {inventory.length === 0 && !showAddItem ? <EmptyState icon={PackageOpen} title="No inventory items" description="Add items to track physical stock." /> : (
             <div className="rounded-2xl overflow-hidden" style={G.card}>
-              <div className="overflow-x-auto"><table className="w-full" style={{ minWidth: "600px" }}><thead><tr style={{ background: "rgba(255,255,255,0.03)", borderBottom: "1px solid rgba(255,255,255,0.08)" }}><th className="px-3 py-3 text-[#8b949e] text-[11px] font-extrabold uppercase tracking-widest text-left">Item</th><th className="px-3 py-3 text-[#8b949e] text-[11px] font-extrabold uppercase tracking-widest text-center">Qty</th><th className="px-3 py-3 text-[#8b949e] text-[11px] font-extrabold uppercase tracking-widest text-left">Location</th><th className="px-3 py-3 text-[#8b949e] text-[11px] font-extrabold uppercase tracking-widest text-right">Action</th></tr></thead><tbody>{inventory.map((item) => (<tr key={item.id} style={{ borderBottom: "1px solid rgba(255,255,255,0.04)" }}><td className="px-3 py-2.5 text-white text-[12px] font-bold">{item.name}</td><td className="px-3 py-2.5 text-white text-[12px] text-center font-extrabold">{item.quantityOnHand}</td><td className="px-3 py-2.5 text-[#8b949e] text-[11px]">{item.location || "—"}</td><td className="px-3 py-2.5 text-right"><button onClick={() => { setShowTransaction(showTransaction === item.id ? null : item.id); setTxAction("Sold"); }} className="h-7 px-2 rounded-lg text-[11px] font-extrabold text-blue-400 cursor-pointer" style={{ background: "rgba(59,130,246,0.12)" }}>Log Transaction</button></td></tr>))}</tbody></table></div>
+              <div className="overflow-x-auto"><table className="w-full" style={{ minWidth: "600px" }}><thead><tr style={{ background: "rgba(255,255,255,0.03)", borderBottom: "1px solid rgba(255,255,255,0.08)" }}><th className="px-3 py-3 text-[#8b949e] text-[12px] font-extrabold uppercase tracking-widest text-left">Item</th><th className="px-3 py-3 text-[#8b949e] text-[12px] font-extrabold uppercase tracking-widest text-center">Qty</th><th className="px-3 py-3 text-[#8b949e] text-[12px] font-extrabold uppercase tracking-widest text-left">Location</th><th className="px-3 py-3 text-[#8b949e] text-[12px] font-extrabold uppercase tracking-widest text-right">Action</th></tr></thead><tbody>{inventory.map((item) => (<tr key={item.id} style={{ borderBottom: "1px solid rgba(255,255,255,0.04)" }}><td className="px-3 py-2.5 text-white text-[13px] font-bold">{item.name}</td><td className="px-3 py-2.5 text-white text-[13px] text-center font-extrabold">{item.quantityOnHand}</td><td className="px-3 py-2.5 text-[#8b949e] text-[12px]">{item.location || "—"}</td><td className="px-3 py-2.5 text-right"><button onClick={() => { setShowTransaction(showTransaction === item.id ? null : item.id); setTxAction("Sold"); }} className="h-7 px-2 rounded-lg text-[12px] font-extrabold text-blue-400 cursor-pointer" style={{ background: "rgba(59,130,246,0.12)" }}>Log Transaction</button></td></tr>))}</tbody></table></div>
             </div>
           )}
           {showTransaction && (
             <div className="rounded-xl p-3 space-y-2" style={G.card}>
-              <div className="flex gap-2"><input value={txUserName} onChange={e => setTxUserName(e.target.value)} placeholder="Who took it" className="flex-1 h-8 rounded-lg px-2 text-[12px] text-white" style={G.input} /><select value={txAction} onChange={e => setTxAction(e.target.value)} className="h-8 rounded-lg px-2 text-[12px] cursor-pointer" style={{ ...G.input, background: "#0d1117", color: "#e6edf3" }}>{["Sold","Loaned","Disposed","Returned"].map(a => <option key={a} value={a} style={{ background: "#0d1117", color: "#e6edf3" }}>{a}</option>)}</select></div>
-              <div className="flex gap-2"><input type="number" value={txQty} onChange={e => setTxQty(e.target.value)} placeholder="Qty" className="w-24 h-8 rounded-lg px-2 text-[12px] text-white" style={G.input} /><input value={txPurpose} onChange={e => setTxPurpose(e.target.value)} placeholder="Purpose" className="flex-1 h-8 rounded-lg px-2 text-[12px] text-white" style={G.input} /></div>
-              <input value={txNotes} onChange={e => setTxNotes(e.target.value)} placeholder="Notes" className="w-full h-8 rounded-lg px-2 text-[12px] text-white" style={G.input} />
-              <button onClick={() => handleAddTransaction(showTransaction)} className="w-full h-8 rounded-lg text-white text-[12px] font-extrabold cursor-pointer" style={{ background: "#10b981" }}>Save Transaction</button>
+              <div className="flex gap-2"><input value={txUserName} onChange={e => setTxUserName(e.target.value)} placeholder="Who took it" className="flex-1 h-8 rounded-lg px-2 text-[13px] text-white" style={G.input} /><select value={txAction} onChange={e => setTxAction(e.target.value)} className="h-8 rounded-lg px-2 text-[13px] cursor-pointer" style={{ ...G.input, background: "#0d1117", color: "#e6edf3" }}>{["Sold","Loaned","Disposed","Returned"].map(a => <option key={a} value={a} style={{ background: "#0d1117", color: "#e6edf3" }}>{a}</option>)}</select></div>
+              <div className="flex gap-2"><input type="number" value={txQty} onChange={e => setTxQty(e.target.value)} placeholder="Qty" className="w-24 h-8 rounded-lg px-2 text-[13px] text-white" style={G.input} /><input value={txPurpose} onChange={e => setTxPurpose(e.target.value)} placeholder="Purpose" className="flex-1 h-8 rounded-lg px-2 text-[13px] text-white" style={G.input} /></div>
+              <input value={txNotes} onChange={e => setTxNotes(e.target.value)} placeholder="Notes" className="w-full h-8 rounded-lg px-2 text-[13px] text-white" style={G.input} />
+              <button onClick={() => handleAddTransaction(showTransaction)} className="w-full h-8 rounded-lg text-white text-[13px] font-extrabold cursor-pointer" style={{ background: "#10b981" }}>Save Transaction</button>
             </div>
           )}
           {transactions.length > 0 && (
             <div className="rounded-2xl overflow-hidden" style={G.card}>
-              <div className="px-4 py-3" style={{ borderBottom: "1px solid rgba(255,255,255,0.06)" }}><h3 className="text-white text-[14px] font-extrabold">Recent Transactions</h3></div>
-              <div className="overflow-x-auto"><table className="w-full" style={{ minWidth: "500px" }}><thead><tr><th className="px-3 py-2 text-[#8b949e] text-[10px] font-extrabold uppercase text-left">Item</th><th className="px-3 py-2 text-[#8b949e] text-[10px] font-extrabold uppercase text-left">User</th><th className="px-3 py-2 text-[#8b949e] text-[10px] font-extrabold uppercase text-left">Action</th><th className="px-3 py-2 text-[#8b949e] text-[10px] font-extrabold uppercase text-center">Qty</th><th className="px-3 py-2 text-[#8b949e] text-[10px] font-extrabold uppercase text-left">Date</th></tr></thead><tbody>{transactions.map(tx => (<tr key={tx.id} style={{ borderBottom: "1px solid rgba(255,255,255,0.03)" }}><td className="px-3 py-2 text-white text-[11px] font-bold">{tx.itemName}</td><td className="px-3 py-2 text-[#8b949e] text-[11px]">{tx.userName}</td><td className="px-3 py-2 text-[#8b949e] text-[11px]">{tx.action}</td><td className="px-3 py-2 text-white text-[11px] text-center">{tx.quantity}</td><td className="px-3 py-2 text-[#8b949e] text-[11px]">{new Date(tx.createdAt).toLocaleDateString()}</td></tr>))}</tbody></table></div>
+              <div className="px-4 py-3" style={{ borderBottom: "1px solid rgba(255,255,255,0.06)" }}><h3 className="text-white text-[15px] font-extrabold">Recent Transactions</h3></div>
+              <div className="overflow-x-auto"><table className="w-full" style={{ minWidth: "500px" }}><thead><tr><th className="px-3 py-2 text-[#8b949e] text-[11px] font-extrabold uppercase text-left">Item</th><th className="px-3 py-2 text-[#8b949e] text-[11px] font-extrabold uppercase text-left">User</th><th className="px-3 py-2 text-[#8b949e] text-[11px] font-extrabold uppercase text-left">Action</th><th className="px-3 py-2 text-[#8b949e] text-[11px] font-extrabold uppercase text-center">Qty</th><th className="px-3 py-2 text-[#8b949e] text-[11px] font-extrabold uppercase text-left">Date</th></tr></thead><tbody>{transactions.map(tx => (<tr key={tx.id} style={{ borderBottom: "1px solid rgba(255,255,255,0.03)" }}><td className="px-3 py-2 text-white text-[12px] font-bold">{tx.itemName}</td><td className="px-3 py-2 text-[#8b949e] text-[12px]">{tx.userName}</td><td className="px-3 py-2 text-[#8b949e] text-[12px]">{tx.action}</td><td className="px-3 py-2 text-white text-[12px] text-center">{tx.quantity}</td><td className="px-3 py-2 text-[#8b949e] text-[12px]">{new Date(tx.createdAt).toLocaleDateString()}</td></tr>))}</tbody></table></div>
             </div>
           )}
         </div>
@@ -3467,34 +3467,34 @@ function InstallTracker({ navigate: _navigate }: { navigate: (p: Page) => void }
   return (
     <div className="px-3 md:px-5 py-4 md:py-6 max-w-[1600px] mx-auto w-full">
       <div className="mb-4 md:mb-6 flex items-center justify-between">
-        <div><h1 className="text-white font-extrabold text-xl md:text-2xl tracking-tight">Install Tracker</h1><p className="text-[#8b949e] text-[12px] mt-0.5">{total} devices across {zones.length} zones</p></div>
-        <button onClick={() => setShowSupportTask(!showSupportTask)} className="flex items-center gap-1.5 h-8 px-3 rounded-xl text-white text-[12px] font-extrabold cursor-pointer" style={{ background: "#f59e0b" }}><Plus className="w-3 h-3" /> Support Task</button>
+        <div><h1 className="text-white font-extrabold text-2xl md:text-3xl tracking-tight">Install Tracker</h1><p className="text-[#8b949e] text-[13px] mt-0.5">{total} devices across {zones.length} zones</p></div>
+        <button onClick={() => setShowSupportTask(!showSupportTask)} className="flex items-center gap-1.5 h-8 px-3 rounded-xl text-white text-[13px] font-extrabold cursor-pointer" style={{ background: "#f59e0b" }}><Plus className="w-3 h-3" /> Support Task</button>
       </div>
       {showSupportTask && (
         <div className="rounded-xl p-3 space-y-2 mb-3" style={G.card}>
-          <input value={stName} onChange={e => setStName(e.target.value)} placeholder="Task name" className="w-full h-8 rounded-lg px-2 text-[12px] text-white" style={G.input} />
-          <button onClick={handleSupportTask} className="w-full h-8 rounded-lg text-white text-[12px] font-extrabold cursor-pointer" style={{ background: "#10b981" }}>Add</button>
+          <input value={stName} onChange={e => setStName(e.target.value)} placeholder="Task name" className="w-full h-8 rounded-lg px-2 text-[13px] text-white" style={G.input} />
+          <button onClick={handleSupportTask} className="w-full h-8 rounded-lg text-white text-[13px] font-extrabold cursor-pointer" style={{ background: "#10b981" }}>Add</button>
         </div>
       )}
       {projects.length === 0 && zones.length === 0 ? <EmptyState icon={CheckSquare} title="No active installs" description="Projects in Installation stage will appear here." /> : (
         <>
           <div className="rounded-2xl p-4 md:p-5 mb-4" style={G.card}>
             <div className="flex flex-col md:flex-row md:items-center justify-between mb-4 gap-3">
-              <div><p className="text-white text-[1.7rem] md:text-[2.1rem] font-extrabold">{pct}%</p><p className="text-[#8b949e] text-[11px]">{complete} of {total} complete</p></div>
+              <div><p className="text-white text-[1.8rem] md:text-[2.2rem] font-extrabold">{pct}%</p><p className="text-[#8b949e] text-[12px]">{complete} of {total} complete</p></div>
               <div className="grid grid-cols-4 gap-3">
                 {[
                   { label: "Complete", count: complete, color: "text-emerald-400" },
                   { label: "In Progress", count: allDevices.filter(d=>d.status==="in-progress").length, color: "text-blue-400" },
                   { label: "Failed", count: allDevices.filter(d=>d.status==="failed").length, color: "text-rose-400" },
                   { label: "Pending", count: allDevices.filter(d=>d.status==="pending").length, color: "text-[#8b949e]" },
-                ].map((s) => (<div key={s.label}><p className={clsx("text-[1.2rem] font-extrabold", s.color)}>{s.count}</p><p className="text-[#8b949e] text-[10px]">{s.label}</p></div>))}
+                ].map((s) => (<div key={s.label}><p className={clsx("text-[1.3rem] font-extrabold", s.color)}>{s.count}</p><p className="text-[#8b949e] text-[11px]">{s.label}</p></div>))}
               </div>
             </div>
             <div className="relative w-full h-3 rounded-full overflow-hidden" style={{ background: "rgba(255,255,255,0.07)" }}><div className="absolute left-0 top-0 h-full bg-gradient-to-r from-blue-600 to-emerald-500 rounded-full" style={{ width: `${pct}%` }} /></div>
           </div>
           <div className="flex items-center gap-1 mb-3">
             {(["all","pending","in-progress","complete","failed"] as const).map(s => (
-              <button key={s} onClick={() => setStatusFilter(s)} className={clsx("h-7 px-2.5 rounded-lg text-[11px] font-bold cursor-pointer", statusFilter === s ? "text-white" : "text-[#8b949e]")} style={statusFilter === s ? { background: "rgba(255,255,255,0.10)" } : G.btn}>{s === "all" ? "All" : s === "in-progress" ? "In Progress" : s.charAt(0).toUpperCase() + s.slice(1)}</button>
+              <button key={s} onClick={() => setStatusFilter(s)} className={clsx("h-7 px-2.5 rounded-lg text-[12px] font-bold cursor-pointer", statusFilter === s ? "text-white" : "text-[#8b949e]")} style={statusFilter === s ? { background: "rgba(255,255,255,0.10)" } : G.btn}>{s === "all" ? "All" : s === "in-progress" ? "In Progress" : s.charAt(0).toUpperCase() + s.slice(1)}</button>
             ))}
           </div>
           <div className="space-y-3">
@@ -3505,7 +3505,7 @@ function InstallTracker({ navigate: _navigate }: { navigate: (p: Page) => void }
               return (
                 <div key={project.id} className="rounded-2xl overflow-hidden" style={G.card}>
                   <button onClick={() => setExpandedProject(isExpanded ? null : project.id)} className="w-full flex items-center gap-3 px-4 py-3 hover:bg-white/[0.02] cursor-pointer min-h-[44px]">
-                    <div className="flex-1 min-w-0"><p className="text-white text-[13px] font-extrabold text-left">{project.name}</p><p className="text-[#8b949e] text-[11px]">{projectDevices.length} devices</p></div>
+                    <div className="flex-1 min-w-0"><p className="text-white text-[14px] font-extrabold text-left">{project.name}</p><p className="text-[#8b949e] text-[12px]">{projectDevices.length} devices</p></div>
                     {isExpanded ? <ChevronUp className="w-4 h-4 text-[#8b949e]" /> : <ChevronDown className="w-4 h-4 text-[#8b949e]" />}
                   </button>
                   {isExpanded && projectDevices.map((device) => {
@@ -3514,9 +3514,9 @@ function InstallTracker({ navigate: _navigate }: { navigate: (p: Page) => void }
                     return (
                       <div key={device.id} className="grid gap-2 px-3 py-3 items-center" style={{ gridTemplateColumns: "36px 2fr 1fr 120px", borderTop: "1px solid rgba(255,255,255,0.04)" }}>
                         <div className="w-7 h-7 rounded-xl flex items-center justify-center" style={{ background: "rgba(255,255,255,0.04)" }}><TypeIcon className="w-3.5 h-3.5 text-[#8b949e]" /></div>
-                        <div className="min-w-0"><p className="text-white text-[12px] font-bold truncate">{device.name}</p><p className="text-[#8b949e] text-[10px]">{device.location}</p></div>
-                        <span className="text-[#8b949e] text-[11px] truncate">{device.assignee}</span>
-                        <select value={device.status} onChange={(e) => { const z = projectZones.find(z => z.devices.some(d => d.id === device.id)); if (z) updateStatus(z.id, device.id, e.target.value as InstallStatus); }} className={clsx("w-full h-7 rounded-xl border px-2 text-[11px] font-extrabold appearance-none cursor-pointer", meta.bg, meta.color)} style={{ background: "#0d1117" }}>
+                        <div className="min-w-0"><p className="text-white text-[13px] font-bold truncate">{device.name}</p><p className="text-[#8b949e] text-[11px]">{device.location}</p></div>
+                        <span className="text-[#8b949e] text-[12px] truncate">{device.assignee}</span>
+                        <select value={device.status} onChange={(e) => { const z = projectZones.find(z => z.devices.some(d => d.id === device.id)); if (z) updateStatus(z.id, device.id, e.target.value as InstallStatus); }} className={clsx("w-full h-7 rounded-xl border px-2 text-[12px] font-extrabold appearance-none cursor-pointer", meta.bg, meta.color)} style={{ background: "#0d1117" }}>
                           {Object.entries(STATUS_META).map(([val, m]) => (<option key={val} value={val} style={{ background: "#0d1117", color: "#e6edf3" }}>{m.label}</option>))}
                         </select>
                       </div>
@@ -3531,7 +3531,7 @@ function InstallTracker({ navigate: _navigate }: { navigate: (p: Page) => void }
               return (
                 <div key={zone.id} className="rounded-2xl overflow-hidden" style={G.card}>
                   <button onClick={() => setExpandedProject(isExpanded ? null : zone.id)} className="w-full flex items-center gap-3 px-4 py-3 cursor-pointer min-h-[44px]">
-                    <div className="flex-1 min-w-0"><p className="text-white text-[13px] font-extrabold text-left">{zone.name}</p><p className="text-[#8b949e] text-[11px]">Support Task · {zoneDevices.length} devices</p></div>
+                    <div className="flex-1 min-w-0"><p className="text-white text-[14px] font-extrabold text-left">{zone.name}</p><p className="text-[#8b949e] text-[12px]">Support Task · {zoneDevices.length} devices</p></div>
                     {isExpanded ? <ChevronUp className="w-4 h-4 text-[#8b949e]" /> : <ChevronDown className="w-4 h-4 text-[#8b949e]" />}
                   </button>
                   {isExpanded && zoneDevices.map((device) => {
@@ -3540,9 +3540,9 @@ function InstallTracker({ navigate: _navigate }: { navigate: (p: Page) => void }
                     return (
                       <div key={device.id} className="grid gap-2 px-3 py-3 items-center" style={{ gridTemplateColumns: "36px 2fr 1fr 120px", borderTop: "1px solid rgba(255,255,255,0.04)" }}>
                         <div className="w-7 h-7 rounded-xl flex items-center justify-center" style={{ background: "rgba(255,255,255,0.04)" }}><TypeIcon className="w-3.5 h-3.5 text-[#8b949e]" /></div>
-                        <div className="min-w-0"><p className="text-white text-[12px] font-bold truncate">{device.name}</p><p className="text-[#8b949e] text-[10px]">{device.location}</p></div>
-                        <span className="text-[#8b949e] text-[11px] truncate">{device.assignee}</span>
-                        <select value={device.status} onChange={(e) => updateStatus(zone.id, device.id, e.target.value as InstallStatus)} className={clsx("w-full h-7 rounded-xl border px-2 text-[11px] font-extrabold appearance-none cursor-pointer", meta.bg, meta.color)} style={{ background: "#0d1117" }}>
+                        <div className="min-w-0"><p className="text-white text-[13px] font-bold truncate">{device.name}</p><p className="text-[#8b949e] text-[11px]">{device.location}</p></div>
+                        <span className="text-[#8b949e] text-[12px] truncate">{device.assignee}</span>
+                        <select value={device.status} onChange={(e) => updateStatus(zone.id, device.id, e.target.value as InstallStatus)} className={clsx("w-full h-7 rounded-xl border px-2 text-[12px] font-extrabold appearance-none cursor-pointer", meta.bg, meta.color)} style={{ background: "#0d1117" }}>
                           {Object.entries(STATUS_META).map(([val, m]) => (<option key={val} value={val} style={{ background: "#0d1117", color: "#e6edf3" }}>{m.label}</option>))}
                         </select>
                       </div>
@@ -3564,7 +3564,7 @@ function LoginPage({ onLogin }: { onLogin: () => void }) {
   const [showPw, setShowPw] = useState(false);
   const [loading, setLoading] = useState(false);
   const submit = (e?: React.FormEvent) => { e?.preventDefault(); setLoading(true); setTimeout(() => { setLoading(false); onLogin(); }, 1100); };
-  const inputCls = "w-full h-11 rounded-2xl px-4 text-[#e6edf3] text-[14px] placeholder:text-[#8b949e] focus:outline-none transition-all";
+  const inputCls = "w-full h-11 rounded-2xl px-4 text-[#e6edf3] text-[15px] placeholder:text-[#8b949e] focus:outline-none transition-all";
   return (
     <div className="h-screen flex overflow-hidden">
       <div className="hidden lg:flex w-[48%] flex-shrink-0 flex-col relative overflow-hidden" style={{ background: "#070c1a" }}>
@@ -3572,9 +3572,9 @@ function LoginPage({ onLogin }: { onLogin: () => void }) {
         <div className="relative z-10 flex flex-col h-full p-8 md:p-12">
           <div className="mb-auto"><img src={logoImg} alt="E-Tech Systems" className="h-8 md:h-10 object-contain object-left" style={{ filter: "brightness(1.1)" }} /></div>
           <div className="flex flex-col justify-center flex-1 py-8">
-            <span className="text-blue-400 text-[11px] md:text-[12px] font-extrabold tracking-[0.15em] uppercase mb-4 block">Security System Design & Integration Platform</span>
-            <h1 className="text-white text-[2.1rem] md:text-[2.7rem] font-extrabold leading-[1.12] tracking-tight mb-4">Full-Lifecycle<br />Security Project<br /><span className="text-transparent" style={{ backgroundImage: "linear-gradient(135deg, #60a5fa, #a78bfa)", WebkitBackgroundClip: "text", backgroundClip: "text" }}>Management.</span></h1>
-            <p className="text-[#8b949e] text-[12px] md:text-[14px] leading-relaxed mb-8 max-w-[380px]">From New lead to New client, from Site Assessment to Final Installation. Track Leads, Design Site Plans, Build Financial Workbooks, Manage Installations, and Auto-Generate Reports in One Platform.</p>
+            <span className="text-blue-400 text-[12px] md:text-[13px] font-extrabold tracking-[0.15em] uppercase mb-4 block">Security System Design & Integration Platform</span>
+            <h1 className="text-white text-[2.2rem] md:text-[2.8rem] font-extrabold leading-[1.12] tracking-tight mb-4">Full-Lifecycle<br />Security Project<br /><span className="text-transparent" style={{ backgroundImage: "linear-gradient(135deg, #60a5fa, #a78bfa)", WebkitBackgroundClip: "text", backgroundClip: "text" }}>Management.</span></h1>
+            <p className="text-[#8b949e] text-[13px] md:text-[15px] leading-relaxed mb-8 max-w-[380px]">From New lead to New client, from Site Assessment to Final Installation. Track Leads, Design Site Plans, Build Financial Workbooks, Manage Installations, and Auto-Generate Reports in One Platform.</p>
             <div className="space-y-2">
               {[
                 { icon: Camera, title: "System Design Studio", desc: "Place Cameras, Map Cable Routes, Build Floorplans", color: "#3b82f6" },
@@ -3582,28 +3582,28 @@ function LoginPage({ onLogin }: { onLogin: () => void }) {
               ].map(({ icon: Icon, title, desc, color }) => (
                 <div key={title} className="flex items-start gap-3 p-3 rounded-2xl" style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.09)" }}>
                   <div className="w-8 h-8 rounded-xl flex items-center justify-center" style={{ background: `${color}20` }}><Icon className="w-4 h-4" style={{ color }} /></div>
-                  <div><p className="text-white text-[13px] font-extrabold mb-0.5">{title}</p><p className="text-[#8b949e] text-[12px]">{desc}</p></div>
+                  <div><p className="text-white text-[14px] font-extrabold mb-0.5">{title}</p><p className="text-[#8b949e] text-[13px]">{desc}</p></div>
                 </div>
               ))}
             </div>
           </div>
-          <p className="text-[#8b949e] text-[11px]">© 2026 E-Tech Systems</p>
+          <p className="text-[#8b949e] text-[12px]">© 2026 E-Tech Systems</p>
         </div>
       </div>
       <div className="flex-1 flex items-center justify-center p-6 md:p-8 relative" style={{ background: "rgba(255,255,255,0.03)", backdropFilter: "blur(40px)" }}>
         <motion.div initial={{ opacity: 0, y: 18 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.3 }} className="relative z-10 w-full max-w-[380px]">
           <div className="rounded-3xl p-6 md:p-8" style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.12)", backdropFilter: "blur(40px) saturate(160%)", boxShadow: "0 24px 64px rgba(0,0,0,0.6)" }}>
-            <h2 className="text-white text-[1.4rem] md:text-[1.6rem] font-extrabold mb-1">Welcome back</h2>
-            <p className="text-[#8b949e] text-[13px] mb-6">Sign in to your workspace</p>
-            <button onClick={submit} className="w-full flex items-center justify-center gap-3 h-11 rounded-2xl text-white text-[13px] font-extrabold transition-all mb-5 hover:bg-white/[0.12] cursor-pointer min-h-[44px]" style={{ background: "rgba(255,255,255,0.08)", border: "1px solid rgba(255,255,255,0.14)" }}>
+            <h2 className="text-white text-[1.5rem] md:text-[1.7rem] font-extrabold mb-1">Welcome back</h2>
+            <p className="text-[#8b949e] text-[14px] mb-6">Sign in to your workspace</p>
+            <button onClick={submit} className="w-full flex items-center justify-center gap-3 h-11 rounded-2xl text-white text-[14px] font-extrabold transition-all mb-5 hover:bg-white/[0.12] cursor-pointer min-h-[44px]" style={{ background: "rgba(255,255,255,0.08)", border: "1px solid rgba(255,255,255,0.14)" }}>
               <svg width="20" height="20" viewBox="0 0 21 21" fill="none"><rect width="10" height="10" fill="#f25022" /><rect x="11" width="10" height="10" fill="#7fba00" /><rect y="11" width="10" height="10" fill="#00a4ef" /><rect x="11" y="11" width="10" height="10" fill="#ffb900" /></svg>
               Continue with Microsoft
             </button>
-            <div className="flex items-center gap-3 mb-5"><div className="flex-1 h-px" style={{ background: "rgba(255,255,255,0.08)" }} /><span className="text-[#8b949e] text-[11px] font-bold">or continue with email</span><div className="flex-1 h-px" style={{ background: "rgba(255,255,255,0.08)" }} /></div>
+            <div className="flex items-center gap-3 mb-5"><div className="flex-1 h-px" style={{ background: "rgba(255,255,255,0.08)" }} /><span className="text-[#8b949e] text-[12px] font-bold">or continue with email</span><div className="flex-1 h-px" style={{ background: "rgba(255,255,255,0.08)" }} /></div>
             <form onSubmit={submit} className="space-y-3">
               <div><input type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="you@company.com" className={inputCls} style={G.input} /></div>
               <div className="relative"><input type={showPw?"text":"password"} value={password} onChange={(e) => setPassword(e.target.value)} placeholder="••••••••" className={clsx(inputCls, "pr-11")} style={G.input} /><button type="button" onClick={() => setShowPw(!showPw)} className="absolute right-3.5 top-1/2 -translate-y-1/2 text-[#8b949e]"><Eye className="w-4 h-4" /></button></div>
-              <button type="submit" disabled={loading} className="w-full h-11 rounded-2xl text-white font-extrabold text-[13px] transition-all flex items-center justify-center gap-2 disabled:opacity-60 cursor-pointer min-h-[44px]" style={{ background: "linear-gradient(135deg, #3b82f6, #2563eb)", boxShadow: "0 4px 20px rgba(59,130,246,0.45)" }}>{loading && <Loader2 className="w-4 h-4 animate-spin" />}{loading?"Signing in…":"Sign in"}</button>
+              <button type="submit" disabled={loading} className="w-full h-11 rounded-2xl text-white font-extrabold text-[14px] transition-all flex items-center justify-center gap-2 disabled:opacity-60 cursor-pointer min-h-[44px]" style={{ background: "linear-gradient(135deg, #3b82f6, #2563eb)", boxShadow: "0 4px 20px rgba(59,130,246,0.45)" }}>{loading && <Loader2 className="w-4 h-4 animate-spin" />}{loading?"Signing in…":"Sign in"}</button>
             </form>
           </div>
         </motion.div>
@@ -3633,19 +3633,19 @@ function SubcontractorPortal({ token }: { token: string }) {
             <EmptyState icon={AlertTriangle} title="Link not found" description="This link has been revoked or doesn't exist. Contact the project team for a new one." />
           ) : (
             <>
-              <span className="inline-block px-2 py-0.5 rounded-full text-[10px] font-extrabold uppercase tracking-widest mb-3" style={{ background: "rgba(59,130,246,0.15)", color: "#60a5fa" }}>Read-only portal</span>
-              <h1 className="text-white font-extrabold text-2xl md:text-3xl tracking-tight mb-1">{sub.name}</h1>
-              <p className="text-[#8b949e] text-[13px] md:text-[14px] mb-6 flex items-center gap-1.5 flex-wrap"><Building2 className="w-3.5 h-3.5" /> {sub.projectName}{sub.trade ? ` · ${sub.trade}` : ""}</p>
+              <span className="inline-block px-2 py-0.5 rounded-full text-[11px] font-extrabold uppercase tracking-widest mb-3" style={{ background: "rgba(59,130,246,0.15)", color: "#60a5fa" }}>Read-only portal</span>
+              <h1 className="text-white font-extrabold text-3xl md:text-4xl tracking-tight mb-1">{sub.name}</h1>
+              <p className="text-[#8b949e] text-[14px] md:text-[15px] mb-6 flex items-center gap-1.5 flex-wrap"><Building2 className="w-3.5 h-3.5" /> {sub.projectName}{sub.trade ? ` · ${sub.trade}` : ""}</p>
               <div className="rounded-2xl p-4" style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.07)" }}>
-                <p className="text-[#8b949e] text-[10px] font-extrabold uppercase tracking-widest mb-3">Documents</p>
+                <p className="text-[#8b949e] text-[11px] font-extrabold uppercase tracking-widest mb-3">Documents</p>
                 {sub.documents.length === 0 ? (
-                  <p className="text-[#8b949e] text-[12px]">No documents have been shared yet.</p>
+                  <p className="text-[#8b949e] text-[13px]">No documents have been shared yet.</p>
                 ) : (
                   <div className="space-y-2">
                     {sub.documents.map(doc => (
                       <a key={doc.id} href={doc.fileUrl} target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 p-2 rounded-xl hover:bg-white/[0.04] transition-colors">
                         <Paperclip className="w-3.5 h-3.5 text-[#8b949e] flex-shrink-0" />
-                        <span className="text-white text-[12px] font-bold truncate">{doc.filename}</span>
+                        <span className="text-white text-[13px] font-bold truncate">{doc.filename}</span>
                       </a>
                     ))}
                   </div>
@@ -3743,8 +3743,8 @@ function AuthenticatedApp() {
             <div className="absolute inset-0" style={{ background: "rgba(0,0,0,0.8)", backdropFilter: "blur(12px)" }} />
             <motion.div initial={{ opacity: 0, scale: 0.93 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.93 }} transition={{ type: "spring", damping: 26, stiffness: 360 }} onClick={(e) => e.stopPropagation()} className="relative z-10 w-full max-w-[500px] rounded-3xl p-8 text-center" style={G.liquidGlass}>
               <div className="w-16 h-16 rounded-2xl flex items-center justify-center mx-auto mb-5" style={{ background: "rgba(59,130,246,0.15)", border: "1px solid rgba(59,130,246,0.25)" }}><Zap className="w-8 h-8 text-blue-400" /></div>
-              <h2 className="text-white text-[1.3rem] font-extrabold mb-2">Welcome to EEST</h2>
-              <p className="text-[#8b949e] text-[13px] mb-6">Your full-lifecycle security project platform.</p>
+              <h2 className="text-white text-[1.4rem] font-extrabold mb-2">Welcome to EEST</h2>
+              <p className="text-[#8b949e] text-[14px] mb-6">Your full-lifecycle security project platform.</p>
               <div className="space-y-3 mb-6 text-left">
                 {[
                   { icon: BarChart3, label: "Pipeline", desc: "Track sales leads and manage projects through every stage", color: "#3b82f6" },
@@ -3753,11 +3753,11 @@ function AuthenticatedApp() {
                 ].map(item => (
                   <div key={item.label} className="flex items-start gap-3 p-3 rounded-xl" style={{ background: "rgba(255,255,255,0.03)" }}>
                     <div className="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0" style={{ background: `${item.color}20` }}><item.icon className="w-4 h-4" style={{ color: item.color }} /></div>
-                    <div><p className="text-white text-[13px] font-bold">{item.label}</p><p className="text-[#8b949e] text-[11px]">{item.desc}</p></div>
+                    <div><p className="text-white text-[14px] font-bold">{item.label}</p><p className="text-[#8b949e] text-[12px]">{item.desc}</p></div>
                   </div>
                 ))}
               </div>
-              <button onClick={() => { setShowOnboarding(false); localStorage.setItem("onboarding_complete", "true"); }} className="w-full h-11 rounded-xl text-white text-[14px] font-extrabold cursor-pointer" style={{ background: "#3b82f6", boxShadow: "0 4px 20px rgba(59,130,246,0.4)" }}>Get Started</button>
+              <button onClick={() => { setShowOnboarding(false); localStorage.setItem("onboarding_complete", "true"); }} className="w-full h-11 rounded-xl text-white text-[15px] font-extrabold cursor-pointer" style={{ background: "#3b82f6", boxShadow: "0 4px 20px rgba(59,130,246,0.4)" }}>Get Started</button>
             </motion.div>
           </div>
         )}
