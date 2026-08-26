@@ -1,4 +1,4 @@
-const CACHE_NAME = "eest-cache-v1";
+const CACHE_NAME = "eest-cache-__BUILD_ID__";
 const urlsToCache = [
   "/",
   "/index.html",

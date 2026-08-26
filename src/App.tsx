@@ -1865,7 +1865,7 @@ function ProjectDetail({ navigate }: { navigate: (p: Page) => void }) {
   const stageHistory = p.stageHistory || [{ stage: p.stage, date: p.createdAt?.slice(0,10) || new Date().toISOString().slice(0,10) }];
 
   return (
-    <div className="px-3 md:px-5 py-4 md:py-6 max-w-[1200px]">
+    <div className="px-3 md:px-5 py-4 md:py-6 max-w-[1600px] mx-auto w-full">
       {showShareModal && (
         <div className="fixed inset-0 z-[400] flex items-center justify-center p-4" onClick={() => setShowShareModal(false)}>
           <div className="absolute inset-0" style={{ background: "rgba(0,0,0,0.65)", backdropFilter: "blur(8px)" }} />
@@ -3465,7 +3465,7 @@ function InstallTracker({ navigate: _navigate }: { navigate: (p: Page) => void }
   const pct = total > 0 ? Math.round((complete / total) * 100) : 0;
 
   return (
-    <div className="px-3 md:px-5 py-4 md:py-6 max-w-[1100px]">
+    <div className="px-3 md:px-5 py-4 md:py-6 max-w-[1600px] mx-auto w-full">
       <div className="mb-4 md:mb-6 flex items-center justify-between">
         <div><h1 className="text-white font-bold text-lg md:text-xl tracking-tight">Install Tracker</h1><p className="text-[#8b949e] text-[11px] mt-0.5">{total} devices across {zones.length} zones</p></div>
         <button onClick={() => setShowSupportTask(!showSupportTask)} className="flex items-center gap-1.5 h-8 px-3 rounded-xl text-white text-[11px] font-bold cursor-pointer" style={{ background: "#f59e0b" }}><Plus className="w-3 h-3" /> Support Task</button>
