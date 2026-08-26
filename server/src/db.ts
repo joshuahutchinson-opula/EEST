@@ -189,7 +189,7 @@ export async function initDB() {
         name TEXT NOT NULL,
         trade TEXT,
         email TEXT,
-        rating NUMERIC DEFAULT 0,
+        share_token TEXT UNIQUE,
         created_at TIMESTAMPTZ DEFAULT NOW()
       );
 
@@ -277,6 +277,8 @@ export async function initDB() {
     await client.query(`ALTER TABLE audit_logs ADD COLUMN IF NOT EXISTS is_read BOOLEAN DEFAULT FALSE`);
     await client.query(`ALTER TABLE audit_logs ADD COLUMN IF NOT EXISTS notification_type TEXT`);
     await client.query(`ALTER TABLE audit_logs ADD COLUMN IF NOT EXISTS action_url TEXT`);
+    await client.query(`ALTER TABLE subcontractors ADD COLUMN IF NOT EXISTS share_token TEXT UNIQUE`);
+    await client.query(`ALTER TABLE subcontractors DROP COLUMN IF EXISTS rating`);
 
     try {
       await client.query(`ALTER TABLE devices ADD CONSTRAINT devices_sku_unique UNIQUE (sku)`);

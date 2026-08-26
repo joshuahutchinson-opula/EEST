@@ -256,7 +256,8 @@ interface WorkbookAuditEntry { id: string; projectId: string; fieldPath: string;
 interface AssetListItem { id: string; item: string; qty: number; cost: number; markupPercent: number; sell: number; costTotal: number; total: number; profit: number; isCanvasDevice?: boolean; deviceType?: string; system?: SystemType; sourceCategory?: string; sourceItemId?: string; }
 interface InventoryItem { id: string; name: string; quantityOnHand: number; location?: string; notes?: string; deviceId?: string; model?: string; manufacturer?: string; sku?: string; }
 interface InventoryTransaction { id: string; itemId: string; itemName: string; userName: string; action: string; quantity: number; purpose?: string; notes?: string; createdAt: string; }
-interface Subcontractor { id: string; projectId: string; name: string; trade?: string; email?: string; rating: number; createdAt: string; documents: { id: string; filename: string; fileUrl: string; uploadedBy?: string; createdAt: string; }[]; }
+interface Subcontractor { id: string; projectId: string; name: string; trade?: string; email?: string; shareToken?: string | null; createdAt: string; documents: { id: string; filename: string; fileUrl: string; uploadedBy?: string; createdAt: string; }[]; }
+interface PublicSubcontractor { id: string; name: string; trade?: string; email?: string; projectName: string; createdAt: string; documents: { id: string; filename: string; fileUrl: string; createdAt: string; }[]; }
 interface ProcurementOrder { id: string; projectId: string; supplierName?: string; status: string; totalCost: number; generatedFrom?: string; createdAt: string; items: { id: string; description: string; quantity: number; unitCost: number; totalCost: number; leadTimeDays?: number; trackingNumber?: string; received: boolean; }[]; }
 interface CommissioningItem { id: string; projectId: string; deviceId?: string; deviceName: string; location?: string; status: "pending" | "pass" | "fail"; notes?: string; photos?: string[]; }
 
@@ -509,9 +510,11 @@ const API = {
   subcontractors: {
     list: (projectId: string) => apiFetch<Subcontractor[]>(`/subcontractors/${projectId}`),
     add: (projectId: string, data: any) => apiFetch<Subcontractor>(`/subcontractors/${projectId}`, { method: "POST", body: JSON.stringify(data) }),
-    rate: (subId: string, rating: number) => apiFetch<void>(`/subcontractors/${subId}/rate`, { method: "POST", body: JSON.stringify({ rating }) }),
     delete: (subId: string) => apiFetch<void>(`/subcontractors/${subId}`, { method: "DELETE" }),
     addDoc: (subId: string, data: any) => apiFetch<void>(`/subcontractors/${subId}/documents`, { method: "POST", body: JSON.stringify(data) }),
+    generateShareLink: (subId: string) => apiFetch<{ id: string; shareToken: string }>(`/subcontractors/${subId}/share`, { method: "POST" }),
+    revokeShareLink: (subId: string) => apiFetch<void>(`/subcontractors/${subId}/share`, { method: "DELETE" }),
+    getPublic: (token: string) => apiFetch<PublicSubcontractor>(`/subcontractors/public/${token}`),
   },
 };
 
@@ -869,7 +872,10 @@ function Dashboard({ navigate }: { navigate: (p: Page) => void }) {
   const [progressAnim, setProgressAnim] = useState<{ id: string; stage: string } | null>(null);
   const [pipelineType, setPipelineType] = useState<PipelineType>(() => (localStorage.getItem("pipeline_type") as PipelineType) || "sales");
   const boardScrollRef = useRef<HTMLDivElement>(null);
-  const scrollBarRef = useRef<HTMLDivElement>(null);
+  const scrollTrackRef = useRef<HTMLDivElement>(null);
+  const scrollDragRef = useRef<{ startX: number; startScrollLeft: number } | null>(null);
+  const [scrollThumb, setScrollThumb] = useState({ widthPct: 100, leftPct: 0 });
+  const [scrollThumbActive, setScrollThumbActive] = useState(false);
 
   useEffect(() => { localStorage.setItem("pipeline_type", pipelineType); }, [pipelineType]);
 
@@ -943,12 +949,57 @@ function Dashboard({ navigate }: { navigate: (p: Page) => void }) {
   const selectedColumn = selectedDeal ? [...COLUMNS, ...PROJECT_COLUMNS].find((c) => (pipelineType === "sales" ? c.id === selectedDeal.stage : c.id === selectedDeal.projectStage))! : null;
   const STAT_COLORS = ["#3b82f6", "#10b981", "#f97316", "#8b5cf6"];
 
-  // Scrollbar sync
-  const syncScrollFromBar = (e: React.UIEvent<HTMLDivElement>) => {
-    if (boardScrollRef.current) boardScrollRef.current.scrollLeft = (e.target as HTMLDivElement).scrollLeft;
+  // Custom draggable scrollbar synced to the board's real horizontal scroll
+  const updateScrollThumb = useCallback(() => {
+    const el = boardScrollRef.current;
+    if (!el) return;
+    const { scrollWidth, clientWidth, scrollLeft } = el;
+    if (scrollWidth <= clientWidth) { setScrollThumb({ widthPct: 100, leftPct: 0 }); return; }
+    const widthPct = Math.max((clientWidth / scrollWidth) * 100, 10);
+    const maxLeftPct = 100 - widthPct;
+    const leftPct = (scrollLeft / (scrollWidth - clientWidth)) * maxLeftPct;
+    setScrollThumb({ widthPct, leftPct });
+  }, []);
+  useEffect(() => { updateScrollThumb(); }, [currentProjects.length, pipelineType, updateScrollThumb]);
+  useEffect(() => {
+    window.addEventListener("resize", updateScrollThumb);
+    return () => window.removeEventListener("resize", updateScrollThumb);
+  }, [updateScrollThumb]);
+  const scrollToPct = (leftPct: number) => {
+    const el = boardScrollRef.current;
+    if (!el) return;
+    const maxLeftPct = 100 - scrollThumb.widthPct;
+    const clamped = Math.min(Math.max(leftPct, 0), maxLeftPct);
+    el.scrollLeft = maxLeftPct > 0 ? (clamped / maxLeftPct) * (el.scrollWidth - el.clientWidth) : 0;
   };
-  const syncScrollFromBoard = (e: React.UIEvent<HTMLDivElement>) => {
-    if (scrollBarRef.current) scrollBarRef.current.scrollLeft = (e.target as HTMLDivElement).scrollLeft;
+  const handleThumbPointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
+    e.stopPropagation();
+    const el = boardScrollRef.current;
+    if (!el) return;
+    scrollDragRef.current = { startX: e.clientX, startScrollLeft: el.scrollLeft };
+    setScrollThumbActive(true);
+    (e.currentTarget as HTMLDivElement).setPointerCapture(e.pointerId);
+  };
+  const handleThumbPointerMove = (e: React.PointerEvent<HTMLDivElement>) => {
+    const drag = scrollDragRef.current;
+    const el = boardScrollRef.current;
+    const track = scrollTrackRef.current;
+    if (!drag || !el || !track) return;
+    const trackWidth = track.clientWidth;
+    const scrollableWidth = el.scrollWidth - el.clientWidth;
+    const thumbWidthPx = (scrollThumb.widthPct / 100) * trackWidth;
+    const draggableTrackPx = trackWidth - thumbWidthPx;
+    if (draggableTrackPx <= 0) return;
+    const deltaX = e.clientX - drag.startX;
+    el.scrollLeft = drag.startScrollLeft + deltaX * (scrollableWidth / draggableTrackPx);
+  };
+  const handleThumbPointerUp = () => { scrollDragRef.current = null; setScrollThumbActive(false); };
+  const handleTrackPointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
+    const track = scrollTrackRef.current;
+    if (!track) return;
+    const rect = track.getBoundingClientRect();
+    const clickPct = ((e.clientX - rect.left) / rect.width) * 100;
+    scrollToPct(clickPct - scrollThumb.widthPct / 2);
   };
 
   if (loading) return (
@@ -1010,11 +1061,26 @@ function Dashboard({ navigate }: { navigate: (p: Page) => void }) {
         <EmptyState icon={Layers} title="No projects yet" description={`Create your first ${pipelineType === "sales" ? "sales" : "project"} pipeline item.`} action={{ label: "New Project", onClick: () => setShowNewProject(true) }} />
       ) : (
         <div className="px-3 md:px-5 py-4 md:py-5">
-          {/* Custom scrollbar above board */}
-          <div ref={scrollBarRef} onScroll={syncScrollFromBar} className="h-2 mb-3 rounded-full overflow-x-auto cursor-grab active:cursor-grabbing" style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.07)", scrollbarWidth: "none" }}>
-            <div className="h-full rounded-full" style={{ width: `${Math.max(100, currentProjects.length * 15)}%`, background: "rgba(59,130,246,0.35)", minWidth: "200px" }} />
-          </div>
-          <div ref={boardScrollRef} onScroll={syncScrollFromBoard} className="overflow-x-auto" style={{ scrollbarWidth: "thin", scrollbarColor: "rgba(255,255,255,0.08) transparent", scrollBehavior: "smooth" }}>
+          {scrollThumb.widthPct < 100 && (
+            <div ref={scrollTrackRef} onPointerDown={handleTrackPointerDown} className="relative h-2.5 mb-3 rounded-full" style={{ background: "rgba(255,255,255,0.04)", backdropFilter: "blur(12px)", border: "1px solid rgba(255,255,255,0.08)" }}>
+              <div
+                onPointerDown={handleThumbPointerDown}
+                onPointerMove={handleThumbPointerMove}
+                onPointerUp={handleThumbPointerUp}
+                onPointerCancel={handleThumbPointerUp}
+                className={clsx("absolute top-0 bottom-0 rounded-full transition-colors", scrollThumbActive ? "cursor-grabbing" : "cursor-grab")}
+                style={{
+                  width: `${scrollThumb.widthPct}%`,
+                  left: `${scrollThumb.leftPct}%`,
+                  background: scrollThumbActive ? "rgba(255,255,255,0.35)" : "rgba(255,255,255,0.22)",
+                  backdropFilter: "blur(12px) saturate(180%)",
+                  border: "1px solid rgba(255,255,255,0.30)",
+                  boxShadow: scrollThumbActive ? "0 4px 16px rgba(0,0,0,0.35), inset 0 1px 0 rgba(255,255,255,0.35)" : "inset 0 1px 0 rgba(255,255,255,0.25)",
+                }}
+              />
+            </div>
+          )}
+          <div ref={boardScrollRef} onScroll={updateScrollThumb} className="overflow-x-auto" style={{ scrollbarWidth: "none", scrollBehavior: scrollThumbActive ? "auto" : "smooth" }}>
             <div className="flex gap-2 md:gap-3 min-w-max pb-3">
               {columns.map((col) => {
                 const colProjects = currentProjects.filter((p) => pipelineType === "sales" ? p.stage === col.id : p.projectStage === col.id);
@@ -1939,6 +2005,8 @@ function SubcontractorTab({ projectId }: { projectId: string }) {
   const [email, setEmail] = useState("");
   const [showDocs, setShowDocs] = useState<string | null>(null);
   const [uploadingDoc, setUploadingDoc] = useState<string | null>(null);
+  const [sharingSub, setSharingSub] = useState<string | null>(null);
+  const [shareModalSub, setShareModalSub] = useState<Subcontractor | null>(null);
 
   useEffect(() => { API.subcontractors.list(projectId).then(setSubs).catch(() => setSubs([])).finally(() => setLoading(false)); }, [projectId]);
 
@@ -1947,9 +2015,30 @@ function SubcontractorTab({ projectId }: { projectId: string }) {
     try { const created = await API.subcontractors.add(projectId, { name: name.trim(), trade: trade.trim(), email: email.trim() }); setSubs(prev => [...prev, created]); setName(""); setTrade(""); setEmail(""); setShowAdd(false); toast.success("Subcontractor added"); } catch { toast.error("Failed to add"); }
   };
 
-  const handleRate = async (subId: string, rating: number) => { API.subcontractors.rate(subId, rating).then(() => setSubs(prev => prev.map(x => x.id === subId ? { ...x, rating } : x))).catch(() => {}); };
-
   const handleDelete = async (subId: string) => { API.subcontractors.delete(subId).then(() => { setSubs(prev => prev.filter(x => x.id !== subId)); toast.success("Removed"); }).catch(() => toast.error("Failed to delete")); };
+
+  const shareUrlFor = (token: string) => `${window.location.origin}/portal/subcontractor/${token}`;
+
+  const handleShare = async (sub: Subcontractor) => {
+    if (sub.shareToken) { setShareModalSub(sub); return; }
+    setSharingSub(sub.id);
+    try {
+      const result = await API.subcontractors.generateShareLink(sub.id);
+      const updated = { ...sub, shareToken: result.shareToken };
+      setSubs(prev => prev.map(x => x.id === sub.id ? updated : x));
+      setShareModalSub(updated);
+    } catch { toast.error("Failed to generate share link"); }
+    setSharingSub(null);
+  };
+
+  const handleRevokeShare = async (subId: string) => {
+    try {
+      await API.subcontractors.revokeShareLink(subId);
+      setSubs(prev => prev.map(x => x.id === subId ? { ...x, shareToken: null } : x));
+      setShareModalSub(null);
+      toast.success("Link revoked");
+    } catch { toast.error("Failed to revoke link"); }
+  };
 
   const handleDocUpload = async (subId: string, e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -1970,6 +2059,20 @@ function SubcontractorTab({ projectId }: { projectId: string }) {
 
   return (
     <div className="space-y-3">
+      {shareModalSub && (
+        <div className="fixed inset-0 z-[400] flex items-center justify-center p-4" onClick={() => setShareModalSub(null)}>
+          <div className="absolute inset-0" style={{ background: "rgba(0,0,0,0.65)", backdropFilter: "blur(8px)" }} />
+          <motion.div initial={{ opacity: 0, scale: 0.93 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.93 }} transition={{ type: "spring", damping: 26, stiffness: 360 }} onClick={e => e.stopPropagation()} className="relative z-10 w-full max-w-[440px] rounded-2xl p-6" style={G.liquidGlass}>
+            <h3 className="text-white text-[14px] font-bold mb-2">Shareable Link</h3>
+            <p className="text-[#8b949e] text-[11px] mb-4">{shareModalSub.name} can view their documents through this link, read-only, without logging in.</p>
+            <div className="flex items-center gap-2 mb-4"><input value={shareModalSub.shareToken ? shareUrlFor(shareModalSub.shareToken) : ""} readOnly className="flex-1 h-9 rounded-xl px-3 text-[11px] text-white" style={G.input} /><button onClick={() => { navigator.clipboard.writeText(shareUrlFor(shareModalSub.shareToken!)); toast.success("Copied"); }} className="h-9 px-3 rounded-xl text-white text-[11px] font-bold cursor-pointer" style={{ background: "#3b82f6" }}><Copy className="w-3.5 h-3.5" /></button></div>
+            <div className="flex items-center gap-2">
+              <button onClick={() => handleRevokeShare(shareModalSub.id)} className="flex-1 h-9 rounded-xl text-rose-400 text-[12px] font-semibold cursor-pointer" style={G.btn}>Revoke Link</button>
+              <button onClick={() => setShareModalSub(null)} className="flex-1 h-9 rounded-xl text-[#8b949e] text-[12px] font-semibold cursor-pointer" style={G.btn}>Close</button>
+            </div>
+          </motion.div>
+        </div>
+      )}
       <div className="flex items-center justify-between"><p className="text-[#8b949e] text-[11px]">{subs.length} subcontractors</p><button onClick={() => setShowAdd(!showAdd)} className="flex items-center gap-1 h-8 px-3 rounded-xl text-white text-[11px] font-bold cursor-pointer" style={{ background: "#3b82f6" }}><Plus className="w-3 h-3" /> Add</button></div>
       {showAdd && (
         <div className="rounded-xl p-3 space-y-2" style={G.card}>
@@ -1984,7 +2087,7 @@ function SubcontractorTab({ projectId }: { projectId: string }) {
           <div className="flex items-center justify-between">
             <div className="flex-1 min-w-0"><p className="text-white text-[12px] font-semibold">{sub.name}</p><p className="text-[#8b949e] text-[10px]">{sub.trade}{sub.email ? ` · ${sub.email}` : ""}</p></div>
             <div className="flex items-center gap-2 flex-shrink-0">
-              <div className="flex items-center gap-1">{[1,2,3,4,5].map(s => <Star key={s} className={clsx("w-3 h-3 cursor-pointer", s <= (sub.rating || 0) ? "text-amber-400 fill-amber-400" : "text-[#8b949e]")} onClick={() => handleRate(sub.id, s)} />)}</div>
+              <button onClick={() => handleShare(sub)} disabled={sharingSub === sub.id} className={clsx("flex items-center gap-1.5 h-7 px-2.5 rounded-lg text-[10px] font-bold cursor-pointer", sub.shareToken ? "text-blue-400" : "text-[#8b949e] hover:text-white")} style={G.btn}>{sharingSub === sub.id ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Share2 className="w-3.5 h-3.5" />}{sub.shareToken ? "Link" : "Share"}</button>
               <button onClick={() => setShowDocs(showDocs === sub.id ? null : sub.id)} className="w-7 h-7 rounded-lg flex items-center justify-center cursor-pointer hover:bg-white/10" style={G.btn}><Paperclip className="w-3.5 h-3.5 text-[#8b949e]" /></button>
               <button onClick={() => handleDelete(sub.id)} className="w-7 h-7 rounded-lg flex items-center justify-center cursor-pointer hover:bg-rose-500/10"><Trash2 className="w-3 h-3 text-rose-400" /></button>
             </div>
@@ -3508,7 +3611,61 @@ function LoginPage({ onLogin }: { onLogin: () => void }) {
     </div>
   );
 }
+function SubcontractorPortal({ token }: { token: string }) {
+  const [sub, setSub] = useState<PublicSubcontractor | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(false);
+
+  useEffect(() => {
+    API.subcontractors.getPublic(token).then(setSub).catch(() => setError(true)).finally(() => setLoading(false));
+  }, [token]);
+
+  return (
+    <div className="min-h-screen flex items-center justify-center p-4 md:p-8" style={{ background: "#05070d" }}>
+      <div className="w-full max-w-[560px]">
+        <div className="flex items-center gap-2.5 mb-6 justify-center">
+          <img src={logoImg} alt="E-Tech Systems" className="h-9 object-contain" style={{ filter: "brightness(1.1)" }} />
+        </div>
+        <div className="rounded-3xl p-6 md:p-8" style={G.liquidGlass}>
+          {loading ? (
+            <div className="space-y-3"><Skeleton className="h-6 w-2/3" /><Skeleton className="h-4 w-1/2" /><Skeleton className="h-24 rounded-2xl" /></div>
+          ) : error || !sub ? (
+            <EmptyState icon={AlertTriangle} title="Link not found" description="This link has been revoked or doesn't exist. Contact the project team for a new one." />
+          ) : (
+            <>
+              <span className="inline-block px-2 py-0.5 rounded-full text-[9px] font-bold uppercase tracking-widest mb-3" style={{ background: "rgba(59,130,246,0.15)", color: "#60a5fa" }}>Read-only portal</span>
+              <h1 className="text-white font-bold text-xl md:text-2xl tracking-tight mb-1">{sub.name}</h1>
+              <p className="text-[#8b949e] text-[12px] md:text-[13px] mb-6 flex items-center gap-1.5 flex-wrap"><Building2 className="w-3.5 h-3.5" /> {sub.projectName}{sub.trade ? ` · ${sub.trade}` : ""}</p>
+              <div className="rounded-2xl p-4" style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.07)" }}>
+                <p className="text-[#8b949e] text-[9px] font-bold uppercase tracking-widest mb-3">Documents</p>
+                {sub.documents.length === 0 ? (
+                  <p className="text-[#8b949e] text-[11px]">No documents have been shared yet.</p>
+                ) : (
+                  <div className="space-y-2">
+                    {sub.documents.map(doc => (
+                      <a key={doc.id} href={doc.fileUrl} target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 p-2 rounded-xl hover:bg-white/[0.04] transition-colors">
+                        <Paperclip className="w-3.5 h-3.5 text-[#8b949e] flex-shrink-0" />
+                        <span className="text-white text-[11px] font-semibold truncate">{doc.filename}</span>
+                      </a>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function App() {
+  const portalMatch = window.location.pathname.match(/^\/portal\/subcontractor\/([^/]+)/);
+  if (portalMatch) return <SubcontractorPortal token={portalMatch[1]} />;
+  return <AuthenticatedApp />;
+}
+
+function AuthenticatedApp() {
   const [page, setPage] = useState<Page>(() => {
     const saved = localStorage.getItem("app_page");
     const loggedIn = localStorage.getItem("auth_token") || localStorage.getItem("app_logged_in");
