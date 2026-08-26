@@ -62,7 +62,8 @@ router.post("/:projectId/upload", upload.single("file"), async (req: Request, re
   try {
     // If a file was uploaded via multer
     if (req.file) {
-      const fileUrl = `/uploads/${req.file.filename}`;
+      const backendUrl = process.env.BACKEND_PUBLIC_URL || `${req.protocol}://${req.get("host")}`;
+      const fileUrl = `${backendUrl}/uploads/${req.file.filename}`;
       return res.json({ url: fileUrl });
     }
 
