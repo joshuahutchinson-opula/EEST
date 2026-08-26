@@ -730,10 +730,33 @@ function AppTopbar({ page, navigate, breadcrumb }: { page: Page; navigate: (p: P
           <span className="text-white text-[12px] font-semibold">Project Detail</span>
         </div>
       ) : (
-        <nav className="flex items-center gap-0.5 overflow-x-auto" style={{ scrollbarWidth: "none" }}>
-          {NAV_ITEMS.map((item) => (
-            <button key={item.id} onClick={() => navigate(item.id)} className={clsx("h-8 px-2.5 md:px-3.5 rounded-xl text-[11px] md:text-[13px] font-semibold transition-all duration-150 whitespace-nowrap cursor-pointer", activeTab === item.id ? "text-white" : "text-[#8b949e] hover:text-white")} style={activeTab === item.id ? { background: "rgba(255,255,255,0.10)", border: "1px solid rgba(255,255,255,0.13)", boxShadow: "inset 0 1px 0 rgba(255,255,255,0.08)" } : undefined}>{item.label}</button>
-          ))}
+        <nav className="flex items-end self-stretch gap-0.5 overflow-x-auto overflow-y-visible" style={{ scrollbarWidth: "none" }}>
+          {NAV_ITEMS.map((item) => {
+            const isActive = activeTab === item.id;
+            return (
+              <button
+                key={item.id}
+                onClick={() => navigate(item.id)}
+                className={clsx(
+                  "relative flex-shrink-0 rounded-t-xl font-semibold transition-all duration-150 whitespace-nowrap cursor-pointer",
+                  isActive ? "h-10 px-3 md:px-4 text-[12px] md:text-[13px] text-white z-10" : "h-8 mb-1 px-2.5 md:px-3.5 text-[11px] md:text-[13px] text-[#8b949e] hover:text-white"
+                )}
+                style={isActive ? {
+                  background: "var(--color-background)",
+                  border: "1px solid rgba(255,255,255,0.13)",
+                  borderBottom: "none",
+                  boxShadow: "0 -8px 20px rgba(0,0,0,0.35), inset 0 1px 0 rgba(255,255,255,0.08)",
+                } : {
+                  background: "rgba(255,255,255,0.04)",
+                  border: "1px solid rgba(255,255,255,0.07)",
+                  borderBottom: "none",
+                }}
+              >
+                {item.label}
+                {isActive && <span className="absolute left-0 right-0" style={{ bottom: "-3px", height: "4px", background: "var(--color-background)" }} />}
+              </button>
+            );
+          })}
         </nav>
       )}
       <div className="flex-1" />
