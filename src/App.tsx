@@ -3518,7 +3518,7 @@ function LoginPage({ onLogin }: { onLogin: () => void }) {
               ))}
             </div>
           </div>
-          <p className="text-[#8b949e] text-[12px]">© 2026 E-Tech Systems</p>
+          <p className="text-[#8b949e] text-[12px]">© 2026 E-Tech Systems Limited</p>
         </div>
       </div>
       <div className="flex-1 flex items-center justify-center p-6 md:p-8 relative" style={{ background: "rgba(255,255,255,0.03)", backdropFilter: "blur(40px)" }}>
