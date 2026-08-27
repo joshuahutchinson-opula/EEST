@@ -8,6 +8,7 @@ import quotesRouter from "./routes/quotes";
 import devicesRouter from "./routes/devices";
 import installRouter from "./routes/install";
 import authRouter from "./routes/auth";
+import { authMiddleware } from "./middleware/auth";
 import changeOrdersRouter from "./routes/changeOrders";
 import auditRouter from "./routes/audit";
 import tasksRouter from "./routes/tasks";
@@ -31,6 +32,8 @@ app.use(cors({
 }));
 app.use(express.json({ limit: "10mb" }));
 app.use("/uploads", express.static(path.join(__dirname, "uploads")));
+
+app.use("/api", authMiddleware);
 
 app.use("/api/projects", projectsRouter);
 app.use("/api/quotes", quotesRouter);

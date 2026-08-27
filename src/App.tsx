@@ -3,7 +3,7 @@ import { toast, Toaster } from "sonner";
 import { motion, AnimatePresence } from "motion/react";
 import {
   Camera, Fingerprint, Building2, MapPin, Calendar,
-  DollarSign, Eye, Layers, MoreHorizontal, GripVertical, Plus,
+  DollarSign, Layers, MoreHorizontal, GripVertical, Plus,
   Search, Bell, Settings, TrendingUp, Star, BarChart3,
   ChevronDown, Loader2, ArrowLeft, CheckCircle2, Clock,
   AlertTriangle, Key, Download, Share2, FileText,
@@ -415,6 +415,11 @@ async function apiFetch<T>(path: string, options?: RequestInit): Promise<T> {
   if (!(options?.body instanceof FormData)) headers["Content-Type"] = "application/json";
   if (token) headers["Authorization"] = `Bearer ${token}`;
   const res = await fetch(`${API_BASE}${path}`, { ...options, headers });
+  if (res.status === 401 && !path.startsWith("/auth/")) {
+    localStorage.removeItem("auth_token");
+    localStorage.removeItem("app_logged_in");
+    window.location.href = "/";
+  }
   if (!res.ok) throw new Error(`API error: ${res.status}`);
   return res.json();
 }
@@ -3727,13 +3732,19 @@ function InstallTracker({ navigate: _navigate }: { navigate: (p: Page) => void }
   );
 }
 
-function LoginPage({ onLogin }: { onLogin: () => void }) {
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-  const [showPw, setShowPw] = useState(false);
+const AUTH_ERROR_MESSAGES: Record<string, string> = {
+  domain_not_allowed: "Only @e-techsystemsja.com accounts can sign in to EEST.",
+  state_mismatch: "Your sign-in session expired before it could complete. Please try again.",
+  missing_state: "Your sign-in session expired before it could complete. Please try again.",
+  missing_code: "Microsoft didn't return a sign-in code. Please try again.",
+  sign_in_failed: "Something went wrong signing you in. Please try again.",
+};
+
+function LoginPage() {
   const [loading, setLoading] = useState(false);
-  const submit = (e?: React.FormEvent) => { e?.preventDefault(); setLoading(true); setTimeout(() => { setLoading(false); onLogin(); }, 1100); };
-  const inputCls = "w-full h-11 rounded-2xl px-4 text-[#e6edf3] text-[15px] placeholder:text-[#8b949e] focus:outline-none transition-all";
+  const authError = useMemo(() => new URLSearchParams(window.location.search).get("auth_error"), []);
+  const errorMessage = authError ? (AUTH_ERROR_MESSAGES[authError] || (authError.startsWith("microsoft_") ? "Microsoft sign-in was cancelled or denied." : "Sign-in failed. Please try again.")) : null;
+  const signInWithMicrosoft = () => { setLoading(true); window.location.href = `${API_BASE}/auth/microsoft/login`; };
   return (
     <div className="h-screen flex overflow-hidden">
       <div className="hidden lg:flex w-[48%] flex-shrink-0 flex-col relative overflow-hidden" style={{ background: "#070c1a" }}>
@@ -3763,17 +3774,13 @@ function LoginPage({ onLogin }: { onLogin: () => void }) {
         <motion.div initial={{ opacity: 0, y: 18 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.3 }} className="relative z-10 w-full max-w-[380px]">
           <div className="rounded-3xl p-6 md:p-8" style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.12)", backdropFilter: "blur(40px) saturate(160%)", boxShadow: "0 24px 64px rgba(0,0,0,0.6)" }}>
             <h2 className="text-white text-[1.5rem] md:text-[1.7rem] font-extrabold mb-1">Welcome back</h2>
-            <p className="text-[#8b949e] text-[14px] mb-6">Sign in to your workspace</p>
-            <button onClick={submit} className="w-full flex items-center justify-center gap-3 h-11 rounded-2xl text-white text-[14px] font-extrabold transition-all mb-5 hover:bg-white/[0.12] cursor-pointer min-h-[44px]" style={{ background: "rgba(255,255,255,0.08)", border: "1px solid rgba(255,255,255,0.14)" }}>
-              <svg width="20" height="20" viewBox="0 0 21 21" fill="none"><rect width="10" height="10" fill="#f25022" /><rect x="11" width="10" height="10" fill="#7fba00" /><rect y="11" width="10" height="10" fill="#00a4ef" /><rect x="11" y="11" width="10" height="10" fill="#ffb900" /></svg>
-              Continue with Microsoft
+            <p className="text-[#8b949e] text-[14px] mb-6">Sign in with your E-Tech Systems Microsoft account</p>
+            {errorMessage && <div className="mb-5 px-3 py-2.5 rounded-xl text-[13px] text-rose-300" style={{ background: "rgba(244,63,94,0.10)", border: "1px solid rgba(244,63,94,0.25)" }}>{errorMessage}</div>}
+            <button onClick={signInWithMicrosoft} disabled={loading} className="w-full flex items-center justify-center gap-3 h-11 rounded-2xl text-white text-[14px] font-extrabold transition-all hover:bg-white/[0.12] cursor-pointer min-h-[44px] disabled:opacity-60" style={{ background: "rgba(255,255,255,0.08)", border: "1px solid rgba(255,255,255,0.14)" }}>
+              {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <svg width="20" height="20" viewBox="0 0 21 21" fill="none"><rect width="10" height="10" fill="#f25022" /><rect x="11" width="10" height="10" fill="#7fba00" /><rect y="11" width="10" height="10" fill="#00a4ef" /><rect x="11" y="11" width="10" height="10" fill="#ffb900" /></svg>}
+              {loading ? "Redirecting to Microsoft…" : "Sign in with Microsoft"}
             </button>
-            <div className="flex items-center gap-3 mb-5"><div className="flex-1 h-px" style={{ background: "rgba(255,255,255,0.08)" }} /><span className="text-[#8b949e] text-[12px] font-bold">or continue with email</span><div className="flex-1 h-px" style={{ background: "rgba(255,255,255,0.08)" }} /></div>
-            <form onSubmit={submit} className="space-y-3">
-              <div><input type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="you@company.com" className={inputCls} style={G.input} /></div>
-              <div className="relative"><input type={showPw?"text":"password"} value={password} onChange={(e) => setPassword(e.target.value)} placeholder="••••••••" className={clsx(inputCls, "pr-11")} style={G.input} /><button type="button" onClick={() => setShowPw(!showPw)} className="absolute right-3.5 top-1/2 -translate-y-1/2 text-[#8b949e]"><Eye className="w-4 h-4" /></button></div>
-              <button type="submit" disabled={loading} className="w-full h-11 rounded-2xl text-white font-extrabold text-[14px] transition-all flex items-center justify-center gap-2 disabled:opacity-60 cursor-pointer min-h-[44px]" style={{ background: "linear-gradient(135deg, #3b82f6, #2563eb)", boxShadow: "0 4px 20px rgba(59,130,246,0.45)" }}>{loading && <Loader2 className="w-4 h-4 animate-spin" />}{loading?"Signing in…":"Sign in"}</button>
-            </form>
+            <p className="text-[#484f58] text-[12px] mt-5 text-center">Restricted to @e-techsystemsja.com accounts.</p>
           </div>
         </motion.div>
       </div>
@@ -3856,6 +3863,17 @@ function SubcontractorPortal({ token }: { token: string }) {
 export default function App() {
   const portalMatch = window.location.pathname.match(/^\/portal\/subcontractor\/([^/]+)/);
   if (portalMatch) return <SubcontractorPortal token={portalMatch[1]} />;
+
+  // Completes the Microsoft OAuth redirect: the server hands the session token back
+  // in the URL fragment (never sent to a server on the next request) rather than a
+  // query param, so pick it up here before AuthenticatedApp's initial state reads localStorage.
+  if (window.location.hash.startsWith("#auth_token=")) {
+    const token = decodeURIComponent(window.location.hash.slice("#auth_token=".length));
+    localStorage.setItem("auth_token", token);
+    localStorage.setItem("app_logged_in", "true");
+    window.history.replaceState({}, "", window.location.pathname + window.location.search);
+  }
+
   return <AuthenticatedApp />;
 }
 
@@ -3863,7 +3881,7 @@ function AuthenticatedApp() {
   const [page, setPage] = useState<Page>(() => {
     const saved = localStorage.getItem("app_page");
     const loggedIn = localStorage.getItem("auth_token") || localStorage.getItem("app_logged_in");
-    return loggedIn && saved ? (saved as Page) : "login";
+    return loggedIn ? ((saved as Page) || "dashboard") : "login";
   });
   const [currency, setCurrency] = useState<"USD" | "JMD">("USD");
   const [currentQuote, setCurrentQuote] = useState<Quote | null>(null);
@@ -3871,12 +3889,6 @@ function AuthenticatedApp() {
 
   useEffect(() => { if (page !== "login") localStorage.setItem("app_page", page); }, [page]);
   useEffect(() => { API.fx.getRate(); const interval = setInterval(() => API.fx.getRate(), 24 * 60 * 60 * 1000); return () => clearInterval(interval); }, []);
-
-  const handleLogin = () => {
-    localStorage.setItem("auth_token", "stub-jwt-token");
-    localStorage.setItem("app_logged_in", "true");
-    setPage("dashboard");
-  };
 
   const currencyCtx: CurrencyCtx = useMemo(() => ({ currency, setCurrency, fmt: makeFmt(currency) }), [currency]);
 
@@ -3908,7 +3920,7 @@ function AuthenticatedApp() {
 
   const quoteCtx: QuoteCtx = { currentQuote, setCurrentQuote, addToQuote };
 
-  if (page === "login") return (<CurrencyContext.Provider value={currencyCtx}><LoginPage onLogin={handleLogin} /></CurrencyContext.Provider>);
+  if (page === "login") return (<CurrencyContext.Provider value={currencyCtx}><LoginPage /></CurrencyContext.Provider>);
 
   const breadcrumb = page === "project-detail" ? { label: "Projects", parent: "projects" as Page } : undefined;
 
