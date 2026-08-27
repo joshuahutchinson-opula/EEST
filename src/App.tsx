@@ -1805,6 +1805,8 @@ function ProjectDetail({ navigate }: { navigate: (p: Page) => void }) {
   const [newCOCost, setNewCOCost] = useState("");
   const [showShareModal, setShowShareModal] = useState(false);
   const [shareUrl, setShareUrl] = useState("");
+  const [projectAssets, setProjectAssets] = useState<ProjectAsset[]>([]);
+  const [installZones, setInstallZones] = useState<InstallZone[]>([]);
 
   useEffect(() => { localStorage.setItem("pd_tab", activeTab); }, [activeTab]);
 
@@ -1829,6 +1831,8 @@ function ProjectDetail({ navigate }: { navigate: (p: Page) => void }) {
     if (project) {
       API.audit.list(project.id).then(setAuditLog).catch(() => setAuditLog([]));
       API.changeOrders.list(project.id).then(setChangeOrders).catch(() => setChangeOrders([]));
+      API.projectAssets.list(project.id).then(setProjectAssets).catch(() => setProjectAssets([]));
+      API.install.zones().then(zones => setInstallZones(zones.filter(z => z.projectId === project.id))).catch(() => setInstallZones([]));
     }
   }, [project]);
 
@@ -1854,6 +1858,10 @@ function ProjectDetail({ navigate }: { navigate: (p: Page) => void }) {
   const tabs = ["overview","tasks","documents","quotes","assets","change-orders","audit-log","gantt","subcontractors","procurement","commissioning"];
   const tabLabels: Record<string, string> = { overview: "Overview", tasks: "Tasks", documents: "Files", quotes: "Quotes", assets: "Assets", "change-orders": "Change Orders", "audit-log": "Audit Log", gantt: "Timeline", subcontractors: "Subcontractors", procurement: "Procurement", commissioning: "Commissioning" };
   const stageHistory = p.stageHistory || [{ stage: p.stage, date: p.createdAt?.slice(0,10) || new Date().toISOString().slice(0,10) }];
+  const liveCameraCount = projectAssets.filter(a => a.category === "camera").reduce((s, a) => s + a.quantity, 0);
+  const liveDeviceCount = projectAssets.filter(a => a.category !== "cable-wire").reduce((s, a) => s + a.quantity, 0);
+  const installDevices = installZones.flatMap(z => z.devices);
+  const liveProgress = installDevices.length > 0 ? Math.round((installDevices.filter(d => d.status === "complete").length / installDevices.length) * 100) : 0;
 
   return (
     <div className="px-3 md:px-5 py-4 md:py-6 max-w-[1600px] mx-auto w-full">
@@ -1889,10 +1897,10 @@ function ProjectDetail({ navigate }: { navigate: (p: Page) => void }) {
       <div className="grid grid-cols-2 md:grid-cols-5 gap-2 md:gap-3 mb-4 md:mb-6">
         {[
           { label: "Contract Value", value: isProjPipe ? "—" : fmt(p.value, true), icon: DollarSign, color: "#3b82f6" },
-          { label: "Cameras", value: String(p.cameras), icon: Camera, color: "#8b5cf6" },
-          { label: "Devices", value: String(p.devices), icon: Fingerprint, color: "#06b6d4" },
+          { label: "Cameras", value: String(liveCameraCount), icon: Camera, color: "#8b5cf6" },
+          { label: "Devices", value: String(liveDeviceCount), icon: Fingerprint, color: "#06b6d4" },
           { label: "Due Date", value: fmtDate(p.dueDate), icon: Calendar, color: "#f59e0b" },
-          { label: "Progress", value: "0%", icon: Activity, color: "#10b981" },
+          { label: "Progress", value: `${liveProgress}%`, icon: Activity, color: "#10b981" },
         ].map((s) => (
           <div key={s.label} className="rounded-2xl p-3 md:p-4" style={G.card}>
             <div className="flex items-center justify-between mb-2 md:mb-3"><span className="text-[#8b949e] text-[11px] md:text-[12px] font-extrabold uppercase">{s.label}</span><div className="w-6 h-6 md:w-7 md:h-7 rounded-xl flex items-center justify-center" style={{ background: `${s.color}18` }}><s.icon className="w-3 h-3" style={{ color: s.color }} /></div></div>

@@ -13,6 +13,8 @@ router.get("/zones", async (_req: Request, res: Response) => {
       zones.push({
         id: z.id,
         name: z.name,
+        projectId: z.project_id || undefined,
+        isQuickSupport: z.is_quick_support,
         devices: devicesResult.rows.map((d) => ({
           id: d.id,
           name: d.name,
@@ -34,12 +36,12 @@ router.get("/zones", async (_req: Request, res: Response) => {
 // POST /api/install/zones
 router.post("/zones", async (req: Request, res: Response) => {
   try {
-    const { name, projectId } = req.body;
+    const { name, projectId, isQuickSupport } = req.body;
     const result = await pool.query(
-      "INSERT INTO install_zones (name, project_id) VALUES ($1, $2) RETURNING *",
-      [name, projectId || null]
+      "INSERT INTO install_zones (name, project_id, is_quick_support) VALUES ($1, $2, $3) RETURNING *",
+      [name, projectId || null, isQuickSupport || false]
     );
-    res.status(201).json({ id: result.rows[0].id, name: result.rows[0].name, devices: [] });
+    res.status(201).json({ id: result.rows[0].id, name: result.rows[0].name, projectId: result.rows[0].project_id || undefined, isQuickSupport: result.rows[0].is_quick_support, devices: [] });
   } catch (err) {
     console.error("POST /install/zones error:", err);
     res.status(500).json({ error: "Failed to create zone" });
