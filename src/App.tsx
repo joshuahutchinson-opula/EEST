@@ -3574,7 +3574,7 @@ function LoginPage({ onLogin }: { onLogin: () => void }) {
             <p className="text-[#8b949e] text-[13px] md:text-[15px] leading-relaxed mb-8 max-w-[380px]">From New lead to New client, from Site Assessment to Final Installation. Track Leads, Design Site Plans, Build Financial Workbooks, Manage Installations, and Auto-Generate Reports in One Platform.</p>
             <div className="space-y-2">
               {[
-                { icon: Camera, title: "Projects", desc: "Specify Cameras, Access Control, Network Hardware and Cable Runs per Project", color: "#3b82f6" },
+                { icon: Camera, title: "Projects", desc: "Browse every project by stage and owner, then drill in for its Project Assets, Workbook, and Install Tracker", color: "#3b82f6" },
                 { icon: BarChart3, title: "Sales & Tech Pipeline Tracker", desc: "Track Leads, Manage Tech Projects, Generate Workbooks and Reports", color: "#8b5cf6" },
               ].map(({ icon: Icon, title, desc, color }) => (
                 <div key={title} className="flex items-start gap-3 p-3 rounded-2xl" style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.09)" }}>
@@ -3744,7 +3744,7 @@ function AuthenticatedApp() {
               <div className="space-y-3 mb-6 text-left">
                 {[
                   { icon: BarChart3, label: "Pipeline", desc: "Track sales leads and manage projects through every stage", color: "#3b82f6" },
-                  { icon: Layers, label: "Projects", desc: "Specify cameras, access control, network hardware, and cable runs", color: "#8b5cf6" },
+                  { icon: Layers, label: "Projects", desc: "Manage every project's assets, workbook, and install tracker in one place", color: "#8b5cf6" },
                   { icon: FileText, label: "Workbook", desc: "Auto-generate BOMs, cost summaries, and proposals", color: "#10b981" },
                 ].map(item => (
                   <div key={item.label} className="flex items-start gap-3 p-3 rounded-xl" style={{ background: "rgba(255,255,255,0.03)" }}>
