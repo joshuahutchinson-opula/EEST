@@ -19,7 +19,7 @@ import {
   Link2, Copy, Filter, CheckCheck, Paperclip, Image,
   BellRing, Layout, BarChart4, Table2, Hash, Info, FileDown,
   Printer, Wrench, ClipboardList, Truck, PackageCheck,
-  UserCheck, Send, EyeOff, GanttChartSquare, Boxes, PackageOpen,
+  UserCheck, Send, EyeOff, GanttChartSquare, Boxes, PackageOpen, Sparkles,
 } from "lucide-react";
 import { clsx } from "clsx";
 import logoImg from "./assets/2026-06-14_21.13.34_e-techsystemsja.com_2f51395e09e8-removebg-preview (1).png";
@@ -409,6 +409,15 @@ function projectStageBadge(stage: ProjectStage | string) {
   return map[stage] || map["planning"];
 }
 
+function getSessionEmail(): string | null {
+  const token = localStorage.getItem("auth_token");
+  if (!token || token.split(".").length !== 3) return null;
+  try {
+    const payload = JSON.parse(atob(token.split(".")[1].replace(/-/g, "+").replace(/_/g, "/")));
+    return typeof payload.email === "string" ? payload.email : null;
+  } catch { return null; }
+}
+
 async function apiFetch<T>(path: string, options?: RequestInit): Promise<T> {
   const token = localStorage.getItem("auth_token");
   const headers: Record<string, string> = {};
@@ -644,7 +653,7 @@ function NotificationBell() {
 
   return (
     <div className="relative">
-      <button onClick={() => setOpen(!open)} className="relative w-8 h-8 rounded-xl flex items-center justify-center hover:bg-white/[0.08] transition-colors cursor-pointer" style={G.btn}>
+      <button data-tour="tour-notifications" onClick={() => setOpen(!open)} className="relative w-8 h-8 rounded-xl flex items-center justify-center hover:bg-white/[0.08] transition-colors cursor-pointer" style={G.btn}>
         <Bell className="w-3.5 h-3.5 text-[#8b949e]" />
         {unreadCount > 0 && <span className="absolute -top-0.5 -right-0.5 w-4 h-4 rounded-full bg-rose-500 text-white text-[10px] font-extrabold flex items-center justify-center">{unreadCount > 9 ? "9+" : unreadCount}</span>}
       </button>
@@ -689,11 +698,11 @@ function NotificationBell() {
   );
 }
 
-function UserMenu() {
+function UserMenu({ onReplayTour }: { onReplayTour: () => void }) {
   const [open, setOpen] = useState(false);
   return (
     <div className="relative">
-      <button onClick={() => setOpen(!open)} className="flex items-center gap-2 h-8 pl-1.5 pr-2.5 rounded-xl hover:bg-white/[0.06] transition-colors cursor-pointer min-h-[44px] md:min-h-0">
+      <button data-tour="tour-user-menu" onClick={() => setOpen(!open)} className="flex items-center gap-2 h-8 pl-1.5 pr-2.5 rounded-xl hover:bg-white/[0.06] transition-colors cursor-pointer min-h-[44px] md:min-h-0">
         <div className="w-6 h-6 rounded-full flex items-center justify-center text-white text-[11px] font-extrabold flex-shrink-0" style={{ background: "linear-gradient(135deg, #3b82f6, #8b5cf6)", boxShadow: "0 0 12px rgba(139,92,246,0.5)" }}>{CURRENT_USER.initials}</div>
         <span className="text-white text-[14px] font-bold hidden md:inline">{CURRENT_USER.name}</span>
         <ChevronDown className="w-3 h-3 text-[#8b949e] hidden md:block" />
@@ -707,11 +716,86 @@ function UserMenu() {
               <div><p className="text-white text-[14px] font-bold">{CURRENT_USER.name}</p><p className="text-[#484f58] text-[12px]">Administrator</p></div>
             </div>
             <div className="py-1">
+              <button onClick={() => { setOpen(false); onReplayTour(); }} className="w-full flex items-center gap-2.5 px-4 py-2.5 text-[#8b949e] hover:text-white hover:bg-white/[0.05] transition-colors text-left cursor-pointer min-h-[44px] text-[14px] font-bold"><Sparkles className="w-3.5 h-3.5 text-blue-400" /> Replay Tour</button>
               <button onClick={() => { setOpen(false); localStorage.removeItem("auth_token"); localStorage.removeItem("app_logged_in"); localStorage.removeItem("app_page"); window.location.href = "/"; }} className="w-full flex items-center gap-2.5 px-4 py-2.5 text-[#8b949e] hover:text-white hover:bg-white/[0.05] transition-colors text-left cursor-pointer min-h-[44px] text-[14px] font-bold"><LogOut className="w-3.5 h-3.5 text-rose-400" /> Sign Out</button>
             </div>
           </motion.div>
         </>
       )}
+    </div>
+  );
+}
+
+interface TourStep { target: string; page?: Page; title: string; description: string }
+const TOUR_STEPS: TourStep[] = [
+  { target: "nav-dashboard", page: "dashboard", title: "Pipeline", description: "Track every sales lead and support project through its stages — Lead to Won on the sales side, Planning to Complete on the project side." },
+  { target: "nav-projects", page: "projects", title: "Projects", description: "Browse every active project here. Click into one to see its assets, workbook, tasks, and install progress in one place." },
+  { target: "nav-workbook", page: "workbook", title: "Workbook", description: "Build out Asset List, Cost & Margin, BOM, and Synthesis for a project's quote — everything rolls up automatically as you go." },
+  { target: "nav-install-tracker", page: "install-tracker", title: "Install Tracker", description: "Track device-by-device installation progress across every project currently in the Installation stage." },
+  { target: "nav-device-library", page: "device-library", title: "Device Library", description: "Your catalog of cameras, access control, and network hardware — the building blocks you pull into a project's Assets." },
+  { target: "tour-notifications", title: "Notifications", description: "Stay on top of task assignments, sales wins, and updates across every project from here." },
+  { target: "tour-user-menu", title: "Your Account", description: "Sign out, or replay this tour any time from here." },
+];
+
+function OnboardingTour({ page, navigate, onFinish }: { page: Page; navigate: (p: Page) => void; onFinish: () => void }) {
+  const [stepIndex, setStepIndex] = useState(0);
+  const [rect, setRect] = useState<DOMRect | null>(null);
+  const step = TOUR_STEPS[stepIndex];
+
+  useEffect(() => { if (step.page && step.page !== page) navigate(step.page); }, [stepIndex]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  useEffect(() => {
+    let raf = 0;
+    let attempts = 0;
+    const locate = () => {
+      const el = document.querySelector(`[data-tour="${step.target}"]`);
+      if (el) { setRect(el.getBoundingClientRect()); return; }
+      if (attempts++ < 30) raf = requestAnimationFrame(locate);
+    };
+    setRect(null);
+    locate();
+    const onResize = () => { const el = document.querySelector(`[data-tour="${step.target}"]`); if (el) setRect(el.getBoundingClientRect()); };
+    window.addEventListener("resize", onResize);
+    window.addEventListener("scroll", onResize, true);
+    return () => { cancelAnimationFrame(raf); window.removeEventListener("resize", onResize); window.removeEventListener("scroll", onResize, true); };
+  }, [stepIndex, page]);
+
+  const isLast = stepIndex === TOUR_STEPS.length - 1;
+  const goNext = () => { if (isLast) onFinish(); else setStepIndex((i) => i + 1); };
+  const goBack = () => setStepIndex((i) => Math.max(0, i - 1));
+
+  const pad = 8;
+  const spotlight = rect ? { top: rect.top - pad, left: rect.left - pad, width: rect.width + pad * 2, height: rect.height + pad * 2 } : null;
+  const tooltipTop = spotlight ? Math.min(spotlight.top + spotlight.height + 14, window.innerHeight - 220) : window.innerHeight / 2 - 90;
+  const tooltipLeft = spotlight ? Math.min(Math.max(spotlight.left, 16), window.innerWidth - 336) : window.innerWidth / 2 - 160;
+
+  return (
+    <div className="fixed inset-0 z-[600]">
+      <AnimatePresence>
+        {spotlight && (
+          <motion.div key="scrim" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.25 }} className="absolute inset-0" style={{ background: "rgba(2,4,10,0.78)", clipPath: `polygon(0 0, 0 100%, ${spotlight.left}px 100%, ${spotlight.left}px ${spotlight.top}px, ${spotlight.left + spotlight.width}px ${spotlight.top}px, ${spotlight.left + spotlight.width}px ${spotlight.top + spotlight.height}px, ${spotlight.left}px ${spotlight.top + spotlight.height}px, ${spotlight.left}px 100%, 100% 100%, 100% 0)` }} />
+        )}
+      </AnimatePresence>
+      {spotlight && (
+        <motion.div key={`ring-${stepIndex}`} initial={{ opacity: 0, scale: 0.96 }} animate={{ opacity: 1, scale: 1 }} transition={{ type: "spring", damping: 22, stiffness: 300 }} className="absolute rounded-2xl pointer-events-none" style={{ top: spotlight.top, left: spotlight.left, width: spotlight.width, height: spotlight.height, border: "2px solid #3b82f6", boxShadow: "0 0 0 4px rgba(59,130,246,0.20), 0 0 24px rgba(59,130,246,0.35)" }} />
+      )}
+      <AnimatePresence mode="wait">
+        <motion.div key={stepIndex} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -6 }} transition={{ type: "spring", damping: 28, stiffness: 340 }} className="absolute w-[320px] rounded-2xl p-5" style={{ top: tooltipTop, left: tooltipLeft, ...G.liquidGlass }}>
+          <div className="flex items-center justify-between mb-2">
+            <span className="text-blue-400 text-[11px] font-extrabold uppercase tracking-widest">Step {stepIndex + 1} of {TOUR_STEPS.length}</span>
+            <button onClick={onFinish} className="w-6 h-6 rounded-lg flex items-center justify-center hover:bg-white/[0.08] cursor-pointer"><X className="w-3.5 h-3.5 text-[#8b949e]" /></button>
+          </div>
+          <h3 className="text-white text-[16px] font-extrabold mb-1.5">{step.title}</h3>
+          <p className="text-[#8b949e] text-[13px] leading-relaxed mb-4">{step.description}</p>
+          <div className="flex items-center justify-between">
+            <button onClick={onFinish} className="text-[#8b949e] hover:text-white text-[13px] font-bold cursor-pointer">Skip tour</button>
+            <div className="flex items-center gap-2">
+              {stepIndex > 0 && <button onClick={goBack} className="h-8 px-3 rounded-lg text-[#8b949e] hover:text-white text-[13px] font-bold cursor-pointer" style={G.btn}>Back</button>}
+              <button onClick={goNext} className="h-8 px-3.5 rounded-lg text-white text-[13px] font-extrabold cursor-pointer" style={{ background: "#3b82f6" }}>{isLast ? "Finish" : "Next"}</button>
+            </div>
+          </div>
+        </motion.div>
+      </AnimatePresence>
     </div>
   );
 }
@@ -744,7 +828,7 @@ function Breadcrumb({ page, projectName }: { page: Page; projectName?: string })
   );
 }
 
-function AppTopbar({ page, navigate, breadcrumb }: { page: Page; navigate: (p: Page) => void; breadcrumb?: { label: string; parent: Page } }) {
+function AppTopbar({ page, navigate, breadcrumb, onReplayTour }: { page: Page; navigate: (p: Page) => void; breadcrumb?: { label: string; parent: Page }; onReplayTour: () => void }) {
   const activeTab = NAV_ITEMS.find((n) => n.id === page)?.id ?? null;
   return (
     <header className="fixed top-0 inset-x-0 z-50 h-14 flex items-center gap-3 md:gap-5 px-3 md:px-5" style={{ background: "rgba(7,12,26,0.65)", backdropFilter: "blur(40px) saturate(180%)", borderBottom: "1px solid rgba(255,255,255,0.08)", boxShadow: "0 1px 0 rgba(255,255,255,0.04), 0 8px 32px rgba(0,0,0,0.5)" }}>
@@ -761,7 +845,7 @@ function AppTopbar({ page, navigate, breadcrumb }: { page: Page; navigate: (p: P
       ) : (
         <nav className="flex items-center gap-0.5 overflow-x-auto" style={{ scrollbarWidth: "none" }}>
           {NAV_ITEMS.map((item) => (
-            <button key={item.id} onClick={() => navigate(item.id)} className={clsx("h-8 px-2.5 md:px-3.5 rounded-xl text-[13px] md:text-[15px] font-bold transition-all duration-150 whitespace-nowrap cursor-pointer", activeTab === item.id ? "text-white" : "text-[#8b949e] hover:text-white")} style={activeTab === item.id ? { background: "rgba(255,255,255,0.10)", border: "1px solid rgba(255,255,255,0.13)", boxShadow: "inset 0 1px 0 rgba(255,255,255,0.08)" } : undefined}>{item.label}</button>
+            <button key={item.id} data-tour={`nav-${item.id}`} onClick={() => navigate(item.id)} className={clsx("h-8 px-2.5 md:px-3.5 rounded-xl text-[13px] md:text-[15px] font-bold transition-all duration-150 whitespace-nowrap cursor-pointer", activeTab === item.id ? "text-white" : "text-[#8b949e] hover:text-white")} style={activeTab === item.id ? { background: "rgba(255,255,255,0.10)", border: "1px solid rgba(255,255,255,0.13)", boxShadow: "inset 0 1px 0 rgba(255,255,255,0.08)" } : undefined}>{item.label}</button>
           ))}
         </nav>
       )}
@@ -769,7 +853,7 @@ function AppTopbar({ page, navigate, breadcrumb }: { page: Page; navigate: (p: P
       <div className="flex items-center gap-1 md:gap-1.5">
         <div className="hidden md:block"><CurrencyToggle /></div>
         <NotificationBell />
-        <UserMenu />
+        <UserMenu onReplayTour={onReplayTour} />
       </div>
     </header>
   );
@@ -3885,7 +3969,10 @@ function AuthenticatedApp() {
   });
   const [currency, setCurrency] = useState<"USD" | "JMD">("USD");
   const [currentQuote, setCurrentQuote] = useState<Quote | null>(null);
-  const [showOnboarding, setShowOnboarding] = useState(() => !localStorage.getItem("onboarding_complete"));
+  const onboardingKey = useMemo(() => `onboarding_complete:${getSessionEmail() || "local"}`, []);
+  const [showOnboarding, setShowOnboarding] = useState(() => !localStorage.getItem(onboardingKey));
+  const [showTour, setShowTour] = useState(false);
+  const finishTour = () => { setShowTour(false); localStorage.setItem(onboardingKey, "true"); };
 
   useEffect(() => { if (page !== "login") localStorage.setItem("app_page", page); }, [page]);
   useEffect(() => { API.fx.getRate(); const interval = setInterval(() => API.fx.getRate(), 24 * 60 * 60 * 1000); return () => clearInterval(interval); }, []);
@@ -3929,7 +4016,7 @@ function AuthenticatedApp() {
       <QuoteContext.Provider value={quoteCtx}>
         <div className="min-h-screen bg-background">
           <Toaster position="bottom-right" theme="dark" toastOptions={{ style: { background: "rgba(7,12,26,0.95)", border: "1px solid rgba(255,255,255,0.12)", color: "#e6edf3", backdropFilter: "blur(20px)" } }} />
-          <AppTopbar page={page} navigate={setPage} breadcrumb={breadcrumb} />
+          <AppTopbar page={page} navigate={setPage} breadcrumb={breadcrumb} onReplayTour={() => { setShowTour(true); }} />
           <div className="pt-14">
             <AnimatePresence mode="wait">
               <motion.div key={page} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }} transition={{ duration: 0.2, ease: "easeOut" }}>
@@ -3944,12 +4031,12 @@ function AuthenticatedApp() {
           </div>
         </div>
         {showOnboarding && (
-          <div className="fixed inset-0 z-[500] flex items-center justify-center p-4" onClick={() => { setShowOnboarding(false); localStorage.setItem("onboarding_complete", "true"); }}>
+          <div className="fixed inset-0 z-[500] flex items-center justify-center p-4" onClick={() => { setShowOnboarding(false); localStorage.setItem(onboardingKey, "true"); }}>
             <div className="absolute inset-0" style={{ background: "rgba(0,0,0,0.8)", backdropFilter: "blur(12px)" }} />
             <motion.div initial={{ opacity: 0, scale: 0.93 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.93 }} transition={{ type: "spring", damping: 26, stiffness: 360 }} onClick={(e) => e.stopPropagation()} className="relative z-10 w-full max-w-[500px] rounded-3xl p-8 text-center" style={G.liquidGlass}>
               <div className="w-16 h-16 rounded-2xl flex items-center justify-center mx-auto mb-5" style={{ background: "rgba(59,130,246,0.15)", border: "1px solid rgba(59,130,246,0.25)" }}><Zap className="w-8 h-8 text-blue-400" /></div>
               <h2 className="text-white text-[1.4rem] font-extrabold mb-2">Welcome to EEST</h2>
-              <p className="text-[#8b949e] text-[14px] mb-6">Your full-lifecycle security project platform.</p>
+              <p className="text-[#8b949e] text-[14px] mb-6">Your full-lifecycle security project platform. Take a 30-second guided tour to see where everything lives.</p>
               <div className="space-y-3 mb-6 text-left">
                 {[
                   { icon: BarChart3, label: "Pipeline", desc: "Track sales leads and manage projects through every stage", color: "#3b82f6" },
@@ -3962,10 +4049,14 @@ function AuthenticatedApp() {
                   </div>
                 ))}
               </div>
-              <button onClick={() => { setShowOnboarding(false); localStorage.setItem("onboarding_complete", "true"); }} className="w-full h-11 rounded-xl text-white text-[15px] font-extrabold cursor-pointer" style={{ background: "#3b82f6", boxShadow: "0 4px 20px rgba(59,130,246,0.4)" }}>Get Started</button>
+              <div className="flex gap-2">
+                <button onClick={() => { setShowOnboarding(false); localStorage.setItem(onboardingKey, "true"); }} className="h-11 px-4 rounded-xl text-[#8b949e] hover:text-white text-[14px] font-bold cursor-pointer" style={G.btn}>Skip</button>
+                <button onClick={() => { setShowOnboarding(false); setShowTour(true); }} className="flex-1 h-11 rounded-xl text-white text-[15px] font-extrabold cursor-pointer flex items-center justify-center gap-2" style={{ background: "#3b82f6", boxShadow: "0 4px 20px rgba(59,130,246,0.4)" }}><Sparkles className="w-4 h-4" /> Start Tour</button>
+              </div>
             </motion.div>
           </div>
         )}
+        {showTour && <OnboardingTour page={page} navigate={setPage} onFinish={finishTour} />}
       </QuoteContext.Provider>
     </CurrencyContext.Provider>
   );
