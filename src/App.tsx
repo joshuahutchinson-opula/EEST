@@ -103,7 +103,7 @@ function makeFmt(currency: "USD" | "JMD") {
   };
 }
 
-type Page = "login" | "dashboard" | "design-studio" | "project-detail" | "workbook" | "install-tracker" | "device-library";
+type Page = "login" | "dashboard" | "projects" | "project-detail" | "workbook" | "install-tracker" | "device-library";
 type Stage = "lead" | "opportunity" | "assessment-scheduled" | "assessment-completed" | "proposal" | "negotiation" | "win" | "lose";
 type ProjectStage = "support" | "planning" | "procurement" | "installation" | "commissioning" | "complete";
 type PipelineType = "sales" | "project";
@@ -708,7 +708,7 @@ function UserMenu() {
 
 const NAV_ITEMS: { id: Page; label: string }[] = [
   { id: "dashboard", label: "Pipeline" },
-  { id: "design-studio", label: "Projects" },
+  { id: "projects", label: "Projects" },
   { id: "workbook", label: "Workbook" },
   { id: "install-tracker", label: "Install Tracker" },
   { id: "device-library", label: "Device Library" },
@@ -717,11 +717,11 @@ const NAV_ITEMS: { id: Page; label: string }[] = [
 function Breadcrumb({ page, projectName }: { page: Page; projectName?: string }) {
   const crumbs: { label: string; page?: Page }[] = [];
   if (page === "dashboard") crumbs.push({ label: "Pipeline", page: "dashboard" });
-  else if (page === "design-studio") crumbs.push({ label: "Projects", page: "design-studio" });
+  else if (page === "projects") crumbs.push({ label: "Projects", page: "projects" });
   else if (page === "workbook") crumbs.push({ label: "Workbook", page: "workbook" });
   else if (page === "install-tracker") crumbs.push({ label: "Install Tracker", page: "install-tracker" });
   else if (page === "device-library") crumbs.push({ label: "Device Library", page: "device-library" });
-  else if (page === "project-detail") crumbs.push({ label: "Projects", page: "design-studio" }, { label: projectName || "Project Detail" });
+  else if (page === "project-detail") crumbs.push({ label: "Projects", page: "projects" }, { label: projectName || "Project Detail" });
   return (
     <div className="flex items-center gap-1.5 text-[13px]">
       {crumbs.map((crumb, i) => (
@@ -1712,7 +1712,7 @@ function SelectProjectModal({ onClose, onSelect, currentId, projects }: { onClos
   );
 }
 
-function DesignStudio({ navigate }: { navigate: (p: Page) => void }) {
+function ProjectsPage({ navigate }: { navigate: (p: Page) => void }) {
   const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
   const [filter, setFilter] = useState<"all" | Stage | ProjectStage>("all");
   const [projects, setProjects] = useState<Project[]>([]);
@@ -1749,7 +1749,7 @@ function DesignStudio({ navigate }: { navigate: (p: Page) => void }) {
   return (
     <div className="px-3 md:px-5 py-4 md:py-6">
       <div className="flex items-center justify-between mb-4 md:mb-6">
-        <div><h1 className="text-white font-extrabold text-2xl md:text-3xl tracking-tight">System Design Studio</h1></div>
+        <div><h1 className="text-white font-extrabold text-2xl md:text-3xl tracking-tight">Projects</h1></div>
         <div className="flex items-center gap-2">
           <div className="flex items-center rounded-xl p-0.5 gap-0.5" style={G.btn}>
             {(["grid","list"] as const).map((m) => (
@@ -3574,7 +3574,7 @@ function LoginPage({ onLogin }: { onLogin: () => void }) {
             <p className="text-[#8b949e] text-[13px] md:text-[15px] leading-relaxed mb-8 max-w-[380px]">From New lead to New client, from Site Assessment to Final Installation. Track Leads, Design Site Plans, Build Financial Workbooks, Manage Installations, and Auto-Generate Reports in One Platform.</p>
             <div className="space-y-2">
               {[
-                { icon: Camera, title: "System Design Studio", desc: "Specify Cameras, Access Control, Network Hardware and Cable Runs per Project", color: "#3b82f6" },
+                { icon: Camera, title: "Projects", desc: "Specify Cameras, Access Control, Network Hardware and Cable Runs per Project", color: "#3b82f6" },
                 { icon: BarChart3, title: "Sales & Tech Pipeline Tracker", desc: "Track Leads, Manage Tech Projects, Generate Workbooks and Reports", color: "#8b5cf6" },
               ].map(({ icon: Icon, title, desc, color }) => (
                 <div key={title} className="flex items-start gap-3 p-3 rounded-2xl" style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.09)" }}>
@@ -3713,7 +3713,7 @@ function AuthenticatedApp() {
 
   if (page === "login") return (<CurrencyContext.Provider value={currencyCtx}><LoginPage onLogin={handleLogin} /></CurrencyContext.Provider>);
 
-  const breadcrumb = page === "project-detail" ? { label: "Projects", parent: "design-studio" as Page } : undefined;
+  const breadcrumb = page === "project-detail" ? { label: "Projects", parent: "projects" as Page } : undefined;
 
   return (
     <CurrencyContext.Provider value={currencyCtx}>
@@ -3725,7 +3725,7 @@ function AuthenticatedApp() {
             <AnimatePresence mode="wait">
               <motion.div key={page} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }} transition={{ duration: 0.2, ease: "easeOut" }}>
                 {page === "dashboard" && <Dashboard navigate={setPage} />}
-                {page === "design-studio" && <DesignStudio navigate={setPage} />}
+                {page === "projects" && <ProjectsPage navigate={setPage} />}
                 {page === "project-detail" && <ProjectDetail navigate={setPage} />}
                 {page === "workbook" && <Workbook navigate={setPage} />}
                 {page === "install-tracker" && <InstallTracker navigate={setPage} />}
@@ -3744,7 +3744,7 @@ function AuthenticatedApp() {
               <div className="space-y-3 mb-6 text-left">
                 {[
                   { icon: BarChart3, label: "Pipeline", desc: "Track sales leads and manage projects through every stage", color: "#3b82f6" },
-                  { icon: Layers, label: "Design Studio", desc: "Specify cameras, access control, network hardware, and cable runs", color: "#8b5cf6" },
+                  { icon: Layers, label: "Projects", desc: "Specify cameras, access control, network hardware, and cable runs", color: "#8b5cf6" },
                   { icon: FileText, label: "Workbook", desc: "Auto-generate BOMs, cost summaries, and proposals", color: "#10b981" },
                 ].map(item => (
                   <div key={item.label} className="flex items-start gap-3 p-3 rounded-xl" style={{ background: "rgba(255,255,255,0.03)" }}>
