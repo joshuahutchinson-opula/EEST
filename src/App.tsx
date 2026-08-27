@@ -3235,11 +3235,16 @@ function DeviceLibrary({ navigate: _navigate }: { navigate: (p: Page) => void })
       const text = await file.text();
       const lines = text.split("\n").filter(l => l.trim());
       const headers = lines[0].split(",").map(h => h.trim().replace(/"/g,""));
+      const VALID_CATEGORIES: CatalogDevice["category"][] = ["camera", "access-control", "nvr", "analytics", "intercom", "other", "switch", "poe-injector", "patch-panel", "rack", "ups"];
+      const parseCategory = (raw: string | undefined): CatalogDevice["category"] => {
+        const normalized = (raw || "").trim().toLowerCase().replace(/\s+/g, "-");
+        return (VALID_CATEGORIES.find(c => c === normalized) || "other") as CatalogDevice["category"];
+      };
       const parsed = lines.slice(1).map(line => {
         const vals = line.split(",").map(v => v.trim().replace(/"/g,""));
         const obj: any = {};
         headers.forEach((h,i) => { obj[h] = vals[i]; });
-        return { model: obj.Model||obj.model||"", manufacturer: obj.Manufacturer||obj.manufacturer||"Unknown", category: "camera" as const, system: (obj.System as SystemType) || "VSS", cameraType: obj["Camera Type"]||undefined, resolution: obj["Max Video Resolution"]||undefined, lens: obj["Sensor/Lens/Horizontal FOV"]||undefined, price: parseFloat(obj.Price||"0")||undefined, sku: obj.SKU||obj.Model||undefined, imageUrl: obj["Image URL"]||obj.Image||undefined, tags: [] as DeviceTag[] };
+        return { model: obj.Model||obj.model||"", manufacturer: obj.Manufacturer||obj.manufacturer||"Unknown", category: parseCategory(obj.Category||obj.category), system: (obj.System as SystemType) || "VSS", cameraType: obj["Camera Type"]||undefined, resolution: obj["Max Video Resolution"]||undefined, lens: obj["Sensor/Lens/Horizontal FOV"]||undefined, price: parseFloat(obj.Price||"0")||undefined, sku: obj.SKU||obj.Model||undefined, imageUrl: obj["Image URL"]||obj.Image||undefined, tags: [] as DeviceTag[] };
       });
       if (parsed.length > 0) { await API.devices.bulk(parsed); toast.success(`Imported ${parsed.length} devices`); fetchDevices(); }
     } catch { toast.error("CSV import failed"); }
