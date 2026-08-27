@@ -152,7 +152,6 @@ router.post("/:projectId/proposal", async (req: Request, res: Response) => {
 
     const gct = grandTotal * 0.15;
     res.json({
-      url: `/api/workbook/${projectId}/proposal.pdf`,
       project: projectResult.rows[0],
       exchangeRate,
       categories: Object.values(grouped),
@@ -164,18 +163,6 @@ router.post("/:projectId/proposal", async (req: Request, res: Response) => {
   } catch (err) {
     console.error("POST /workbook/:projectId/proposal error:", err);
     res.status(500).json({ error: "Failed to generate proposal" });
-  }
-});
-
-router.get("/:projectId/proposal.pdf", async (req: Request, res: Response) => {
-  try {
-    const { projectId } = req.params;
-    res.setHeader("Content-Type", "application/pdf");
-    res.setHeader("Content-Disposition", `attachment; filename="proposal-${projectId.slice(0,8)}.pdf"`);
-    res.send("PDF generation requires server-side pdf library — placeholder endpoint");
-  } catch (err) {
-    console.error("GET proposal.pdf error:", err);
-    res.status(500).json({ error: "Failed to generate PDF" });
   }
 });
 

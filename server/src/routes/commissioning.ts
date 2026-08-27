@@ -156,7 +156,6 @@ router.post("/:projectId/report", async (req: Request, res: Response) => {
     const pending = result.rows.filter(r => r.status !== "pass" && r.status !== "fail").length;
     const projectResult = await pool.query(`SELECT name, client FROM projects WHERE id = $1`, [projectId]);
     res.json({
-      url: `/api/commissioning/${projectId}/report.pdf`,
       project: projectResult.rows[0] || null,
       summary: { total: result.rows.length, passed, failed, pending },
       devices: result.rows,
@@ -165,18 +164,6 @@ router.post("/:projectId/report", async (req: Request, res: Response) => {
   } catch (err) {
     console.error("POST /commissioning/:projectId/report error:", err);
     res.status(500).json({ error: "Failed to generate report" });
-  }
-});
-
-router.get("/:projectId/report.pdf", async (req: Request, res: Response) => {
-  try {
-    const { projectId } = req.params;
-    res.setHeader("Content-Type", "application/pdf");
-    res.setHeader("Content-Disposition", `attachment; filename="commissioning-report-${projectId.slice(0,8)}.pdf"`);
-    res.send("PDF generation requires server-side pdf library — placeholder endpoint");
-  } catch (err) {
-    console.error("GET /commissioning/:projectId/report.pdf error:", err);
-    res.status(500).json({ error: "Failed to generate PDF" });
   }
 });
 
