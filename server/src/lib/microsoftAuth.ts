@@ -1,4 +1,21 @@
-import { jwtVerify, createRemoteJWKSet, SignJWT, JWTPayload } from "jose";
+import type * as Jose from "jose";
+
+// `jose` ships ESM-only (no CommonJS build), but this server's tsconfig compiles
+// with "module": "CommonJS", so a static `import ... from "jose"` becomes a
+// `require("jose")` at runtime and crashes with ERR_REQUIRE_ESM. A plain
+// `import("jose")` doesn't help either — targeting CommonJS, tsc downlevels
+// dynamic import() into `Promise.resolve().then(() => require("jose"))`, which
+// still calls the same broken require() under the hood, just a tick later.
+// Constructing the import() call via `new Function(...)` hides it from tsc's
+// transformer entirely, so the emitted code contains a real dynamic import()
+// that Node's runtime (not tsc) resolves — which *does* know how to load ESM
+// from a CommonJS module. Cached so the import only happens once.
+const dynamicImportJose = new Function("return import('jose')") as () => Promise<typeof Jose>;
+let josePromise: Promise<typeof Jose> | null = null;
+function loadJose(): Promise<typeof Jose> {
+  if (!josePromise) josePromise = dynamicImportJose();
+  return josePromise;
+}
 
 const TENANT_ID = process.env.MS_TENANT_ID || "common";
 const CLIENT_ID = process.env.MS_CLIENT_ID || "";
@@ -9,9 +26,15 @@ export const ALLOWED_EMAIL_DOMAIN = (process.env.ALLOWED_EMAIL_DOMAIN || "e-tech
 const AUTHORIZE_URL = `https://login.microsoftonline.com/${TENANT_ID}/oauth2/v2.0/authorize`;
 const TOKEN_URL = `https://login.microsoftonline.com/${TENANT_ID}/oauth2/v2.0/token`;
 const JWKS_URI = `https://login.microsoftonline.com/${TENANT_ID}/discovery/v2.0/keys`;
-const ISSUER_V1 = `https://login.microsoftonline.com/${TENANT_ID}/v2.0`;
 
-const msJwks = createRemoteJWKSet(new URL(JWKS_URI));
+let msJwks: ReturnType<typeof Jose.createRemoteJWKSet> | null = null;
+async function getMsJwks() {
+  if (!msJwks) {
+    const { createRemoteJWKSet } = await loadJose();
+    msJwks = createRemoteJWKSet(new URL(JWKS_URI));
+  }
+  return msJwks;
+}
 
 const SESSION_SECRET = process.env.SESSION_JWT_SECRET;
 if (!SESSION_SECRET) {
@@ -68,7 +91,9 @@ export interface MicrosoftIdentity {
 }
 
 export async function verifyMicrosoftIdToken(idToken: string): Promise<MicrosoftIdentity> {
-  const { payload } = await jwtVerify(idToken, msJwks, {
+  const { jwtVerify } = await loadJose();
+  const jwks = await getMsJwks();
+  const { payload } = await jwtVerify(idToken, jwks, {
     audience: CLIENT_ID,
   });
   if (!payload.iss || !String(payload.iss).startsWith("https://login.microsoftonline.com/")) {
@@ -90,6 +115,7 @@ export function isAllowedDomain(email: string): boolean {
 export interface SessionUser { email: string; name: string; oid: string }
 
 export async function signSessionToken(user: SessionUser): Promise<string> {
+  const { SignJWT } = await loadJose();
   return new SignJWT({ email: user.email, name: user.name, oid: user.oid })
     .setProtectedHeader({ alg: "HS256" })
     .setIssuedAt()
@@ -97,7 +123,8 @@ export async function signSessionToken(user: SessionUser): Promise<string> {
     .sign(sessionSecretKey);
 }
 
-export async function verifySessionToken(token: string): Promise<JWTPayload & Partial<SessionUser>> {
+export async function verifySessionToken(token: string): Promise<Jose.JWTPayload & Partial<SessionUser>> {
+  const { jwtVerify } = await loadJose();
   const { payload } = await jwtVerify(token, sessionSecretKey);
   return payload;
 }
