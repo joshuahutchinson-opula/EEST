@@ -3,8 +3,8 @@ const urlsToCache = [
   "/",
   "/index.html",
   "/manifest.json",
-  "/favicons/etech-badge-192.png?v=2",
-  "/favicons/etech-badge-512.png?v=2",
+  "/favicons/etech-badge-192.png?v=4",
+  "/favicons/etech-badge-512.png?v=4",
 ];
 
 self.addEventListener("install", (event) => {
