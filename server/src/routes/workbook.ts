@@ -12,7 +12,10 @@ router.get("/:projectId/overrides", async (req: Request, res: Response) => {
        FROM synthesis_overrides WHERE project_id = $1 ORDER BY section_number`,
       [req.params.projectId]
     );
-    res.json(result.rows);
+    res.json(result.rows.map(row => ({
+      ...row,
+      overrideValue: row.overrideValue !== null ? Number(row.overrideValue) : null,
+    })));
   } catch (err) {
     console.error("GET /workbook/:projectId/overrides error:", err);
     res.status(500).json({ error: "Failed to fetch overrides" });

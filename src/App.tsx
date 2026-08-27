@@ -526,12 +526,20 @@ const API = {
   },
 };
 
+function toNum(v: unknown, fallback = 0): number {
+  const n = Number(v);
+  return Number.isFinite(n) ? n : fallback;
+}
+
 function recalcLineItem(item: QuoteLineItem, exchangeRate: number): QuoteLineItem {
-  const sellPrice = item.unitCost * (1 + item.markupPercent);
-  const costTotal = item.unitCost * item.quantity;
-  const sellTotal = sellPrice * item.quantity;
+  const unitCost = toNum(item.unitCost);
+  const quantity = toNum(item.quantity);
+  const markupPercent = toNum(item.markupPercent);
+  const sellPrice = unitCost * (1 + markupPercent);
+  const costTotal = unitCost * quantity;
+  const sellTotal = sellPrice * quantity;
   const profit = sellTotal - costTotal;
-  return { ...item, sellPrice, costTotal, sellTotal, profit, jmdConversion: sellTotal * exchangeRate };
+  return { ...item, unitCost, quantity, markupPercent, sellPrice, costTotal, sellTotal, profit, jmdConversion: sellTotal * toNum(exchangeRate) };
 }
 
 function Skeleton({ className }: { className?: string }) { return <div className={clsx("animate-pulse rounded-2xl", className)} style={{ background: "rgba(255,255,255,0.04)" }} />; }
@@ -2145,7 +2153,7 @@ function ProcurementTab({ projectId }: { projectId: string }) {
         <div key={po.id} className="rounded-xl p-3" style={G.card}>
           <div className="flex items-center justify-between mb-2"><p className="text-white text-[14px] font-bold">PO #{po.id.slice(0,8)}</p><span className="text-[12px] font-extrabold px-2 py-0.5 rounded-full bg-amber-500/12 text-amber-400">{po.status}</span></div>
           {po.supplierName && <p className="text-[#8b949e] text-[12px]">Supplier: {po.supplierName}</p>}
-          <p className="text-[#8b949e] text-[12px]">Total: ${po.totalCost.toFixed(2)}</p>
+          <p className="text-[#8b949e] text-[12px]">Total: ${toNum(po.totalCost).toFixed(2)}</p>
           <div className="mt-2 space-y-1">{po.items.map(item => (
             <div key={item.id} className="flex items-center gap-2">
               <button onClick={() => toggleReceived(item.id, !item.received)} className={clsx("w-4 h-4 rounded-full border-2 flex items-center justify-center flex-shrink-0", item.received ? "bg-emerald-500 border-emerald-500" : "border-[#484f58]")}>{item.received && <CheckCircle2 className="w-2.5 h-2.5 text-white" />}</button>
@@ -2828,7 +2836,7 @@ function SynthesisTab({ quoteCategories, synthesisOverrides, exchangeRate, fmt, 
 
   const getDisplayValue = (section: typeof SYNTHESIS_SECTIONS[number]): { value: number; isOverridden: boolean } => {
     const override = synthesisOverrides.find(o => o.sectionNumber === section.section && o.isOverridden);
-    if (override && override.overrideValue !== null) return { value: override.overrideValue, isOverridden: true };
+    if (override && override.overrideValue !== null) return { value: toNum(override.overrideValue), isOverridden: true };
     return { value: getSectionSubtotal(section.section), isOverridden: false };
   };
 

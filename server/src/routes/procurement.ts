@@ -20,7 +20,16 @@ router.get("/:projectId", async (req: Request, res: Response) => {
        GROUP BY po.id ORDER BY po.created_at DESC`,
       [req.params.projectId]
     );
-    res.json(result.rows);
+    const rows = result.rows.map(row => ({
+      ...row,
+      totalCost: Number(row.totalCost) || 0,
+      items: (row.items || []).map((item: any) => ({
+        ...item,
+        unitCost: Number(item.unitCost) || 0,
+        totalCost: Number(item.totalCost) || 0,
+      })),
+    }));
+    res.json(rows);
   } catch (err) {
     console.error("GET /procurement/:projectId error:", err);
     res.status(500).json({ error: "Failed to fetch POs" });
