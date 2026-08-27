@@ -291,6 +291,13 @@ export async function initDB() {
         notes TEXT,
         created_at TIMESTAMPTZ DEFAULT NOW()
       );
+
+      CREATE TABLE IF NOT EXISTS user_tutorial_progress (
+        email TEXT NOT NULL,
+        tutorial_key TEXT NOT NULL,
+        seen_at TIMESTAMPTZ DEFAULT NOW(),
+        PRIMARY KEY (email, tutorial_key)
+      );
     `);
 
     await client.query(`ALTER TABLE projects ADD COLUMN IF NOT EXISTS lead_source TEXT`);

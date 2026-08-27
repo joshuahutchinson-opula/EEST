@@ -448,6 +448,10 @@ const API = {
   auth: {
     me: () => apiFetch<{ email: string; name: string; oid: string; role: "admin" | "tech"; allowedDomain: string }>("/auth/me"),
   },
+  tutorials: {
+    list: () => apiFetch<string[]>("/users/me/tutorials"),
+    markSeen: (key: string) => apiFetch<void>(`/users/me/tutorials/${key}`, { method: "POST" }),
+  },
   projects: {
     list: () => apiFetch<Project[]>("/projects"),
     get: (id: string) => apiFetch<Project>(`/projects/${id}`),
@@ -723,11 +727,11 @@ function NotificationBell() {
   );
 }
 
-function UserMenu({ onReplayTour }: { onReplayTour: () => void }) {
+function UserMenu() {
   const [open, setOpen] = useState(false);
   return (
     <div className="relative">
-      <button data-tour="tour-user-menu" onClick={() => setOpen(!open)} className="flex items-center gap-2 h-8 pl-1.5 pr-2.5 rounded-xl hover:bg-white/[0.06] transition-colors cursor-pointer min-h-[44px] md:min-h-0">
+      <button onClick={() => setOpen(!open)} className="flex items-center gap-2 h-8 pl-1.5 pr-2.5 rounded-xl hover:bg-white/[0.06] transition-colors cursor-pointer min-h-[44px] md:min-h-0">
         <div className="w-6 h-6 rounded-full flex items-center justify-center text-white text-[11px] font-extrabold flex-shrink-0" style={{ background: "linear-gradient(135deg, #3b82f6, #8b5cf6)", boxShadow: "0 0 12px rgba(139,92,246,0.5)" }}>{CURRENT_USER.initials}</div>
         <span className="text-white text-[14px] font-bold hidden md:inline">{CURRENT_USER.name}</span>
         <ChevronDown className="w-3 h-3 text-[#8b949e] hidden md:block" />
@@ -741,7 +745,6 @@ function UserMenu({ onReplayTour }: { onReplayTour: () => void }) {
               <div><p className="text-white text-[14px] font-bold">{CURRENT_USER.name}</p><p className="text-[#484f58] text-[12px]">Administrator</p></div>
             </div>
             <div className="py-1">
-              <button onClick={() => { setOpen(false); onReplayTour(); }} className="w-full flex items-center gap-2.5 px-4 py-2.5 text-[#8b949e] hover:text-white hover:bg-white/[0.05] transition-colors text-left cursor-pointer min-h-[44px] text-[14px] font-bold"><Sparkles className="w-3.5 h-3.5 text-blue-400" /> Replay Tour</button>
               <button onClick={() => { setOpen(false); localStorage.removeItem("auth_token"); localStorage.removeItem("app_logged_in"); localStorage.removeItem("app_page"); window.location.href = "/"; }} className="w-full flex items-center gap-2.5 px-4 py-2.5 text-[#8b949e] hover:text-white hover:bg-white/[0.05] transition-colors text-left cursor-pointer min-h-[44px] text-[14px] font-bold"><LogOut className="w-3.5 h-3.5 text-rose-400" /> Sign Out</button>
             </div>
           </motion.div>
@@ -751,23 +754,98 @@ function UserMenu({ onReplayTour }: { onReplayTour: () => void }) {
   );
 }
 
-interface TourStep { target: string; page?: Page; title: string; description: string }
-const TOUR_STEPS: TourStep[] = [
-  { target: "nav-dashboard", page: "dashboard", title: "Pipeline", description: "Track every sales lead and support project through its stages — Lead to Won on the sales side, Planning to Complete on the project side." },
-  { target: "nav-projects", page: "projects", title: "Projects", description: "Browse every active project here. Click into one to see its assets, workbook, tasks, and install progress in one place." },
-  { target: "nav-workbook", page: "workbook", title: "Workbook", description: "Build out Asset List, Cost & Margin, BOM, and Synthesis for a project's quote — everything rolls up automatically as you go." },
-  { target: "nav-install-tracker", page: "install-tracker", title: "Install Tracker", description: "Track device-by-device installation progress across every project currently in the Installation stage." },
-  { target: "nav-device-library", page: "device-library", title: "Device Library", description: "Your catalog of cameras, access control, and network hardware — the building blocks you pull into a project's Assets." },
+interface TutorialStep { target: string; title: string; description: string }
+interface TutorialRequest { key: string; steps: TutorialStep[] }
+
+const APP_INTRO_STEPS: TutorialStep[] = [
+  { target: "nav-dashboard", title: "Pipeline", description: "Track every sales lead and support project through its stages — Lead to Won on the sales side, Planning to Complete on the project side." },
+  { target: "nav-projects", title: "Projects", description: "Browse every active project here. Click into one to see its assets, workbook, tasks, and install progress in one place." },
+  { target: "nav-workbook", title: "Workbook", description: "Build out Asset List, Cost & Margin, BOM, and Synthesis for a project's quote — everything rolls up automatically as you go." },
+  { target: "nav-install-tracker", title: "Install Tracker", description: "Track device-by-device installation progress across every project currently in the Installation stage." },
+  { target: "nav-device-library", title: "Device Library", description: "Your catalog of cameras, access control, and network hardware — the building blocks you pull into a project's Assets." },
   { target: "tour-notifications", title: "Notifications", description: "Stay on top of task assignments, sales wins, and updates across every project from here." },
-  { target: "tour-user-menu", title: "Your Account", description: "Sign out, or replay this tour any time from here." },
+  { target: "tour-help-menu", title: "Help", description: "Every walkthrough in the app lives here — replay this tour or any surface's own walkthrough any time you want a refresher." },
 ];
 
-function OnboardingTour({ page, navigate, onFinish }: { page: Page; navigate: (p: Page) => void; onFinish: () => void }) {
+interface TutorialCtxValue {
+  seen: Set<string>;
+  seenLoaded: boolean;
+  current: TutorialRequest | null;
+  enqueue: (req: TutorialRequest) => void;
+  dequeue: (key: string) => void;
+  complete: () => void;
+  replay: (req: TutorialRequest) => void;
+}
+const TutorialContext = createContext<TutorialCtxValue>({
+  seen: new Set(),
+  seenLoaded: false,
+  current: null,
+  enqueue: () => {},
+  dequeue: () => {},
+  complete: () => {},
+  replay: () => {},
+});
+const useTutorials = () => useContext(TutorialContext);
+
+// Central queue so at most one walkthrough overlay is ever mounted, even if a user rapidly
+// navigates across several never-seen surfaces before any one of them finishes. Auto-triggered
+// surfaces register themselves via useAutoTutorial; "Replay" from the Help menu takes priority
+// over anything auto-queued since it's an explicit user action.
+function useTutorialState() {
+  const [seen, setSeen] = useState<Set<string>>(new Set());
+  // Gates auto-enqueue until the real seen-list has loaded, so an already-completed tutorial
+  // doesn't flash open (then get yanked away) for a returning user before the fetch resolves.
+  const [seenLoaded, setSeenLoaded] = useState(false);
+  const [autoQueue, setAutoQueue] = useState<TutorialRequest[]>([]);
+  const [forced, setForced] = useState<TutorialRequest | null>(null);
+
+  useEffect(() => { API.tutorials.list().then((keys) => setSeen(new Set(keys))).catch(() => {}).finally(() => setSeenLoaded(true)); }, []);
+
+  const enqueue = useCallback((req: TutorialRequest) => {
+    setAutoQueue((prev) => (prev.some((r) => r.key === req.key) ? prev : [...prev, req]));
+  }, []);
+  const dequeue = useCallback((key: string) => {
+    setAutoQueue((prev) => prev.filter((r) => r.key !== key));
+  }, []);
+  const current = forced ?? autoQueue[0] ?? null;
+  // complete() must only ever clear whichever tutorial is actually on screen (forced takes
+  // priority over the queue) — a ref keeps the latest value reachable from the stable callback
+  // below without re-creating it every render.
+  const currentRef = useRef<TutorialRequest | null>(current);
+  useEffect(() => { currentRef.current = current; });
+  const complete = useCallback(() => {
+    const cur = currentRef.current;
+    if (!cur) return;
+    API.tutorials.markSeen(cur.key).catch(() => {});
+    setSeen((prev) => new Set(prev).add(cur.key));
+    setForced((prev) => (prev && prev.key === cur.key ? null : prev));
+    setAutoQueue((prev) => (prev[0]?.key === cur.key ? prev.slice(1) : prev));
+  }, []);
+  const replay = useCallback((req: TutorialRequest) => setForced(req), []);
+
+  return useMemo(() => ({ seen, seenLoaded, current, enqueue, dequeue, complete, replay }), [seen, seenLoaded, current, enqueue, dequeue, complete, replay]);
+}
+
+// Auto-triggers a surface's walkthrough the first time it's reached. `active` gates surfaces
+// that don't unmount on their own (a tab within a page, a modal within a tab) — pass whether
+// this specific surface is actually the one currently visible. Waits for the real seen-list to
+// load first so an already-completed tutorial doesn't flash open before getting yanked away.
+function useAutoTutorial(key: string, steps: TutorialStep[], active: boolean = true) {
+  const { seen, seenLoaded, enqueue, dequeue } = useTutorials();
+  const isSeen = seen.has(key);
+  useEffect(() => {
+    if (!active || !seenLoaded || isSeen) return;
+    enqueue({ key, steps });
+    return () => dequeue(key);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [key, active, seenLoaded, isSeen]);
+}
+
+function SpotlightTour({ steps, onFinish }: { steps: TutorialStep[]; onFinish: () => void }) {
   const [stepIndex, setStepIndex] = useState(0);
   const [rect, setRect] = useState<DOMRect | null>(null);
-  const step = TOUR_STEPS[stepIndex];
-
-  useEffect(() => { if (step.page && step.page !== page) navigate(step.page); }, [stepIndex]); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => { setStepIndex(0); }, [steps]);
+  const step = steps[stepIndex];
 
   useEffect(() => {
     let raf = 0;
@@ -783,9 +861,9 @@ function OnboardingTour({ page, navigate, onFinish }: { page: Page; navigate: (p
     window.addEventListener("resize", onResize);
     window.addEventListener("scroll", onResize, true);
     return () => { cancelAnimationFrame(raf); window.removeEventListener("resize", onResize); window.removeEventListener("scroll", onResize, true); };
-  }, [stepIndex, page]);
+  }, [stepIndex, step.target]);
 
-  const isLast = stepIndex === TOUR_STEPS.length - 1;
+  const isLast = stepIndex === steps.length - 1;
   const goNext = () => { if (isLast) onFinish(); else setStepIndex((i) => i + 1); };
   const goBack = () => setStepIndex((i) => Math.max(0, i - 1));
 
@@ -807,13 +885,13 @@ function OnboardingTour({ page, navigate, onFinish }: { page: Page; navigate: (p
       <AnimatePresence mode="wait">
         <motion.div key={stepIndex} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -6 }} transition={{ type: "spring", damping: 28, stiffness: 340 }} className="absolute w-[320px] rounded-2xl p-5" style={{ top: tooltipTop, left: tooltipLeft, ...G.liquidGlass }}>
           <div className="flex items-center justify-between mb-2">
-            <span className="text-blue-400 text-[11px] font-extrabold uppercase tracking-widest">Step {stepIndex + 1} of {TOUR_STEPS.length}</span>
+            <span className="text-blue-400 text-[11px] font-extrabold uppercase tracking-widest">{stepIndex + 1} of {steps.length}</span>
             <button onClick={onFinish} className="w-6 h-6 rounded-lg flex items-center justify-center hover:bg-white/[0.08] cursor-pointer"><X className="w-3.5 h-3.5 text-[#8b949e]" /></button>
           </div>
           <h3 className="text-white text-[16px] font-extrabold mb-1.5">{step.title}</h3>
           <p className="text-[#8b949e] text-[13px] leading-relaxed mb-4">{step.description}</p>
           <div className="flex items-center justify-between">
-            <button onClick={onFinish} className="text-[#8b949e] hover:text-white text-[13px] font-bold cursor-pointer">Skip tour</button>
+            <button onClick={onFinish} className="text-[#8b949e] hover:text-white text-[13px] font-bold cursor-pointer">Skip</button>
             <div className="flex items-center gap-2">
               {stepIndex > 0 && <button onClick={goBack} className="h-8 px-3 rounded-lg text-[#8b949e] hover:text-white text-[13px] font-bold cursor-pointer" style={G.btn}>Back</button>}
               <button onClick={goNext} className="h-8 px-3.5 rounded-lg text-white text-[13px] font-extrabold cursor-pointer" style={{ background: "#3b82f6" }}>{isLast ? "Finish" : "Next"}</button>
@@ -821,6 +899,63 @@ function OnboardingTour({ page, navigate, onFinish }: { page: Page; navigate: (p
           </div>
         </motion.div>
       </AnimatePresence>
+    </div>
+  );
+}
+
+interface TutorialRegistryEntry {
+  key: string;
+  label: string;
+  page: Page;
+  tabStorageKey?: string;
+  tabValue?: string;
+  tabEventName?: string;
+  openModalFlag?: string;
+  steps: TutorialStep[];
+}
+
+function HelpMenu({ registry, navigate }: { registry: TutorialRegistryEntry[]; navigate: (p: Page) => void }) {
+  const [open, setOpen] = useState(false);
+  const { replay } = useTutorials();
+
+  const handleReplay = (entry: TutorialRegistryEntry) => {
+    setOpen(false);
+    if (entry.tabStorageKey && entry.tabValue) {
+      localStorage.setItem(entry.tabStorageKey, entry.tabValue);
+      if (entry.tabEventName) window.dispatchEvent(new CustomEvent(entry.tabEventName, { detail: entry.tabValue }));
+    }
+    if (entry.openModalFlag) {
+      localStorage.setItem(entry.openModalFlag, "true");
+      window.dispatchEvent(new CustomEvent(entry.openModalFlag));
+    }
+    navigate(entry.page);
+    replay({ key: entry.key, steps: entry.steps });
+  };
+
+  return (
+    <div className="relative">
+      <button data-tour="tour-help-menu" onClick={() => setOpen(!open)} className="relative w-8 h-8 rounded-xl flex items-center justify-center hover:bg-white/[0.08] transition-colors cursor-pointer" style={G.btn}>
+        <Info className="w-3.5 h-3.5 text-[#8b949e]" />
+      </button>
+      {open && (
+        <>
+          <div className="fixed inset-0 z-50" onClick={() => setOpen(false)} />
+          <motion.div initial={{ opacity: 0, scale: 0.95, y: -8 }} animate={{ opacity: 1, scale: 1, y: 0 }} exit={{ opacity: 0, scale: 0.95, y: -8 }} transition={{ type: "spring", damping: 26, stiffness: 360 }} className="absolute right-0 top-full mt-2 z-[60] w-72 rounded-2xl overflow-hidden" style={{ background: "rgba(7,12,26,0.97)", border: "1px solid rgba(255,255,255,0.12)", boxShadow: "0 8px 32px rgba(0,0,0,0.8)", backdropFilter: "blur(20px)" }}>
+            <div className="px-4 py-3" style={{ borderBottom: "1px solid rgba(255,255,255,0.07)" }}>
+              <p className="text-white text-[14px] font-extrabold">Walkthroughs</p>
+              <p className="text-[#8b949e] text-[12px] mt-0.5">Replay any guided tour</p>
+            </div>
+            <div className="max-h-[360px] overflow-y-auto py-1" style={{ scrollbarWidth: "none" }}>
+              {registry.map((entry) => (
+                <button key={entry.key} onClick={() => handleReplay(entry)} className="w-full flex items-center justify-between gap-2.5 px-4 py-2.5 text-[#8b949e] hover:text-white hover:bg-white/[0.05] transition-colors text-left cursor-pointer min-h-[44px] text-[13px] font-bold">
+                  <span className="flex items-center gap-2.5"><Sparkles className="w-3.5 h-3.5 text-blue-400 flex-shrink-0" /> {entry.label}</span>
+                  <RotateCw className="w-3 h-3 flex-shrink-0" />
+                </button>
+              ))}
+            </div>
+          </motion.div>
+        </>
+      )}
     </div>
   );
 }
@@ -853,7 +988,7 @@ function Breadcrumb({ page, projectName }: { page: Page; projectName?: string })
   );
 }
 
-function AppTopbar({ page, navigate, breadcrumb, onReplayTour }: { page: Page; navigate: (p: Page) => void; breadcrumb?: { label: string; parent: Page }; onReplayTour: () => void }) {
+function AppTopbar({ page, navigate, breadcrumb, tutorialRegistry }: { page: Page; navigate: (p: Page) => void; breadcrumb?: { label: string; parent: Page }; tutorialRegistry: TutorialRegistryEntry[] }) {
   const role = useRole();
   const navItems = isTechRole(role) ? NAV_ITEMS.filter((n) => n.id !== "workbook") : NAV_ITEMS;
   const activeTab = navItems.find((n) => n.id === page)?.id ?? null;
@@ -880,7 +1015,8 @@ function AppTopbar({ page, navigate, breadcrumb, onReplayTour }: { page: Page; n
       <div className="flex items-center gap-1 md:gap-1.5">
         <div className="hidden md:block"><CurrencyToggle /></div>
         <NotificationBell />
-        <UserMenu onReplayTour={onReplayTour} />
+        <HelpMenu registry={tutorialRegistry} navigate={navigate} />
+        <UserMenu />
       </div>
     </header>
   );
@@ -902,7 +1038,7 @@ function KanbanCard({ project, column, dragging, onDragStart, onDragEnd, onClick
   return (
     <>
       {confirmDelete && <ConfirmDialog open={confirmDelete} title="Delete Project" message={`Are you sure you want to delete "${project.name}"? This action cannot be undone.`} onConfirm={() => { onDelete(project.id); setConfirmDelete(false); toast.success("Project deleted"); }} onCancel={() => setConfirmDelete(false)} />}
-      <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, scale: 0.95 }} draggable onDragStart={(e) => { e.stopPropagation(); onDragStart(e as unknown as React.DragEvent<HTMLDivElement>, project.id); }} onDragEnd={onDragEnd} onClick={onClick} className={clsx("group relative rounded-2xl cursor-pointer select-none transition-all duration-200", isDragging ? "opacity-25 scale-[0.96]" : "md:hover:-translate-y-1")} style={{ background: "rgba(255,255,255,0.055)", backdropFilter: "blur(24px)", border: isDragging ? "1px solid rgba(255,255,255,0.05)" : "1px solid rgba(255,255,255,0.11)", borderLeft: `3px solid ${isProjectPipeline ? (psBadge?.color || "#3b82f6") : column.color}`, boxShadow: isDragging ? "none" : "0 2px 16px rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,255,255,0.09)" }}>
+      <motion.div data-tour="db-kanban-card" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, scale: 0.95 }} draggable onDragStart={(e) => { e.stopPropagation(); onDragStart(e as unknown as React.DragEvent<HTMLDivElement>, project.id); }} onDragEnd={onDragEnd} onClick={onClick} className={clsx("group relative rounded-2xl cursor-pointer select-none transition-all duration-200", isDragging ? "opacity-25 scale-[0.96]" : "md:hover:-translate-y-1")} style={{ background: "rgba(255,255,255,0.055)", backdropFilter: "blur(24px)", border: isDragging ? "1px solid rgba(255,255,255,0.05)" : "1px solid rgba(255,255,255,0.11)", borderLeft: `3px solid ${isProjectPipeline ? (psBadge?.color || "#3b82f6") : column.color}`, boxShadow: isDragging ? "none" : "0 2px 16px rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,255,255,0.09)" }}>
         <div className="p-3 md:p-4 md:pl-5">
           <div className="flex items-start justify-between gap-2 mb-2">
             <div className="flex items-center gap-1.5 flex-1 min-w-0">
@@ -975,7 +1111,7 @@ function KanbanColumn({ column, projects, totalValue, dragging, isOver, onDragSt
   const { fmt } = useCurrency();
   const isProjectColumn = PROJECT_COLUMNS.some(c => c.id === column.id);
   return (
-    <div onDragOver={onDragOver} onDragLeave={onDragLeave} onDrop={onDrop} className="w-[260px] md:w-[272px] flex-shrink-0 flex flex-col rounded-2xl transition-all duration-200" style={isOver ? { background: "rgba(59,130,246,0.08)", backdropFilter: "blur(24px)", border: "1px solid rgba(59,130,246,0.35)" } : { background: "rgba(255,255,255,0.032)", backdropFilter: "blur(24px)", border: "1px solid rgba(255,255,255,0.07)", boxShadow: "0 2px 20px rgba(0,0,0,0.3)" }}>
+    <div data-tour="db-kanban-column" onDragOver={onDragOver} onDragLeave={onDragLeave} onDrop={onDrop} className="w-[260px] md:w-[272px] flex-shrink-0 flex flex-col rounded-2xl transition-all duration-200" style={isOver ? { background: "rgba(59,130,246,0.08)", backdropFilter: "blur(24px)", border: "1px solid rgba(59,130,246,0.35)" } : { background: "rgba(255,255,255,0.032)", backdropFilter: "blur(24px)", border: "1px solid rgba(255,255,255,0.07)", boxShadow: "0 2px 20px rgba(0,0,0,0.3)" }}>
       <div className="px-3.5 pt-3.5 pb-3 flex-shrink-0" style={{ borderBottom: "1px solid rgba(255,255,255,0.06)" }}>
         <div className="flex items-center justify-between mb-1">
           <div className="flex items-center gap-2 min-w-0">
@@ -998,10 +1134,20 @@ function KanbanColumn({ column, projects, totalValue, dragging, isOver, onDragSt
     </div>
   );
 }
+const DASHBOARD_STEPS: TutorialStep[] = [
+  { target: "db-stats", title: "Pipeline Stats", description: "Track pipeline value, win rate, deals in negotiation, and average deal size at a glance — these switch to project-health stats (active projects, in installation, overdue, tickets resolved) when you're viewing the Project pipeline." },
+  { target: "db-pipeline-toggle", title: "Sales vs. Project Pipeline", description: "Toggle between the Sales pipeline (Lead through Won) and the Project pipeline (Planning through Complete) — two different boards sharing this one screen." },
+  { target: "db-kanban-column", title: "Kanban Columns", description: "Each column is a stage. Drag any card from one column to another to move it through the pipeline — the move saves automatically and logs to the project's audit trail." },
+  { target: "db-kanban-card", title: "Card Details", description: "Every card shows the client, value, risk, assignee, due date, and a quick-actions menu for deleting the deal or (once a sales deal is Won) moving it into the Project pipeline. Click a card to open its full detail." },
+  { target: "db-new-project", title: "New Project", description: "Add a new lead or project directly from here." },
+  { target: "nav-projects", title: "More Sections", description: "Head to Projects, Workbook, Install Tracker, or Device Library from the nav bar to dig into a specific project." },
+];
+
 function Dashboard({ navigate }: { navigate: (p: Page) => void }) {
   const { fmt } = useCurrency();
   const role = useRole();
   const tech = isTechRole(role);
+  useAutoTutorial("dashboard", DASHBOARD_STEPS);
   const [projects, setProjects] = useState<Project[]>([]);
   const [loading, setLoading] = useState(true);
   const [dragging, setDragging] = useState<string | null>(null);
@@ -1169,7 +1315,7 @@ function Dashboard({ navigate }: { navigate: (p: Page) => void }) {
             <div className="flex items-center gap-3 mb-1">
               <h1 className="text-white font-extrabold text-2xl md:text-3xl tracking-tight">{pipelineType === "sales" ? "Sales Pipeline" : "Project Pipeline"}</h1>
               {!tech && (
-                <div className="flex items-center h-7 rounded-xl overflow-hidden" style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.10)" }}>
+                <div data-tour="db-pipeline-toggle" className="flex items-center h-7 rounded-xl overflow-hidden" style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.10)" }}>
                   <button onClick={() => setPipelineType("sales")} className={clsx("h-full px-3 text-[12px] font-extrabold cursor-pointer", pipelineType === "sales" ? "text-white" : "text-[#484f58]")} style={pipelineType === "sales" ? { background: "#3b82f6" } : undefined}>Sales</button>
                   <button onClick={() => setPipelineType("project")} className={clsx("h-full px-3 text-[12px] font-extrabold cursor-pointer", pipelineType === "project" ? "text-white" : "text-[#484f58]")} style={pipelineType === "project" ? { background: "#8b5cf6" } : undefined}>Projects</button>
                 </div>
@@ -1177,10 +1323,10 @@ function Dashboard({ navigate }: { navigate: (p: Page) => void }) {
             </div>
             <p className="text-[#8b949e] text-[13px] md:text-[15px] mt-0.5">{currentProjects.length} projects</p>
           </div>
-          <button onClick={() => setShowNewProject(true)} className="flex items-center gap-1.5 h-8 px-3 md:px-4 rounded-xl text-white text-[13px] md:text-[14px] font-extrabold cursor-pointer min-h-[44px]" style={{ background: "#3b82f6", boxShadow: "0 4px 16px rgba(59,130,246,0.35)" }}><Plus className="w-3.5 h-3.5" /> New Project</button>
+          <button data-tour="db-new-project" onClick={() => setShowNewProject(true)} className="flex items-center gap-1.5 h-8 px-3 md:px-4 rounded-xl text-white text-[13px] md:text-[14px] font-extrabold cursor-pointer min-h-[44px]" style={{ background: "#3b82f6", boxShadow: "0 4px 16px rgba(59,130,246,0.35)" }}><Plus className="w-3.5 h-3.5" /> New Project</button>
         </div>
         {pipelineType === "sales" ? (
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-2 md:gap-3">
+          <div data-tour="db-stats" className="grid grid-cols-2 md:grid-cols-4 gap-2 md:gap-3">
             {[{ label: "Active Pipeline", value: pipeline, icon: TrendingUp },{ label: "Win Rate", value: winRate, icon: Star, isPct: true },{ label: "In Negotiation", value: negoValue, icon: BarChart3 },{ label: "Avg Deal Size", value: avgDeal, icon: DollarSign }].map((stat, i) => (
               <div key={stat.label} className="rounded-2xl p-3 md:p-4" style={G.card}>
                 <div className="flex items-center justify-between mb-2"><span className="text-[#8b949e] text-[12px] md:text-[14px] font-black uppercase tracking-[0.08em]">{stat.label}</span><div className="w-7 h-7 md:w-8 md:h-8 rounded-xl flex items-center justify-center" style={{ background: `${STAT_COLORS[i]}18` }}><stat.icon className="w-3 h-3 md:w-3.5 md:h-3.5" style={{ color: STAT_COLORS[i] }} /></div></div>
@@ -1189,7 +1335,7 @@ function Dashboard({ navigate }: { navigate: (p: Page) => void }) {
             ))}
           </div>
         ) : (
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-2 md:gap-3">
+          <div data-tour="db-stats" className="grid grid-cols-2 md:grid-cols-4 gap-2 md:gap-3">
             {[{ label: "Active Projects", value: activeProjects, icon: Activity },{ label: "In Installation", value: inInstallation, icon: Wrench },{ label: "Overdue", value: overdueProjects, icon: AlertTriangle },{ label: "Tickets Resolved", value: ticketsResolved, icon: CheckCircle2 }].map((stat, i) => (
               <div key={stat.label} className="rounded-2xl p-3 md:p-4" style={G.card}>
                 <div className="flex items-center justify-between mb-2"><span className="text-[#8b949e] text-[12px] md:text-[14px] font-black uppercase tracking-[0.08em]">{stat.label}</span><div className="w-7 h-7 md:w-8 md:h-8 rounded-xl flex items-center justify-center" style={{ background: `${STAT_COLORS[i]}18` }}><stat.icon className="w-3 h-3 md:w-3.5 md:h-3.5" style={{ color: STAT_COLORS[i] }} /></div></div>
@@ -1917,7 +2063,14 @@ function SelectProjectModal({ onClose, onSelect, currentId, projects }: { onClos
   );
 }
 
+const PROJECTS_STEPS: TutorialStep[] = [
+  { target: "proj-view-toggle", title: "Grid or List", description: "Switch between a visual card grid and a dense table view of every project." },
+  { target: "proj-filters", title: "Filter & Search", description: "Filter by sales or project stage, or search by name, client, or location." },
+  { target: "proj-card", title: "Project Cards", description: "Each card shows a live asset summary, current stage badge, client, camera count, and assignee. Hover to reveal the delete button, or click anywhere else on the card to open its full detail." },
+];
+
 function ProjectsPage({ navigate }: { navigate: (p: Page) => void }) {
+  useAutoTutorial("projects", PROJECTS_STEPS);
   const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
   const [filter, setFilter] = useState<"all" | Stage | ProjectStage>("all");
   const [projects, setProjects] = useState<Project[]>([]);
@@ -1966,14 +2119,14 @@ function ProjectsPage({ navigate }: { navigate: (p: Page) => void }) {
       <div className="flex items-center justify-between mb-4 md:mb-6">
         <div><h1 className="text-white font-extrabold text-2xl md:text-3xl tracking-tight">Projects</h1></div>
         <div className="flex items-center gap-2">
-          <div className="flex items-center rounded-xl p-0.5 gap-0.5" style={G.btn}>
+          <div data-tour="proj-view-toggle" className="flex items-center rounded-xl p-0.5 gap-0.5" style={G.btn}>
             {(["grid","list"] as const).map((m) => (
               <button key={m} onClick={() => setViewMode(m)} className={clsx("w-7 h-7 rounded-lg flex items-center justify-center cursor-pointer", viewMode === m ? "text-white" : "text-[#8b949e]")} style={viewMode === m ? { background: "rgba(255,255,255,0.12)" } : undefined}>{m === "grid" ? <Grid3x3 className="w-3.5 h-3.5" /> : <List className="w-3.5 h-3.5" />}</button>
             ))}
           </div>
         </div>
       </div>
-      <div className="flex items-center gap-2 mb-4 md:mb-5 flex-wrap">
+      <div data-tour="proj-filters" className="flex items-center gap-2 mb-4 md:mb-5 flex-wrap">
             {stageFilters.map((f) => (
               <button key={f.id} onClick={() => setFilter(f.id)} className={clsx("h-7 px-3 rounded-full text-[13px] md:text-[14px] font-bold cursor-pointer", filter === f.id ? "text-white" : "text-[#8b949e]")} style={filter === f.id ? { background: "#3b82f6", boxShadow: "0 2px 12px rgba(59,130,246,0.3)" } : G.subtle}>{f.label}</button>
             ))}
@@ -1987,7 +2140,7 @@ function ProjectsPage({ navigate }: { navigate: (p: Page) => void }) {
                   const isProjPipe = project.pipelineType === "project";
                   const badge = isProjPipe ? projectStageBadge(project.projectStage || "planning") : stageBadge(project.stage);
                   return (
-                    <motion.div key={project.id} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, scale: 0.95 }} className="group rounded-2xl overflow-hidden cursor-pointer transition-all md:hover:-translate-y-1" style={{ ...G.card }} onClick={() => openProject(project.id)}>
+                    <motion.div data-tour="proj-card" key={project.id} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, scale: 0.95 }} className="group rounded-2xl overflow-hidden cursor-pointer transition-all md:hover:-translate-y-1" style={{ ...G.card }} onClick={() => openProject(project.id)}>
                       <div className="relative h-[100px] md:h-[112px] bg-[#070c1a]"><ProjectAssetSummary projectId={project.id} /><div className={clsx("absolute top-2 right-2 text-[12px] font-extrabold px-2 py-0.5 rounded-full", badge.cls)}>{badge.label}</div><button onClick={(e) => { e.stopPropagation(); setConfirmDeleteId(project.id); }} className="absolute top-2 left-2 w-7 h-7 rounded-lg flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer" style={{ background: "rgba(0,0,0,0.55)", backdropFilter: "blur(8px)" }} title="Delete project"><Trash2 className="w-3.5 h-3.5 text-rose-400" /></button></div>
                       <div className="p-3 md:p-4"><h3 className="text-white text-[14px] md:text-[15px] font-bold leading-snug mb-1 line-clamp-1">{project.name}</h3><p className="text-[#8b949e] text-[12px] md:text-[13px] font-semibold mb-2 flex items-center gap-1"><Building2 className="w-3 h-3" /> {project.client}</p><div className="flex items-center justify-between"><div className="flex items-center gap-2"><span className="flex items-center gap-1 text-[#8b949e] text-[12px]"><Camera className="w-3 h-3" />{project.cameras}</span></div><div className="w-5 h-5 rounded-full flex items-center justify-center text-[11px] font-extrabold text-white" style={{ background: project.assignee.color }}>{project.assignee.initials}</div></div></div>
                     </motion.div>
@@ -2019,12 +2172,22 @@ function ProjectsPage({ navigate }: { navigate: (p: Page) => void }) {
     </div>
   );
 }
+const PD_OVERVIEW_STEPS: TutorialStep[] = [
+  { target: "pd-stats", title: "Key Stats", description: "Contract value, live camera and device counts (pulled straight from the Assets tab), due date, and install progress." },
+  { target: "pd-tabs", title: "Everything About This Project", description: "Overview, Tasks, Files, Assets, Change Orders, Audit Log, Timeline, Subcontractors, Procurement, and Commissioning all live behind these tabs." },
+  { target: "pd-scope", title: "Project Scope", description: "A written summary of what this project covers." },
+  { target: "pd-team", title: "Team", description: "Everyone assigned to this project and their role." },
+  { target: "pd-timeline", title: "Stage Timeline", description: "The full history of stage changes this project has gone through, with dates." },
+  { target: "pd-quick-actions", title: "Quick Actions", description: "Jump straight to the Assets tab, the Install Tracker for this project, or generate a client-facing shareable link." },
+];
+
 function ProjectDetail({ navigate }: { navigate: (p: Page) => void }) {
   const { fmt } = useCurrency();
   const tech = isTechRole(useRole());
   const [project, setProject] = useState<Project | null>(null);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState(() => localStorage.getItem("pd_tab") || "overview");
+  useAutoTutorial("project-detail", PD_OVERVIEW_STEPS, activeTab === "overview");
   const [auditLog, setAuditLog] = useState<AuditLogEntry[]>([]);
   const [changeOrders, setChangeOrders] = useState<ChangeOrder[]>([]);
   const [showNewCO, setShowNewCO] = useState(false);
@@ -2037,6 +2200,11 @@ function ProjectDetail({ navigate }: { navigate: (p: Page) => void }) {
   const [installZones, setInstallZones] = useState<InstallZone[]>([]);
 
   useEffect(() => { localStorage.setItem("pd_tab", activeTab); }, [activeTab]);
+  useEffect(() => {
+    const handler = (e: Event) => { const tab = (e as CustomEvent<string>).detail; if (tab) setActiveTab(tab); };
+    window.addEventListener("eest:set-pd-tab", handler);
+    return () => window.removeEventListener("eest:set-pd-tab", handler);
+  }, []);
 
   const fetchProject = useCallback(async () => {
     setLoading(true);
@@ -2109,14 +2277,14 @@ function ProjectDetail({ navigate }: { navigate: (p: Page) => void }) {
           <h1 className="text-white font-extrabold text-3xl md:text-4xl tracking-tight mb-1">{p.name}</h1>
           <p className="text-[#8b949e] text-[14px] md:text-[15px] flex items-center gap-1.5"><Building2 className="w-3.5 h-3.5" /> {p.client} · <MapPin className="w-3.5 h-3.5 ml-1" /> {p.location}</p>
         </div>
-        <div className="flex items-center gap-2 flex-shrink-0 flex-wrap">
+        <div data-tour="pd-quick-actions" className="flex items-center gap-2 flex-shrink-0 flex-wrap">
           {[{ label: "Assets", icon: Package, action: () => setActiveTab("assets") },{ label: "Install", icon: CheckSquare, action: () => navigate("install-tracker") }].map(({ label, icon: Icon, action }) => (
             <button key={label} onClick={action} className="flex items-center gap-1.5 h-9 px-3 md:px-4 rounded-xl text-white text-[13px] md:text-[14px] font-bold hover:bg-white/[0.10] cursor-pointer min-h-[44px]" style={G.btn}><Icon className="w-3.5 h-3.5" /> {label}</button>
           ))}
           <button onClick={handleGenerateShareLink} className="flex items-center gap-1.5 h-9 px-3 rounded-xl text-white text-[13px] font-bold cursor-pointer" style={G.btn}><Share2 className="w-3.5 h-3.5" /> Share</button>
         </div>
       </div>
-      <div className="grid grid-cols-2 md:grid-cols-5 gap-2 md:gap-3 mb-4 md:mb-6">
+      <div data-tour="pd-stats" className="grid grid-cols-2 md:grid-cols-5 gap-2 md:gap-3 mb-4 md:mb-6">
         {[
           { label: "Contract Value", value: isProjPipe || tech ? "—" : fmt(p.value, true), icon: DollarSign, color: "#3b82f6" },
           { label: "Cameras", value: String(liveCameraCount), icon: Camera, color: "#8b5cf6" },
@@ -2130,7 +2298,7 @@ function ProjectDetail({ navigate }: { navigate: (p: Page) => void }) {
           </div>
         ))}
       </div>
-      <div className="flex items-center gap-0.5 mb-4 md:mb-5 overflow-x-auto" style={{ borderBottom: "1px solid rgba(255,255,255,0.07)", scrollbarWidth: "none" }}>
+      <div data-tour="pd-tabs" className="flex items-center gap-0.5 mb-4 md:mb-5 overflow-x-auto" style={{ borderBottom: "1px solid rgba(255,255,255,0.07)", scrollbarWidth: "none" }}>
         {tabs.map((tab) => (
           <button key={tab} onClick={() => setActiveTab(tab)} className={clsx("h-10 px-3 md:px-4 text-[14px] md:text-[15px] font-bold border-b-2 transition-all -mb-px whitespace-nowrap cursor-pointer min-h-[44px]", activeTab === tab ? "border-blue-500 text-white" : "border-transparent text-[#8b949e]")}>{tabLabels[tab]}</button>
         ))}
@@ -2138,11 +2306,11 @@ function ProjectDetail({ navigate }: { navigate: (p: Page) => void }) {
       {activeTab === "overview" && (
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <div className="md:col-span-2 space-y-4">
-            <div className="rounded-2xl p-4 md:p-5" style={G.card}><h3 className="text-white text-[15px] md:text-[16px] font-extrabold mb-3">Project Scope</h3><p className="text-[#8b949e] text-[14px] leading-relaxed">{p.summary ?? "No scope defined yet."}</p></div>
-            <div className="rounded-2xl p-4 md:p-5" style={G.card}><h3 className="text-white text-[15px] md:text-[16px] font-extrabold mb-4">Team</h3><div className="space-y-3">{team.map((m) => (<div key={m.name} className="flex items-center gap-3"><div className="w-8 h-8 rounded-xl flex items-center justify-center text-[13px] font-extrabold text-white" style={{ background: m.color }}>{m.initials}</div><div><p className="text-white text-[14px] font-bold">{m.name}</p><p className="text-[#8b949e] text-[12px]">{m.roles.join(", ")}</p></div></div>))}</div></div>
+            <div data-tour="pd-scope" className="rounded-2xl p-4 md:p-5" style={G.card}><h3 className="text-white text-[15px] md:text-[16px] font-extrabold mb-3">Project Scope</h3><p className="text-[#8b949e] text-[14px] leading-relaxed">{p.summary ?? "No scope defined yet."}</p></div>
+            <div data-tour="pd-team" className="rounded-2xl p-4 md:p-5" style={G.card}><h3 className="text-white text-[15px] md:text-[16px] font-extrabold mb-4">Team</h3><div className="space-y-3">{team.map((m) => (<div key={m.name} className="flex items-center gap-3"><div className="w-8 h-8 rounded-xl flex items-center justify-center text-[13px] font-extrabold text-white" style={{ background: m.color }}>{m.initials}</div><div><p className="text-white text-[14px] font-bold">{m.name}</p><p className="text-[#8b949e] text-[12px]">{m.roles.join(", ")}</p></div></div>))}</div></div>
           </div>
           <div className="space-y-4">
-            <div className="rounded-2xl p-4 md:p-5" style={G.card}>
+            <div data-tour="pd-timeline" className="rounded-2xl p-4 md:p-5" style={G.card}>
               <h3 className="text-white text-[15px] md:text-[16px] font-extrabold mb-4">Timeline</h3>
               <div className="space-y-2">
                 {stageHistory.map((entry, i) => {
@@ -2565,14 +2733,31 @@ const CATALOG_CATEGORIES_FOR_ASSET: Record<AssetCategory, CatalogDevice["categor
 const INSTALL_DEVICE_TYPE_FOR_ASSET: Record<AssetCategory, InstallDevice["type"] | null> = { camera: "camera", "access-control": "access", "network-hardware": "server", "cable-wire": null, intercom: "intercom", other: "panel" };
 const DEFAULT_SYSTEM_FOR_ASSET: Record<AssetCategory, SystemType> = { camera: "VSS", "access-control": "EAC", "network-hardware": "VSS", "cable-wire": "VSS", intercom: "Intercom", other: "VSS" };
 
+const ASSETS_TAB_STEPS: TutorialStep[] = [
+  { target: "assets-add", title: "Add Asset", description: "Add a camera, access-control device, network hardware, intercom, cable run, or other item to this project." },
+  { target: "assets-search", title: "Search & Filter", description: "Search by item, location, or purpose, or filter down to a single category." },
+  { target: "assets-export", title: "Export", description: "Download the full equipment list as a CSV, or a formatted PDF equipment summary for the client." },
+  { target: "assets-row", title: "Asset Rows", description: "Click any asset to edit it. Update its unit price inline, upload coverage photos, or delete it — each row also shows its linked Install Tracker zone." },
+];
+
+const ADD_ASSET_MODAL_STEPS: TutorialStep[] = [
+  { target: "aam-category", title: "Category & System", description: "Pick what kind of item this is and which system it belongs to — Video Surveillance, Access Control, or Intercom." },
+  { target: "aam-type-fields", title: "Type-Specific Fields", description: "Cable/wire assets get cable type, length, and cost-per-foot fields; every other category lets you pick a specific device from the catalog (or leave it generic) with an editable unit price." },
+  { target: "aam-qty-location", title: "Quantity & Location", description: "How many, and where it's physically going." },
+  { target: "aam-zone", title: "Zone", description: "Linking a zone here automatically creates a matching device in the Install Tracker for this project." },
+  { target: "aam-purpose", title: "Purpose & Notes", description: "What this item is for, plus any freeform notes." },
+];
+
 function ProjectAssetsTab({ projectId, projectName, clientName }: { projectId: string; projectName: string; clientName: string }) {
   const { fmt } = useCurrency();
   const tech = isTechRole(useRole());
+  useAutoTutorial("project-detail.assets", ASSETS_TAB_STEPS);
   const [assets, setAssets] = useState<ProjectAsset[]>([]);
   const [storeDevices, setStoreDevices] = useState<CatalogDevice[]>([]);
   const [zones, setZones] = useState<InstallZone[]>([]);
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
+  useAutoTutorial("add-asset-modal", ADD_ASSET_MODAL_STEPS, showForm);
   const [editingAssetId, setEditingAssetId] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [search, setSearch] = useState("");
@@ -2607,6 +2792,15 @@ function ProjectAssetsTab({ projectId, projectName, clientName }: { projectId: s
   useEffect(() => { fetchAll(); }, [fetchAll]);
 
   const openAddForm = () => { resetForm(); setEditingAssetId(null); setShowForm(true); };
+
+  useEffect(() => {
+    const flag = "tutorial_open_modal:add-asset-modal";
+    if (localStorage.getItem(flag)) { localStorage.removeItem(flag); openAddForm(); }
+    const handler = () => openAddForm();
+    window.addEventListener(flag, handler);
+    return () => window.removeEventListener(flag, handler);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const openEditForm = (asset: ProjectAsset) => {
     setEditingAssetId(asset.id);
@@ -2750,16 +2944,18 @@ function ProjectAssetsTab({ projectId, projectName, clientName }: { projectId: s
   return (
     <div className="space-y-4">
       <div className="flex items-center gap-2 flex-wrap">
-        <button onClick={openAddForm} className="flex items-center gap-1.5 h-9 px-3 rounded-xl text-white text-[13px] font-extrabold cursor-pointer" style={{ background: "#3b82f6" }}><Plus className="w-3.5 h-3.5" /> Add Asset</button>
-        <div className="relative"><Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3 h-3 text-[#484f58]" /><input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search assets…" className="h-9 rounded-xl pl-7 pr-3 text-[13px] text-[#e6edf3] focus:outline-none w-48" style={G.input} /></div>
+        <button data-tour="assets-add" onClick={openAddForm} className="flex items-center gap-1.5 h-9 px-3 rounded-xl text-white text-[13px] font-extrabold cursor-pointer" style={{ background: "#3b82f6" }}><Plus className="w-3.5 h-3.5" /> Add Asset</button>
+        <div data-tour="assets-search" className="relative"><Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3 h-3 text-[#484f58]" /><input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search assets…" className="h-9 rounded-xl pl-7 pr-3 text-[13px] text-[#e6edf3] focus:outline-none w-48" style={G.input} /></div>
         <select value={categoryFilter} onChange={e => setCategoryFilter(e.target.value as AssetCategory | "all")} className="h-9 rounded-xl px-2 text-[13px] cursor-pointer" style={{ ...G.input, background: "#0d1117", color: "#e6edf3" }}>
           <option value="all">All Categories</option>
           {(Object.keys(ASSET_CATEGORY_LABELS) as AssetCategory[]).map(c => <option key={c} value={c}>{ASSET_CATEGORY_LABELS[c]}</option>)}
         </select>
         <div className="flex-1" />
         <span className="text-[#8b949e] text-[13px]">{filtered.length} assets</span>
-        <button onClick={exportCsv} className="flex items-center gap-1.5 h-9 px-3 rounded-xl text-[#8b949e] hover:text-white text-[13px] font-bold cursor-pointer" style={G.btn}><Download className="w-3.5 h-3.5" /> CSV</button>
-        <button onClick={exportPdf} className="flex items-center gap-1.5 h-9 px-3 rounded-xl text-[#8b949e] hover:text-white text-[13px] font-bold cursor-pointer" style={G.btn}><FileDown className="w-3.5 h-3.5" /> PDF</button>
+        <div data-tour="assets-export" className="flex items-center gap-2">
+          <button onClick={exportCsv} className="flex items-center gap-1.5 h-9 px-3 rounded-xl text-[#8b949e] hover:text-white text-[13px] font-bold cursor-pointer" style={G.btn}><Download className="w-3.5 h-3.5" /> CSV</button>
+          <button onClick={exportPdf} className="flex items-center gap-1.5 h-9 px-3 rounded-xl text-[#8b949e] hover:text-white text-[13px] font-bold cursor-pointer" style={G.btn}><FileDown className="w-3.5 h-3.5" /> PDF</button>
+        </div>
       </div>
 
       {showForm && (
@@ -2767,29 +2963,29 @@ function ProjectAssetsTab({ projectId, projectName, clientName }: { projectId: s
           <div className="absolute inset-0" style={{ background: "rgba(0,0,0,0.65)", backdropFilter: "blur(8px)" }} />
           <div onClick={e => e.stopPropagation()} className="relative z-10 w-full max-w-[560px] max-h-[85vh] overflow-y-auto rounded-2xl p-6 space-y-3" style={G.liquidGlass}>
             <h3 className="text-white text-[16px] font-extrabold mb-2">{editingAssetId ? "Edit Asset" : "Add Asset"}</h3>
-            <div className="grid grid-cols-2 gap-3">
+            <div data-tour="aam-category" className="grid grid-cols-2 gap-3">
               <div><label className="text-[#8b949e] text-[11px] font-extrabold uppercase tracking-widest block mb-1">Category</label><select value={category} onChange={e => { setCategory(e.target.value as AssetCategory); setDeviceStoreRef(""); setSystem(DEFAULT_SYSTEM_FOR_ASSET[e.target.value as AssetCategory]); }} className="w-full h-9 rounded-xl px-2 text-[13px] cursor-pointer" style={{ ...G.input, background: "#0d1117", color: "#e6edf3" }}>{(Object.keys(ASSET_CATEGORY_LABELS) as AssetCategory[]).map(c => <option key={c} value={c}>{ASSET_CATEGORY_LABELS[c]}</option>)}</select></div>
               <div><label className="text-[#8b949e] text-[11px] font-extrabold uppercase tracking-widest block mb-1">System</label><select value={system} onChange={e => setSystem(e.target.value as SystemType)} className="w-full h-9 rounded-xl px-2 text-[13px] cursor-pointer" style={{ ...G.input, background: "#0d1117", color: "#e6edf3" }}><option value="VSS">VSS</option><option value="EAC">EAC</option><option value="Intercom">Intercom</option></select></div>
             </div>
             {category === "cable-wire" ? (
-              <div className="grid grid-cols-2 gap-3">
+              <div data-tour="aam-type-fields" className="grid grid-cols-2 gap-3">
                 <div><label className="text-[#8b949e] text-[11px] font-extrabold uppercase tracking-widest block mb-1">Cable Type</label><select value={cableType} onChange={e => setCableType(e.target.value as CableSpec["cableType"])} className="w-full h-9 rounded-xl px-2 text-[13px] cursor-pointer" style={{ ...G.input, background: "#0d1117", color: "#e6edf3" }}>{["CAT-6","CAT-6A","Fiber-SM","Fiber-MM","Coax-RG59","Power-18AWG","Power-14AWG","Speaker-Wire","Other"].map(t => <option key={t} value={t}>{t}</option>)}</select></div>
                 <div><label className="text-[#8b949e] text-[11px] font-extrabold uppercase tracking-widest block mb-1">Length (ft)</label><input type="number" value={lengthFt} onChange={e => setLengthFt(e.target.value)} className="w-full h-9 rounded-xl px-3 text-[13px] text-white focus:outline-none" style={G.input} /></div>
                 {!tech && <div><label className="text-[#8b949e] text-[11px] font-extrabold uppercase tracking-widest block mb-1">Cost / ft</label><input type="number" value={costPerFt} onChange={e => setCostPerFt(e.target.value)} className="w-full h-9 rounded-xl px-3 text-[13px] text-white focus:outline-none" style={G.input} /></div>}
                 <div className="col-span-2"><label className="text-[#8b949e] text-[11px] font-extrabold uppercase tracking-widest block mb-1">Run Description</label><input value={runDescription} onChange={e => setRunDescription(e.target.value)} placeholder="e.g. Camera 3 to IDF closet" className="w-full h-9 rounded-xl px-3 text-[13px] text-white focus:outline-none" style={G.input} /></div>
               </div>
             ) : (
-              <div className="grid grid-cols-2 gap-3">
+              <div data-tour="aam-type-fields" className="grid grid-cols-2 gap-3">
                 <div className="col-span-2"><label className="text-[#8b949e] text-[11px] font-extrabold uppercase tracking-widest block mb-1">Device (optional)</label><select value={deviceStoreRef} onChange={e => { const ref = e.target.value; setDeviceStoreRef(ref); const sd = availableDevices.find(d => d.id === ref); setUnitPrice(sd?.price ? String(sd.price) : ""); }} className="w-full h-9 rounded-xl px-2 text-[13px] cursor-pointer" style={{ ...G.input, background: "#0d1117", color: "#e6edf3" }}><option value="">— Generic / unspecified —</option>{availableDevices.map(d => <option key={d.id} value={d.id}>{d.manufacturer} {d.model}</option>)}</select></div>
                 {!tech && <div className="col-span-2"><label className="text-[#8b949e] text-[11px] font-extrabold uppercase tracking-widest block mb-1">Unit Price (editable)</label><input type="number" value={unitPrice} onChange={e => setUnitPrice(e.target.value)} placeholder="0.00" className="w-full h-9 rounded-xl px-3 text-[13px] text-white focus:outline-none" style={G.input} /></div>}
               </div>
             )}
-            <div className="grid grid-cols-3 gap-3">
+            <div data-tour="aam-qty-location" className="grid grid-cols-3 gap-3">
               <div><label className="text-[#8b949e] text-[11px] font-extrabold uppercase tracking-widest block mb-1">Quantity</label><input type="number" min="1" value={quantity} onChange={e => setQuantity(e.target.value)} className="w-full h-9 rounded-xl px-3 text-[13px] text-white focus:outline-none" style={G.input} /></div>
               <div className="col-span-2"><label className="text-[#8b949e] text-[11px] font-extrabold uppercase tracking-widest block mb-1">Location</label><input value={location} onChange={e => setLocation(e.target.value)} placeholder="e.g. North parking entrance" className="w-full h-9 rounded-xl px-3 text-[13px] text-white focus:outline-none" style={G.input} /></div>
             </div>
-            <div><label className="text-[#8b949e] text-[11px] font-extrabold uppercase tracking-widest block mb-1">Zone (optional — links to Install Tracker)</label><select value={zoneId} onChange={e => setZoneId(e.target.value)} className="w-full h-9 rounded-xl px-2 text-[13px] cursor-pointer" style={{ ...G.input, background: "#0d1117", color: "#e6edf3" }}><option value="">— No zone —</option>{zones.map(z => <option key={z.id} value={z.id}>{z.name}</option>)}</select></div>
-            <div><label className="text-[#8b949e] text-[11px] font-extrabold uppercase tracking-widest block mb-1">Purpose</label><input value={purpose} onChange={e => setPurpose(e.target.value)} placeholder="e.g. LPR capture at vehicle entry" className="w-full h-9 rounded-xl px-3 text-[13px] text-white focus:outline-none" style={G.input} /></div>
+            <div data-tour="aam-zone"><label className="text-[#8b949e] text-[11px] font-extrabold uppercase tracking-widest block mb-1">Zone (optional — links to Install Tracker)</label><select value={zoneId} onChange={e => setZoneId(e.target.value)} className="w-full h-9 rounded-xl px-2 text-[13px] cursor-pointer" style={{ ...G.input, background: "#0d1117", color: "#e6edf3" }}><option value="">— No zone —</option>{zones.map(z => <option key={z.id} value={z.id}>{z.name}</option>)}</select></div>
+            <div data-tour="aam-purpose"><label className="text-[#8b949e] text-[11px] font-extrabold uppercase tracking-widest block mb-1">Purpose</label><input value={purpose} onChange={e => setPurpose(e.target.value)} placeholder="e.g. LPR capture at vehicle entry" className="w-full h-9 rounded-xl px-3 text-[13px] text-white focus:outline-none" style={G.input} /></div>
             <div><label className="text-[#8b949e] text-[11px] font-extrabold uppercase tracking-widest block mb-1">Notes</label><textarea value={notes} onChange={e => setNotes(e.target.value)} rows={2} className="w-full rounded-xl px-3 py-2 text-[13px] text-white focus:outline-none resize-none" style={G.input} /></div>
             <div className="flex gap-2 pt-2">
               <button onClick={closeForm} className="flex-1 h-10 rounded-xl text-[#8b949e] text-[14px] font-bold cursor-pointer" style={G.btn}>Cancel</button>
@@ -2807,7 +3003,7 @@ function ProjectAssetsTab({ projectId, projectName, clientName }: { projectId: s
             <div className="px-4 py-3 flex items-center gap-2" style={{ borderBottom: "1px solid rgba(255,255,255,0.06)", background: "rgba(255,255,255,0.02)" }}><h3 className="text-white text-[14px] font-extrabold">{ASSET_CATEGORY_LABELS[cat]}</h3><span className="text-[#8b949e] text-[12px]">({items.length})</span></div>
             <div className="divide-y" style={{ borderColor: "rgba(255,255,255,0.04)" }}>
               {items.map(asset => (
-                <div key={asset.id} onClick={() => openEditForm(asset)} className="px-4 py-3 flex items-start justify-between gap-3 cursor-pointer hover:bg-white/[0.02]" title="Click to edit asset">
+                <div key={asset.id} data-tour="assets-row" onClick={() => openEditForm(asset)} className="px-4 py-3 flex items-start justify-between gap-3 cursor-pointer hover:bg-white/[0.02]" title="Click to edit asset">
                   <div className="flex-1 min-w-0">
                     <p className="text-white text-[13px] font-bold">{describeAsset(asset, storeDevices)} <span className="text-[#8b949e] font-semibold">×{asset.quantity}</span></p>
                     <p className="text-[#8b949e] text-[12px] mt-0.5">{asset.location || "No location set"}{asset.purpose ? ` · ${asset.purpose}` : ""}</p>
@@ -2999,7 +3195,13 @@ function SummaryBar({ totalCost, totalSell, blendedMargin, fmt, onGeneratePropos
   );
 }
 
+const COST_MARGIN_STEPS: TutorialStep[] = [
+  { target: "wb-cm-filter", title: "System Filter", description: "Switch between Video Surveillance, Access Control, and Intercom — each has its own set of sections and line items." },
+  { target: "wb-cm-table", title: "Cost & Margin Table", description: "Click any Qty, Cost, or Markup % cell to edit it inline — Sell Price, Total Cost, Total Sell, and Profit recalculate automatically, plus an Import line where a section carries an import rate. This data is internal only and never appears in client exports." },
+];
+
 function CostMarginTab({ quoteCategories, exchangeRate, fmt, onLineItemUpdate, fieldSaveStatus, systemFilter, onSystemFilterChange }: { quoteCategories: QuoteCategory[]; exchangeRate: number; fmt: (n: number, compact?: boolean) => string; onLineItemUpdate: (categoryId: string, itemId: string, updates: Partial<QuoteLineItem>) => void; fieldSaveStatus: Record<string, "saved" | "saving" | "">; systemFilter: SystemType; onSystemFilterChange: (s: SystemType) => void; }) {
+  useAutoTutorial("workbook.cost-margin", COST_MARGIN_STEPS);
   const filteredCategories = quoteCategories.filter(c => c.system === systemFilter && c.sectionNumber !== 800 && c.sectionNumber !== 1300 && c.sectionNumber !== 1800);
   const importCategories = quoteCategories.filter(c => c.system === systemFilter && (c.sectionNumber === 800 || c.sectionNumber === 1300 || c.sectionNumber === 1800));
 
@@ -3011,12 +3213,12 @@ function CostMarginTab({ quoteCategories, exchangeRate, fmt, onLineItemUpdate, f
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center gap-2">
+      <div data-tour="wb-cm-filter" className="flex items-center gap-2">
         {(["VSS","EAC","Intercom"] as SystemType[]).map(s => (
           <button key={s} onClick={() => onSystemFilterChange(s)} className={clsx("h-9 md:h-7 px-3 rounded-lg text-[12px] font-extrabold cursor-pointer", systemFilter === s ? "text-white" : "text-[#8b949e]")} style={systemFilter === s ? { background: s === "VSS" ? "#3b82f6" : s === "EAC" ? "#8b5cf6" : "#14b8a6" } : G.btn}>{s}</button>
         ))}
       </div>
-      <div className="rounded-2xl overflow-hidden" style={G.card}>
+      <div data-tour="wb-cm-table" className="rounded-2xl overflow-hidden" style={G.card}>
         <div className="overflow-x-auto">
           <table className="w-full" style={{ minWidth: "900px" }}>
             <thead><tr style={{ borderBottom: "1px solid rgba(255,255,255,0.08)", background: "rgba(255,255,255,0.03)" }}><th className="px-3 py-2.5 text-[#8b949e] text-[11px] font-extrabold uppercase tracking-widest text-left">Item No</th><th className="px-3 py-2.5 text-[#8b949e] text-[11px] font-extrabold uppercase tracking-widest text-left">Description</th><th className="px-3 py-2.5 text-[#8b949e] text-[11px] font-extrabold uppercase tracking-widest text-center">Qty</th><th className="px-3 py-2.5 text-[#8b949e] text-[11px] font-extrabold uppercase tracking-widest text-right">Cost (USD)</th><th className="px-3 py-2.5 text-[#8b949e] text-[11px] font-extrabold uppercase tracking-widest text-right">Markup %</th><th className="px-3 py-2.5 text-[#8b949e] text-[11px] font-extrabold uppercase tracking-widest text-right">Sell (USD)</th><th className="px-3 py-2.5 text-[#8b949e] text-[11px] font-extrabold uppercase tracking-widest text-right">Total Cost</th><th className="px-3 py-2.5 text-[#8b949e] text-[11px] font-extrabold uppercase tracking-widest text-right">Total Sell</th><th className="px-3 py-2.5 text-[#8b949e] text-[11px] font-extrabold uppercase tracking-widest text-right">Profit</th></tr></thead>
@@ -3064,7 +3266,13 @@ function CostMarginTab({ quoteCategories, exchangeRate, fmt, onLineItemUpdate, f
     </div>
   );
 }
+const BOM_STEPS: TutorialStep[] = [
+  { target: "wb-bom-filter", title: "System Filter", description: "Switch between Video Surveillance, Access Control, and Intercom sections." },
+  { target: "wb-bom-table", title: "Bill of Materials", description: "The client-facing BOM, priced in JMD — every section's line items with quantity (click to edit), list price, and extended total, plus import lines and a running Subtotal, GCT, and Total. A section shows an override badge if its total was manually overridden on the Synthesis tab." },
+];
+
 function BomTab({ quoteCategories, synthesisOverrides, exchangeRate, fmt, onLineItemUpdate, onAddLineItem, onBomEditWithOverride, fieldSaveStatus, systemFilter, onSystemFilterChange }: { quoteCategories: QuoteCategory[]; synthesisOverrides: SynthesisOverride[]; exchangeRate: number; fmt: (n: number, compact?: boolean) => string; onLineItemUpdate: (categoryId: string, itemId: string, updates: Partial<QuoteLineItem>) => void; onAddLineItem: (categoryId: string) => void; onBomEditWithOverride: (sectionNumber: string, sectionName: string, callback: () => void) => void; fieldSaveStatus: Record<string, "saved" | "saving" | "">; systemFilter: SystemType; onSystemFilterChange: (s: SystemType) => void; }) {
+  useAutoTutorial("workbook.bom", BOM_STEPS);
   const bodyRef = useRef<HTMLDivElement>(null);
   const [stickyScrollLeft, setStickyScrollLeft] = useState(0);
 
@@ -3088,12 +3296,12 @@ function BomTab({ quoteCategories, synthesisOverrides, exchangeRate, fmt, onLine
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center gap-2">
+      <div data-tour="wb-bom-filter" className="flex items-center gap-2">
         {(["VSS","EAC","Intercom"] as SystemType[]).map(s => (
           <button key={s} onClick={() => onSystemFilterChange(s)} className={clsx("h-9 md:h-7 px-3 rounded-lg text-[12px] font-extrabold cursor-pointer", systemFilter === s ? "text-white" : "text-[#8b949e]")} style={systemFilter === s ? { background: s === "VSS" ? "#3b82f6" : s === "EAC" ? "#8b5cf6" : "#14b8a6" } : G.btn}>{s}</button>
         ))}
       </div>
-      <div className="rounded-2xl overflow-hidden" style={G.card}>
+      <div data-tour="wb-bom-table" className="rounded-2xl overflow-hidden" style={G.card}>
         <div className="sticky top-0 z-10 overflow-hidden" style={{ borderBottom: "1px solid rgba(255,255,255,0.08)", background: "rgba(7,12,26,0.95)" }}>
           <div style={{ marginLeft: -stickyScrollLeft }}>
             <table style={{ minWidth: "900px" }}>
@@ -3151,7 +3359,14 @@ function BomTab({ quoteCategories, synthesisOverrides, exchangeRate, fmt, onLine
   );
 }
 
+const SYNTHESIS_STEPS: TutorialStep[] = [
+  { target: "wb-synth-table", title: "Section Subtotals", description: "Every section across Video, Access, and Intercom, grouped and collapsible. Click a value to override it manually — an override badge appears, with a reset button to go back to the auto-calculated figure." },
+  { target: "wb-synth-total", title: "Grand Total", description: "The overall grand total, GCT (15%), and total with tax — this is the number that ultimately drives the client-facing quote." },
+  { target: "wb-synth-reference", title: "Reference Figures", description: "Suggested PM and contingency percentages, shown for reference only — they're never applied to any total automatically." },
+];
+
 function SynthesisTab({ quoteCategories, synthesisOverrides, exchangeRate, fmt, onSaveOverride, fieldSaveStatus }: { quoteCategories: QuoteCategory[]; synthesisOverrides: SynthesisOverride[]; exchangeRate: number; fmt: (n: number, compact?: boolean) => string; onSaveOverride: (sectionNumber: string, value: number | null, isOverridden: boolean) => void; fieldSaveStatus: Record<string, "saved" | "saving" | "">; }) {
+  useAutoTutorial("workbook.synthesis", SYNTHESIS_STEPS);
   const [collapsedVideo, setCollapsedVideo] = useState(false);
   const [collapsedAccess, setCollapsedAccess] = useState(false);
   const [collapsedIntercom, setCollapsedIntercom] = useState(false);
@@ -3208,7 +3423,7 @@ function SynthesisTab({ quoteCategories, synthesisOverrides, exchangeRate, fmt, 
 
   return (
     <div className="space-y-0">
-      <div className="rounded-2xl overflow-hidden" style={G.card}>
+      <div data-tour="wb-synth-table" className="rounded-2xl overflow-hidden" style={G.card}>
         <div className="overflow-x-auto">
           <table className="w-full" style={{ minWidth: "700px" }}>
             <thead><tr style={{ borderBottom: "1px solid rgba(255,255,255,0.08)", background: "rgba(255,255,255,0.03)" }}><th className="px-3 py-2.5 text-[#8b949e] text-[11px] font-extrabold uppercase tracking-widest text-left">Item No</th><th className="px-3 py-2.5 text-[#8b949e] text-[11px] font-extrabold uppercase tracking-widest text-left">DESIGNATION</th><th className="px-3 py-2.5 text-[#8b949e] text-[11px] font-extrabold uppercase tracking-widest text-right">Unit Price</th></tr></thead>
@@ -3228,14 +3443,14 @@ function SynthesisTab({ quoteCategories, synthesisOverrides, exchangeRate, fmt, 
           </table>
         </div>
       </div>
-      <div className="rounded-2xl p-4 mt-4" style={{ ...G.card, background: "rgba(59,130,246,0.06)", border: "1px solid rgba(59,130,246,0.20)" }}>
+      <div data-tour="wb-synth-total" className="rounded-2xl p-4 mt-4" style={{ ...G.card, background: "rgba(59,130,246,0.06)", border: "1px solid rgba(59,130,246,0.20)" }}>
         <div className="space-y-2">
           <div className="flex justify-between py-1"><span className="text-[#8b949e] text-[13px]">Grand Total</span><span className="text-white text-[16px] font-extrabold">{fmt(grandTotal)}</span></div>
           <div className="flex justify-between py-1"><span className="text-[#8b949e] text-[14px]">Tax (GCT 15%)</span><span className="text-[#8b949e] text-[14px] font-extrabold">{fmt(tax)}</span></div>
           <div className="flex justify-between py-2 border-t-2 border-white/10"><span className="text-white text-[16px] font-extrabold">Grand Total with Tax</span><span className="text-white text-[1.3rem] font-black" style={{ color: "#60a5fa" }}>{fmt(totalWithTax)}</span></div>
         </div>
       </div>
-      <div className="rounded-2xl p-4 mt-3" style={G.subtle}>
+      <div data-tour="wb-synth-reference" className="rounded-2xl p-4 mt-3" style={G.subtle}>
         <p className="text-[#8b949e] text-[12px] font-extrabold uppercase tracking-widest mb-2">Reference</p>
         <div className="flex justify-between py-1"><span className="text-[#8b949e] text-[13px]">Suggested PM (5%)</span><span className="text-[#8b949e] text-[14px] font-extrabold">{fmt(suggestedPM)}</span></div>
         <div className="flex justify-between py-1"><span className="text-[#8b949e] text-[13px]">Suggested Contingency (10%)</span><span className="text-[#8b949e] text-[14px] font-extrabold">{fmt(suggestedContingency)}</span></div>
@@ -3245,7 +3460,14 @@ function SynthesisTab({ quoteCategories, synthesisOverrides, exchangeRate, fmt, 
   );
 }
 
+const ASSET_LIST_STEPS: TutorialStep[] = [
+  { target: "wb-al-toggle", title: "Internal / Client View", description: "Toggle Client View to hide cost, markup, and profit columns — exactly what a client should see." },
+  { target: "wb-al-assets-table", title: "Project Assets", description: "Every device pulled in from the project's Assets tab, kept in sync automatically — edit it here or there and it updates in both places." },
+  { target: "wb-al-manual-table", title: "Manually Added Items", description: "Line items added directly in the Workbook rather than from Project Assets, grouped by category. Click any cell to edit description, quantity, or cost inline; collapse a category to tidy up the view." },
+];
+
 function AssetListTab({ quoteCategories, exchangeRate, fmt, onLineItemUpdate, fieldSaveStatus }: { quoteCategories: QuoteCategory[]; exchangeRate: number; fmt: (n: number, compact?: boolean) => string; onLineItemUpdate: (categoryId: string, itemId: string, updates: Partial<QuoteLineItem>) => void; fieldSaveStatus: Record<string, "saved" | "saving" | "">; }) {
+  useAutoTutorial("workbook.asset-list", ASSET_LIST_STEPS);
   const [clientExportMode, setClientExportMode] = useState(false);
   const [collapsedCategories, setCollapsedCategories] = useState<Set<string>>(new Set());
   const toggleCollapse = (id: string) => { setCollapsedCategories(prev => { const next = new Set(prev); next.has(id) ? next.delete(id) : next.add(id); return next; }); };
@@ -3268,9 +3490,9 @@ function AssetListTab({ quoteCategories, exchangeRate, fmt, onLineItemUpdate, fi
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center gap-2 mb-2"><button onClick={() => setClientExportMode(!clientExportMode)} className={clsx("h-9 md:h-7 px-3 rounded-lg text-[12px] font-bold cursor-pointer", clientExportMode ? "text-white" : "text-[#8b949e]")} style={clientExportMode ? { background: "rgba(16,185,129,0.15)", border: "1px solid rgba(16,185,129,0.30)" } : G.btn}><EyeOff className="w-3 h-3 mr-1" />{clientExportMode ? "Client View" : "Internal View"}</button></div>
+      <div data-tour="wb-al-toggle" className="flex items-center gap-2 mb-2"><button onClick={() => setClientExportMode(!clientExportMode)} className={clsx("h-9 md:h-7 px-3 rounded-lg text-[12px] font-bold cursor-pointer", clientExportMode ? "text-white" : "text-[#8b949e]")} style={clientExportMode ? { background: "rgba(16,185,129,0.15)", border: "1px solid rgba(16,185,129,0.30)" } : G.btn}><EyeOff className="w-3 h-3 mr-1" />{clientExportMode ? "Client View" : "Internal View"}</button></div>
       {assetItems.length > 0 && (
-        <div className="rounded-2xl overflow-hidden" style={G.card}>
+        <div data-tour="wb-al-assets-table" className="rounded-2xl overflow-hidden" style={G.card}>
           <div className="w-full px-4 py-3 flex items-center justify-between" style={{ borderBottom: "1px solid rgba(255,255,255,0.06)", background: "rgba(255,255,255,0.02)" }}><div className="flex items-center gap-2"><h3 className="text-white text-[15px] font-extrabold">Project Assets</h3><span className="text-[#8b949e] text-[12px]">({assetItems.length})</span></div></div>
           <div className="overflow-x-auto"><table className="w-full" style={{ minWidth: clientExportMode ? "400px" : "800px" }}><thead><tr style={{ borderBottom: "1px solid rgba(255,255,255,0.06)" }}><th className="px-3 py-2.5 text-[#8b949e] text-[11px] font-extrabold uppercase tracking-widest text-left">Item</th><th className="px-3 py-2.5 text-[#8b949e] text-[11px] font-extrabold uppercase tracking-widest text-center">QTY</th>{!clientExportMode && <><th className="px-3 py-2.5 text-[#8b949e] text-[11px] font-extrabold uppercase tracking-widest text-right">Cost</th><th className="px-3 py-2.5 text-[#8b949e] text-[11px] font-extrabold uppercase tracking-widest text-right">Markup %</th></>}<th className="px-3 py-2.5 text-[#8b949e] text-[11px] font-extrabold uppercase tracking-widest text-right">Sell</th>{!clientExportMode && <th className="px-3 py-2.5 text-[#8b949e] text-[11px] font-extrabold uppercase tracking-widest text-right">Cost Total</th>}<th className="px-3 py-2.5 text-[#8b949e] text-[11px] font-extrabold uppercase tracking-widest text-right">Total</th>{!clientExportMode && <th className="px-3 py-2.5 text-[#8b949e] text-[11px] font-extrabold uppercase tracking-widest text-right">Profit</th>}</tr></thead><tbody>{assetItems.map(item => (<tr key={item.id} style={{ borderBottom: "1px solid rgba(255,255,255,0.03)" }}><td className="px-3 py-2.5 text-white text-[13px] font-bold">{item.item}</td><td className="px-3 py-2.5 text-white text-[13px] text-center">{item.qty}</td>{!clientExportMode && <><td className="px-3 py-2.5 text-[#8b949e] text-[13px] text-right">{fmt(item.cost)}</td><td className="px-3 py-2.5 text-[#8b949e] text-[13px] text-right">{(item.markupPercent * 100).toFixed(0)}%</td></>}<td className="px-3 py-2.5 text-white text-[13px] font-extrabold text-right">{fmt(item.sell)}</td>{!clientExportMode && <td className="px-3 py-2.5 text-[#8b949e] text-[13px] text-right">{fmt(item.costTotal)}</td>}<td className="px-3 py-2.5 text-white text-[13px] font-extrabold text-right">{fmt(item.total)}</td>{!clientExportMode && <td className="px-3 py-2.5 text-[12px] font-extrabold text-right" style={{ color: item.profit >= 0 ? "#34d399" : "#f87171" }}>{fmt(item.profit)}</td>}</tr>))}</tbody></table></div>
         </div>
@@ -3280,7 +3502,7 @@ function AssetListTab({ quoteCategories, exchangeRate, fmt, onLineItemUpdate, fi
         const items = allItems.filter(i => i.sourceCategory === category.name && !i.isProjectAsset);
         if (items.length === 0) return null;
         return (
-          <div key={category.id} className="rounded-2xl overflow-hidden" style={G.card}>
+          <div key={category.id} data-tour="wb-al-manual-table" className="rounded-2xl overflow-hidden" style={G.card}>
             <button onClick={() => toggleCollapse(category.id)} className="w-full px-4 py-3 flex items-center justify-between hover:bg-white/[0.02] cursor-pointer" style={{ borderBottom: isCollapsed ? "none" : "1px solid rgba(255,255,255,0.06)", background: "rgba(255,255,255,0.02)" }}>
               <div className="flex items-center gap-2"><h3 className="text-white text-[15px] font-extrabold">{category.name}</h3><span className="text-[#8b949e] text-[12px]">({items.length})</span><span className="text-[#484f58] text-[11px] font-mono">[{category.system}]</span></div>
               <div className="flex items-center gap-3"><span className="text-[#8b949e] text-[13px] font-extrabold">{fmt(items.reduce((s,i) => s + i.total, 0))}</span>{isCollapsed ? <ChevronDown className="w-4 h-4 text-[#8b949e]" /> : <ChevronUp className="w-4 h-4 text-[#8b949e]" />}</div>
@@ -3376,6 +3598,11 @@ function Workbook({ navigate }: { navigate: (p: Page) => void }) {
   const [systemFilter, setSystemFilter] = useState<SystemType>("VSS");
 
   useEffect(() => { localStorage.setItem("wb_tab", activeTab); }, [activeTab]);
+  useEffect(() => {
+    const handler = (e: Event) => { const tab = (e as CustomEvent<string>).detail as WorkbookTab | undefined; if (tab) setActiveTab(tab); };
+    window.addEventListener("eest:set-wb-tab", handler);
+    return () => window.removeEventListener("eest:set-wb-tab", handler);
+  }, []);
   useEffect(() => { API.fx.getRate().then(r => setExchangeRate(r)); }, []);
   useEffect(() => { API.devices.list().then(setStoreDevices).catch(() => setStoreDevices([])); }, []);
 
@@ -3620,7 +3847,14 @@ function DeviceSpecModal({ device, onClose }: { device: CatalogDevice; onClose: 
   );
 }
 
+const DEVICE_LIBRARY_STEPS: TutorialStep[] = [
+  { target: "dl-search", title: "Search & Filter", description: "Search by model, SKU, or tag, or narrow down by category and system (VSS, EAC, Intercom)." },
+  { target: "dl-import", title: "Bulk CSV Import", description: "The catalog is populated by importing a CSV — there's no single-item add form, so bring devices in as a spreadsheet with Model, Manufacturer, Category, System, Price, SKU, and Image URL columns." },
+  { target: "dl-card", title: "Device Cards", description: "Click any device to see its full spec sheet." },
+];
+
 function DeviceLibrary({ navigate: _navigate }: { navigate: (p: Page) => void }) {
+  useAutoTutorial("device-library", DEVICE_LIBRARY_STEPS);
   const [activeTab, setActiveTab] = useState<DeviceLibraryTab>("store");
   const [search, setSearch] = useState("");
   const [categoryFilter, setCategoryFilter] = useState<string>("all");
@@ -3704,7 +3938,7 @@ function DeviceLibrary({ navigate: _navigate }: { navigate: (p: Page) => void })
       {activeTab === "store" ? (
         <>
           <div className="mb-4 md:mb-5 flex items-center gap-2 flex-wrap">
-            <div className="relative flex-1 min-w-[160px] max-w-sm"><Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[#8b949e]" /><input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search model, SKU, tags…" className="h-9 rounded-xl pl-9 w-full text-[14px] text-[#e6edf3] focus:outline-none" style={G.input} /></div>
+            <div data-tour="dl-search" className="relative flex-1 min-w-[160px] max-w-sm"><Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[#8b949e]" /><input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search model, SKU, tags…" className="h-9 rounded-xl pl-9 w-full text-[14px] text-[#e6edf3] focus:outline-none" style={G.input} /></div>
             <div className="flex gap-1.5 flex-wrap">{categories.map((c) => (<button key={c.id} onClick={() => setCategoryFilter(c.id)} className="h-8 px-2.5 rounded-xl text-[13px] font-bold cursor-pointer whitespace-nowrap" style={categoryFilter===c.id?{background:"rgba(59,130,246,0.15)",color:"#60a5fa",border:"1px solid rgba(59,130,246,0.35)"}:{...G.btn,color:"#8b949e"}}>{c.label}</button>))}</div>
             <select value={systemFilter} onChange={(e) => setSystemFilter(e.target.value as SystemType | "all")} className="h-8 rounded-xl px-2 text-[13px] cursor-pointer" style={{ ...G.btn, background: "#0d1117", color: "#e6edf3" }}>
               <option value="all" style={{ background: "#0d1117", color: "#e6edf3" }}>All Systems</option>
@@ -3712,14 +3946,14 @@ function DeviceLibrary({ navigate: _navigate }: { navigate: (p: Page) => void })
               <option value="EAC" style={{ background: "#0d1117", color: "#e6edf3" }}>EAC</option>
               <option value="Intercom" style={{ background: "#0d1117", color: "#e6edf3" }}>Intercom</option>
             </select>
-            <label className="flex items-center gap-1.5 h-8 px-3 rounded-xl text-[#8b949e] text-[13px] font-bold hover:text-white cursor-pointer" style={G.btn}><Upload className="w-3.5 h-3.5" /> {csvUploading ? "Importing…" : "Import CSV"}<input type="file" accept=".csv" className="hidden" onChange={handleCSVUpload} disabled={csvUploading} /></label>
+            <label data-tour="dl-import" className="flex items-center gap-1.5 h-8 px-3 rounded-xl text-[#8b949e] text-[13px] font-bold hover:text-white cursor-pointer" style={G.btn}><Upload className="w-3.5 h-3.5" /> {csvUploading ? "Importing…" : "Import CSV"}<input type="file" accept=".csv" className="hidden" onChange={handleCSVUpload} disabled={csvUploading} /></label>
           </div>
           {devices.length === 0 ? <EmptyState icon={Store} title="Device store is empty" description="Import a CSV to populate the catalog." /> : filtered.length === 0 ? <EmptyState icon={Search} title="No devices match" description="Try adjusting filters." /> : (
             <div className="grid gap-3 md:gap-4" style={{ gridTemplateColumns: "repeat(auto-fill, minmax(200px, 1fr))" }}>
               {filtered.map((device) => {
                 const cc = CAT_COLOR_DS[device.category] ?? CAT_COLOR_DS.other;
                 return (
-                  <div key={device.id} onClick={() => setSelectedDevice(device)} className="rounded-2xl overflow-hidden cursor-pointer group transition-all md:hover:-translate-y-1" style={{ ...G.card }}>
+                  <div key={device.id} data-tour="dl-card" onClick={() => setSelectedDevice(device)} className="rounded-2xl overflow-hidden cursor-pointer group transition-all md:hover:-translate-y-1" style={{ ...G.card }}>
                     <div className="relative h-32 md:h-36 overflow-hidden" style={{ background: "rgba(255,255,255,0.03)" }}>
                       <DeviceImage device={device} className="w-full h-full object-contain p-3 opacity-70 group-hover:opacity-90" iconClassName="w-12 h-12 text-[#8b949e]" />
                       <div className="absolute top-2.5 left-2.5 flex flex-wrap gap-1">
@@ -3782,7 +4016,15 @@ const STATUS_META: Record<InstallStatus, { label: string; color: string; bg: str
   pending: { label: "Pending", color: "text-[#8b949e]", bg: "bg-white/[0.04]", icon: AlertCircle },
 };
 
+const INSTALL_TRACKER_STEPS: TutorialStep[] = [
+  { target: "it-progress", title: "Overall Progress", description: "Percent complete across every zone in every project currently in the Installation stage, broken down by Complete, In Progress, Failed, and Pending." },
+  { target: "it-filter", title: "Status Filter", description: "Narrow the device list down to just one status." },
+  { target: "it-project-row", title: "Projects & Zones", description: "Click a project to expand its zones and devices. \"Task\" adds a quick task (title, priority, due date) directly to that project." },
+  { target: "it-device-row", title: "Device Status", description: "Each device shows its assignee and a status dropdown — Pending, In Progress, Complete, or Failed — that updates immediately." },
+];
+
 function InstallTracker({ navigate: _navigate }: { navigate: (p: Page) => void }) {
+  useAutoTutorial("install-tracker", INSTALL_TRACKER_STEPS);
   const [projects, setProjects] = useState<Project[]>([]);
   const [zones, setZones] = useState<InstallZone[]>([]);
   const [loading, setLoading] = useState(true);
@@ -3834,7 +4076,7 @@ function InstallTracker({ navigate: _navigate }: { navigate: (p: Page) => void }
       </div>
       {projects.length === 0 && zones.length === 0 ? <EmptyState icon={CheckSquare} title="No active installs" description="Projects in Installation stage will appear here." /> : (
         <>
-          <div className="rounded-2xl p-4 md:p-5 mb-4" style={G.card}>
+          <div data-tour="it-progress" className="rounded-2xl p-4 md:p-5 mb-4" style={G.card}>
             <div className="flex flex-col md:flex-row md:items-center justify-between mb-4 gap-3">
               <div><p className="text-white text-[1.8rem] md:text-[2.2rem] font-extrabold">{pct}%</p><p className="text-[#8b949e] text-[12px]">{complete} of {total} complete</p></div>
               <div className="grid grid-cols-4 gap-3">
@@ -3848,7 +4090,7 @@ function InstallTracker({ navigate: _navigate }: { navigate: (p: Page) => void }
             </div>
             <div className="relative w-full h-3 rounded-full overflow-hidden" style={{ background: "rgba(255,255,255,0.07)" }}><div className="absolute left-0 top-0 h-full bg-gradient-to-r from-blue-600 to-emerald-500 rounded-full" style={{ width: `${pct}%` }} /></div>
           </div>
-          <div className="flex items-center gap-1 mb-3">
+          <div data-tour="it-filter" className="flex items-center gap-1 mb-3">
             {(["all","pending","in-progress","complete","failed"] as const).map(s => (
               <button key={s} onClick={() => setStatusFilter(s)} className={clsx("h-7 px-2.5 rounded-lg text-[12px] font-bold cursor-pointer", statusFilter === s ? "text-white" : "text-[#8b949e]")} style={statusFilter === s ? { background: "rgba(255,255,255,0.10)" } : G.btn}>{s === "all" ? "All" : s === "in-progress" ? "In Progress" : s.charAt(0).toUpperCase() + s.slice(1)}</button>
             ))}
@@ -3859,7 +4101,7 @@ function InstallTracker({ navigate: _navigate }: { navigate: (p: Page) => void }
               const projectDevices = projectZones.flatMap((z) => z.devices).filter(d => statusFilter === "all" || d.status === statusFilter);
               const isExpanded = expandedProject === project.id;
               return (
-                <div key={project.id} className="rounded-2xl overflow-hidden" style={G.card}>
+                <div key={project.id} data-tour="it-project-row" className="rounded-2xl overflow-hidden" style={G.card}>
                   <div className="w-full flex items-center gap-3 px-4 py-3">
                     <button onClick={() => setExpandedProject(isExpanded ? null : project.id)} className="flex-1 min-w-0 flex items-center gap-3 cursor-pointer min-h-[44px]">
                       <div className="flex-1 min-w-0 text-left"><p className="text-white text-[14px] font-extrabold">{project.name}</p><p className="text-[#8b949e] text-[12px]">{projectDevices.length} devices</p></div>
@@ -3883,7 +4125,7 @@ function InstallTracker({ navigate: _navigate }: { navigate: (p: Page) => void }
                     const meta = STATUS_META[device.status];
                     const TypeIcon = typeIcons[device.type] ?? Camera;
                     return (
-                      <div key={device.id} className="grid gap-2 px-3 py-3 items-center" style={{ gridTemplateColumns: "36px 2fr 1fr 120px", borderTop: "1px solid rgba(255,255,255,0.04)" }}>
+                      <div key={device.id} data-tour="it-device-row" className="grid gap-2 px-3 py-3 items-center" style={{ gridTemplateColumns: "36px 2fr 1fr 120px", borderTop: "1px solid rgba(255,255,255,0.04)" }}>
                         <div className="w-7 h-7 rounded-xl flex items-center justify-center" style={{ background: "rgba(255,255,255,0.04)" }}><TypeIcon className="w-3.5 h-3.5 text-[#8b949e]" /></div>
                         <div className="min-w-0"><p className="text-white text-[13px] font-bold truncate">{device.name}</p><p className="text-[#8b949e] text-[11px]">{device.location}</p></div>
                         <span className="text-[#8b949e] text-[12px] truncate">{device.assignee}</span>
@@ -4048,6 +4290,21 @@ export default function App() {
   return <AuthenticatedApp />;
 }
 
+const TUTORIAL_REGISTRY: TutorialRegistryEntry[] = [
+  { key: "app-intro", label: "Getting Started", page: "dashboard", steps: APP_INTRO_STEPS },
+  { key: "dashboard", label: "Pipeline (Dashboard)", page: "dashboard", steps: DASHBOARD_STEPS },
+  { key: "projects", label: "Projects", page: "projects", steps: PROJECTS_STEPS },
+  { key: "project-detail", label: "Project Detail — Overview", page: "project-detail", tabStorageKey: "pd_tab", tabValue: "overview", tabEventName: "eest:set-pd-tab", steps: PD_OVERVIEW_STEPS },
+  { key: "project-detail.assets", label: "Project Detail — Assets", page: "project-detail", tabStorageKey: "pd_tab", tabValue: "assets", tabEventName: "eest:set-pd-tab", steps: ASSETS_TAB_STEPS },
+  { key: "add-asset-modal", label: "Add Asset Form", page: "project-detail", tabStorageKey: "pd_tab", tabValue: "assets", tabEventName: "eest:set-pd-tab", openModalFlag: "tutorial_open_modal:add-asset-modal", steps: ADD_ASSET_MODAL_STEPS },
+  { key: "workbook.asset-list", label: "Workbook — Asset List", page: "workbook", tabStorageKey: "wb_tab", tabValue: "asset-list", tabEventName: "eest:set-wb-tab", steps: ASSET_LIST_STEPS },
+  { key: "workbook.cost-margin", label: "Workbook — Cost & Margin", page: "workbook", tabStorageKey: "wb_tab", tabValue: "cost-margin", tabEventName: "eest:set-wb-tab", steps: COST_MARGIN_STEPS },
+  { key: "workbook.bom", label: "Workbook — BOM", page: "workbook", tabStorageKey: "wb_tab", tabValue: "bom", tabEventName: "eest:set-wb-tab", steps: BOM_STEPS },
+  { key: "workbook.synthesis", label: "Workbook — Synthesis", page: "workbook", tabStorageKey: "wb_tab", tabValue: "synthesis", tabEventName: "eest:set-wb-tab", steps: SYNTHESIS_STEPS },
+  { key: "install-tracker", label: "Install Tracker", page: "install-tracker", steps: INSTALL_TRACKER_STEPS },
+  { key: "device-library", label: "Device Library", page: "device-library", steps: DEVICE_LIBRARY_STEPS },
+];
+
 function AuthenticatedApp() {
   const [page, setPage] = useState<Page>(() => {
     const saved = localStorage.getItem("app_page");
@@ -4058,9 +4315,8 @@ function AuthenticatedApp() {
   const [currentQuote, setCurrentQuote] = useState<Quote | null>(null);
   const onboardingKey = useMemo(() => `onboarding_complete:${getSessionEmail() || "local"}`, []);
   const [showOnboarding, setShowOnboarding] = useState(() => !localStorage.getItem(onboardingKey));
-  const [showTour, setShowTour] = useState(false);
-  const finishTour = () => { setShowTour(false); localStorage.setItem(onboardingKey, "true"); };
   const [role, setRole] = useState<Role>("admin");
+  const tutorialState = useTutorialState();
 
   useEffect(() => { if (page !== "login") localStorage.setItem("app_page", page); }, [page]);
   useEffect(() => { API.fx.getRate(); const interval = setInterval(() => API.fx.getRate(), 24 * 60 * 60 * 1000); return () => clearInterval(interval); }, []);
@@ -4105,9 +4361,10 @@ function AuthenticatedApp() {
     <RoleContext.Provider value={role}>
     <CurrencyContext.Provider value={currencyCtx}>
       <QuoteContext.Provider value={quoteCtx}>
+      <TutorialContext.Provider value={tutorialState}>
         <div className="min-h-screen bg-background">
           <Toaster position="bottom-right" theme="dark" toastOptions={{ style: { background: "rgba(7,12,26,0.95)", border: "1px solid rgba(255,255,255,0.12)", color: "#e6edf3", backdropFilter: "blur(20px)" } }} />
-          <AppTopbar page={page} navigate={setPage} breadcrumb={breadcrumb} onReplayTour={() => { setShowTour(true); }} />
+          <AppTopbar page={page} navigate={setPage} breadcrumb={breadcrumb} tutorialRegistry={TUTORIAL_REGISTRY} />
           <div className="pt-14">
             <AnimatePresence mode="wait">
               <motion.div key={page} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }} transition={{ duration: 0.2, ease: "easeOut" }}>
@@ -4142,12 +4399,13 @@ function AuthenticatedApp() {
               </div>
               <div className="flex gap-2">
                 <button onClick={() => { setShowOnboarding(false); localStorage.setItem(onboardingKey, "true"); }} className="h-11 px-4 rounded-xl text-[#8b949e] hover:text-white text-[14px] font-bold cursor-pointer" style={G.btn}>Skip</button>
-                <button onClick={() => { setShowOnboarding(false); setShowTour(true); }} className="flex-1 h-11 rounded-xl text-white text-[15px] font-extrabold cursor-pointer flex items-center justify-center gap-2" style={{ background: "#3b82f6", boxShadow: "0 4px 20px rgba(59,130,246,0.4)" }}><Sparkles className="w-4 h-4" /> Start Tour</button>
+                <button onClick={() => { setShowOnboarding(false); localStorage.setItem(onboardingKey, "true"); tutorialState.replay({ key: "app-intro", steps: APP_INTRO_STEPS }); }} className="flex-1 h-11 rounded-xl text-white text-[15px] font-extrabold cursor-pointer flex items-center justify-center gap-2" style={{ background: "#3b82f6", boxShadow: "0 4px 20px rgba(59,130,246,0.4)" }}><Sparkles className="w-4 h-4" /> Start Tour</button>
               </div>
             </motion.div>
           </div>
         )}
-        {showTour && <OnboardingTour page={page} navigate={setPage} onFinish={finishTour} />}
+        {tutorialState.current && <SpotlightTour steps={tutorialState.current.steps} onFinish={tutorialState.complete} />}
+      </TutorialContext.Provider>
       </QuoteContext.Provider>
     </CurrencyContext.Provider>
     </RoleContext.Provider>
