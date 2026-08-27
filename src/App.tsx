@@ -246,6 +246,7 @@ interface ProjectAsset {
   system: SystemType;
   deviceStoreRef?: string;
   cableSpec?: CableSpec;
+  unitCost?: number;
   quantity: number;
   location: string;
   zoneId?: string;
@@ -2324,6 +2325,7 @@ const INSTALL_DEVICE_TYPE_FOR_ASSET: Record<AssetCategory, InstallDevice["type"]
 const DEFAULT_SYSTEM_FOR_ASSET: Record<AssetCategory, SystemType> = { camera: "VSS", "access-control": "EAC", "network-hardware": "VSS", "cable-wire": "VSS", intercom: "Intercom", other: "VSS" };
 
 function ProjectAssetsTab({ projectId, projectName, clientName }: { projectId: string; projectName: string; clientName: string }) {
+  const { fmt } = useCurrency();
   const [assets, setAssets] = useState<ProjectAsset[]>([]);
   const [storeDevices, setStoreDevices] = useState<CatalogDevice[]>([]);
   const [zones, setZones] = useState<InstallZone[]>([]);
@@ -2346,8 +2348,9 @@ function ProjectAssetsTab({ projectId, projectName, clientName }: { projectId: s
   const [lengthFt, setLengthFt] = useState("");
   const [runDescription, setRunDescription] = useState("");
   const [costPerFt, setCostPerFt] = useState("");
+  const [unitPrice, setUnitPrice] = useState("");
 
-  const resetForm = () => { setCategory("camera"); setSystem("VSS"); setDeviceStoreRef(""); setQuantity("1"); setLocation(""); setZoneId(""); setPurpose(""); setNotes(""); setCableType("CAT-6"); setLengthFt(""); setRunDescription(""); setCostPerFt(""); };
+  const resetForm = () => { setCategory("camera"); setSystem("VSS"); setDeviceStoreRef(""); setQuantity("1"); setLocation(""); setZoneId(""); setPurpose(""); setNotes(""); setCableType("CAT-6"); setLengthFt(""); setRunDescription(""); setCostPerFt(""); setUnitPrice(""); };
 
   const fetchAll = useCallback(async () => {
     setLoading(true);
@@ -2365,7 +2368,7 @@ function ProjectAssetsTab({ projectId, projectName, clientName }: { projectId: s
     const cableSpec: CableSpec | undefined = category === "cable-wire" ? { cableType, lengthFt: parseFloat(lengthFt) || undefined, runDescription: runDescription.trim() || undefined, costPerFt: parseFloat(costPerFt) || undefined } : undefined;
     setSaving(true);
     try {
-      const created = await API.projectAssets.create(projectId, { category, system, deviceStoreRef: deviceStoreRef || undefined, cableSpec, quantity: qty, location: location.trim(), zoneId: zoneId || undefined, purpose: purpose.trim(), notes: notes.trim() || undefined });
+      const created = await API.projectAssets.create(projectId, { category, system, deviceStoreRef: deviceStoreRef || undefined, cableSpec, unitCost: category === "cable-wire" ? undefined : (parseFloat(unitPrice) || 0), quantity: qty, location: location.trim(), zoneId: zoneId || undefined, purpose: purpose.trim(), notes: notes.trim() || undefined });
       setAssets(prev => [...prev, created]);
       const description = describeAsset(created, storeDevices);
       const price = assetUnitCost(created, storeDevices);
@@ -2387,6 +2390,24 @@ function ProjectAssetsTab({ projectId, projectName, clientName }: { projectId: s
       removeAssetFromWorkbook(projectId, describeAsset(asset, storeDevices)).catch(() => {});
       toast.success("Asset removed");
     } catch { toast.error("Failed to remove asset"); }
+  };
+
+  const handlePriceUpdate = async (asset: ProjectAsset, newPrice: number) => {
+    try {
+      const description = describeAsset(asset, storeDevices);
+      const oldPrice = assetUnitCost(asset, storeDevices);
+      let updated: ProjectAsset;
+      if (asset.category === "cable-wire" && asset.cableSpec) {
+        const cableSpec = { ...asset.cableSpec, costPerFt: newPrice };
+        updated = await API.projectAssets.update(projectId, asset.id, { cableSpec });
+      } else {
+        updated = await API.projectAssets.update(projectId, asset.id, { unitCost: newPrice });
+      }
+      setAssets(prev => prev.map(a => a.id === asset.id ? updated : a));
+      const newUnitCost = assetUnitCost(updated, storeDevices);
+      if (newUnitCost !== oldPrice) updateAssetPriceInWorkbook(projectId, description, newUnitCost).catch(() => {});
+      toast.success("Price updated");
+    } catch { toast.error("Failed to update price"); }
   };
 
   const handlePhotoUpload = async (asset: ProjectAsset, e: React.ChangeEvent<HTMLInputElement>) => {
@@ -2486,7 +2507,10 @@ function ProjectAssetsTab({ projectId, projectName, clientName }: { projectId: s
                 <div className="col-span-2"><label className="text-[#8b949e] text-[11px] font-extrabold uppercase tracking-widest block mb-1">Run Description</label><input value={runDescription} onChange={e => setRunDescription(e.target.value)} placeholder="e.g. Camera 3 to IDF closet" className="w-full h-9 rounded-xl px-3 text-[13px] text-white focus:outline-none" style={G.input} /></div>
               </div>
             ) : (
-              <div><label className="text-[#8b949e] text-[11px] font-extrabold uppercase tracking-widest block mb-1">Device (optional)</label><select value={deviceStoreRef} onChange={e => setDeviceStoreRef(e.target.value)} className="w-full h-9 rounded-xl px-2 text-[13px] cursor-pointer" style={{ ...G.input, background: "#0d1117", color: "#e6edf3" }}><option value="">— Generic / unspecified —</option>{availableDevices.map(d => <option key={d.id} value={d.id}>{d.manufacturer} {d.model}</option>)}</select></div>
+              <div className="grid grid-cols-2 gap-3">
+                <div className="col-span-2"><label className="text-[#8b949e] text-[11px] font-extrabold uppercase tracking-widest block mb-1">Device (optional)</label><select value={deviceStoreRef} onChange={e => { const ref = e.target.value; setDeviceStoreRef(ref); const sd = availableDevices.find(d => d.id === ref); setUnitPrice(sd?.price ? String(sd.price) : ""); }} className="w-full h-9 rounded-xl px-2 text-[13px] cursor-pointer" style={{ ...G.input, background: "#0d1117", color: "#e6edf3" }}><option value="">— Generic / unspecified —</option>{availableDevices.map(d => <option key={d.id} value={d.id}>{d.manufacturer} {d.model}</option>)}</select></div>
+                <div className="col-span-2"><label className="text-[#8b949e] text-[11px] font-extrabold uppercase tracking-widest block mb-1">Unit Price (editable)</label><input type="number" value={unitPrice} onChange={e => setUnitPrice(e.target.value)} placeholder="0.00" className="w-full h-9 rounded-xl px-3 text-[13px] text-white focus:outline-none" style={G.input} /></div>
+              </div>
             )}
             <div className="grid grid-cols-3 gap-3">
               <div><label className="text-[#8b949e] text-[11px] font-extrabold uppercase tracking-widest block mb-1">Quantity</label><input type="number" min="1" value={quantity} onChange={e => setQuantity(e.target.value)} className="w-full h-9 rounded-xl px-3 text-[13px] text-white focus:outline-none" style={G.input} /></div>
@@ -2515,6 +2539,11 @@ function ProjectAssetsTab({ projectId, projectName, clientName }: { projectId: s
                   <div className="flex-1 min-w-0">
                     <p className="text-white text-[13px] font-bold">{describeAsset(asset, storeDevices)} <span className="text-[#8b949e] font-semibold">×{asset.quantity}</span></p>
                     <p className="text-[#8b949e] text-[12px] mt-0.5">{asset.location || "No location set"}{asset.purpose ? ` · ${asset.purpose}` : ""}</p>
+                    <div className="flex items-center gap-1.5 mt-1.5">
+                      <span className="text-[#484f58] text-[11px] font-extrabold uppercase tracking-widest">Unit Price</span>
+                      <InlineEditCell type="number" value={assetUnitCost(asset, storeDevices)} onChange={(val) => handlePriceUpdate(asset, parseFloat(val) || 0)} />
+                      <span className="text-[#484f58] text-[11px]">· Total {fmt(assetUnitCost(asset, storeDevices) * asset.quantity)}</span>
+                    </div>
                     {asset.zoneId && <p className="text-[#484f58] text-[11px] mt-0.5">Zone: {zones.find(z => z.id === asset.zoneId)?.name || asset.zoneId}</p>}
                     {asset.notes && <p className="text-[#484f58] text-[11px] mt-0.5 italic">{asset.notes}</p>}
                     {asset.coveragePhotos && asset.coveragePhotos.length > 0 && <div className="flex gap-2 mt-2 flex-wrap">{asset.coveragePhotos.map((p, i) => <img key={i} src={p} alt="" className="w-14 h-14 rounded-lg object-cover" style={{ border: "1px solid rgba(255,255,255,0.10)" }} />)}</div>}
@@ -2578,6 +2607,26 @@ async function syncAssetToWorkbook(projectId: string, category: AssetCategory, s
   } catch (err) { console.error("Workbook sync failed:", err); }
 }
 
+async function updateAssetPriceInWorkbook(projectId: string, description: string, newUnitCost: number) {
+  if (!projectId) return;
+  try {
+    const quotes = await API.quotes.list();
+    const projectQuote = quotes.find((q: Quote) => q.projectId === projectId);
+    if (!projectQuote) return;
+    let changed = false;
+    const categories = projectQuote.categories.map(cat => ({
+      ...cat,
+      lineItems: cat.lineItems.map(li => {
+        if (li.description !== description) return li;
+        changed = true;
+        const sellPrice = newUnitCost * (1 + li.markupPercent);
+        return { ...li, unitCost: newUnitCost, sellPrice, costTotal: newUnitCost * li.quantity, sellTotal: sellPrice * li.quantity, profit: (sellPrice - newUnitCost) * li.quantity };
+      }),
+    }));
+    if (changed) await API.quotes.update(projectQuote.id, { categories });
+  } catch (err) { console.error("Workbook price sync failed:", err); }
+}
+
 async function removeAssetFromWorkbook(projectId: string, description: string) {
   if (!projectId) return;
   try {
@@ -2597,9 +2646,13 @@ function describeAsset(asset: ProjectAsset, storeDevices: CatalogDevice[]): stri
 }
 
 function assetUnitCost(asset: ProjectAsset, storeDevices: CatalogDevice[]): number {
+  if (asset.category === "cable-wire") {
+    if (asset.cableSpec?.costPerFt && asset.cableSpec.lengthFt) return asset.cableSpec.costPerFt * asset.cableSpec.lengthFt;
+    return 0;
+  }
+  if (asset.unitCost !== undefined && asset.unitCost !== null) return asset.unitCost;
   const sd = asset.deviceStoreRef ? storeDevices.find(d => d.id === asset.deviceStoreRef) : null;
   if (sd?.price) return sd.price;
-  if (asset.cableSpec?.costPerFt && asset.cableSpec.lengthFt) return asset.cableSpec.costPerFt * asset.cableSpec.lengthFt;
   return 0;
 }
 

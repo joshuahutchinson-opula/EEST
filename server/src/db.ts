@@ -245,6 +245,7 @@ export async function initDB() {
         system TEXT NOT NULL,
         device_store_ref TEXT,
         cable_spec JSONB,
+        unit_cost NUMERIC,
         quantity INTEGER DEFAULT 1,
         location TEXT,
         zone_id UUID,
@@ -295,6 +296,7 @@ export async function initDB() {
     await client.query(`ALTER TABLE audit_logs ADD COLUMN IF NOT EXISTS notification_type TEXT`);
     await client.query(`ALTER TABLE audit_logs ADD COLUMN IF NOT EXISTS action_url TEXT`);
     await client.query(`ALTER TABLE subcontractors ADD COLUMN IF NOT EXISTS share_token TEXT UNIQUE`);
+    await client.query(`ALTER TABLE project_assets ADD COLUMN IF NOT EXISTS unit_cost NUMERIC`);
     await client.query(`ALTER TABLE subcontractors DROP COLUMN IF EXISTS rating`);
 
     try {
