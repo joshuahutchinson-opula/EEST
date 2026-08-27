@@ -3448,8 +3448,10 @@ function InstallTracker({ navigate: _navigate }: { navigate: (p: Page) => void }
   const [loading, setLoading] = useState(true);
   const [expandedProject, setExpandedProject] = useState<string | null>(null);
   const [statusFilter, setStatusFilter] = useState<InstallStatus | "all">("all");
-  const [showSupportTask, setShowSupportTask] = useState(false);
-  const [stName, setStName] = useState("");
+  const [addTaskProjectId, setAddTaskProjectId] = useState<string | null>(null);
+  const [taskTitle, setTaskTitle] = useState("");
+  const [taskPriority, setTaskPriority] = useState<TaskPriority>("medium");
+  const [taskDueDate, setTaskDueDate] = useState("");
 
   const fetchData = useCallback(async () => {
     setLoading(true);
@@ -3467,9 +3469,13 @@ function InstallTracker({ navigate: _navigate }: { navigate: (p: Page) => void }
     try { await API.install.updateStatus(zoneId, deviceId, status); } catch {}
   };
 
-  const handleSupportTask = async () => {
-    if (!stName.trim()) return;
-    try { const zone = await API.install.createZone({ name: stName.trim(), isQuickSupport: true }); setZones(prev => [...prev, zone]); setStName(""); setShowSupportTask(false); toast.success("Support task added"); } catch { toast.error("Failed to add"); }
+  const handleAddTask = async (projectId: string) => {
+    if (!taskTitle.trim()) return;
+    try {
+      await API.tasks.create(projectId, { title: taskTitle.trim(), priority: taskPriority, dueDate: taskDueDate || undefined, status: "todo" });
+      setTaskTitle(""); setTaskPriority("medium"); setTaskDueDate(""); setAddTaskProjectId(null);
+      toast.success("Task added to project");
+    } catch { toast.error("Failed to add task"); }
   };
 
   const typeIcons: Record<string, IconType> = { camera: Camera, access: Key, nvr: Cpu, door: DoorOpen, panel: PanelRight, power: Zap, server: Server, intercom: Phone };
@@ -3485,14 +3491,7 @@ function InstallTracker({ navigate: _navigate }: { navigate: (p: Page) => void }
     <div className="px-3 md:px-5 py-4 md:py-6 max-w-[1600px] mx-auto w-full">
       <div className="mb-4 md:mb-6 flex items-center justify-between">
         <div><h1 className="text-white font-extrabold text-2xl md:text-3xl tracking-tight">Install Tracker</h1><p className="text-[#8b949e] text-[13px] mt-0.5">{total} devices across {zones.length} zones</p></div>
-        <button onClick={() => setShowSupportTask(!showSupportTask)} className="flex items-center gap-1.5 h-8 px-3 rounded-xl text-white text-[13px] font-extrabold cursor-pointer" style={{ background: "#f59e0b" }}><Plus className="w-3 h-3" /> Support Task</button>
       </div>
-      {showSupportTask && (
-        <div className="rounded-xl p-3 space-y-2 mb-3" style={G.card}>
-          <input value={stName} onChange={e => setStName(e.target.value)} placeholder="Task name" className="w-full h-8 rounded-lg px-2 text-[13px] text-white" style={G.input} />
-          <button onClick={handleSupportTask} className="w-full h-8 rounded-lg text-white text-[13px] font-extrabold cursor-pointer" style={{ background: "#10b981" }}>Add</button>
-        </div>
-      )}
       {projects.length === 0 && zones.length === 0 ? <EmptyState icon={CheckSquare} title="No active installs" description="Projects in Installation stage will appear here." /> : (
         <>
           <div className="rounded-2xl p-4 md:p-5 mb-4" style={G.card}>
@@ -3521,10 +3520,25 @@ function InstallTracker({ navigate: _navigate }: { navigate: (p: Page) => void }
               const isExpanded = expandedProject === project.id;
               return (
                 <div key={project.id} className="rounded-2xl overflow-hidden" style={G.card}>
-                  <button onClick={() => setExpandedProject(isExpanded ? null : project.id)} className="w-full flex items-center gap-3 px-4 py-3 hover:bg-white/[0.02] cursor-pointer min-h-[44px]">
-                    <div className="flex-1 min-w-0"><p className="text-white text-[14px] font-extrabold text-left">{project.name}</p><p className="text-[#8b949e] text-[12px]">{projectDevices.length} devices</p></div>
-                    {isExpanded ? <ChevronUp className="w-4 h-4 text-[#8b949e]" /> : <ChevronDown className="w-4 h-4 text-[#8b949e]" />}
-                  </button>
+                  <div className="w-full flex items-center gap-3 px-4 py-3">
+                    <button onClick={() => setExpandedProject(isExpanded ? null : project.id)} className="flex-1 min-w-0 flex items-center gap-3 cursor-pointer min-h-[44px]">
+                      <div className="flex-1 min-w-0 text-left"><p className="text-white text-[14px] font-extrabold">{project.name}</p><p className="text-[#8b949e] text-[12px]">{projectDevices.length} devices</p></div>
+                      {isExpanded ? <ChevronUp className="w-4 h-4 text-[#8b949e]" /> : <ChevronDown className="w-4 h-4 text-[#8b949e]" />}
+                    </button>
+                    <button onClick={() => setAddTaskProjectId(addTaskProjectId === project.id ? null : project.id)} className="flex items-center gap-1 h-7 px-2.5 rounded-lg text-[12px] font-extrabold text-white cursor-pointer flex-shrink-0" style={{ background: "#3b82f6" }}><Plus className="w-3 h-3" /> Task</button>
+                  </div>
+                  {addTaskProjectId === project.id && (
+                    <div className="px-4 pb-3 space-y-2" style={{ borderTop: "1px solid rgba(255,255,255,0.04)" }}>
+                      <input value={taskTitle} onChange={e => setTaskTitle(e.target.value)} placeholder="Task title…" className="w-full h-8 rounded-lg px-2 text-[13px] text-white mt-3" style={G.input} />
+                      <div className="flex gap-2 flex-wrap">
+                        <select value={taskPriority} onChange={e => setTaskPriority(e.target.value as TaskPriority)} className="h-8 rounded-lg px-2 text-[12px] cursor-pointer" style={{ ...G.input, background: "#0d1117", color: "#e6edf3" }}>
+                          <option value="low">Low</option><option value="medium">Medium</option><option value="high">High</option>
+                        </select>
+                        <input type="date" value={taskDueDate} onChange={e => setTaskDueDate(e.target.value)} className="h-8 rounded-lg px-2 text-[12px]" style={{ ...G.input, colorScheme: "dark", background: "#0d1117", color: "#e6edf3" }} />
+                        <button onClick={() => handleAddTask(project.id)} className="h-8 px-3 rounded-lg text-[12px] font-extrabold text-white cursor-pointer" style={{ background: "#10b981" }}>Add to Project</button>
+                      </div>
+                    </div>
+                  )}
                   {isExpanded && projectDevices.map((device) => {
                     const meta = STATUS_META[device.status];
                     const TypeIcon = typeIcons[device.type] ?? Camera;
@@ -3534,32 +3548,6 @@ function InstallTracker({ navigate: _navigate }: { navigate: (p: Page) => void }
                         <div className="min-w-0"><p className="text-white text-[13px] font-bold truncate">{device.name}</p><p className="text-[#8b949e] text-[11px]">{device.location}</p></div>
                         <span className="text-[#8b949e] text-[12px] truncate">{device.assignee}</span>
                         <select value={device.status} onChange={(e) => { const z = projectZones.find(z => z.devices.some(d => d.id === device.id)); if (z) updateStatus(z.id, device.id, e.target.value as InstallStatus); }} className={clsx("w-full h-7 rounded-xl border px-2 text-[12px] font-extrabold appearance-none cursor-pointer", meta.bg, meta.color)} style={{ background: "#0d1117" }}>
-                          {Object.entries(STATUS_META).map(([val, m]) => (<option key={val} value={val} style={{ background: "#0d1117", color: "#e6edf3" }}>{m.label}</option>))}
-                        </select>
-                      </div>
-                    );
-                  })}
-                </div>
-              );
-            })}
-            {zones.filter(z => z.isQuickSupport).map(zone => {
-              const zoneDevices = zone.devices.filter(d => statusFilter === "all" || d.status === statusFilter);
-              const isExpanded = expandedProject === zone.id;
-              return (
-                <div key={zone.id} className="rounded-2xl overflow-hidden" style={G.card}>
-                  <button onClick={() => setExpandedProject(isExpanded ? null : zone.id)} className="w-full flex items-center gap-3 px-4 py-3 cursor-pointer min-h-[44px]">
-                    <div className="flex-1 min-w-0"><p className="text-white text-[14px] font-extrabold text-left">{zone.name}</p><p className="text-[#8b949e] text-[12px]">Support Task · {zoneDevices.length} devices</p></div>
-                    {isExpanded ? <ChevronUp className="w-4 h-4 text-[#8b949e]" /> : <ChevronDown className="w-4 h-4 text-[#8b949e]" />}
-                  </button>
-                  {isExpanded && zoneDevices.map((device) => {
-                    const meta = STATUS_META[device.status];
-                    const TypeIcon = typeIcons[device.type] ?? Camera;
-                    return (
-                      <div key={device.id} className="grid gap-2 px-3 py-3 items-center" style={{ gridTemplateColumns: "36px 2fr 1fr 120px", borderTop: "1px solid rgba(255,255,255,0.04)" }}>
-                        <div className="w-7 h-7 rounded-xl flex items-center justify-center" style={{ background: "rgba(255,255,255,0.04)" }}><TypeIcon className="w-3.5 h-3.5 text-[#8b949e]" /></div>
-                        <div className="min-w-0"><p className="text-white text-[13px] font-bold truncate">{device.name}</p><p className="text-[#8b949e] text-[11px]">{device.location}</p></div>
-                        <span className="text-[#8b949e] text-[12px] truncate">{device.assignee}</span>
-                        <select value={device.status} onChange={(e) => updateStatus(zone.id, device.id, e.target.value as InstallStatus)} className={clsx("w-full h-7 rounded-xl border px-2 text-[12px] font-extrabold appearance-none cursor-pointer", meta.bg, meta.color)} style={{ background: "#0d1117" }}>
                           {Object.entries(STATUS_META).map(([val, m]) => (<option key={val} value={val} style={{ background: "#0d1117", color: "#e6edf3" }}>{m.label}</option>))}
                         </select>
                       </div>
