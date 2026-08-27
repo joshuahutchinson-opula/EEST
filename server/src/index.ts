@@ -1,3 +1,11 @@
+// Node 18 doesn't expose the Web Crypto API as a global the way Node 20+ does,
+// but jose's webapi build (loaded dynamically in lib/microsoftAuth.ts) assumes
+// globalThis.crypto exists. Polyfill it before anything else runs.
+import { webcrypto } from "node:crypto";
+if (!globalThis.crypto) {
+  (globalThis as unknown as { crypto: Crypto }).crypto = webcrypto as unknown as Crypto;
+}
+
 import express from "express";
 import cors from "cors";
 import dotenv from "dotenv";
