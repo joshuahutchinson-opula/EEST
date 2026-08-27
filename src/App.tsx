@@ -116,7 +116,7 @@ type SupportType = "contract-support" | "pre-paid" | "post-paid" | "sla";
 type DeviceLibraryTab = "store" | "inventory";
 type WorkbookTab = "asset-list" | "cost-margin" | "bom" | "synthesis";
 
-interface AuditLogEntry { id: string; projectId: string; event: string; details: string; timestamp: string; user: string; notificationType?: string; actionUrl?: string; }
+interface AuditLogEntry { id: string; projectId: string; event: string; details: string; timestamp: string; user: string; userEmail?: string; field?: string; oldValue?: string; newValue?: string; notificationType?: string; actionUrl?: string; }
 interface ChangeOrder { id: string; projectId: string; title: string; description: string; costImpact: number; status: "draft" | "submitted" | "approved" | "rejected"; createdAt: string; updatedAt: string; createdBy: string; }
 interface Project {
   id: string;
@@ -494,7 +494,7 @@ const API = {
   },
   audit: {
     list: (projectId: string) => apiFetch<AuditLogEntry[]>(`/audit/${projectId}`),
-    log: (projectId: string, event: string, details: string) => apiFetch<void>(`/audit/${projectId}`, { method: "POST", body: JSON.stringify({ event, details }) }),
+    log: (projectId: string, event: string, details: string, change?: { field: string; oldValue: string; newValue: string }) => apiFetch<void>(`/audit/${projectId}`, { method: "POST", body: JSON.stringify({ event, details, field: change?.field, oldValue: change?.oldValue, newValue: change?.newValue }) }),
   },
   changeOrders: {
     list: (projectId: string) => apiFetch<ChangeOrder[]>(`/change-orders/${projectId}`),
@@ -1029,7 +1029,7 @@ function Dashboard({ navigate }: { navigate: (p: Page) => void }) {
   const overdueProjects = projectProjects.filter(p => p.dueDate && new Date(p.dueDate) < new Date() && p.projectStage !== "complete").length;
   const ticketsResolved = projectProjects.filter(p => p.projectStage === "support" && p.stage === "win").length;
 
-  const logAudit = async (projectId: string, event: string, details: string) => { try { await API.audit.log(projectId, event, details); } catch {} };
+  const logAudit = async (projectId: string, event: string, details: string, change?: { field: string; oldValue: string; newValue: string }) => { try { await API.audit.log(projectId, event, details, change); } catch {} };
 
   const handleDragStart = (e: React.DragEvent<HTMLDivElement>, id: string) => { setDragging(id); e.dataTransfer.effectAllowed = "move"; };
   const handleDragEnd = () => { setDragging(null); setDragOverCol(null); };
@@ -1045,14 +1045,14 @@ function Dashboard({ navigate }: { navigate: (p: Page) => void }) {
           setProjects((prev) => prev.map((p) => p.id === dragging ? { ...p, stage: newStage, stageHistory } : p));
           try {
             await API.projects.update(dragging, { stage: newStage, stageHistory });
-            await logAudit(dragging, "Stage Change", `Moved from ${oldStage} to ${newStage}`);
+            await logAudit(dragging, "Stage Change", `Moved from ${oldStage} to ${newStage}`, { field: "stage", oldValue: String(oldStage), newValue: newStage });
             if (newStage === "win") { API.notifications.salesWin({ projectId: dragging, projectName: project.name, clientName: project.client }).catch(() => {}); }
           } catch {}
         } else {
           const newStage = colId as ProjectStage;
           const stageHistory = [...(project.stageHistory || []), { stage: newStage, date: new Date().toISOString().slice(0, 10) }];
           setProjects((prev) => prev.map((p) => p.id === dragging ? { ...p, projectStage: newStage, stageHistory } : p));
-          try { await API.projects.update(dragging, { projectStage: newStage, stageHistory }); await logAudit(dragging, "Project Stage Change", `Moved from ${oldStage} to ${newStage}`); } catch {}
+          try { await API.projects.update(dragging, { projectStage: newStage, stageHistory }); await logAudit(dragging, "Project Stage Change", `Moved from ${oldStage} to ${newStage}`, { field: "projectStage", oldValue: String(oldStage), newValue: newStage }); } catch {}
         }
       }
     }
@@ -1067,7 +1067,7 @@ function Dashboard({ navigate }: { navigate: (p: Page) => void }) {
     setProjects(prev => prev.map(p => p.id === projectId ? updated : p));
     try {
       await API.projects.update(projectId, { pipelineType: "project", projectStage: "planning", leadSource: undefined, stageHistory });
-      await API.audit.log(projectId, "Moved to Projects", "Moved from Sales Win to Projects Planning");
+      await API.audit.log(projectId, "Moved to Projects", "Moved from Sales Win to Projects Planning", { field: "pipelineType", oldValue: "sales", newValue: "project" });
       toast.success("Moved to Projects Pipeline");
     } catch { fetchProjects(); }
   };
@@ -2171,7 +2171,7 @@ function ProjectDetail({ navigate }: { navigate: (p: Page) => void }) {
       {activeTab === "audit-log" && (
         <div>
           {auditLog.length === 0 ? <EmptyState icon={History} title="No audit entries" description="Activity will appear here automatically." /> : (
-            <div className="space-y-1">{auditLog.map((entry) => (<div key={entry.id} className="flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-white/[0.02]" style={{ borderBottom: "1px solid rgba(255,255,255,0.03)" }}><div className="w-7 h-7 rounded-full flex items-center justify-center text-[11px] font-extrabold text-white flex-shrink-0" style={{ background: TEAM.find(t => t.name === entry.user)?.color || "#3b82f6" }}>{(TEAM.find(t => t.name === entry.user)?.initials || "??")}</div><div className="flex-1 min-w-0"><p className="text-white text-[13px] font-bold">{entry.event}</p><p className="text-[#8b949e] text-[12px]">{entry.details}</p></div><span className="text-[#8b949e] text-[12px] flex-shrink-0">{new Date(entry.timestamp).toLocaleString()}</span></div>))}</div>
+            <div className="space-y-1">{auditLog.map((entry) => (<div key={entry.id} className="flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-white/[0.02]" style={{ borderBottom: "1px solid rgba(255,255,255,0.03)" }}><div className="w-7 h-7 rounded-full flex items-center justify-center text-[11px] font-extrabold text-white flex-shrink-0" style={{ background: TEAM.find(t => t.name === entry.user)?.color || "#3b82f6" }}>{(TEAM.find(t => t.name === entry.user)?.initials || "??")}</div><div className="flex-1 min-w-0"><p className="text-white text-[13px] font-bold">{entry.event}<span className="text-[#484f58] text-[11px] font-semibold ml-1.5">{entry.user}</span></p>{entry.field && entry.oldValue !== undefined && entry.newValue !== undefined ? (<div className="flex items-center gap-1.5 mt-0.5 text-[12px]"><span className="text-[#484f58] font-mono">{entry.field}:</span><span className="text-rose-400 line-through">{entry.oldValue}</span><ChevronRight className="w-3 h-3 text-[#484f58]" /><span className="text-emerald-400">{entry.newValue}</span></div>) : (<p className="text-[#8b949e] text-[12px]">{entry.details}</p>)}</div><span className="text-[#8b949e] text-[12px] flex-shrink-0">{new Date(entry.timestamp).toLocaleString()}</span></div>))}</div>
           )}
         </div>
       )}
@@ -3360,6 +3360,7 @@ function Workbook({ navigate }: { navigate: (p: Page) => void }) {
   const [synthesisOverrides, setSynthesisOverrides] = useState<SynthesisOverride[]>([]);
   const [workbookAudit, setWorkbookAudit] = useState<WorkbookAuditEntry[]>([]);
   const [showProposalModal, setShowProposalModal] = useState(false);
+  const [showAuditModal, setShowAuditModal] = useState(false);
   const [overrideConflict, setOverrideConflict] = useState<{ sectionNumber: string; sectionName: string; pendingCallback: (() => void) | null } | null>(null);
   const [systemFilter, setSystemFilter] = useState<SystemType>("VSS");
 
@@ -3407,7 +3408,21 @@ function Workbook({ navigate }: { navigate: (p: Page) => void }) {
     setFieldSaveStatus(prev => ({ ...prev, [fieldKey]: "saving" }));
     setQuotes((prev) => prev.map((q) => {
       if (q.id !== selectedQuoteId) return q;
-      const updated = { ...q, categories: q.categories.map((cat) => cat.id !== categoryId ? cat : { ...cat, lineItems: cat.lineItems.map((li) => li.id === itemId ? recalcLineItem({ ...li, ...updates }, exchangeRate) : li) }) };
+      const updated = { ...q, categories: q.categories.map((cat) => {
+        if (cat.id !== categoryId) return cat;
+        return { ...cat, lineItems: cat.lineItems.map((li) => {
+          if (li.id !== itemId) return li;
+          (Object.keys(updates) as (keyof QuoteLineItem)[]).forEach((key) => {
+            if (key === "id") return;
+            const oldVal = li[key];
+            const newVal = updates[key];
+            if (oldVal !== newVal && newVal !== undefined) {
+              API.workbook.logAudit(selectedProjectId, `${cat.name} — ${li.description || "line item"} — ${key}`, String(oldVal), String(newVal)).catch(() => {});
+            }
+          });
+          return recalcLineItem({ ...li, ...updates }, exchangeRate);
+        }) };
+      }) };
       autoSave(updated);
       return updated;
     }));
@@ -3429,9 +3444,13 @@ function Workbook({ navigate }: { navigate: (p: Page) => void }) {
 
   const handleSaveOverride = async (sectionNumber: string, value: number | null, isOverridden: boolean) => {
     const fieldKey = `synth-${sectionNumber}`;
+    const previous = synthesisOverrides.find(o => o.sectionNumber === sectionNumber);
+    const oldDisplay = previous?.isOverridden ? String(previous.overrideValue) : "auto-calculated";
+    const newDisplay = isOverridden ? String(value) : "auto-calculated";
     setFieldSaveStatus(prev => ({ ...prev, [fieldKey]: "saving" }));
     try {
       await API.workbook.saveOverrides(selectedProjectId, [{ projectId: selectedProjectId, sectionNumber, overrideValue: value, isOverridden, overriddenBy: CURRENT_USER.name }]);
+      if (oldDisplay !== newDisplay) API.workbook.logAudit(selectedProjectId, `Synthesis section ${sectionNumber} override`, oldDisplay, newDisplay).catch(() => {});
       setSynthesisOverrides(prev => {
         const existing = prev.findIndex(o => o.sectionNumber === sectionNumber);
         if (existing >= 0) { const updated = [...prev]; updated[existing] = { ...updated[existing], overrideValue: value, isOverridden, overriddenBy: CURRENT_USER.name }; return updated; }
@@ -3491,9 +3510,11 @@ function Workbook({ navigate }: { navigate: (p: Page) => void }) {
         </div>
         <div className="flex items-center gap-2 flex-wrap">
           <div className="flex items-center gap-2 px-3 py-1 rounded-xl" style={G.subtle}><span className="text-[#8b949e] text-[12px] font-extrabold uppercase">FX Rate</span><span className="text-white text-[14px] font-extrabold">J$ {exchangeRate.toFixed(2)}</span></div>
+          <button onClick={() => { API.workbook.getAudit(selectedProjectId).then(setWorkbookAudit).catch(() => {}); setShowAuditModal(true); }} className="flex items-center gap-1.5 h-9 md:h-7 px-3 rounded-lg text-[#8b949e] hover:text-white text-[12px] font-extrabold cursor-pointer" style={G.btn}><History className="w-3 h-3" /> History</button>
           <button onClick={() => setShowProposalModal(true)} className="flex items-center gap-1.5 h-9 md:h-7 px-3 rounded-lg text-white text-[12px] font-extrabold cursor-pointer" style={{ background: "#3b82f6" }}><FileDown className="w-3 h-3" /> Proposal</button>
         </div>
       </div>
+      <FieldAuditModal open={showAuditModal} entries={workbookAudit} onClose={() => setShowAuditModal(false)} />
       {!selectedQuote && projectAssets.length === 0 ? (
         <div className="flex-1 flex items-center justify-center"><EmptyState icon={DollarSign} title="No workbook" description="Select a project to view its workbook." action={{ label: "Select Project", onClick: () => setShowProjectSelect(true) }} /></div>
       ) : (

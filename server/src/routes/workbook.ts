@@ -81,11 +81,14 @@ router.get("/:projectId/audit", async (req: Request, res: Response) => {
 
 router.post("/:projectId/audit", async (req: Request, res: Response) => {
   try {
-    const { fieldPath, oldValue, newValue, changedBy } = req.body;
+    const { fieldPath, oldValue, newValue } = req.body;
+    // Trust the verified session, not a client-supplied changedBy.
+    const sessionUser = (req as any).user as { name?: string } | undefined;
+    const changedBy = sessionUser?.name || "Unknown";
     const result = await pool.query(
       `INSERT INTO workbook_audit (project_id, field_path, old_value, new_value, changed_by)
        VALUES ($1, $2, $3, $4, $5) RETURNING id`,
-      [req.params.projectId, fieldPath, oldValue || "", newValue || "", changedBy || "System"]
+      [req.params.projectId, fieldPath, oldValue || "", newValue || "", changedBy]
     );
     res.status(201).json(result.rows[0]);
   } catch (err) {
