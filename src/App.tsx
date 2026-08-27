@@ -2014,7 +2014,6 @@ function ProjectDetail({ navigate }: { navigate: (p: Page) => void }) {
   const [project, setProject] = useState<Project | null>(null);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState(() => localStorage.getItem("pd_tab") || "overview");
-  const [quotes, setQuotes] = useState<Quote[]>([]);
   const [auditLog, setAuditLog] = useState<AuditLogEntry[]>([]);
   const [changeOrders, setChangeOrders] = useState<ChangeOrder[]>([]);
   const [showNewCO, setShowNewCO] = useState(false);
@@ -2034,13 +2033,7 @@ function ProjectDetail({ navigate }: { navigate: (p: Page) => void }) {
       const data = await API.projects.list();
       const activeProjectId = localStorage.getItem("active_project_id");
       const proj = data.find(p => p.id === activeProjectId) || data[0];
-      if (proj) {
-        setProject(proj);
-        const qData = await API.quotes.list();
-        setQuotes(qData.filter((q: Quote) => q.projectId === proj.id));
-      } else {
-        setProject(null);
-      }
+      setProject(proj || null);
     } catch { setProject(null); } finally { setLoading(false); }
   }, []);
   useEffect(() => { fetchProject(); }, [fetchProject]);
@@ -2073,8 +2066,8 @@ function ProjectDetail({ navigate }: { navigate: (p: Page) => void }) {
   const badge = isProjPipe ? projectStageBadge(p.projectStage || "planning") : stageBadge(p.stage);
   const ls = p.leadSource ? LEAD_SOURCE_STYLES[p.leadSource] : null;
   const team = getDeduplicatedTeam(p);
-  const tabs = ["overview","tasks","documents","quotes","assets","change-orders","audit-log","gantt","subcontractors","procurement","commissioning"].filter(t => !(tech && t === "quotes"));
-  const tabLabels: Record<string, string> = { overview: "Overview", tasks: "Tasks", documents: "Files", quotes: "Quotes", assets: "Assets", "change-orders": "Change Orders", "audit-log": "Audit Log", gantt: "Timeline", subcontractors: "Subcontractors", procurement: "Procurement", commissioning: "Commissioning" };
+  const tabs = ["overview","tasks","documents","assets","change-orders","audit-log","gantt","subcontractors","procurement","commissioning"];
+  const tabLabels: Record<string, string> = { overview: "Overview", tasks: "Tasks", documents: "Files", assets: "Assets", "change-orders": "Change Orders", "audit-log": "Audit Log", gantt: "Timeline", subcontractors: "Subcontractors", procurement: "Procurement", commissioning: "Commissioning" };
   const stageHistory = p.stageHistory || [{ stage: p.stage, date: p.createdAt?.slice(0,10) || new Date().toISOString().slice(0,10) }];
   const liveCameraCount = projectAssets.filter(a => a.category === "camera").reduce((s, a) => s + a.quantity, 0);
   const liveDeviceCount = projectAssets.filter(a => a.category !== "cable-wire").reduce((s, a) => s + a.quantity, 0);
@@ -2157,7 +2150,6 @@ function ProjectDetail({ navigate }: { navigate: (p: Page) => void }) {
       )}
       {activeTab === "tasks" && <TaskList projectId={p.id} />}
       {activeTab === "documents" && <DocumentList projectId={p.id} />}
-      {activeTab === "quotes" && (quotes.length === 0 ? <EmptyState icon={DollarSign} title="No workbook yet" description="" /> : <div className="space-y-3">{quotes.map((q) => (<div key={q.id} className="flex items-center justify-between rounded-2xl p-4" style={G.card}><div className="flex items-center gap-4"><DollarSign className="w-4 h-4 text-blue-400" /><div><p className="text-white text-[15px] font-bold">{q.refNumber}</p><p className="text-[#8b949e] text-[13px]">{q.date} · {q.status}</p></div></div><button onClick={() => navigate("workbook")} className="h-8 px-3 rounded-xl text-[#8b949e] text-[14px] font-bold hover:text-white cursor-pointer" style={G.btn}>Open</button></div>))}</div>)}
       {activeTab === "change-orders" && (
         <div>
           <div className="flex items-center justify-between mb-3"><p className="text-[#8b949e] text-[13px]">{changeOrders.length} change orders</p><button onClick={() => setShowNewCO(true)} className="flex items-center gap-1.5 h-8 px-3 rounded-xl text-white text-[13px] font-extrabold cursor-pointer" style={{ background: "#3b82f6" }}><Plus className="w-3 h-3" /> New Change Order</button></div>
