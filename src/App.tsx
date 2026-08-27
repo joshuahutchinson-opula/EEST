@@ -9,7 +9,7 @@ import {
   AlertTriangle, Key, Download, Share2, FileText,
   Grid3x3, List, Move,
   Trash2, X, Package, AlertCircle, RotateCcw,
-  ChevronRight, Upload, Pencil, Lock,
+  ChevronRight, ChevronLeft, Upload, Pencil, Lock,
   Cpu, Activity, CheckSquare, ChevronUp, ExternalLink,
   Phone, Mail, MessageSquare, StickyNote, Users, Store,
   DoorOpen, PanelRight, Zap, Server, Cable, Box, Save,
@@ -2805,9 +2805,7 @@ function SummaryBar({ totalCost, totalSell, blendedMargin, fmt, onGeneratePropos
   );
 }
 
-function CostMarginTab({ quoteCategories, exchangeRate, fmt, onLineItemUpdate, fieldSaveStatus }: { quoteCategories: QuoteCategory[]; exchangeRate: number; fmt: (n: number, compact?: boolean) => string; onLineItemUpdate: (categoryId: string, itemId: string, updates: Partial<QuoteLineItem>) => void; fieldSaveStatus: Record<string, "saved" | "saving" | "">; }) {
-  const [systemFilter, setSystemFilter] = useState<SystemType>("VSS");
-
+function CostMarginTab({ quoteCategories, exchangeRate, fmt, onLineItemUpdate, fieldSaveStatus, systemFilter, onSystemFilterChange }: { quoteCategories: QuoteCategory[]; exchangeRate: number; fmt: (n: number, compact?: boolean) => string; onLineItemUpdate: (categoryId: string, itemId: string, updates: Partial<QuoteLineItem>) => void; fieldSaveStatus: Record<string, "saved" | "saving" | "">; systemFilter: SystemType; onSystemFilterChange: (s: SystemType) => void; }) {
   const filteredCategories = quoteCategories.filter(c => c.system === systemFilter && c.sectionNumber !== 800 && c.sectionNumber !== 1300 && c.sectionNumber !== 1800);
   const importCategories = quoteCategories.filter(c => c.system === systemFilter && (c.sectionNumber === 800 || c.sectionNumber === 1300 || c.sectionNumber === 1800));
 
@@ -2821,7 +2819,7 @@ function CostMarginTab({ quoteCategories, exchangeRate, fmt, onLineItemUpdate, f
     <div className="space-y-4">
       <div className="flex items-center gap-2">
         {(["VSS","EAC","Intercom"] as SystemType[]).map(s => (
-          <button key={s} onClick={() => setSystemFilter(s)} className={clsx("h-7 px-3 rounded-lg text-[12px] font-extrabold cursor-pointer", systemFilter === s ? "text-white" : "text-[#8b949e]")} style={systemFilter === s ? { background: s === "VSS" ? "#3b82f6" : s === "EAC" ? "#8b5cf6" : "#14b8a6" } : G.btn}>{s}</button>
+          <button key={s} onClick={() => onSystemFilterChange(s)} className={clsx("h-7 px-3 rounded-lg text-[12px] font-extrabold cursor-pointer", systemFilter === s ? "text-white" : "text-[#8b949e]")} style={systemFilter === s ? { background: s === "VSS" ? "#3b82f6" : s === "EAC" ? "#8b5cf6" : "#14b8a6" } : G.btn}>{s}</button>
         ))}
       </div>
       <div className="rounded-2xl overflow-hidden" style={G.card}>
@@ -2872,8 +2870,7 @@ function CostMarginTab({ quoteCategories, exchangeRate, fmt, onLineItemUpdate, f
     </div>
   );
 }
-function BomTab({ quoteCategories, synthesisOverrides, exchangeRate, fmt, onLineItemUpdate, onAddLineItem, onBomEditWithOverride, fieldSaveStatus }: { quoteCategories: QuoteCategory[]; synthesisOverrides: SynthesisOverride[]; exchangeRate: number; fmt: (n: number, compact?: boolean) => string; onLineItemUpdate: (categoryId: string, itemId: string, updates: Partial<QuoteLineItem>) => void; onAddLineItem: (categoryId: string) => void; onBomEditWithOverride: (sectionNumber: string, sectionName: string, callback: () => void) => void; fieldSaveStatus: Record<string, "saved" | "saving" | "">; }) {
-  const [systemFilter, setSystemFilter] = useState<SystemType>("VSS");
+function BomTab({ quoteCategories, synthesisOverrides, exchangeRate, fmt, onLineItemUpdate, onAddLineItem, onBomEditWithOverride, fieldSaveStatus, systemFilter, onSystemFilterChange }: { quoteCategories: QuoteCategory[]; synthesisOverrides: SynthesisOverride[]; exchangeRate: number; fmt: (n: number, compact?: boolean) => string; onLineItemUpdate: (categoryId: string, itemId: string, updates: Partial<QuoteLineItem>) => void; onAddLineItem: (categoryId: string) => void; onBomEditWithOverride: (sectionNumber: string, sectionName: string, callback: () => void) => void; fieldSaveStatus: Record<string, "saved" | "saving" | "">; systemFilter: SystemType; onSystemFilterChange: (s: SystemType) => void; }) {
   const bodyRef = useRef<HTMLDivElement>(null);
   const [stickyScrollLeft, setStickyScrollLeft] = useState(0);
 
@@ -2899,7 +2896,7 @@ function BomTab({ quoteCategories, synthesisOverrides, exchangeRate, fmt, onLine
     <div className="space-y-4">
       <div className="flex items-center gap-2">
         {(["VSS","EAC","Intercom"] as SystemType[]).map(s => (
-          <button key={s} onClick={() => setSystemFilter(s)} className={clsx("h-7 px-3 rounded-lg text-[12px] font-extrabold cursor-pointer", systemFilter === s ? "text-white" : "text-[#8b949e]")} style={systemFilter === s ? { background: s === "VSS" ? "#3b82f6" : s === "EAC" ? "#8b5cf6" : "#14b8a6" } : G.btn}>{s}</button>
+          <button key={s} onClick={() => onSystemFilterChange(s)} className={clsx("h-7 px-3 rounded-lg text-[12px] font-extrabold cursor-pointer", systemFilter === s ? "text-white" : "text-[#8b949e]")} style={systemFilter === s ? { background: s === "VSS" ? "#3b82f6" : s === "EAC" ? "#8b5cf6" : "#14b8a6" } : G.btn}>{s}</button>
         ))}
       </div>
       <div className="rounded-2xl overflow-hidden" style={G.card}>
@@ -3076,14 +3073,8 @@ function AssetListTab({ quoteCategories, projectAssets, storeDevices, exchangeRa
     return items;
   }, [projectAssets, storeDevices, quoteCategories, exchangeRate]);
 
-  const totalCost = allItems.reduce((s, i) => s + i.costTotal, 0);
-  const totalSell = allItems.reduce((s, i) => s + i.total, 0);
-  const totalProfit = allItems.reduce((s, i) => s + i.profit, 0);
-  const blendedMargin = totalSell > 0 ? (totalProfit / totalSell) * 100 : 0;
-
   return (
     <div className="space-y-4">
-      <SummaryBar totalCost={totalCost} totalSell={totalSell} blendedMargin={blendedMargin} fmt={fmt} />
       <div className="flex items-center gap-2 mb-2"><button onClick={() => setClientExportMode(!clientExportMode)} className={clsx("h-7 px-3 rounded-lg text-[12px] font-bold cursor-pointer", clientExportMode ? "text-white" : "text-[#8b949e]")} style={clientExportMode ? { background: "rgba(16,185,129,0.15)", border: "1px solid rgba(16,185,129,0.30)" } : G.btn}><EyeOff className="w-3 h-3 mr-1" />{clientExportMode ? "Client View" : "Internal View"}</button></div>
       {projectAssets.length > 0 && (
         <div className="rounded-2xl overflow-hidden" style={G.card}>
@@ -3154,6 +3145,7 @@ function Workbook({ navigate }: { navigate: (p: Page) => void }) {
   const [workbookAudit, setWorkbookAudit] = useState<WorkbookAuditEntry[]>([]);
   const [showProposalModal, setShowProposalModal] = useState(false);
   const [overrideConflict, setOverrideConflict] = useState<{ sectionNumber: string; sectionName: string; pendingCallback: (() => void) | null } | null>(null);
+  const [systemFilter, setSystemFilter] = useState<SystemType>("VSS");
 
   useEffect(() => { localStorage.setItem("wb_tab", activeTab); }, [activeTab]);
   useEffect(() => { API.fx.getRate().then(r => setExchangeRate(r)); }, []);
@@ -3239,11 +3231,30 @@ function Workbook({ navigate }: { navigate: (p: Page) => void }) {
   };
 
   const wbTabs = [
-    { id: "asset-list" as WorkbookTab, label: "Asset List" },
-    { id: "cost-margin" as WorkbookTab, label: "Cost & Margin" },
-    { id: "bom" as WorkbookTab, label: "BOM" },
-    { id: "synthesis" as WorkbookTab, label: "Synthesis" },
+    { id: "asset-list" as WorkbookTab, label: "Asset List", description: "Every camera, access point, network device, and cable run pulled from Project Assets plus any manually added line items." },
+    { id: "cost-margin" as WorkbookTab, label: "Cost & Margin", description: "Set unit cost and markup per line item to see sell price and profit before it rolls up into the quote." },
+    { id: "bom" as WorkbookTab, label: "BOM", description: "The bill of materials grouped by section, with import costs applied — this is what becomes the client-facing quote." },
+    { id: "synthesis" as WorkbookTab, label: "Synthesis", description: "Section subtotals across Video, Access, and Intercom rolled up into a grand total with tax — override any section if needed." },
   ];
+  const activeTabIndex = wbTabs.findIndex(t => t.id === activeTab);
+
+  const workbookTotals = useMemo(() => {
+    let totalCost = 0, totalSell = 0;
+    projectAssets.forEach(asset => {
+      const unitCost = assetUnitCost(asset, storeDevices);
+      totalCost += unitCost * asset.quantity;
+      totalSell += unitCost * 1.35 * asset.quantity;
+    });
+    quoteCategories.forEach(cat => {
+      cat.lineItems.filter(li => li.quantity > 0).forEach(li => {
+        const r = recalcLineItem(li, exchangeRate);
+        totalCost += r.costTotal;
+        totalSell += r.sellTotal;
+      });
+    });
+    const totalProfit = totalSell - totalCost;
+    return { totalCost, totalSell, blendedMargin: totalSell > 0 ? (totalProfit / totalSell) * 100 : 0 };
+  }, [projectAssets, storeDevices, quoteCategories, exchangeRate]);
 
   if (loading) return (<div className="px-3 md:px-5 py-4 md:py-6 space-y-4"><Skeleton className="h-10 w-48" /><div className="flex gap-2"><Skeleton className="h-8 w-24 rounded-lg" /><Skeleton className="h-8 w-24 rounded-lg" /><Skeleton className="h-8 w-24 rounded-lg" /><Skeleton className="h-8 w-24 rounded-lg" /></div><Skeleton className="h-64 rounded-2xl" /></div>);
 
@@ -3271,16 +3282,31 @@ function Workbook({ navigate }: { navigate: (p: Page) => void }) {
         <div className="flex-1 flex items-center justify-center"><EmptyState icon={DollarSign} title="No workbook" description="Select a project to view its workbook." action={{ label: "Select Project", onClick: () => setShowProjectSelect(true) }} /></div>
       ) : (
         <div className="flex-1 flex flex-col overflow-hidden">
+          <div className="px-4 md:px-6 pt-3 flex-shrink-0">
+            <SummaryBar totalCost={workbookTotals.totalCost} totalSell={workbookTotals.totalSell} blendedMargin={workbookTotals.blendedMargin} fmt={fmt} />
+          </div>
           <div className="flex items-center gap-1 px-4 py-2 overflow-x-auto flex-shrink-0" style={{ borderBottom: "1px solid rgba(255,255,255,0.06)", scrollbarWidth: "none" }}>
-            {wbTabs.map((tab) => (
-              <button key={tab.id} onClick={() => setActiveTab(tab.id)} className={clsx("h-8 px-3 rounded-lg text-[13px] font-bold whitespace-nowrap cursor-pointer", activeTab === tab.id ? "text-white" : "text-[#8b949e] hover:text-white")} style={activeTab === tab.id ? { background: "rgba(59,130,246,0.20)", border: "1px solid rgba(59,130,246,0.30)" } : undefined}>{tab.label}</button>
+            {wbTabs.map((tab, i) => (
+              <button key={tab.id} onClick={() => setActiveTab(tab.id)} className={clsx("flex items-center gap-1.5 h-8 px-3 rounded-lg text-[13px] font-bold whitespace-nowrap cursor-pointer", activeTab === tab.id ? "text-white" : "text-[#8b949e] hover:text-white")} style={activeTab === tab.id ? { background: "rgba(59,130,246,0.20)", border: "1px solid rgba(59,130,246,0.30)" } : undefined}>
+                <span className="w-4 h-4 rounded-full flex items-center justify-center text-[10px] font-extrabold flex-shrink-0" style={{ background: activeTab === tab.id ? "#3b82f6" : "rgba(255,255,255,0.08)", color: activeTab === tab.id ? "#fff" : "#8b949e" }}>{i + 1}</span>
+                {tab.label}
+              </button>
             ))}
           </div>
+          <p className="px-4 md:px-6 pt-2.5 pb-1 text-[#8b949e] text-[12px] md:text-[13px] flex-shrink-0">{wbTabs[activeTabIndex]?.description}</p>
           <div className="flex-1 overflow-y-auto px-3 md:px-5 py-4 space-y-4" style={{ scrollbarWidth: "thin", scrollbarColor: "rgba(255,255,255,0.08) transparent" }}>
             {activeTab === "asset-list" && <AssetListTab quoteCategories={quoteCategories} projectAssets={projectAssets} storeDevices={storeDevices} exchangeRate={exchangeRate} fmt={fmt} onLineItemUpdate={updateQuoteLineItem} fieldSaveStatus={fieldSaveStatus} />}
-            {activeTab === "cost-margin" && <CostMarginTab quoteCategories={quoteCategories} exchangeRate={exchangeRate} fmt={fmt} onLineItemUpdate={updateQuoteLineItem} fieldSaveStatus={fieldSaveStatus} />}
-            {activeTab === "bom" && <BomTab quoteCategories={quoteCategories} synthesisOverrides={synthesisOverrides} exchangeRate={exchangeRate} fmt={fmt} onLineItemUpdate={updateQuoteLineItem} onAddLineItem={addLineItem} onBomEditWithOverride={handleBomEditWithOverride} fieldSaveStatus={fieldSaveStatus} />}
+            {activeTab === "cost-margin" && <CostMarginTab quoteCategories={quoteCategories} exchangeRate={exchangeRate} fmt={fmt} onLineItemUpdate={updateQuoteLineItem} fieldSaveStatus={fieldSaveStatus} systemFilter={systemFilter} onSystemFilterChange={setSystemFilter} />}
+            {activeTab === "bom" && <BomTab quoteCategories={quoteCategories} synthesisOverrides={synthesisOverrides} exchangeRate={exchangeRate} fmt={fmt} onLineItemUpdate={updateQuoteLineItem} onAddLineItem={addLineItem} onBomEditWithOverride={handleBomEditWithOverride} fieldSaveStatus={fieldSaveStatus} systemFilter={systemFilter} onSystemFilterChange={setSystemFilter} />}
             {activeTab === "synthesis" && <SynthesisTab quoteCategories={quoteCategories} synthesisOverrides={synthesisOverrides} exchangeRate={exchangeRate} fmt={fmt} onSaveOverride={handleSaveOverride} fieldSaveStatus={fieldSaveStatus} />}
+            <div className="flex items-center justify-between pt-2">
+              {activeTabIndex > 0 ? (
+                <button onClick={() => setActiveTab(wbTabs[activeTabIndex - 1].id)} className="flex items-center gap-1.5 h-9 px-4 rounded-xl text-[#8b949e] hover:text-white text-[13px] font-bold cursor-pointer" style={G.btn}><ChevronLeft className="w-3.5 h-3.5" /> {wbTabs[activeTabIndex - 1].label}</button>
+              ) : <span />}
+              {activeTabIndex < wbTabs.length - 1 && (
+                <button onClick={() => setActiveTab(wbTabs[activeTabIndex + 1].id)} className="flex items-center gap-1.5 h-9 px-4 rounded-xl text-white text-[13px] font-extrabold cursor-pointer" style={{ background: "#3b82f6" }}>Next: {wbTabs[activeTabIndex + 1].label} <ChevronRight className="w-3.5 h-3.5" /></button>
+              )}
+            </div>
           </div>
         </div>
       )}
