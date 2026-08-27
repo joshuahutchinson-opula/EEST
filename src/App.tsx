@@ -466,6 +466,7 @@ const API = {
     list: () => apiFetch<CatalogDevice[]>("/devices"),
     get: (id: string) => apiFetch<CatalogDevice>(`/devices/${id}`),
     create: (data: Partial<CatalogDevice>) => apiFetch<CatalogDevice>("/devices", { method: "POST", body: JSON.stringify(data) }),
+    update: (id: string, data: Partial<CatalogDevice>) => apiFetch<CatalogDevice>(`/devices/${id}`, { method: "PATCH", body: JSON.stringify(data) }),
     bulk: (devices: Partial<CatalogDevice>[]) => apiFetch<{ imported: number }>("/devices/bulk", { method: "POST", body: JSON.stringify({ devices }) }),
   },
   install: {
@@ -585,6 +586,16 @@ function SkeletonCard() {
       <div className="flex justify-between pt-2"><Skeleton className="h-3 w-16" /><Skeleton className="h-3 w-12" /></div>
     </div>
   );
+}
+
+// Catalog image URLs are external (manufacturer sites) and go dead over time — falls back to
+// the same placeholder used for devices with no image at all, instead of a broken-image icon.
+function DeviceImage({ device, className, iconClassName, style }: { device: { imageUrl?: string; model: string }; className: string; iconClassName: string; style?: React.CSSProperties }) {
+  const [failed, setFailed] = useState(false);
+  if (!device.imageUrl || failed) {
+    return <div className="w-full h-full flex items-center justify-center"><Camera className={iconClassName} /></div>;
+  }
+  return <img src={device.imageUrl} alt={device.model} className={className} style={style} onError={() => setFailed(true)} />;
 }
 
 function EmptyState({ icon: Icon, title, description, action }: { icon: IconType; title: string; description: string; action?: { label: string; onClick: () => void } }) {
@@ -3589,7 +3600,7 @@ function DeviceSpecModal({ device, onClose }: { device: CatalogDevice; onClose: 
       <div className="absolute inset-0" style={{ background: "rgba(0,0,0,0.7)", backdropFilter: "blur(10px)" }} />
       <motion.div initial={{ opacity: 0, scale: 0.93, y: 18 }} animate={{ opacity: 1, scale: 1, y: 0 }} exit={{ opacity: 0, scale: 0.93, y: 18 }} transition={{ type: "spring", damping: 26, stiffness: 340 }} onClick={(e) => e.stopPropagation()} className="relative z-10 w-full max-w-[780px] max-h-[90vh] overflow-y-auto rounded-3xl flex flex-col md:flex-row" style={{ background: "rgba(7,12,26,0.95)", backdropFilter: "blur(52px) saturate(200%)", border: "1px solid rgba(255,255,255,0.13)", boxShadow: "0 40px 100px rgba(0,0,0,0.95)" }}>
         <div className="w-full md:w-56 flex-shrink-0 relative flex items-center justify-center" style={{ background: "rgba(255,255,255,0.03)", minHeight: "250px" }}>
-          {device.imageUrl ? <img src={device.imageUrl} alt={device.model} className="w-full h-full object-contain p-4" style={{ maxHeight: "320px" }} /> : <div className="w-full h-full flex items-center justify-center"><Camera className="w-16 h-16 text-[#8b949e]" /></div>}
+          <DeviceImage device={device} className="w-full h-full object-contain p-4" style={{ maxHeight: "320px" }} iconClassName="w-16 h-16 text-[#8b949e]" />
           <div className="absolute bottom-4 left-4 flex flex-wrap gap-1.5">
             <span className="inline-block px-2 py-0.5 rounded-lg text-[12px] font-extrabold uppercase" style={{ background: cc.bg, color: cc.text }}>{cc.label}</span>
             {device.cameraType && <span className="inline-block px-2 py-0.5 rounded-lg text-[11px] font-extrabold uppercase" style={{ background: "rgba(255,255,255,0.08)", color: "#e6edf3" }}>{device.cameraType}</span>}
@@ -3710,7 +3721,7 @@ function DeviceLibrary({ navigate: _navigate }: { navigate: (p: Page) => void })
                 return (
                   <div key={device.id} onClick={() => setSelectedDevice(device)} className="rounded-2xl overflow-hidden cursor-pointer group transition-all md:hover:-translate-y-1" style={{ ...G.card }}>
                     <div className="relative h-32 md:h-36 overflow-hidden" style={{ background: "rgba(255,255,255,0.03)" }}>
-                      {device.imageUrl ? <img src={device.imageUrl} alt={device.model} className="w-full h-full object-contain p-3 opacity-70 group-hover:opacity-90" /> : <div className="w-full h-full flex items-center justify-center"><Camera className="w-12 h-12 text-[#8b949e]" /></div>}
+                      <DeviceImage device={device} className="w-full h-full object-contain p-3 opacity-70 group-hover:opacity-90" iconClassName="w-12 h-12 text-[#8b949e]" />
                       <div className="absolute top-2.5 left-2.5 flex flex-wrap gap-1">
                         <span className="inline-block px-2 py-0.5 rounded-lg text-[11px] font-extrabold uppercase" style={{ background: cc.bg, color: cc.text }}>{cc.label}</span>
                         {device.cameraType && <span className="inline-block px-2 py-0.5 rounded-lg text-[10px] font-extrabold uppercase" style={{ background: "rgba(255,255,255,0.08)", color: "#e6edf3" }}>{device.cameraType}</span>}

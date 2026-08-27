@@ -77,6 +77,41 @@ router.post("/", async (req: Request, res: Response) => {
   }
 });
 
+// PATCH /api/devices/:id
+router.patch("/:id", async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
+    const { model, manufacturer, category, resolution, lens, sensor, nightVision, weatherRating, powerInput, storage, channels, readers, authentication, price, sku, imageUrl, frameRate, compression, fov, operatingTemp, tags, discontinued } = req.body;
+    const result = await pool.query(
+      `UPDATE devices SET
+        model=COALESCE($2,model), manufacturer=COALESCE($3,manufacturer), category=COALESCE($4,category),
+        resolution=COALESCE($5,resolution), lens=COALESCE($6,lens), sensor=COALESCE($7,sensor),
+        night_vision=COALESCE($8,night_vision), weather_rating=COALESCE($9,weather_rating), power_input=COALESCE($10,power_input),
+        storage=COALESCE($11,storage), channels=COALESCE($12,channels), readers=COALESCE($13,readers),
+        authentication=COALESCE($14,authentication), price=COALESCE($15,price), sku=COALESCE($16,sku),
+        image_url=COALESCE($17,image_url), frame_rate=COALESCE($18,frame_rate), compression=COALESCE($19,compression),
+        fov=COALESCE($20,fov), operating_temp=COALESCE($21,operating_temp), tags=COALESCE($22,tags),
+        discontinued=COALESCE($23,discontinued)
+       WHERE id=$1 RETURNING *`,
+      [id, model, manufacturer, category, resolution, lens, sensor, nightVision, weatherRating, powerInput, storage, channels, readers, authentication, price, sku, imageUrl, frameRate, compression, fov, operatingTemp, tags, discontinued]
+    );
+    if (result.rows.length === 0) return res.status(404).json({ error: "Device not found" });
+    const row = result.rows[0];
+    res.json({
+      id: row.id, model: row.model, manufacturer: row.manufacturer, category: row.category,
+      resolution: row.resolution, lens: row.lens, sensor: row.sensor,
+      nightVision: row.night_vision, weatherRating: row.weather_rating, powerInput: row.power_input,
+      storage: row.storage, channels: row.channels, readers: row.readers, authentication: row.authentication,
+      price: row.price ? Number(row.price) : undefined, sku: row.sku, imageUrl: row.image_url,
+      frameRate: row.frame_rate, compression: row.compression, fov: row.fov,
+      operatingTemp: row.operating_temp, tags: row.tags, discontinued: row.discontinued,
+    });
+  } catch (err) {
+    console.error("PATCH /devices/:id error:", err);
+    res.status(500).json({ error: "Failed to update device" });
+  }
+});
+
 // POST /api/devices/bulk — for CSV import
 router.post("/bulk", async (req: Request, res: Response) => {
   try {
