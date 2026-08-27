@@ -1,5 +1,6 @@
 import { Router, Request, Response } from "express";
 import pool from "../db";
+import { isTech } from "../lib/roles";
 
 const router = Router();
 
@@ -7,6 +8,7 @@ const router = Router();
 router.get("/:projectId", async (req: Request, res: Response) => {
   try {
     const { projectId } = req.params;
+    const tech = isTech(req);
     const result = await pool.query(
       "SELECT * FROM change_orders WHERE project_id = $1 ORDER BY created_at DESC",
       [projectId]
@@ -17,7 +19,7 @@ router.get("/:projectId", async (req: Request, res: Response) => {
         projectId: row.project_id,
         title: row.title,
         description: row.description,
-        costImpact: Number(row.cost_impact),
+        costImpact: tech ? 0 : Number(row.cost_impact),
         status: row.status,
         createdBy: row.created_by,
         createdAt: row.created_at,
@@ -34,11 +36,12 @@ router.get("/:projectId", async (req: Request, res: Response) => {
 router.post("/:projectId", async (req: Request, res: Response) => {
   try {
     const { projectId } = req.params;
+    const tech = isTech(req);
     const { title, description, costImpact, status, createdBy } = req.body;
     const result = await pool.query(
       `INSERT INTO change_orders (project_id, title, description, cost_impact, status, created_by)
        VALUES ($1, $2, $3, $4, $5, $6) RETURNING *`,
-      [projectId, title, description || null, costImpact || 0, status || "draft", createdBy || ""]
+      [projectId, title, description || null, tech ? 0 : (costImpact || 0), status || "draft", createdBy || ""]
     );
     const row = result.rows[0];
     res.status(201).json({
@@ -46,7 +49,7 @@ router.post("/:projectId", async (req: Request, res: Response) => {
       projectId: row.project_id,
       title: row.title,
       description: row.description,
-      costImpact: Number(row.cost_impact),
+      costImpact: tech ? 0 : Number(row.cost_impact),
       status: row.status,
       createdBy: row.created_by,
       createdAt: row.created_at,
@@ -62,6 +65,7 @@ router.post("/:projectId", async (req: Request, res: Response) => {
 router.patch("/:projectId/:id", async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
+    const tech = isTech(req);
     const { title, description, costImpact, status } = req.body;
     const result = await pool.query(
       `UPDATE change_orders SET
@@ -71,7 +75,7 @@ router.patch("/:projectId/:id", async (req: Request, res: Response) => {
          status = COALESCE($5, status),
          updated_at = NOW()
        WHERE id = $1 RETURNING *`,
-      [id, title, description, costImpact, status]
+      [id, title, description, tech ? undefined : costImpact, status]
     );
     if (result.rows.length === 0) return res.status(404).json({ error: "Change order not found" });
     const row = result.rows[0];
@@ -80,7 +84,7 @@ router.patch("/:projectId/:id", async (req: Request, res: Response) => {
       projectId: row.project_id,
       title: row.title,
       description: row.description,
-      costImpact: Number(row.cost_impact),
+      costImpact: tech ? 0 : Number(row.cost_impact),
       status: row.status,
       createdBy: row.created_by,
       createdAt: row.created_at,

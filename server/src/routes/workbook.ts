@@ -1,7 +1,14 @@
 import { Router, Request, Response } from "express";
 import pool from "../db";
+import { requireAdmin } from "../lib/roles";
 
 const router = Router();
+
+// The Workbook (Asset List, Cost & Margin, BOM, Synthesis, proposals) is fully off-limits
+// to the Tech role — not just visually hidden, since these routes are exclusively read/
+// written by the Workbook UI itself (unlike quotes.ts, which Project Assets syncing also
+// depends on and therefore can't be blocked wholesale).
+router.use(requireAdmin);
 
 router.get("/:projectId/overrides", async (req: Request, res: Response) => {
   try {

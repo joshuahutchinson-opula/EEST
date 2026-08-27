@@ -1,7 +1,30 @@
 import { Router, Request, Response } from "express";
 import pool from "../db";
+import { isTech } from "../lib/roles";
 
 const router = Router();
+
+// Quotes back the Workbook (Cost & Margin / BOM / Synthesis), which Tech must not see any
+// pricing from — but unlike workbook.ts, this router can't just be blocked wholesale for
+// Tech: Project Assets syncing (add/edit/delete an asset) reads and writes through these
+// same endpoints regardless of who's performing the asset CRUD. So instead of rejecting the
+// request, strip every dollar figure from the response. markupPercent is left alone (it's a
+// rate, not a dollar amount, and upsertAssetLineItem relies on reading it back to preserve a
+// previously-customized markup when re-syncing an edited asset).
+function redactCostsForTech(categories: any[]): any[] {
+  return categories.map((cat) => ({
+    ...cat,
+    lineItems: cat.lineItems.map((li: any) => ({
+      ...li,
+      unitCost: 0,
+      sellPrice: 0,
+      costTotal: 0,
+      sellTotal: 0,
+      profit: 0,
+      jmdConversion: 0,
+    })),
+  }));
+}
 
 async function deleteByIds(client: any, table: string, ids: string[]) {
   if (ids.length === 0) return;
@@ -49,12 +72,14 @@ async function loadCategories(quoteId: string, exchangeRate: number) {
 }
 
 // GET /api/quotes
-router.get("/", async (_req: Request, res: Response) => {
+router.get("/", async (req: Request, res: Response) => {
   try {
+    const tech = isTech(req);
     const quotesResult = await pool.query("SELECT * FROM quotes ORDER BY created_at DESC");
     const quotes = [];
     for (const q of quotesResult.rows) {
-      const categories = await loadCategories(q.id, Number(q.exchange_rate));
+      let categories = await loadCategories(q.id, Number(q.exchange_rate));
+      if (tech) categories = redactCostsForTech(categories);
       quotes.push({
         id: q.id, clientName: q.client_name, refNumber: q.ref_number, date: q.date ? new Date(q.date).toISOString().slice(0, 10) : "",
         status: q.status, quoteType: q.quote_type, categories, exchangeRate: Number(q.exchange_rate),
@@ -76,7 +101,8 @@ router.get("/:id", async (req: Request, res: Response) => {
     const qResult = await pool.query("SELECT * FROM quotes WHERE id=$1", [id]);
     if (qResult.rows.length === 0) return res.status(404).json({ error: "Quote not found" });
     const q = qResult.rows[0];
-    const categories = await loadCategories(id, Number(q.exchange_rate));
+    let categories = await loadCategories(id, Number(q.exchange_rate));
+    if (isTech(req)) categories = redactCostsForTech(categories);
     res.json({ id: q.id, clientName: q.client_name, refNumber: q.ref_number, date: q.date ? new Date(q.date).toISOString().slice(0, 10) : "", status: q.status, quoteType: q.quote_type, categories, exchangeRate: Number(q.exchange_rate), projectId: q.project_id || undefined });
   } catch (err) {
     console.error("GET /quotes/:id error:", err);
@@ -110,7 +136,8 @@ router.post("/", async (req: Request, res: Response) => {
         }
       }
     }
-    const savedCategories = await loadCategories(quote.id, Number(quote.exchange_rate));
+    let savedCategories = await loadCategories(quote.id, Number(quote.exchange_rate));
+    if (isTech(req)) savedCategories = redactCostsForTech(savedCategories);
     res.status(201).json({ id: quote.id, clientName: quote.client_name, refNumber: quote.ref_number, date: quote.date ? new Date(quote.date).toISOString().slice(0, 10) : "", status: quote.status, quoteType: quote.quote_type, categories: savedCategories, exchangeRate: Number(quote.exchange_rate), projectId: quote.project_id || undefined });
   } catch (err) {
     console.error("POST /quotes error:", err);

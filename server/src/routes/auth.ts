@@ -6,6 +6,7 @@ import {
   exchangeCodeForIdToken,
   verifyMicrosoftIdToken,
   isAllowedDomain,
+  getRoleForEmail,
   signSessionToken,
   verifySessionToken,
   ALLOWED_EMAIL_DOMAIN,
@@ -68,7 +69,8 @@ router.get("/microsoft/callback", async (req: Request, res: Response) => {
       return res.redirect(`${APP_BASE_URL}/?auth_error=domain_not_allowed`);
     }
 
-    const sessionToken = await signSessionToken(identity);
+    const role = getRoleForEmail(identity.email);
+    const sessionToken = await signSessionToken({ ...identity, role });
     res.redirect(`${APP_BASE_URL}/#auth_token=${encodeURIComponent(sessionToken)}`);
   } catch (err) {
     console.error("GET /auth/microsoft/callback error:", err);
@@ -83,7 +85,7 @@ router.get("/me", async (req: Request, res: Response) => {
   if (!token) return res.status(401).json({ error: "Unauthorized" });
   try {
     const payload = await verifySessionToken(token);
-    res.json({ email: payload.email, name: payload.name, oid: payload.oid, allowedDomain: ALLOWED_EMAIL_DOMAIN });
+    res.json({ email: payload.email, name: payload.name, oid: payload.oid, role: payload.role || "admin", allowedDomain: ALLOWED_EMAIL_DOMAIN });
   } catch {
     res.status(401).json({ error: "Invalid or expired session" });
   }

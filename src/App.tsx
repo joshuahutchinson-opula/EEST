@@ -79,6 +79,16 @@ const CurrencyContext = createContext<CurrencyCtx>({
 });
 const useCurrency = () => useContext(CurrencyContext);
 
+// Tech role must not see sales info, contract/project dollar values, contact info, the
+// Workbook, or cost figures in Procurement — enforced for real server-side (see the role
+// checks in the server's routes); this context just drives what the UI bothers to show.
+// Defaults to "admin" for the brief instant before /api/auth/me resolves, since the actual
+// security boundary is the backend, not this flag.
+type Role = "admin" | "tech";
+const RoleContext = createContext<Role>("admin");
+const useRole = () => useContext(RoleContext);
+const isTechRole = (role: Role) => role === "tech";
+
 function makeFmt(currency: "USD" | "JMD") {
   return (usdAmt: number, compact = false): string => {
     const amt = currency === "JMD" ? usdAmt * (parseFloat(localStorage.getItem("fx_rate") || String(DEFAULT_EXCHANGE_RATE))) : usdAmt;
@@ -435,6 +445,9 @@ async function apiFetch<T>(path: string, options?: RequestInit): Promise<T> {
 }
 
 const API = {
+  auth: {
+    me: () => apiFetch<{ email: string; name: string; oid: string; role: "admin" | "tech"; allowedDomain: string }>("/auth/me"),
+  },
   projects: {
     list: () => apiFetch<Project[]>("/projects"),
     get: (id: string) => apiFetch<Project>(`/projects/${id}`),
@@ -830,7 +843,9 @@ function Breadcrumb({ page, projectName }: { page: Page; projectName?: string })
 }
 
 function AppTopbar({ page, navigate, breadcrumb, onReplayTour }: { page: Page; navigate: (p: Page) => void; breadcrumb?: { label: string; parent: Page }; onReplayTour: () => void }) {
-  const activeTab = NAV_ITEMS.find((n) => n.id === page)?.id ?? null;
+  const role = useRole();
+  const navItems = isTechRole(role) ? NAV_ITEMS.filter((n) => n.id !== "workbook") : NAV_ITEMS;
+  const activeTab = navItems.find((n) => n.id === page)?.id ?? null;
   return (
     <header className="fixed top-0 inset-x-0 z-50 h-14 flex items-center gap-3 md:gap-5 px-3 md:px-5" style={{ background: "rgba(7,12,26,0.65)", backdropFilter: "blur(40px) saturate(180%)", borderBottom: "1px solid rgba(255,255,255,0.08)", boxShadow: "0 1px 0 rgba(255,255,255,0.04), 0 8px 32px rgba(0,0,0,0.5)" }}>
       <button onClick={() => navigate("dashboard")} className="flex items-center gap-2.5 flex-shrink-0 cursor-pointer min-h-[44px]">
@@ -845,7 +860,7 @@ function AppTopbar({ page, navigate, breadcrumb, onReplayTour }: { page: Page; n
         </div>
       ) : (
         <nav className="flex items-center gap-0.5 overflow-x-auto" style={{ scrollbarWidth: "none" }}>
-          {NAV_ITEMS.map((item) => (
+          {navItems.map((item) => (
             <button key={item.id} data-tour={`nav-${item.id}`} onClick={() => navigate(item.id)} className={clsx("h-8 px-2.5 md:px-3.5 rounded-xl text-[13px] md:text-[15px] font-bold transition-all duration-150 whitespace-nowrap cursor-pointer", activeTab === item.id ? "text-white" : "text-[#8b949e] hover:text-white")} style={activeTab === item.id ? { background: "rgba(255,255,255,0.10)", border: "1px solid rgba(255,255,255,0.13)", boxShadow: "inset 0 1px 0 rgba(255,255,255,0.08)" } : undefined}>{item.label}</button>
           ))}
         </nav>
@@ -974,6 +989,8 @@ function KanbanColumn({ column, projects, totalValue, dragging, isOver, onDragSt
 }
 function Dashboard({ navigate }: { navigate: (p: Page) => void }) {
   const { fmt } = useCurrency();
+  const role = useRole();
+  const tech = isTechRole(role);
   const [projects, setProjects] = useState<Project[]>([]);
   const [loading, setLoading] = useState(true);
   const [dragging, setDragging] = useState<string | null>(null);
@@ -989,6 +1006,7 @@ function Dashboard({ navigate }: { navigate: (p: Page) => void }) {
   const [scrollThumbActive, setScrollThumbActive] = useState(false);
 
   useEffect(() => { localStorage.setItem("pipeline_type", pipelineType); }, [pipelineType]);
+  useEffect(() => { if (tech) setPipelineType("project"); }, [tech]);
 
   const fetchProjects = useCallback(async () => { setLoading(true); try { const data = await API.projects.list(); setProjects(data); } catch { setProjects([]); } finally { setLoading(false); } }, []);
   useEffect(() => { fetchProjects(); }, [fetchProjects]);
@@ -1139,10 +1157,12 @@ function Dashboard({ navigate }: { navigate: (p: Page) => void }) {
           <div>
             <div className="flex items-center gap-3 mb-1">
               <h1 className="text-white font-extrabold text-2xl md:text-3xl tracking-tight">{pipelineType === "sales" ? "Sales Pipeline" : "Project Pipeline"}</h1>
-              <div className="flex items-center h-7 rounded-xl overflow-hidden" style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.10)" }}>
-                <button onClick={() => setPipelineType("sales")} className={clsx("h-full px-3 text-[12px] font-extrabold cursor-pointer", pipelineType === "sales" ? "text-white" : "text-[#484f58]")} style={pipelineType === "sales" ? { background: "#3b82f6" } : undefined}>Sales</button>
-                <button onClick={() => setPipelineType("project")} className={clsx("h-full px-3 text-[12px] font-extrabold cursor-pointer", pipelineType === "project" ? "text-white" : "text-[#484f58]")} style={pipelineType === "project" ? { background: "#8b5cf6" } : undefined}>Projects</button>
-              </div>
+              {!tech && (
+                <div className="flex items-center h-7 rounded-xl overflow-hidden" style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.10)" }}>
+                  <button onClick={() => setPipelineType("sales")} className={clsx("h-full px-3 text-[12px] font-extrabold cursor-pointer", pipelineType === "sales" ? "text-white" : "text-[#484f58]")} style={pipelineType === "sales" ? { background: "#3b82f6" } : undefined}>Sales</button>
+                  <button onClick={() => setPipelineType("project")} className={clsx("h-full px-3 text-[12px] font-extrabold cursor-pointer", pipelineType === "project" ? "text-white" : "text-[#484f58]")} style={pipelineType === "project" ? { background: "#8b5cf6" } : undefined}>Projects</button>
+                </div>
+              )}
             </div>
             <p className="text-[#8b949e] text-[13px] md:text-[15px] mt-0.5">{currentProjects.length} projects</p>
           </div>
@@ -1207,6 +1227,7 @@ function Dashboard({ navigate }: { navigate: (p: Page) => void }) {
 }
 
 function NewProjectModal({ onClose, onAdd, pipelineType }: { onClose: () => void; onAdd: (p: Project) => void; pipelineType: PipelineType }) {
+  const tech = isTechRole(useRole());
   const [name, setName] = useState("");
   const [client, setClient] = useState("");
   const [location, setLocation] = useState("");
@@ -1375,7 +1396,7 @@ function NewProjectModal({ onClose, onAdd, pipelineType }: { onClose: () => void
                 </div>
               )}
             </div>
-            <div style={{ borderTop: "1px solid rgba(255,255,255,0.07)", paddingTop: "12px" }}>
+            {!tech && <div style={{ borderTop: "1px solid rgba(255,255,255,0.07)", paddingTop: "12px" }}>
               <p className="text-[#8b949e] text-[12px] font-extrabold uppercase tracking-widest mb-3">Contact (optional)</p>
               <div className="grid grid-cols-2 gap-3">
                 <div><label className={labelCls}>Name</label><input value={contactName} onChange={(e) => setContactName(e.target.value)} placeholder="Full name" className={inputCls} style={G.input} /></div>
@@ -1383,7 +1404,7 @@ function NewProjectModal({ onClose, onAdd, pipelineType }: { onClose: () => void
                 <div><label className={labelCls}>Email</label><input type="email" value={contactEmail} onChange={(e) => setContactEmail(e.target.value)} placeholder="email@company.com" className={inputCls} style={G.input} /></div>
                 <div><label className={labelCls}>Phone</label><input value={contactPhone} onChange={(e) => setContactPhone(e.target.value)} placeholder="+1 (876) 555-0000" className={inputCls} style={G.input} /></div>
               </div>
-            </div>
+            </div>}
             <div><label className={labelCls}>Project Scope</label><textarea value={summary} onChange={(e) => setSummary(e.target.value)} placeholder="Brief description…" rows={3} className="w-full rounded-xl px-3 py-2.5 text-[#e6edf3] text-[14px] placeholder:text-[#484f58] focus:outline-none resize-none" style={G.input} /></div>
             <div><label className={labelCls}>Notes</label><textarea value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="Internal notes…" rows={2} className="w-full rounded-xl px-3 py-2.5 text-[#e6edf3] text-[14px] placeholder:text-[#484f58] focus:outline-none resize-none" style={G.input} /></div>
           </div>
@@ -1669,6 +1690,7 @@ function WorkbookSynthesisPreview({ projectId, onOpenWorkbook }: { projectId: st
 function DealModal({ project, column, onClose, navigate, onUpdate, onDelete, pipelineType }: { project: Project; column: Column | ProjectColumn; onClose: () => void; navigate: (p: Page) => void; onUpdate: (p: Project) => void; onDelete: (id: string) => void; pipelineType: PipelineType }) {
   const [activeTab, setActiveTab] = useState("info");
   const { fmt } = useCurrency();
+  const tech = isTechRole(useRole());
   const [editing, setEditing] = useState(false);
   const [editName, setEditName] = useState(project.name);
   const [editClient, setEditClient] = useState(project.client);
@@ -1702,9 +1724,9 @@ function DealModal({ project, column, onClose, navigate, onUpdate, onDelete, pip
     { id: "info", label: "Info", icon: Building2 },
     { id: "tasks", label: "Tasks", icon: ListTodo },
     { id: "documents", label: "Files", icon: Paperclip },
-    { id: "contact", label: "Contact", icon: Phone },
+    ...(tech ? [] : [{ id: "contact", label: "Contact", icon: Phone }]),
     { id: "notes", label: "Notes", icon: StickyNote },
-    { id: "workbook", label: "Workbook", icon: FileText },
+    ...(tech ? [] : [{ id: "workbook", label: "Workbook", icon: FileText }]),
   ];
 
   return (
@@ -1988,6 +2010,7 @@ function ProjectsPage({ navigate }: { navigate: (p: Page) => void }) {
 }
 function ProjectDetail({ navigate }: { navigate: (p: Page) => void }) {
   const { fmt } = useCurrency();
+  const tech = isTechRole(useRole());
   const [project, setProject] = useState<Project | null>(null);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState(() => localStorage.getItem("pd_tab") || "overview");
@@ -2050,7 +2073,7 @@ function ProjectDetail({ navigate }: { navigate: (p: Page) => void }) {
   const badge = isProjPipe ? projectStageBadge(p.projectStage || "planning") : stageBadge(p.stage);
   const ls = p.leadSource ? LEAD_SOURCE_STYLES[p.leadSource] : null;
   const team = getDeduplicatedTeam(p);
-  const tabs = ["overview","tasks","documents","quotes","assets","change-orders","audit-log","gantt","subcontractors","procurement","commissioning"];
+  const tabs = ["overview","tasks","documents","quotes","assets","change-orders","audit-log","gantt","subcontractors","procurement","commissioning"].filter(t => !(tech && t === "quotes"));
   const tabLabels: Record<string, string> = { overview: "Overview", tasks: "Tasks", documents: "Files", quotes: "Quotes", assets: "Assets", "change-orders": "Change Orders", "audit-log": "Audit Log", gantt: "Timeline", subcontractors: "Subcontractors", procurement: "Procurement", commissioning: "Commissioning" };
   const stageHistory = p.stageHistory || [{ stage: p.stage, date: p.createdAt?.slice(0,10) || new Date().toISOString().slice(0,10) }];
   const liveCameraCount = projectAssets.filter(a => a.category === "camera").reduce((s, a) => s + a.quantity, 0);
@@ -2091,7 +2114,7 @@ function ProjectDetail({ navigate }: { navigate: (p: Page) => void }) {
       </div>
       <div className="grid grid-cols-2 md:grid-cols-5 gap-2 md:gap-3 mb-4 md:mb-6">
         {[
-          { label: "Contract Value", value: isProjPipe ? "—" : fmt(p.value, true), icon: DollarSign, color: "#3b82f6" },
+          { label: "Contract Value", value: isProjPipe || tech ? "—" : fmt(p.value, true), icon: DollarSign, color: "#3b82f6" },
           { label: "Cameras", value: String(liveCameraCount), icon: Camera, color: "#8b5cf6" },
           { label: "Devices", value: String(liveDeviceCount), icon: Fingerprint, color: "#06b6d4" },
           { label: "Due Date", value: fmtDate(p.dueDate), icon: Calendar, color: "#f59e0b" },
@@ -2143,7 +2166,7 @@ function ProjectDetail({ navigate }: { navigate: (p: Page) => void }) {
               <div className="space-y-2">
                 <input value={newCOTitle} onChange={(e) => setNewCOTitle(e.target.value)} placeholder="Title" className="w-full h-9 rounded-xl px-3 text-[14px] text-[#e6edf3] focus:outline-none" style={G.input} />
                 <textarea value={newCODesc} onChange={(e) => setNewCODesc(e.target.value)} placeholder="Description" rows={2} className="w-full rounded-xl px-3 py-2 text-[14px] text-[#e6edf3] focus:outline-none resize-none" style={G.input} />
-                <input type="number" value={newCOCost} onChange={(e) => setNewCOCost(e.target.value)} placeholder="Cost Impact" className="w-full h-9 rounded-xl px-3 text-[14px] text-[#e6edf3] focus:outline-none" style={G.input} />
+                {!tech && <input type="number" value={newCOCost} onChange={(e) => setNewCOCost(e.target.value)} placeholder="Cost Impact" className="w-full h-9 rounded-xl px-3 text-[14px] text-[#e6edf3] focus:outline-none" style={G.input} />}
                 <div className="flex gap-2"><button onClick={handleCreateCO} className="flex-1 h-9 rounded-xl text-white text-[14px] font-extrabold cursor-pointer" style={{ background: "#10b981" }}>Create</button><button onClick={() => setShowNewCO(false)} className="flex-1 h-9 rounded-xl text-[#8b949e] text-[14px] font-bold cursor-pointer" style={G.btn}>Cancel</button></div>
               </div>
             </div>
@@ -2303,6 +2326,7 @@ function SubcontractorTab({ projectId }: { projectId: string }) {
 }
 
 function ProcurementTab({ projectId }: { projectId: string }) {
+  const tech = isTechRole(useRole());
   const [pos, setPos] = useState<ProcurementOrder[]>([]);
   const [loading, setLoading] = useState(true);
   const [showGenerate, setShowGenerate] = useState(false);
@@ -2334,7 +2358,7 @@ function ProcurementTab({ projectId }: { projectId: string }) {
 
   return (
     <div className="space-y-3">
-      <div className="flex items-center justify-between"><p className="text-[#8b949e] text-[13px]">{pos.length} purchase orders</p><button onClick={() => setShowGenerate(!showGenerate)} className="flex items-center gap-1 h-8 px-3 rounded-xl text-white text-[13px] font-extrabold cursor-pointer" style={{ background: "#3b82f6" }}><FileText className="w-3 h-3" /> Generate PO from BOM</button></div>
+      <div className="flex items-center justify-between"><p className="text-[#8b949e] text-[13px]">{pos.length} purchase orders</p>{!tech && <button onClick={() => setShowGenerate(!showGenerate)} className="flex items-center gap-1 h-8 px-3 rounded-xl text-white text-[13px] font-extrabold cursor-pointer" style={{ background: "#3b82f6" }}><FileText className="w-3 h-3" /> Generate PO from BOM</button>}</div>
       {showGenerate && (
         <div className="rounded-xl p-3 space-y-2" style={G.card}>
           <input value={supplierName} onChange={e => setSupplierName(e.target.value)} placeholder="Supplier name (optional)" className="w-full h-8 rounded-lg px-2 text-[13px] text-white" style={G.input} />
@@ -2345,7 +2369,7 @@ function ProcurementTab({ projectId }: { projectId: string }) {
         <div key={po.id} className="rounded-xl p-3" style={G.card}>
           <div className="flex items-center justify-between mb-2"><p className="text-white text-[14px] font-bold">PO #{po.id.slice(0,8)}</p><span className="text-[12px] font-extrabold px-2 py-0.5 rounded-full bg-amber-500/12 text-amber-400">{po.status}</span></div>
           {po.supplierName && <p className="text-[#8b949e] text-[12px]">Supplier: {po.supplierName}</p>}
-          <p className="text-[#8b949e] text-[12px]">Total: ${toNum(po.totalCost).toFixed(2)}</p>
+          {!tech && <p className="text-[#8b949e] text-[12px]">Total: ${toNum(po.totalCost).toFixed(2)}</p>}
           <div className="mt-2 space-y-1">{po.items.map(item => (
             <div key={item.id} className="flex items-center gap-2">
               <button onClick={() => toggleReceived(item.id, !item.received)} className={clsx("w-4 h-4 rounded-full border-2 flex items-center justify-center flex-shrink-0", item.received ? "bg-emerald-500 border-emerald-500" : "border-[#484f58]")}>{item.received && <CheckCircle2 className="w-2.5 h-2.5 text-white" />}</button>
@@ -2540,6 +2564,7 @@ const DEFAULT_SYSTEM_FOR_ASSET: Record<AssetCategory, SystemType> = { camera: "V
 
 function ProjectAssetsTab({ projectId, projectName, clientName }: { projectId: string; projectName: string; clientName: string }) {
   const { fmt } = useCurrency();
+  const tech = isTechRole(useRole());
   const [assets, setAssets] = useState<ProjectAsset[]>([]);
   const [storeDevices, setStoreDevices] = useState<CatalogDevice[]>([]);
   const [zones, setZones] = useState<InstallZone[]>([]);
@@ -2747,13 +2772,13 @@ function ProjectAssetsTab({ projectId, projectName, clientName }: { projectId: s
               <div className="grid grid-cols-2 gap-3">
                 <div><label className="text-[#8b949e] text-[11px] font-extrabold uppercase tracking-widest block mb-1">Cable Type</label><select value={cableType} onChange={e => setCableType(e.target.value as CableSpec["cableType"])} className="w-full h-9 rounded-xl px-2 text-[13px] cursor-pointer" style={{ ...G.input, background: "#0d1117", color: "#e6edf3" }}>{["CAT-6","CAT-6A","Fiber-SM","Fiber-MM","Coax-RG59","Power-18AWG","Power-14AWG","Speaker-Wire","Other"].map(t => <option key={t} value={t}>{t}</option>)}</select></div>
                 <div><label className="text-[#8b949e] text-[11px] font-extrabold uppercase tracking-widest block mb-1">Length (ft)</label><input type="number" value={lengthFt} onChange={e => setLengthFt(e.target.value)} className="w-full h-9 rounded-xl px-3 text-[13px] text-white focus:outline-none" style={G.input} /></div>
-                <div><label className="text-[#8b949e] text-[11px] font-extrabold uppercase tracking-widest block mb-1">Cost / ft</label><input type="number" value={costPerFt} onChange={e => setCostPerFt(e.target.value)} className="w-full h-9 rounded-xl px-3 text-[13px] text-white focus:outline-none" style={G.input} /></div>
+                {!tech && <div><label className="text-[#8b949e] text-[11px] font-extrabold uppercase tracking-widest block mb-1">Cost / ft</label><input type="number" value={costPerFt} onChange={e => setCostPerFt(e.target.value)} className="w-full h-9 rounded-xl px-3 text-[13px] text-white focus:outline-none" style={G.input} /></div>}
                 <div className="col-span-2"><label className="text-[#8b949e] text-[11px] font-extrabold uppercase tracking-widest block mb-1">Run Description</label><input value={runDescription} onChange={e => setRunDescription(e.target.value)} placeholder="e.g. Camera 3 to IDF closet" className="w-full h-9 rounded-xl px-3 text-[13px] text-white focus:outline-none" style={G.input} /></div>
               </div>
             ) : (
               <div className="grid grid-cols-2 gap-3">
                 <div className="col-span-2"><label className="text-[#8b949e] text-[11px] font-extrabold uppercase tracking-widest block mb-1">Device (optional)</label><select value={deviceStoreRef} onChange={e => { const ref = e.target.value; setDeviceStoreRef(ref); const sd = availableDevices.find(d => d.id === ref); setUnitPrice(sd?.price ? String(sd.price) : ""); }} className="w-full h-9 rounded-xl px-2 text-[13px] cursor-pointer" style={{ ...G.input, background: "#0d1117", color: "#e6edf3" }}><option value="">— Generic / unspecified —</option>{availableDevices.map(d => <option key={d.id} value={d.id}>{d.manufacturer} {d.model}</option>)}</select></div>
-                <div className="col-span-2"><label className="text-[#8b949e] text-[11px] font-extrabold uppercase tracking-widest block mb-1">Unit Price (editable)</label><input type="number" value={unitPrice} onChange={e => setUnitPrice(e.target.value)} placeholder="0.00" className="w-full h-9 rounded-xl px-3 text-[13px] text-white focus:outline-none" style={G.input} /></div>
+                {!tech && <div className="col-span-2"><label className="text-[#8b949e] text-[11px] font-extrabold uppercase tracking-widest block mb-1">Unit Price (editable)</label><input type="number" value={unitPrice} onChange={e => setUnitPrice(e.target.value)} placeholder="0.00" className="w-full h-9 rounded-xl px-3 text-[13px] text-white focus:outline-none" style={G.input} /></div>}
               </div>
             )}
             <div className="grid grid-cols-3 gap-3">
@@ -2783,11 +2808,13 @@ function ProjectAssetsTab({ projectId, projectName, clientName }: { projectId: s
                   <div className="flex-1 min-w-0">
                     <p className="text-white text-[13px] font-bold">{describeAsset(asset, storeDevices)} <span className="text-[#8b949e] font-semibold">×{asset.quantity}</span></p>
                     <p className="text-[#8b949e] text-[12px] mt-0.5">{asset.location || "No location set"}{asset.purpose ? ` · ${asset.purpose}` : ""}</p>
-                    <div className="flex items-center gap-1.5 mt-1.5" onClick={e => e.stopPropagation()}>
-                      <span className="text-[#484f58] text-[11px] font-extrabold uppercase tracking-widest">Unit Price</span>
-                      <InlineEditCell type="number" value={assetUnitCost(asset, storeDevices)} onChange={(val) => handlePriceUpdate(asset, parseFloat(val) || 0)} />
-                      <span className="text-[#484f58] text-[11px]">· Total {fmt(assetUnitCost(asset, storeDevices) * asset.quantity)}</span>
-                    </div>
+                    {!tech && (
+                      <div className="flex items-center gap-1.5 mt-1.5" onClick={e => e.stopPropagation()}>
+                        <span className="text-[#484f58] text-[11px] font-extrabold uppercase tracking-widest">Unit Price</span>
+                        <InlineEditCell type="number" value={assetUnitCost(asset, storeDevices)} onChange={(val) => handlePriceUpdate(asset, parseFloat(val) || 0)} />
+                        <span className="text-[#484f58] text-[11px]">· Total {fmt(assetUnitCost(asset, storeDevices) * asset.quantity)}</span>
+                      </div>
+                    )}
                     {asset.zoneId && <p className="text-[#484f58] text-[11px] mt-0.5">Zone: {zones.find(z => z.id === asset.zoneId)?.name || asset.zoneId}</p>}
                     {asset.notes && <p className="text-[#484f58] text-[11px] mt-0.5 italic">{asset.notes}</p>}
                     {asset.coveragePhotos && asset.coveragePhotos.length > 0 && <div className="flex gap-2 mt-2 flex-wrap">{asset.coveragePhotos.map((p, i) => <img key={i} src={p} alt="" className="w-14 h-14 rounded-lg object-cover" style={{ border: "1px solid rgba(255,255,255,0.10)" }} />)}</div>}
@@ -4009,9 +4036,12 @@ function AuthenticatedApp() {
   const [showOnboarding, setShowOnboarding] = useState(() => !localStorage.getItem(onboardingKey));
   const [showTour, setShowTour] = useState(false);
   const finishTour = () => { setShowTour(false); localStorage.setItem(onboardingKey, "true"); };
+  const [role, setRole] = useState<Role>("admin");
 
   useEffect(() => { if (page !== "login") localStorage.setItem("app_page", page); }, [page]);
   useEffect(() => { API.fx.getRate(); const interval = setInterval(() => API.fx.getRate(), 24 * 60 * 60 * 1000); return () => clearInterval(interval); }, []);
+  useEffect(() => { if (page !== "login") API.auth.me().then((u) => setRole(u.role)).catch(() => {}); }, [page]);
+  useEffect(() => { if (isTechRole(role) && page === "workbook") setPage("dashboard"); }, [role, page]);
 
   const currencyCtx: CurrencyCtx = useMemo(() => ({ currency, setCurrency, fmt: makeFmt(currency) }), [currency]);
 
@@ -4048,6 +4078,7 @@ function AuthenticatedApp() {
   const breadcrumb = page === "project-detail" ? { label: "Projects", parent: "projects" as Page } : undefined;
 
   return (
+    <RoleContext.Provider value={role}>
     <CurrencyContext.Provider value={currencyCtx}>
       <QuoteContext.Provider value={quoteCtx}>
         <div className="min-h-screen bg-background">
@@ -4059,7 +4090,7 @@ function AuthenticatedApp() {
                 {page === "dashboard" && <Dashboard navigate={setPage} />}
                 {page === "projects" && <ProjectsPage navigate={setPage} />}
                 {page === "project-detail" && <ProjectDetail navigate={setPage} />}
-                {page === "workbook" && <Workbook navigate={setPage} />}
+                {page === "workbook" && !isTechRole(role) && <Workbook navigate={setPage} />}
                 {page === "install-tracker" && <InstallTracker navigate={setPage} />}
                 {page === "device-library" && <DeviceLibrary navigate={setPage} />}
               </motion.div>
@@ -4095,5 +4126,6 @@ function AuthenticatedApp() {
         {showTour && <OnboardingTour page={page} navigate={setPage} onFinish={finishTour} />}
       </QuoteContext.Provider>
     </CurrencyContext.Provider>
+    </RoleContext.Provider>
   );
 }

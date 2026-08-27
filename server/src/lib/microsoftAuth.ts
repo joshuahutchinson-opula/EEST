@@ -112,11 +112,26 @@ export function isAllowedDomain(email: string): boolean {
   return email.toLowerCase().endsWith(`@${ALLOWED_EMAIL_DOMAIN}`);
 }
 
-export interface SessionUser { email: string; name: string; oid: string }
+// Two roles, decided by a hardcoded email deny-list rather than a database table.
+// Anyone not explicitly listed as "tech" defaults to "admin".
+const TECH_EMAILS = new Set([
+  "akeem@e-techsystemsja.com",
+  "marvin@e-techsystemsja.com",
+  "shanice@e-techsystemsja.com",
+  "shavene@e-techsystemsja.com",
+]);
+
+export type Role = "admin" | "tech";
+
+export function getRoleForEmail(email: string): Role {
+  return TECH_EMAILS.has(email.toLowerCase()) ? "tech" : "admin";
+}
+
+export interface SessionUser { email: string; name: string; oid: string; role: Role }
 
 export async function signSessionToken(user: SessionUser): Promise<string> {
   const { SignJWT } = await loadJose();
-  return new SignJWT({ email: user.email, name: user.name, oid: user.oid })
+  return new SignJWT({ email: user.email, name: user.name, oid: user.oid, role: user.role })
     .setProtectedHeader({ alg: "HS256" })
     .setIssuedAt()
     .setExpirationTime("7d")
