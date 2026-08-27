@@ -14,7 +14,8 @@ import {
   Phone, Mail, MessageSquare, StickyNote, Users, Store,
   DoorOpen, PanelRight, Zap, Server, Cable, Box, Save,
   Sun, Moon, SlidersHorizontal, ShoppingCart, History,
-  RotateCw, Maximize2, Minimize2, LogOut,
+  RotateCw, Maximize2, Minimize2, LogOut, Undo2, Redo2, Ruler, Magnet,
+  AlignStartVertical, AlignEndVertical, AlignStartHorizontal, AlignEndHorizontal, AlignHorizontalJustifyCenter, AlignVerticalJustifyCenter,
   ListTodo, PlusCircle, GanttChart, ClipboardCheck,
   Link2, Copy, Filter, CheckCheck, Paperclip, Image,
   BellRing, Layout, BarChart4, Table2, Hash, Info, FileDown,
@@ -22,7 +23,8 @@ import {
   UserCheck, Send, EyeOff, GanttChartSquare, Boxes, PackageOpen,
 } from "lucide-react";
 import { clsx } from "clsx";
-import { Stage as KonvaStage, Layer as KonvaLayer, Rect as KonvaRect, Circle as KonvaCircle, Line as KonvaLine, Text as KonvaText, Image as KonvaImage, Group as KonvaGroup, Arc as KonvaArc } from "react-konva";
+import { Stage as KonvaStage, Layer as KonvaLayer, Rect as KonvaRect, Circle as KonvaCircle, Line as KonvaLine, Text as KonvaText, Image as KonvaImage, Group as KonvaGroup, Arc as KonvaArc, Transformer as KonvaTransformer } from "react-konva";
+import type Konva from "konva";
 import { Canvas as ThreeCanvas } from "@react-three/fiber";
 import { OrbitControls, useGLTF, Environment, ContactShadows } from "@react-three/drei";
 import * as pdfjsLib from "pdfjs-dist";
@@ -247,7 +249,16 @@ type CanvasDevice = {
   cablePoints?: { x: number; y: number }[];
   deviceStoreRef?: string;
   imageUrl?: string;
+  radius?: number;
+  width?: number;
+  height?: number;
 };
+interface CanvasLayoutData {
+  devices: CanvasDevice[];
+  imageUrl: string;
+  image3DUrl: string;
+  scaleCalibration?: { pixelDistance: number; realDistance: number; unit: "ft" | "m" };
+}
 type FloorPlanFile = { id: string; type: "2d" | "3d"; url: string; originalName: string; format: string; is3DModel?: boolean; };
 type IconType = React.ComponentType<{ className?: string }>;
 
@@ -434,8 +445,8 @@ const API = {
     updateStatus: (zoneId: string, deviceId: string, status: InstallStatus) => apiFetch<void>(`/install/zones/${zoneId}/devices/${deviceId}`, { method: "PATCH", body: JSON.stringify({ status }) }),
   },
   canvas: {
-    get: (projectId: string) => apiFetch<{ projectId: string; layoutData: any }>(`/canvas/${projectId}`),
-    save: (projectId: string, data: any) => apiFetch<void>(`/canvas/${projectId}`, { method: "PUT", body: JSON.stringify(data) }),
+    get: (projectId: string) => apiFetch<{ projectId: string; layoutData: Partial<CanvasLayoutData> }>(`/canvas/${projectId}`),
+    save: (projectId: string, data: { layoutData: CanvasLayoutData }) => apiFetch<void>(`/canvas/${projectId}`, { method: "PUT", body: JSON.stringify(data) }),
     upload: (projectId: string, file: File) => { const fd = new FormData(); fd.append("file", file); return apiFetch<{ url: string }>(`/canvas/${projectId}/upload`, { method: "POST", body: fd }); },
   },
   fx: {
@@ -2342,6 +2353,8 @@ const CANVAS_TOOLS = [
   { id: "server", icon: Server, label: "NVR" },
   { id: "intercom", icon: Phone, label: "Intercom" },
   { id: "cable", icon: Cable, label: "Cable" },
+  { id: "calibrate", icon: Ruler, label: "Calibrate Scale" },
+  { id: "measure", icon: Move, label: "Measure" },
   { id: "trash", icon: Trash2, label: "Delete" },
 ];
 
@@ -2351,10 +2364,36 @@ function DesignCanvas({ navigate }: { navigate: (p: Page) => void }) {
   const [showProperties, setShowProperties] = useState(true);
   const [showFov, setShowFov] = useState(true);
   const [view3D, setView3D] = useState(false);
-  const [devices, setDevices] = useState<CanvasDevice[]>([]);
-  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [devicesHistory, setDevicesHistory] = useState<{ past: CanvasDevice[][]; present: CanvasDevice[]; future: CanvasDevice[][] }>({ past: [], present: [], future: [] });
+  const devices = devicesHistory.present;
+  const commitDevices = useCallback((updater: CanvasDevice[] | ((prev: CanvasDevice[]) => CanvasDevice[])) => {
+    setDevicesHistory((h) => {
+      const next = typeof updater === "function" ? (updater as (p: CanvasDevice[]) => CanvasDevice[])(h.present) : updater;
+      return { past: [...h.past, h.present].slice(-50), present: next, future: [] };
+    });
+  }, []);
+  const undo = useCallback(() => {
+    setDevicesHistory((h) => h.past.length === 0 ? h : { past: h.past.slice(0, -1), present: h.past[h.past.length - 1], future: [h.present, ...h.future] });
+  }, []);
+  const redo = useCallback(() => {
+    setDevicesHistory((h) => h.future.length === 0 ? h : { past: [...h.past, h.present], present: h.future[0], future: h.future.slice(1) });
+  }, []);
+  const [selectedIds, setSelectedIds] = useState<string[]>([]);
+  const [marqueeStart, setMarqueeStart] = useState<{ x: number; y: number } | null>(null);
+  const [marqueeEnd, setMarqueeEnd] = useState<{ x: number; y: number } | null>(null);
+  const multiDragRef = useRef<{ draggedId: string; starts: Record<string, { x: number; y: number }> } | null>(null);
   const [storeSearch, setStoreSearch] = useState("");
   const [cablePoints, setCablePoints] = useState<{ x: number; y: number }[]>([]);
+  const [pendingPoints, setPendingPoints] = useState<{ x: number; y: number }[]>([]);
+  const [calibrationInput, setCalibrationInput] = useState("");
+  const [calibrationUnit, setCalibrationUnit] = useState<"ft" | "m">("ft");
+  const [measurements, setMeasurements] = useState<{ id: string; p1: { x: number; y: number }; p2: { x: number; y: number } }[]>([]);
+  const [showLayersPanel, setShowLayersPanel] = useState(false);
+  const [layerVisibility, setLayerVisibility] = useState({ floorplan: true, devices: true, cabling: true, annotations: true });
+  const [scaleCalibration, setScaleCalibration] = useState<CanvasLayoutData["scaleCalibration"]>(undefined);
+  const [showGrid, setShowGrid] = useState(false);
+  const [snapEnabled, setSnapEnabled] = useState(false);
+  const [gridInterval, setGridInterval] = useState<0.5 | 1 | 2>(1);
   const [projectId, setProjectId] = useState<string>(() => localStorage.getItem("canvas_last_project") || "");
   const [storeDevices, setStoreDevices] = useState<CatalogDevice[]>([]);
   const [floorPlan2D, setFloorPlan2D] = useState<FloorPlanFile | null>(null);
@@ -2374,10 +2413,23 @@ function DesignCanvas({ navigate }: { navigate: (p: Page) => void }) {
     const height = floorPlanImage.height * fitScale;
     return { x: (stageSize.width - width) / 2, y: (stageSize.height - height) / 2, width, height };
   }, [floorPlanImage, stageSize.width, stageSize.height]);
+  const toContentCoords = useCallback((raw: { x: number; y: number }) => ({ x: (raw.x - position.x) / scale, y: (raw.y - position.y) / scale }), [position, scale]);
+  const pxPerFoot = useMemo(() => {
+    if (!scaleCalibration) return null;
+    const feet = scaleCalibration.unit === "m" ? scaleCalibration.realDistance * 3.28084 : scaleCalibration.realDistance;
+    if (!feet) return null;
+    return scaleCalibration.pixelDistance / feet;
+  }, [scaleCalibration]);
+  const gridSize = pxPerFoot ? pxPerFoot * gridInterval : null;
+  const snap = useCallback((v: number) => gridSize ? Math.round(v / gridSize) * gridSize : v, [gridSize]);
   const stageRef = useRef<any>(null);
   const containerRef = useRef<HTMLDivElement>(null);
+  const transformerRef = useRef<Konva.Transformer>(null);
+  const dragSnapshotRef = useRef<CanvasDevice[] | null>(null);
+  const justMarqueedRef = useRef(false);
 
-  const selected = devices.find((c) => c.id === selectedId);
+  const selected = selectedIds.length === 1 ? devices.find((c) => c.id === selectedIds[0]) : undefined;
+  const selectedDevices = selectedIds.map((id) => devices.find((d) => d.id === id)).filter((d): d is CanvasDevice => !!d && d.type !== "cable");
   const storeDevice = selected?.deviceStoreRef ? storeDevices.find(d => d.id === selected.deviceStoreRef) : null;
 
   useEffect(() => { API.devices.list().then(setStoreDevices).catch(() => setStoreDevices([])); }, []);
@@ -2409,24 +2461,83 @@ function DesignCanvas({ navigate }: { navigate: (p: Page) => void }) {
             const is3DModel = /\.(glb|gltf|obj|stl|fbx)$/i.test(data.layoutData.image3DUrl);
             setFloorPlan3D({ id: "3d-" + pid, type: "3d", url: data.layoutData.image3DUrl, originalName: "3d-model", format: data.layoutData.image3DUrl.match(/\.(\w+)(\?|$)/)?.[1] || "png", is3DModel });
           }
-          if (data.layoutData?.devices) setDevices(data.layoutData.devices);
+          if (data.layoutData?.devices) setDevicesHistory({ past: [], present: data.layoutData.devices, future: [] });
+          if (data.layoutData?.scaleCalibration) setScaleCalibration(data.layoutData.scaleCalibration);
         }
       } catch {}
     };
     loadCanvas();
   }, []);
 
+  useEffect(() => {
+    const tr = transformerRef.current;
+    const stage = stageRef.current;
+    if (!tr || !stage) return;
+    const selectableIds = selectedIds.filter((id) => devices.find((d) => d.id === id)?.type !== "cable");
+    if (selectableIds.length === 0) {
+      tr.nodes([]);
+      tr.getLayer()?.batchDraw();
+      return;
+    }
+    const nodes = selectableIds.map((id) => stage.findOne("#" + id)).filter(Boolean);
+    tr.nodes(nodes);
+    tr.getLayer()?.batchDraw();
+  }, [selectedIds, devices]);
+
+  useEffect(() => {
+    if (activeTool === "measure" && pendingPoints.length === 2) {
+      const [p1, p2] = pendingPoints;
+      setMeasurements((prev) => [...prev, { id: `m${Date.now()}`, p1, p2 }]);
+      setPendingPoints([]);
+    }
+  }, [activeTool, pendingPoints]);
+
+  const handleTransformEnd = () => {
+    const nodes = transformerRef.current?.nodes() || [];
+    if (nodes.length === 0) return;
+    const results: Record<string, { x: number; y: number; rot: number; scaleX: number; scaleY: number }> = {};
+    nodes.forEach((node: any) => {
+      const scaleX = node.scaleX();
+      const scaleY = node.scaleY();
+      const rotation = node.rotation();
+      node.scaleX(1);
+      node.scaleY(1);
+      const x = snapEnabled ? snap(node.x()) : node.x();
+      const y = snapEnabled ? snap(node.y()) : node.y();
+      results[node.id()] = { x, y, rot: rotation, scaleX, scaleY };
+    });
+    commitDevices((prev) => prev.map((d) => {
+      const r = results[d.id];
+      if (!r) return d;
+      const next: CanvasDevice = { ...d, x: r.x, y: r.y, rot: r.rot };
+      if (d.type === "camera") next.radius = Math.max(6, (d.radius ?? defaultRadius) * Math.max(r.scaleX, r.scaleY));
+      else { next.width = Math.max(8, (d.width ?? defaultWidth(d.type)) * r.scaleX); next.height = Math.max(8, (d.height ?? defaultHeight(d.type)) * r.scaleY); }
+      return next;
+    }));
+  };
+
   const saveCanvas = useCallback(async () => {
     if (!projectId) return;
     try {
-      await API.canvas.save(projectId, { layoutData: { devices, imageUrl: floorPlan2D?.url || "", image3DUrl: floorPlan3D?.url || "" } });
+      await API.canvas.save(projectId, { layoutData: { devices, imageUrl: floorPlan2D?.url || "", image3DUrl: floorPlan3D?.url || "", scaleCalibration } });
       const camCount = devices.filter(d => d.type === "camera").length;
       const devCount = devices.filter(d => d.type !== "cable").length;
       API.projects.update(projectId, { cameras: camCount, devices: devCount }).catch(() => {});
     } catch (err) { console.error("Canvas save failed:", err); }
-  }, [devices, floorPlan2D, floorPlan3D, projectId]);
+  }, [devices, floorPlan2D, floorPlan3D, projectId, scaleCalibration]);
 
   useEffect(() => { const t = setTimeout(() => { if (devices.length > 0 || floorPlan2D || floorPlan3D) saveCanvas(); }, 800); return () => clearTimeout(t); }, [devices, saveCanvas]);
+
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement || e.target instanceof HTMLSelectElement) return;
+      if (!(e.ctrlKey || e.metaKey) || e.key.toLowerCase() !== "z") return;
+      e.preventDefault();
+      if (e.shiftKey) redo(); else undo();
+    };
+    window.addEventListener("keydown", handler);
+    return () => window.removeEventListener("keydown", handler);
+  }, [undo, redo]);
 
   const syncDeviceToWorkbook = async (device: CatalogDevice) => {
     if (!projectId) return;
@@ -2481,8 +2592,8 @@ function DesignCanvas({ navigate }: { navigate: (p: Page) => void }) {
 
   const addDevice = (type: CanvasDevice["type"], x: number, y: number, storeRef?: string, imgUrl?: string) => {
     const newDevice: CanvasDevice = { id: `dev${Date.now()}`, type, x, y, rot: 0, fov: type === "camera" ? 80 : undefined, range: type === "camera" ? 90 : undefined, label: `${type.toUpperCase()}-${String(devices.length + 1).padStart(2, "0")}`, doorConfig: type === "door" ? { swing: "inswinging", lockType: "Electric Strike", readers: [], accessType: "Card", keyOverride: true } : undefined, deviceStoreRef: storeRef, imageUrl: imgUrl };
-    setDevices((prev) => [...prev, newDevice]);
-    setSelectedId(newDevice.id);
+    commitDevices((prev) => [...prev, newDevice]);
+    setSelectedIds([newDevice.id]);
   };
 
   const placeDeviceFromStore = (device: CatalogDevice) => {
@@ -2495,35 +2606,170 @@ function DesignCanvas({ navigate }: { navigate: (p: Page) => void }) {
   };
 
   const getDeviceColor = (type: CanvasDevice["type"]) => { const colors: Record<string, string> = { camera: "#3b82f6", door: "#f59e0b", panel: "#f97316", power: "#ef4444", server: "#ec4899", intercom: "#14b8a6", cable: "#8b5cf6" }; return colors[type] || "#3b82f6"; };
+  const defaultWidth = (type: CanvasDevice["type"]) => type === "server" ? 28 : type === "panel" ? 24 : 20;
+  const defaultHeight = (type: CanvasDevice["type"]) => type === "door" ? 12 : type === "panel" || type === "server" ? 16 : 20;
+  const defaultRadius = 12;
+  const deviceBounds = (dev: CanvasDevice) => {
+    if (dev.type === "camera") { const half = dev.radius ?? defaultRadius; return { left: dev.x - half, right: dev.x + half, top: dev.y - half, bottom: dev.y + half, halfW: half, halfH: half }; }
+    const halfW = (dev.width ?? defaultWidth(dev.type)) / 2;
+    const halfH = (dev.height ?? defaultHeight(dev.type)) / 2;
+    return { left: dev.x - halfW, right: dev.x + halfW, top: dev.y - halfH, bottom: dev.y + halfH, halfW, halfH };
+  };
 
   const handleStageClick = (e: any) => {
     const stage = e.target.getStage();
-    const point = stage.getPointerPosition();
-    if (!point) return;
-    if (activeTool === "cable") { setCablePoints((prev) => [...prev, { x: point.x, y: point.y }]); return; }
+    const raw = stage.getPointerPosition();
+    if (!raw) return;
+    const point = toContentCoords(raw);
+    if (activeTool === "calibrate" || activeTool === "measure") { setPendingPoints((prev) => prev.length >= 2 ? [point] : [...prev, point]); return; }
+    if (activeTool === "cable") { setCablePoints((prev) => [...prev, point]); return; }
     if (activeTool === "trash") return;
-    if (activeTool === "select") { setSelectedId(null); return; }
+    if (activeTool === "select") {
+      if (justMarqueedRef.current) { justMarqueedRef.current = false; return; }
+      setSelectedIds([]);
+      return;
+    }
     addDevice(activeTool as CanvasDevice["type"], point.x, point.y);
   };
 
   const handleDoubleClick = () => {
     if (activeTool === "cable" && cablePoints.length >= 2) {
-      setDevices((prev) => [...prev, { id: `dev${Date.now()}`, type: "cable", x: cablePoints[0].x, y: cablePoints[0].y, rot: 0, label: `CABLE-${String(prev.filter(d => d.type === "cable").length + 1).padStart(2, "0")}`, cablePoints: [...cablePoints] }]);
+      commitDevices((prev) => [...prev, { id: `dev${Date.now()}`, type: "cable", x: cablePoints[0].x, y: cablePoints[0].y, rot: 0, label: `CABLE-${String(prev.filter(d => d.type === "cable").length + 1).padStart(2, "0")}`, cablePoints: [...cablePoints] }]);
       setCablePoints([]);
     }
   };
 
+  const submitCalibration = () => {
+    const realDistance = parseFloat(calibrationInput);
+    if (pendingPoints.length < 2 || !realDistance || realDistance <= 0) return;
+    const [p1, p2] = pendingPoints;
+    const pixelDistance = Math.hypot(p2.x - p1.x, p2.y - p1.y);
+    setScaleCalibration({ pixelDistance, realDistance, unit: calibrationUnit });
+    setPendingPoints([]);
+    setCalibrationInput("");
+    setActiveTool("select");
+  };
+
+  const startRecalibration = () => {
+    setScaleCalibration(undefined);
+    setPendingPoints([]);
+    setCalibrationInput("");
+    setActiveTool("calibrate");
+  };
+
+  const handleDragStart = (deviceId: string) => {
+    if (selectedIds.length > 1 && selectedIds.includes(deviceId)) {
+      const stage = stageRef.current;
+      const starts: Record<string, { x: number; y: number }> = {};
+      selectedIds.forEach((id) => {
+        const node = stage?.findOne("#" + id);
+        if (node) starts[id] = { x: node.x(), y: node.y() };
+      });
+      multiDragRef.current = { draggedId: deviceId, starts };
+    }
+  };
+
+  const handleDragMove = (deviceId: string, e: any) => {
+    const drag = multiDragRef.current;
+    if (!drag || drag.draggedId !== deviceId) return;
+    const stage = stageRef.current;
+    const node = e.target;
+    const start = drag.starts[deviceId];
+    const dx = node.x() - start.x;
+    const dy = node.y() - start.y;
+    Object.entries(drag.starts).forEach(([id, s]) => {
+      if (id === deviceId) return;
+      const other = stage?.findOne("#" + id);
+      if (other) other.position({ x: s.x + dx, y: s.y + dy });
+    });
+  };
+
   const handleDragEnd = (deviceId: string, e: any) => {
     const node = e.target;
-    setDevices((prev) => prev.map((d) => d.id === deviceId ? { ...d, x: node.x(), y: node.y() } : d));
+    const drag = multiDragRef.current;
+    if (drag && drag.draggedId === deviceId) {
+      const start = drag.starts[deviceId];
+      const dx = (snapEnabled ? snap(node.x()) : node.x()) - start.x;
+      const dy = (snapEnabled ? snap(node.y()) : node.y()) - start.y;
+      const finalPositions: Record<string, { x: number; y: number }> = {};
+      Object.entries(drag.starts).forEach(([id, s]) => { finalPositions[id] = { x: s.x + dx, y: s.y + dy }; });
+      multiDragRef.current = null;
+      commitDevices((prev) => prev.map((d) => finalPositions[d.id] ? { ...d, x: finalPositions[d.id].x, y: finalPositions[d.id].y } : d));
+      return;
+    }
+    const x = snapEnabled ? snap(node.x()) : node.x();
+    const y = snapEnabled ? snap(node.y()) : node.y();
+    commitDevices((prev) => prev.map((d) => d.id === deviceId ? { ...d, x, y } : d));
   };
 
   const handleDeviceDelete = (deviceId: string) => {
     const dev = devices.find(d => d.id === deviceId);
-    setDevices((prev) => prev.filter((d) => d.id !== deviceId));
+    commitDevices((prev) => prev.filter((d) => d.id !== deviceId));
     if (dev) removeDeviceFromWorkbook(dev.label);
-    if (selectedId === deviceId) setSelectedId(null);
+    setSelectedIds((prev) => prev.filter((id) => id !== deviceId));
   };
+
+  const alignSelection = (mode: "left" | "right" | "top" | "bottom" | "center-x" | "center-y") => {
+    if (selectedDevices.length < 2) return;
+    const bounds = selectedDevices.map((d) => ({ id: d.id, ...deviceBounds(d) }));
+    let target: number;
+    if (mode === "left") target = Math.min(...bounds.map((b) => b.left));
+    else if (mode === "right") target = Math.max(...bounds.map((b) => b.right));
+    else if (mode === "top") target = Math.min(...bounds.map((b) => b.top));
+    else if (mode === "bottom") target = Math.max(...bounds.map((b) => b.bottom));
+    else if (mode === "center-x") target = selectedDevices.reduce((s, d) => s + d.x, 0) / selectedDevices.length;
+    else target = selectedDevices.reduce((s, d) => s + d.y, 0) / selectedDevices.length;
+    commitDevices((prev) => prev.map((d) => {
+      const b = bounds.find((x) => x.id === d.id);
+      if (!b) return d;
+      if (mode === "left") return { ...d, x: target + b.halfW };
+      if (mode === "right") return { ...d, x: target - b.halfW };
+      if (mode === "top") return { ...d, y: target + b.halfH };
+      if (mode === "bottom") return { ...d, y: target - b.halfH };
+      if (mode === "center-x") return { ...d, x: target };
+      return { ...d, y: target };
+    }));
+  };
+
+  const handleStageMouseDown = (e: any) => {
+    const stage = e.target.getStage();
+    if (activeTool !== "select" || !e.evt.shiftKey || e.target !== stage) return;
+    const raw = stage.getPointerPosition();
+    if (!raw) return;
+    stage.draggable(false);
+    const point = toContentCoords(raw);
+    setMarqueeStart(point);
+    setMarqueeEnd(point);
+  };
+
+  const handleStageMouseMove = (e: any) => {
+    if (!marqueeStart) return;
+    const stage = e.target.getStage();
+    const raw = stage.getPointerPosition();
+    if (!raw) return;
+    setMarqueeEnd(toContentCoords(raw));
+  };
+
+  const handleStageMouseUp = () => {
+    if (!marqueeStart || !marqueeEnd) return;
+    const stage = stageRef.current;
+    if (stage) stage.draggable(true);
+    const minX = Math.min(marqueeStart.x, marqueeEnd.x);
+    const maxX = Math.max(marqueeStart.x, marqueeEnd.x);
+    const minY = Math.min(marqueeStart.y, marqueeEnd.y);
+    const maxY = Math.max(marqueeStart.y, marqueeEnd.y);
+    const ids = devices.filter((d) => d.type !== "cable" && d.x >= minX && d.x <= maxX && d.y >= minY && d.y <= maxY).map((d) => d.id);
+    setSelectedIds(ids);
+    if (marqueeStart.x !== marqueeEnd.x || marqueeStart.y !== marqueeEnd.y) justMarqueedRef.current = true;
+    setMarqueeStart(null);
+    setMarqueeEnd(null);
+  };
+
+  useEffect(() => {
+    if (!marqueeStart) return;
+    window.addEventListener("mouseup", handleStageMouseUp);
+    return () => window.removeEventListener("mouseup", handleStageMouseUp);
+  }, [marqueeStart, marqueeEnd, devices]);
 
   const handleWheel = (e: any) => {
     e.evt.preventDefault();
@@ -2594,6 +2840,22 @@ function DesignCanvas({ navigate }: { navigate: (p: Page) => void }) {
         <button onClick={() => uploadFile("3d")} className="flex items-center gap-1.5 h-7 px-2 rounded-xl text-[#8b949e] hover:text-white text-[12px] font-bold cursor-pointer" style={G.btn}><Box className="w-3 h-3" /> 3D</button>
         <button onClick={() => setView3D(!view3D)} className={clsx("flex items-center gap-1.5 h-7 px-2 rounded-xl text-[12px] font-bold cursor-pointer", view3D ? "text-violet-400" : "text-[#8b949e]")} style={view3D ? { background: "rgba(139,92,246,0.15)" } : G.btn}><Eye className="w-3 h-3" /> {view3D ? "2D" : "3D"}</button>
         <button onClick={() => setShowFov(!showFov)} className={clsx("flex items-center gap-1.5 h-7 px-2 rounded-xl text-[12px] font-bold cursor-pointer", showFov ? "text-blue-400" : "text-[#8b949e]")} style={showFov ? { background: "rgba(59,130,246,0.15)" } : G.btn}><Eye className="w-3 h-3" /> FOV</button>
+        <div className="relative">
+          <button onClick={() => setShowLayersPanel(!showLayersPanel)} className={clsx("flex items-center gap-1.5 h-7 px-2 rounded-xl text-[12px] font-bold cursor-pointer", showLayersPanel ? "text-violet-400" : "text-[#8b949e]")} style={showLayersPanel ? { background: "rgba(139,92,246,0.15)" } : G.btn}><Layers className="w-3 h-3" /> Layers</button>
+          {showLayersPanel && (
+            <>
+              <div className="fixed inset-0 z-10" onClick={() => setShowLayersPanel(false)} />
+              <div className="absolute right-0 top-9 z-20 w-48 rounded-xl overflow-hidden py-1.5" style={{ background: "rgba(7,12,26,0.97)", border: "1px solid rgba(255,255,255,0.12)", boxShadow: "0 8px 32px rgba(0,0,0,0.8)", backdropFilter: "blur(20px)" }}>
+                {([["floorplan", "Floor Plan"], ["devices", "Devices"], ["cabling", "Cabling"], ["annotations", "Annotations"]] as const).map(([key, label]) => (
+                  <button key={key} onClick={() => setLayerVisibility((prev) => ({ ...prev, [key]: !prev[key] }))} className="w-full flex items-center justify-between gap-2 px-3 py-2 text-[12px] font-bold text-[#e6edf3] hover:bg-white/[0.06] transition-colors cursor-pointer min-h-[36px]">
+                    <span>{label}</span>
+                    {layerVisibility[key] ? <Eye className="w-3.5 h-3.5 text-violet-400" /> : <EyeOff className="w-3.5 h-3.5 text-[#484f58]" />}
+                  </button>
+                ))}
+              </div>
+            </>
+          )}
+        </div>
         <button onClick={() => setShowDeviceTray(!showDeviceTray)} className={clsx("flex items-center gap-1.5 h-7 px-2 rounded-xl text-[12px] font-bold cursor-pointer", showDeviceTray ? "text-white" : "text-[#8b949e]")} style={G.btn}><Store className="w-3 h-3" /> Store</button>
       </header>
       <div className="flex-1 relative overflow-hidden" ref={containerRef}>
@@ -2614,30 +2876,98 @@ function DesignCanvas({ navigate }: { navigate: (p: Page) => void }) {
         {view3D && floorPlan3D ? (
           <div className="absolute inset-0"><ThreeDViewer file={floorPlan3D} /><div className="absolute bottom-4 left-4 px-3 py-1.5 rounded-xl text-[12px] font-bold text-white" style={G.liquidGlass}>3D View — {floorPlan3D.originalName}</div></div>
         ) : (
-          <KonvaStage ref={stageRef} width={stageSize.width} height={stageSize.height} scaleX={scale} scaleY={scale} x={position.x} y={position.y} draggable onClick={handleStageClick} onDblClick={handleDoubleClick} onWheel={handleWheel} style={{ background: "#070c1a", cursor: activeTool === "select" ? "default" : "crosshair" }}>
+          <KonvaStage ref={stageRef} width={stageSize.width} height={stageSize.height} scaleX={scale} scaleY={scale} x={position.x} y={position.y} draggable onClick={handleStageClick} onDblClick={handleDoubleClick} onWheel={handleWheel} onMouseDown={handleStageMouseDown} onMouseMove={handleStageMouseMove} onMouseUp={handleStageMouseUp} style={{ background: "#070c1a", cursor: activeTool === "select" ? "default" : "crosshair" }}>
+            {showGrid && gridSize && layerVisibility.annotations && (() => {
+              const topLeft = toContentCoords({ x: 0, y: 0 });
+              const bottomRight = toContentCoords({ x: stageSize.width, y: stageSize.height });
+              const lines: React.ReactNode[] = [];
+              const startX = Math.floor(topLeft.x / gridSize) * gridSize;
+              const startY = Math.floor(topLeft.y / gridSize) * gridSize;
+              let count = 0;
+              for (let x = startX; x <= bottomRight.x && count < 400; x += gridSize, count++) lines.push(<KonvaLine key={`gx${x}`} points={[x, topLeft.y, x, bottomRight.y]} stroke="rgba(255,255,255,0.06)" strokeWidth={1 / scale} listening={false} />);
+              for (let y = startY; y <= bottomRight.y && count < 400; y += gridSize, count++) lines.push(<KonvaLine key={`gy${y}`} points={[topLeft.x, y, bottomRight.x, y]} stroke="rgba(255,255,255,0.06)" strokeWidth={1 / scale} listening={false} />);
+              return <KonvaLayer listening={false}>{lines}</KonvaLayer>;
+            })()}
             <KonvaLayer>
-              {floorPlanImage && floorPlanRect && <KonvaImage image={floorPlanImage} x={floorPlanRect.x} y={floorPlanRect.y} width={floorPlanRect.width} height={floorPlanRect.height} opacity={0.5} listening={false} />}
+              {layerVisibility.floorplan && floorPlanImage && floorPlanRect && <KonvaImage image={floorPlanImage} x={floorPlanRect.x} y={floorPlanRect.y} width={floorPlanRect.width} height={floorPlanRect.height} opacity={0.5} listening={false} />}
               {activeTool === "cable" && cablePoints.length > 0 && <KonvaLine points={cablePoints.flatMap(p => [p.x, p.y])} stroke="#8b5cf6" strokeWidth={2} dash={[6, 3]} listening={false} />}
-              {devices.map((dev) => {
-                const color = getDeviceColor(dev.type);
-                const isSelected = dev.id === selectedId;
-                if (dev.type === "cable" && dev.cablePoints) return <KonvaLine key={dev.id} points={dev.cablePoints.flatMap(p => [p.x, p.y])} stroke={color} strokeWidth={isSelected ? 2.5 : 1.5} dash={isSelected ? [] : [6, 3]} listening={false} />;
+              {(activeTool === "calibrate" || activeTool === "measure") && pendingPoints.length > 0 && (
+                <>
+                  {pendingPoints.length === 2 && <KonvaLine points={pendingPoints.flatMap(p => [p.x, p.y])} stroke={activeTool === "calibrate" ? "#f59e0b" : "#10b981"} strokeWidth={2} dash={[4, 4]} listening={false} />}
+                  {pendingPoints.map((p, i) => <KonvaCircle key={i} x={p.x} y={p.y} radius={4} fill={activeTool === "calibrate" ? "#f59e0b" : "#10b981"} listening={false} />)}
+                </>
+              )}
+              {layerVisibility.annotations && pxPerFoot && measurements.map((m) => {
+                const midX = (m.p1.x + m.p2.x) / 2;
+                const midY = (m.p1.y + m.p2.y) / 2;
+                const distFt = Math.hypot(m.p2.x - m.p1.x, m.p2.y - m.p1.y) / pxPerFoot;
                 return (
-                  <KonvaGroup key={dev.id} x={dev.x} y={dev.y} draggable onClick={(e) => { e.cancelBubble = true; setSelectedId(dev.id); }} onTap={(e) => { e.cancelBubble = true; setSelectedId(dev.id); }} onDragEnd={(e) => handleDragEnd(dev.id, e)}>
-                    {showFov && dev.type === "camera" && <KonvaArc x={0} y={0} innerRadius={0} outerRadius={dev.range || 45} angle={dev.fov || 80} rotation={dev.rot - (dev.fov || 80) / 2} fill={isSelected ? "rgba(59,130,246,0.22)" : "rgba(59,130,246,0.08)"} listening={false} />}
-                    {dev.type === "camera" && <KonvaCircle radius={12} fill={color} stroke={isSelected ? "#fff" : "rgba(255,255,255,0.5)"} strokeWidth={isSelected ? 2 : 1} />}
-                    {dev.type === "door" && <KonvaRect x={-10} y={-6} width={20} height={12} fill="rgba(245,158,11,0.2)" stroke={isSelected ? "#f59e0b" : "rgba(245,158,11,0.5)"} strokeWidth={isSelected ? 2 : 1} cornerRadius={2} />}
-                    {dev.type === "panel" && <KonvaRect x={-12} y={-8} width={24} height={16} fill="rgba(249,115,22,0.2)" stroke={isSelected ? "#f97316" : "rgba(249,115,22,0.5)"} strokeWidth={isSelected ? 2 : 1} cornerRadius={2} />}
-                    {dev.type === "power" && <KonvaRect x={-10} y={-10} width={20} height={20} fill="rgba(239,68,68,0.2)" stroke={isSelected ? "#ef4444" : "rgba(239,68,68,0.5)"} strokeWidth={isSelected ? 2 : 1} cornerRadius={2} />}
-                    {dev.type === "server" && <KonvaRect x={-14} y={-8} width={28} height={16} fill="rgba(236,72,153,0.2)" stroke={isSelected ? "#ec4899" : "rgba(236,72,153,0.5)"} strokeWidth={isSelected ? 2 : 1} cornerRadius={2} />}
-                    {dev.type === "intercom" && <KonvaRect x={-10} y={-10} width={20} height={20} fill="rgba(20,184,166,0.2)" stroke={isSelected ? "#14b8a6" : "rgba(20,184,166,0.5)"} strokeWidth={isSelected ? 2 : 1} cornerRadius={2} />}
-                    <KonvaText text={dev.label} fontSize={8} fill={isSelected ? "#fff" : "#8b949e"} y={16} align="center" width={80} x={-40} listening={false} />
+                  <KonvaGroup key={m.id}>
+                    <KonvaLine points={[m.p1.x, m.p1.y, m.p2.x, m.p2.y]} stroke="#10b981" strokeWidth={1.5} dash={[8, 4]} listening={false} />
+                    <KonvaText text={`${distFt.toFixed(1)} ft`} x={midX} y={midY - 18} fontSize={11} fontStyle="bold" fill="#10b981" align="center" offsetX={20} width={40} listening={false} />
+                    <KonvaCircle x={midX} y={midY} radius={7} fill="rgba(16,185,129,0.9)" onClick={(e) => { e.cancelBubble = true; setMeasurements((prev) => prev.filter((x) => x.id !== m.id)); }} onTap={(e) => { e.cancelBubble = true; setMeasurements((prev) => prev.filter((x) => x.id !== m.id)); }} />
+                    <KonvaText text="×" x={midX} y={midY} fontSize={11} fontStyle="bold" fill="#fff" align="center" verticalAlign="middle" offsetX={4} offsetY={7} width={8} height={14} listening={false} />
                   </KonvaGroup>
                 );
               })}
+              {layerVisibility.cabling && devices.filter((dev) => dev.type === "cable").map((dev) => {
+                const isSelected = selectedIds.includes(dev.id);
+                return dev.cablePoints ? <KonvaLine key={dev.id} points={dev.cablePoints.flatMap(p => [p.x, p.y])} stroke={getDeviceColor(dev.type)} strokeWidth={isSelected ? 2.5 : 1.5} dash={isSelected ? [] : [6, 3]} listening={false} /> : null;
+              })}
+              {layerVisibility.devices && devices.filter((dev) => dev.type !== "cable").map((dev) => {
+                const color = getDeviceColor(dev.type);
+                const isSelected = selectedIds.includes(dev.id);
+                const radius = dev.radius ?? defaultRadius;
+                const w = dev.width ?? defaultWidth(dev.type);
+                const h = dev.height ?? defaultHeight(dev.type);
+                const selectDevice = (e: any) => {
+                  e.cancelBubble = true;
+                  setSelectedIds((prev) => e.evt?.shiftKey ? (prev.includes(dev.id) ? prev.filter((id) => id !== dev.id) : [...prev, dev.id]) : [dev.id]);
+                };
+                return (
+                  <KonvaGroup key={dev.id} id={dev.id} x={dev.x} y={dev.y} rotation={dev.rot} draggable onClick={selectDevice} onTap={selectDevice} onDragStart={() => handleDragStart(dev.id)} onDragMove={(e) => handleDragMove(dev.id, e)} onDragEnd={(e) => handleDragEnd(dev.id, e)}>
+                    {showFov && dev.type === "camera" && <KonvaArc x={0} y={0} innerRadius={0} outerRadius={dev.range || 45} angle={dev.fov || 80} rotation={-(dev.fov || 80) / 2} fill={isSelected ? "rgba(59,130,246,0.22)" : "rgba(59,130,246,0.08)"} listening={false} />}
+                    {dev.type === "camera" && <KonvaCircle radius={radius} fill={color} stroke={isSelected ? "#fff" : "rgba(255,255,255,0.5)"} strokeWidth={isSelected ? 2 : 1} />}
+                    {dev.type === "door" && <KonvaRect x={-w / 2} y={-h / 2} width={w} height={h} fill="rgba(245,158,11,0.2)" stroke={isSelected ? "#f59e0b" : "rgba(245,158,11,0.5)"} strokeWidth={isSelected ? 2 : 1} cornerRadius={2} />}
+                    {dev.type === "panel" && <KonvaRect x={-w / 2} y={-h / 2} width={w} height={h} fill="rgba(249,115,22,0.2)" stroke={isSelected ? "#f97316" : "rgba(249,115,22,0.5)"} strokeWidth={isSelected ? 2 : 1} cornerRadius={2} />}
+                    {dev.type === "power" && <KonvaRect x={-w / 2} y={-h / 2} width={w} height={h} fill="rgba(239,68,68,0.2)" stroke={isSelected ? "#ef4444" : "rgba(239,68,68,0.5)"} strokeWidth={isSelected ? 2 : 1} cornerRadius={2} />}
+                    {dev.type === "server" && <KonvaRect x={-w / 2} y={-h / 2} width={w} height={h} fill="rgba(236,72,153,0.2)" stroke={isSelected ? "#ec4899" : "rgba(236,72,153,0.5)"} strokeWidth={isSelected ? 2 : 1} cornerRadius={2} />}
+                    {dev.type === "intercom" && <KonvaRect x={-w / 2} y={-h / 2} width={w} height={h} fill="rgba(20,184,166,0.2)" stroke={isSelected ? "#14b8a6" : "rgba(20,184,166,0.5)"} strokeWidth={isSelected ? 2 : 1} cornerRadius={2} />}
+                    <KonvaText text={dev.label} fontSize={8} fill={isSelected ? "#fff" : "#8b949e"} y={16} align="center" width={80} x={-40} rotation={-dev.rot} listening={false} />
+                  </KonvaGroup>
+                );
+              })}
+              <KonvaTransformer ref={transformerRef} onTransformEnd={handleTransformEnd} rotationSnaps={[0, 15, 30, 45, 60, 75, 90, 105, 120, 135, 150, 165, 180, 195, 210, 225, 240, 255, 270, 285, 300, 315, 330, 345]} />
+              {marqueeStart && marqueeEnd && (
+                <KonvaRect x={Math.min(marqueeStart.x, marqueeEnd.x)} y={Math.min(marqueeStart.y, marqueeEnd.y)} width={Math.abs(marqueeEnd.x - marqueeStart.x)} height={Math.abs(marqueeEnd.y - marqueeStart.y)} fill="rgba(59,130,246,0.12)" stroke="#3b82f6" strokeWidth={1 / scale} listening={false} />
+              )}
               {!floorPlan2D && <KonvaText text="Upload a floor plan or 3D model to begin" fontSize={14} fill="#8b949e" x={stageSize.width / 2 - 120} y={stageSize.height / 2 - 10} listening={false} />}
             </KonvaLayer>
           </KonvaStage>
+        )}
+        {activeTool === "calibrate" && pendingPoints.length === 2 && (() => {
+          const midX = (pendingPoints[0].x + pendingPoints[1].x) / 2;
+          const midY = (pendingPoints[0].y + pendingPoints[1].y) / 2;
+          const screenX = midX * scale + position.x;
+          const screenY = midY * scale + position.y;
+          return (
+            <div className="absolute z-40 flex items-center gap-2 px-3 py-2 rounded-xl" style={{ ...G.liquidGlass, left: screenX, top: screenY, transform: "translate(-50%, -120%)" }} onClick={(e) => e.stopPropagation()}>
+              <span className="text-white text-[12px] font-bold whitespace-nowrap">This is</span>
+              <input autoFocus type="number" min="0" step="0.1" value={calibrationInput} onChange={(e) => setCalibrationInput(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter") submitCalibration(); if (e.key === "Escape") { setPendingPoints([]); setCalibrationInput(""); } }} className="w-16 h-7 rounded-lg px-2 text-[12px] text-white focus:outline-none" style={G.input} />
+              <select value={calibrationUnit} onChange={(e) => setCalibrationUnit(e.target.value as "ft" | "m")} className="h-7 rounded-lg px-1 text-[12px] cursor-pointer" style={{ ...G.input, background: "#0d1117", color: "#e6edf3" }}>
+                <option value="ft">ft</option>
+                <option value="m">m</option>
+              </select>
+              <button onClick={submitCalibration} disabled={!calibrationInput || parseFloat(calibrationInput) <= 0} className="h-7 px-2.5 rounded-lg text-white text-[12px] font-bold cursor-pointer disabled:opacity-40" style={{ background: "#3b82f6" }}>Set</button>
+            </div>
+          );
+        })()}
+        {scaleCalibration && pxPerFoot && (
+          <div className="absolute top-3 left-3 z-30 flex items-center gap-2 px-3 py-1.5 rounded-xl" style={G.liquidGlass}>
+            <Ruler className="w-3 h-3 text-amber-400" />
+            <span className="text-white text-[12px] font-bold whitespace-nowrap">Scale: 1ft = {pxPerFoot.toFixed(1)}px</span>
+            <button onClick={startRecalibration} className="text-[#8b949e] hover:text-white text-[11px] font-bold cursor-pointer underline">Recalibrate</button>
+          </div>
         )}
         {showProperties && selected && (
           <div className="absolute right-0 top-0 bottom-0 w-72 z-30 flex flex-col" style={G.liquidGlass}>
@@ -2647,8 +2977,8 @@ function DesignCanvas({ navigate }: { navigate: (p: Page) => void }) {
               {storeDevice && <div><p className="text-[#8b949e] text-[12px] font-extrabold uppercase tracking-widest mb-2">Device Store Info</p><div className="rounded-xl p-3 space-y-2" style={G.card}><p className="text-white text-[14px] font-extrabold">{storeDevice.model}</p><p className="text-[#8b949e] text-[12px]">{storeDevice.manufacturer}</p>{storeDevice.price && <div className="flex justify-between"><span className="text-[#8b949e] text-[12px]">Price</span><span className="text-white text-[12px] font-extrabold">${storeDevice.price.toFixed(2)}</span></div>}</div></div>}
               {selected.type === "camera" && (
                 <div><p className="text-[#8b949e] text-[12px] font-extrabold uppercase tracking-widest mb-2">Camera Settings</p><div className="rounded-xl p-3 space-y-2" style={G.card}>
-                  <div className="flex items-center justify-between"><span className="text-[#8b949e] text-[13px]">Rotation</span><input type="range" min="0" max="360" value={selected.rot} onChange={(e) => setDevices((prev) => prev.map((d) => d.id === selected.id ? { ...d, rot: parseInt(e.target.value) } : d))} className="w-24" /><span className="text-white text-[12px] font-extrabold">{selected.rot}°</span></div>
-                  <div className="flex items-center justify-between"><span className="text-[#8b949e] text-[13px]">FOV</span><select value={selected.fov || 80} onChange={(e) => setDevices((prev) => prev.map((d) => d.id === selected.id ? { ...d, fov: parseInt(e.target.value) } : d))} className="cursor-pointer" style={{ ...G.input, background: "#0d1117", color: "#e6edf3", padding: "2px 6px", borderRadius: "6px" }}><option value="60">60°</option><option value="80">80°</option><option value="100">100°</option><option value="120">120°</option><option value="180">180°</option><option value="360">360°</option></select></div>
+                  <div className="flex items-center justify-between"><span className="text-[#8b949e] text-[13px]">Rotation</span><input type="range" min="0" max="360" value={selected.rot} onPointerDown={() => { dragSnapshotRef.current = devicesHistory.present; }} onChange={(e) => { const rot = parseInt(e.target.value); setDevicesHistory((h) => ({ ...h, present: h.present.map((d) => d.id === selected.id ? { ...d, rot } : d) })); }} onPointerUp={() => { const preDragSnapshot = dragSnapshotRef.current; if (preDragSnapshot) { setDevicesHistory((h) => ({ past: [...h.past, preDragSnapshot].slice(-50), present: h.present, future: [] })); dragSnapshotRef.current = null; } }} className="w-24" /><span className="text-white text-[12px] font-extrabold">{selected.rot}°</span></div>
+                  <div className="flex items-center justify-between"><span className="text-[#8b949e] text-[13px]">FOV</span><select value={selected.fov || 80} onChange={(e) => commitDevices((prev) => prev.map((d) => d.id === selected.id ? { ...d, fov: parseInt(e.target.value) } : d))} className="cursor-pointer" style={{ ...G.input, background: "#0d1117", color: "#e6edf3", padding: "2px 6px", borderRadius: "6px" }}><option value="60">60°</option><option value="80">80°</option><option value="100">100°</option><option value="120">120°</option><option value="180">180°</option><option value="360">360°</option></select></div>
                 </div></div>
               )}
               <button onClick={() => handleDeviceDelete(selected.id)} className="w-full h-8 rounded-xl text-rose-400 text-[13px] font-bold flex items-center justify-center gap-1.5 cursor-pointer" style={{ background: "rgba(244,63,94,0.10)", border: "1px solid rgba(244,63,94,0.20)" }}><Trash2 className="w-3 h-3" /> Delete</button>
@@ -2657,10 +2987,27 @@ function DesignCanvas({ navigate }: { navigate: (p: Page) => void }) {
         )}
         <div className="absolute bottom-5 left-1/2 -translate-x-1/2 z-40 flex items-center gap-1 px-2 py-2 rounded-2xl overflow-x-auto max-w-[95vw]" style={G.liquidGlass}>
           {CANVAS_TOOLS.map((tool) => (
-            <button key={tool.id} onClick={() => { setActiveTool(tool.id); if (tool.id !== "cable") setCablePoints([]); }} title={tool.label} className={clsx("w-8 h-8 rounded-xl flex items-center justify-center flex-shrink-0 cursor-pointer min-w-[44px] min-h-[44px] md:min-w-0 md:min-h-0", activeTool === tool.id ? "text-white" : "text-[#8b949e]")} style={activeTool === tool.id ? { background: "#3b82f6", boxShadow: "0 4px 16px rgba(59,130,246,0.45)" } : undefined}><tool.icon className="w-3.5 h-3.5" /></button>
+            <button key={tool.id} disabled={tool.id === "measure" && !scaleCalibration} onClick={() => { setActiveTool(tool.id); if (tool.id !== "cable") setCablePoints([]); if (tool.id !== "calibrate" && tool.id !== "measure") setPendingPoints([]); }} title={tool.id === "measure" && !scaleCalibration ? "Calibrate scale first" : tool.label} className={clsx("w-8 h-8 rounded-xl flex items-center justify-center flex-shrink-0 cursor-pointer min-w-[44px] min-h-[44px] md:min-w-0 md:min-h-0 disabled:opacity-40 disabled:cursor-not-allowed", activeTool === tool.id ? "text-white" : "text-[#8b949e]")} style={activeTool === tool.id ? { background: "#3b82f6", boxShadow: "0 4px 16px rgba(59,130,246,0.45)" } : undefined}><tool.icon className="w-3.5 h-3.5" /></button>
           ))}
           <div className="w-px h-6 mx-1" style={{ background: "rgba(255,255,255,0.10)" }} />
-          <span className="text-[#8b949e] text-[11px] ml-1">{devices.length} devices</span>
+          <button onClick={undo} disabled={devicesHistory.past.length === 0} title="Undo (Ctrl+Z)" className="w-8 h-8 rounded-xl flex items-center justify-center flex-shrink-0 cursor-pointer min-w-[44px] min-h-[44px] md:min-w-0 md:min-h-0 text-[#8b949e] disabled:opacity-40 disabled:cursor-not-allowed"><Undo2 className="w-3.5 h-3.5" /></button>
+          <button onClick={redo} disabled={devicesHistory.future.length === 0} title="Redo (Ctrl+Shift+Z)" className="w-8 h-8 rounded-xl flex items-center justify-center flex-shrink-0 cursor-pointer min-w-[44px] min-h-[44px] md:min-w-0 md:min-h-0 text-[#8b949e] disabled:opacity-40 disabled:cursor-not-allowed"><Redo2 className="w-3.5 h-3.5" /></button>
+          <div className="w-px h-6 mx-1" style={{ background: "rgba(255,255,255,0.10)" }} />
+          <button onClick={() => setShowGrid(!showGrid)} disabled={!scaleCalibration} title={scaleCalibration ? "Toggle grid" : "Calibrate scale first"} className={clsx("w-8 h-8 rounded-xl flex items-center justify-center flex-shrink-0 cursor-pointer min-w-[44px] min-h-[44px] md:min-w-0 md:min-h-0 disabled:opacity-40 disabled:cursor-not-allowed", showGrid ? "text-blue-400" : "text-[#8b949e]")} style={showGrid ? { background: "rgba(59,130,246,0.15)" } : undefined}><Grid3x3 className="w-3.5 h-3.5" /></button>
+          <button onClick={() => setSnapEnabled(!snapEnabled)} disabled={!scaleCalibration} title={scaleCalibration ? "Toggle snap-to-grid" : "Calibrate scale first"} className={clsx("w-8 h-8 rounded-xl flex items-center justify-center flex-shrink-0 cursor-pointer min-w-[44px] min-h-[44px] md:min-w-0 md:min-h-0 disabled:opacity-40 disabled:cursor-not-allowed", snapEnabled ? "text-blue-400" : "text-[#8b949e]")} style={snapEnabled ? { background: "rgba(59,130,246,0.15)" } : undefined}><Magnet className="w-3.5 h-3.5" /></button>
+          {scaleCalibration && (showGrid || snapEnabled) && (
+            <select value={gridInterval} onChange={(e) => setGridInterval(parseFloat(e.target.value) as 0.5 | 1 | 2)} className="h-7 rounded-lg px-1.5 text-[11px] cursor-pointer flex-shrink-0" style={{ ...G.input, background: "#0d1117", color: "#e6edf3" }}>
+              <option value={0.5}>6in</option>
+              <option value={1}>1ft</option>
+              <option value={2}>2ft</option>
+            </select>
+          )}
+          <div className="w-px h-6 mx-1" style={{ background: "rgba(255,255,255,0.10)" }} />
+          {([["left", AlignStartVertical, "Align left"], ["center-x", AlignVerticalJustifyCenter, "Align center (X)"], ["right", AlignEndVertical, "Align right"], ["top", AlignStartHorizontal, "Align top"], ["center-y", AlignHorizontalJustifyCenter, "Align middle (Y)"], ["bottom", AlignEndHorizontal, "Align bottom"]] as const).map(([mode, Icon, label]) => (
+            <button key={mode} onClick={() => alignSelection(mode)} disabled={selectedDevices.length < 2} title={selectedDevices.length < 2 ? "Select 2+ devices to align" : label} className="w-8 h-8 rounded-xl flex items-center justify-center flex-shrink-0 cursor-pointer min-w-[44px] min-h-[44px] md:min-w-0 md:min-h-0 text-[#8b949e] disabled:opacity-40 disabled:cursor-not-allowed"><Icon className="w-3.5 h-3.5" /></button>
+          ))}
+          <div className="w-px h-6 mx-1" style={{ background: "rgba(255,255,255,0.10)" }} />
+          <span className="text-[#8b949e] text-[11px] ml-1">{devices.length} devices{selectedIds.length > 1 ? ` · ${selectedIds.length} selected` : ""}</span>
         </div>
       </div>
     </div>
