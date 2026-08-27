@@ -202,6 +202,20 @@ export async function initDB() {
         created_at TIMESTAMPTZ DEFAULT NOW()
       );
 
+      CREATE TABLE IF NOT EXISTS tasks (
+        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+        project_id UUID REFERENCES projects(id) ON DELETE CASCADE,
+        title TEXT NOT NULL,
+        description TEXT,
+        assignee TEXT,
+        subcontractor_id UUID REFERENCES subcontractors(id) ON DELETE SET NULL,
+        status TEXT DEFAULT 'todo',
+        priority TEXT DEFAULT 'medium',
+        due_date TIMESTAMPTZ,
+        created_at TIMESTAMPTZ DEFAULT NOW(),
+        updated_at TIMESTAMPTZ DEFAULT NOW()
+      );
+
       CREATE TABLE IF NOT EXISTS procurement_orders (
         id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
         project_id UUID REFERENCES projects(id),
@@ -297,6 +311,7 @@ export async function initDB() {
     await client.query(`ALTER TABLE audit_logs ADD COLUMN IF NOT EXISTS action_url TEXT`);
     await client.query(`ALTER TABLE subcontractors ADD COLUMN IF NOT EXISTS share_token TEXT UNIQUE`);
     await client.query(`ALTER TABLE project_assets ADD COLUMN IF NOT EXISTS unit_cost NUMERIC`);
+    await client.query(`ALTER TABLE tasks ADD COLUMN IF NOT EXISTS subcontractor_id UUID REFERENCES subcontractors(id) ON DELETE SET NULL`);
     await client.query(`ALTER TABLE subcontractors DROP COLUMN IF EXISTS rating`);
 
     try {

@@ -11,17 +11,24 @@ router.get("/public/:token", async (req: Request, res: Response) => {
     const result = await pool.query(
       `SELECT s.id, s.name, s.trade, s.email, s.created_at AS "createdAt",
               p.name AS "projectName",
-              COALESCE(json_agg(json_build_object(
-                'id', sd.id,
-                'filename', sd.filename,
-                'fileUrl', sd.file_url,
-                'createdAt', sd.created_at
-              ) ORDER BY sd.created_at DESC) FILTER (WHERE sd.id IS NOT NULL), '[]') AS documents
+              COALESCE(docs.documents, '[]') AS documents,
+              COALESCE(tks.tasks, '[]') AS tasks
        FROM subcontractors s
        JOIN projects p ON p.id = s.project_id
-       LEFT JOIN subcontractor_documents sd ON sd.subcontractor_id = s.id
-       WHERE s.share_token = $1
-       GROUP BY s.id, p.name`,
+       LEFT JOIN LATERAL (
+         SELECT json_agg(json_build_object(
+           'id', sd.id, 'filename', sd.filename, 'fileUrl', sd.file_url, 'createdAt', sd.created_at
+         ) ORDER BY sd.created_at DESC) AS documents
+         FROM subcontractor_documents sd WHERE sd.subcontractor_id = s.id
+       ) docs ON true
+       LEFT JOIN LATERAL (
+         SELECT json_agg(json_build_object(
+           'id', t.id, 'title', t.title, 'description', t.description, 'status', t.status,
+           'priority', t.priority, 'dueDate', t.due_date
+         ) ORDER BY t.created_at DESC) AS tasks
+         FROM tasks t WHERE t.subcontractor_id = s.id
+       ) tks ON true
+       WHERE s.share_token = $1`,
       [token]
     );
     if (result.rows.length === 0) {
