@@ -312,6 +312,7 @@ export async function initDB() {
     await client.query(`ALTER TABLE subcontractors ADD COLUMN IF NOT EXISTS share_token TEXT UNIQUE`);
     await client.query(`ALTER TABLE project_assets ADD COLUMN IF NOT EXISTS unit_cost NUMERIC`);
     await client.query(`ALTER TABLE tasks ADD COLUMN IF NOT EXISTS subcontractor_id UUID REFERENCES subcontractors(id) ON DELETE SET NULL`);
+    await client.query(`ALTER TABLE quote_line_items ADD COLUMN IF NOT EXISTS project_asset_id UUID REFERENCES project_assets(id) ON DELETE SET NULL`);
     await client.query(`ALTER TABLE subcontractors DROP COLUMN IF EXISTS rating`);
 
     try {

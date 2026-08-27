@@ -147,6 +147,7 @@ interface QuoteLineItem {
   sellTotal: number;
   profit: number;
   jmdConversion: number;
+  projectAssetId?: string;
 }
 interface QuoteCategory {
   id: string;
@@ -2543,7 +2544,8 @@ function ProjectAssetsTab({ projectId, projectName, clientName }: { projectId: s
   const [storeDevices, setStoreDevices] = useState<CatalogDevice[]>([]);
   const [zones, setZones] = useState<InstallZone[]>([]);
   const [loading, setLoading] = useState(true);
-  const [showAdd, setShowAdd] = useState(false);
+  const [showForm, setShowForm] = useState(false);
+  const [editingAssetId, setEditingAssetId] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [search, setSearch] = useState("");
   const [categoryFilter, setCategoryFilter] = useState<AssetCategory | "all">("all");
@@ -2576,39 +2578,69 @@ function ProjectAssetsTab({ projectId, projectName, clientName }: { projectId: s
   }, [projectId]);
   useEffect(() => { fetchAll(); }, [fetchAll]);
 
-  const handleAdd = async () => {
+  const openAddForm = () => { resetForm(); setEditingAssetId(null); setShowForm(true); };
+
+  const openEditForm = (asset: ProjectAsset) => {
+    setEditingAssetId(asset.id);
+    setCategory(asset.category);
+    setSystem(asset.system);
+    setDeviceStoreRef(asset.deviceStoreRef || "");
+    setQuantity(String(asset.quantity));
+    setLocation(asset.location);
+    setZoneId(asset.zoneId || "");
+    setPurpose(asset.purpose);
+    setNotes(asset.notes || "");
+    if (asset.category === "cable-wire" && asset.cableSpec) {
+      setCableType(asset.cableSpec.cableType);
+      setLengthFt(asset.cableSpec.lengthFt !== undefined ? String(asset.cableSpec.lengthFt) : "");
+      setRunDescription(asset.cableSpec.runDescription || "");
+      setCostPerFt(asset.cableSpec.costPerFt !== undefined ? String(asset.cableSpec.costPerFt) : "");
+      setUnitPrice("");
+    } else {
+      setCableType("CAT-6"); setLengthFt(""); setRunDescription(""); setCostPerFt("");
+      setUnitPrice(String(assetUnitCost(asset, storeDevices) || ""));
+    }
+    setShowForm(true);
+  };
+
+  const closeForm = () => { setShowForm(false); setEditingAssetId(null); resetForm(); };
+
+  const handleSave = async () => {
     const qty = parseInt(quantity) || 1;
     const cableSpec: CableSpec | undefined = category === "cable-wire" ? { cableType, lengthFt: parseFloat(lengthFt) || undefined, runDescription: runDescription.trim() || undefined, costPerFt: parseFloat(costPerFt) || undefined } : undefined;
+    const payload = { category, system, deviceStoreRef: deviceStoreRef || undefined, cableSpec, unitCost: category === "cable-wire" ? undefined : (parseFloat(unitPrice) || 0), quantity: qty, location: location.trim(), zoneId: zoneId || undefined, purpose: purpose.trim(), notes: notes.trim() || undefined };
     setSaving(true);
     try {
-      const created = await API.projectAssets.create(projectId, { category, system, deviceStoreRef: deviceStoreRef || undefined, cableSpec, unitCost: category === "cable-wire" ? undefined : (parseFloat(unitPrice) || 0), quantity: qty, location: location.trim(), zoneId: zoneId || undefined, purpose: purpose.trim(), notes: notes.trim() || undefined });
-      setAssets(prev => [...prev, created]);
-      const description = describeAsset(created, storeDevices);
-      const price = assetUnitCost(created, storeDevices);
-      syncAssetToWorkbook(projectId, category, system, description, price, qty).catch(() => {});
-      const installType = INSTALL_DEVICE_TYPE_FOR_ASSET[category];
-      if (zoneId && installType) {
-        API.install.addDevice(zoneId, { name: description, type: installType, location: location.trim(), status: "pending" }).catch(() => {});
+      let result: ProjectAsset;
+      if (editingAssetId) {
+        result = await API.projectAssets.update(projectId, editingAssetId, payload);
+        setAssets(prev => prev.map(a => a.id === result.id ? result : a));
+        toast.success("Asset updated");
+      } else {
+        result = await API.projectAssets.create(projectId, payload);
+        setAssets(prev => [...prev, result]);
+        const installType = INSTALL_DEVICE_TYPE_FOR_ASSET[category];
+        if (zoneId && installType) {
+          API.install.addDevice(zoneId, { name: describeAsset(result, storeDevices), type: installType, location: location.trim(), status: "pending" }).catch(() => {});
+        }
+        toast.success("Asset added");
       }
-      toast.success("Asset added");
-      setShowAdd(false);
-      resetForm();
-    } catch { toast.error("Failed to add asset"); } finally { setSaving(false); }
+      upsertAssetLineItem(projectId, result, storeDevices).catch(() => {});
+      closeForm();
+    } catch { toast.error(editingAssetId ? "Failed to update asset" : "Failed to add asset"); } finally { setSaving(false); }
   };
 
   const handleDelete = async (asset: ProjectAsset) => {
     try {
       await API.projectAssets.delete(projectId, asset.id);
       setAssets(prev => prev.filter(a => a.id !== asset.id));
-      removeAssetFromWorkbook(projectId, describeAsset(asset, storeDevices)).catch(() => {});
+      removeAssetLineItem(projectId, asset.id).catch(() => {});
       toast.success("Asset removed");
     } catch { toast.error("Failed to remove asset"); }
   };
 
   const handlePriceUpdate = async (asset: ProjectAsset, newPrice: number) => {
     try {
-      const description = describeAsset(asset, storeDevices);
-      const oldPrice = assetUnitCost(asset, storeDevices);
       let updated: ProjectAsset;
       if (asset.category === "cable-wire" && asset.cableSpec) {
         const cableSpec = { ...asset.cableSpec, costPerFt: newPrice };
@@ -2617,8 +2649,7 @@ function ProjectAssetsTab({ projectId, projectName, clientName }: { projectId: s
         updated = await API.projectAssets.update(projectId, asset.id, { unitCost: newPrice });
       }
       setAssets(prev => prev.map(a => a.id === asset.id ? updated : a));
-      const newUnitCost = assetUnitCost(updated, storeDevices);
-      if (newUnitCost !== oldPrice) updateAssetPriceInWorkbook(projectId, description, newUnitCost).catch(() => {});
+      upsertAssetLineItem(projectId, updated, storeDevices).catch(() => {});
       toast.success("Price updated");
     } catch { toast.error("Failed to update price"); }
   };
@@ -2691,7 +2722,7 @@ function ProjectAssetsTab({ projectId, projectName, clientName }: { projectId: s
   return (
     <div className="space-y-4">
       <div className="flex items-center gap-2 flex-wrap">
-        <button onClick={() => setShowAdd(true)} className="flex items-center gap-1.5 h-9 px-3 rounded-xl text-white text-[13px] font-extrabold cursor-pointer" style={{ background: "#3b82f6" }}><Plus className="w-3.5 h-3.5" /> Add Asset</button>
+        <button onClick={openAddForm} className="flex items-center gap-1.5 h-9 px-3 rounded-xl text-white text-[13px] font-extrabold cursor-pointer" style={{ background: "#3b82f6" }}><Plus className="w-3.5 h-3.5" /> Add Asset</button>
         <div className="relative"><Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3 h-3 text-[#484f58]" /><input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search assets…" className="h-9 rounded-xl pl-7 pr-3 text-[13px] text-[#e6edf3] focus:outline-none w-48" style={G.input} /></div>
         <select value={categoryFilter} onChange={e => setCategoryFilter(e.target.value as AssetCategory | "all")} className="h-9 rounded-xl px-2 text-[13px] cursor-pointer" style={{ ...G.input, background: "#0d1117", color: "#e6edf3" }}>
           <option value="all">All Categories</option>
@@ -2703,11 +2734,11 @@ function ProjectAssetsTab({ projectId, projectName, clientName }: { projectId: s
         <button onClick={exportPdf} className="flex items-center gap-1.5 h-9 px-3 rounded-xl text-[#8b949e] hover:text-white text-[13px] font-bold cursor-pointer" style={G.btn}><FileDown className="w-3.5 h-3.5" /> PDF</button>
       </div>
 
-      {showAdd && (
-        <div className="fixed inset-0 z-[400] flex items-center justify-center p-4" onClick={() => setShowAdd(false)}>
+      {showForm && (
+        <div className="fixed inset-0 z-[400] flex items-center justify-center p-4" onClick={closeForm}>
           <div className="absolute inset-0" style={{ background: "rgba(0,0,0,0.65)", backdropFilter: "blur(8px)" }} />
           <div onClick={e => e.stopPropagation()} className="relative z-10 w-full max-w-[560px] max-h-[85vh] overflow-y-auto rounded-2xl p-6 space-y-3" style={G.liquidGlass}>
-            <h3 className="text-white text-[16px] font-extrabold mb-2">Add Asset</h3>
+            <h3 className="text-white text-[16px] font-extrabold mb-2">{editingAssetId ? "Edit Asset" : "Add Asset"}</h3>
             <div className="grid grid-cols-2 gap-3">
               <div><label className="text-[#8b949e] text-[11px] font-extrabold uppercase tracking-widest block mb-1">Category</label><select value={category} onChange={e => { setCategory(e.target.value as AssetCategory); setDeviceStoreRef(""); setSystem(DEFAULT_SYSTEM_FOR_ASSET[e.target.value as AssetCategory]); }} className="w-full h-9 rounded-xl px-2 text-[13px] cursor-pointer" style={{ ...G.input, background: "#0d1117", color: "#e6edf3" }}>{(Object.keys(ASSET_CATEGORY_LABELS) as AssetCategory[]).map(c => <option key={c} value={c}>{ASSET_CATEGORY_LABELS[c]}</option>)}</select></div>
               <div><label className="text-[#8b949e] text-[11px] font-extrabold uppercase tracking-widest block mb-1">System</label><select value={system} onChange={e => setSystem(e.target.value as SystemType)} className="w-full h-9 rounded-xl px-2 text-[13px] cursor-pointer" style={{ ...G.input, background: "#0d1117", color: "#e6edf3" }}><option value="VSS">VSS</option><option value="EAC">EAC</option><option value="Intercom">Intercom</option></select></div>
@@ -2733,26 +2764,26 @@ function ProjectAssetsTab({ projectId, projectName, clientName }: { projectId: s
             <div><label className="text-[#8b949e] text-[11px] font-extrabold uppercase tracking-widest block mb-1">Purpose</label><input value={purpose} onChange={e => setPurpose(e.target.value)} placeholder="e.g. LPR capture at vehicle entry" className="w-full h-9 rounded-xl px-3 text-[13px] text-white focus:outline-none" style={G.input} /></div>
             <div><label className="text-[#8b949e] text-[11px] font-extrabold uppercase tracking-widest block mb-1">Notes</label><textarea value={notes} onChange={e => setNotes(e.target.value)} rows={2} className="w-full rounded-xl px-3 py-2 text-[13px] text-white focus:outline-none resize-none" style={G.input} /></div>
             <div className="flex gap-2 pt-2">
-              <button onClick={() => setShowAdd(false)} className="flex-1 h-10 rounded-xl text-[#8b949e] text-[14px] font-bold cursor-pointer" style={G.btn}>Cancel</button>
-              <button onClick={handleAdd} disabled={saving} className="flex-1 h-10 rounded-xl text-white text-[14px] font-extrabold cursor-pointer" style={{ background: "#3b82f6" }}>{saving ? "Adding…" : "Add Asset"}</button>
+              <button onClick={closeForm} className="flex-1 h-10 rounded-xl text-[#8b949e] text-[14px] font-bold cursor-pointer" style={G.btn}>Cancel</button>
+              <button onClick={handleSave} disabled={saving} className="flex-1 h-10 rounded-xl text-white text-[14px] font-extrabold cursor-pointer" style={{ background: "#3b82f6" }}>{saving ? (editingAssetId ? "Saving…" : "Adding…") : (editingAssetId ? "Save Changes" : "Add Asset")}</button>
             </div>
           </div>
         </div>
       )}
 
       {filtered.length === 0 ? (
-        <EmptyState icon={Package} title="No assets yet" description="Add cameras, access control, network hardware, or cable runs to this project." action={{ label: "Add Asset", onClick: () => setShowAdd(true) }} />
+        <EmptyState icon={Package} title="No assets yet" description="Add cameras, access control, network hardware, or cable runs to this project." action={{ label: "Add Asset", onClick: openAddForm }} />
       ) : (
         Array.from(grouped.entries()).map(([cat, items]) => (
           <div key={cat} className="rounded-2xl overflow-hidden" style={G.card}>
             <div className="px-4 py-3 flex items-center gap-2" style={{ borderBottom: "1px solid rgba(255,255,255,0.06)", background: "rgba(255,255,255,0.02)" }}><h3 className="text-white text-[14px] font-extrabold">{ASSET_CATEGORY_LABELS[cat]}</h3><span className="text-[#8b949e] text-[12px]">({items.length})</span></div>
             <div className="divide-y" style={{ borderColor: "rgba(255,255,255,0.04)" }}>
               {items.map(asset => (
-                <div key={asset.id} className="px-4 py-3 flex items-start justify-between gap-3">
+                <div key={asset.id} onClick={() => openEditForm(asset)} className="px-4 py-3 flex items-start justify-between gap-3 cursor-pointer hover:bg-white/[0.02]" title="Click to edit asset">
                   <div className="flex-1 min-w-0">
                     <p className="text-white text-[13px] font-bold">{describeAsset(asset, storeDevices)} <span className="text-[#8b949e] font-semibold">×{asset.quantity}</span></p>
                     <p className="text-[#8b949e] text-[12px] mt-0.5">{asset.location || "No location set"}{asset.purpose ? ` · ${asset.purpose}` : ""}</p>
-                    <div className="flex items-center gap-1.5 mt-1.5">
+                    <div className="flex items-center gap-1.5 mt-1.5" onClick={e => e.stopPropagation()}>
                       <span className="text-[#484f58] text-[11px] font-extrabold uppercase tracking-widest">Unit Price</span>
                       <InlineEditCell type="number" value={assetUnitCost(asset, storeDevices)} onChange={(val) => handlePriceUpdate(asset, parseFloat(val) || 0)} />
                       <span className="text-[#484f58] text-[11px]">· Total {fmt(assetUnitCost(asset, storeDevices) * asset.quantity)}</span>
@@ -2760,9 +2791,9 @@ function ProjectAssetsTab({ projectId, projectName, clientName }: { projectId: s
                     {asset.zoneId && <p className="text-[#484f58] text-[11px] mt-0.5">Zone: {zones.find(z => z.id === asset.zoneId)?.name || asset.zoneId}</p>}
                     {asset.notes && <p className="text-[#484f58] text-[11px] mt-0.5 italic">{asset.notes}</p>}
                     {asset.coveragePhotos && asset.coveragePhotos.length > 0 && <div className="flex gap-2 mt-2 flex-wrap">{asset.coveragePhotos.map((p, i) => <img key={i} src={p} alt="" className="w-14 h-14 rounded-lg object-cover" style={{ border: "1px solid rgba(255,255,255,0.10)" }} />)}</div>}
-                    <label className="inline-flex items-center gap-1 mt-2 text-[11px] text-blue-400 cursor-pointer">{uploadingPhoto === asset.id ? <Loader2 className="w-3 h-3 animate-spin" /> : <Upload className="w-3 h-3" />} {uploadingPhoto === asset.id ? "Uploading…" : "Add coverage photo"}<input type="file" accept="image/*" className="hidden" onChange={e => handlePhotoUpload(asset, e)} disabled={uploadingPhoto === asset.id} /></label>
+                    <label onClick={e => e.stopPropagation()} className="inline-flex items-center gap-1 mt-2 text-[11px] text-blue-400 cursor-pointer">{uploadingPhoto === asset.id ? <Loader2 className="w-3 h-3 animate-spin" /> : <Upload className="w-3 h-3" />} {uploadingPhoto === asset.id ? "Uploading…" : "Add coverage photo"}<input type="file" accept="image/*" className="hidden" onChange={e => handlePhotoUpload(asset, e)} disabled={uploadingPhoto === asset.id} /></label>
                   </div>
-                  <button onClick={() => handleDelete(asset)} className="w-8 h-8 rounded-lg flex items-center justify-center hover:bg-rose-500/10 cursor-pointer flex-shrink-0"><Trash2 className="w-3.5 h-3.5 text-rose-400" /></button>
+                  <button onClick={(e) => { e.stopPropagation(); handleDelete(asset); }} className="w-8 h-8 rounded-lg flex items-center justify-center hover:bg-rose-500/10 cursor-pointer flex-shrink-0"><Trash2 className="w-3.5 h-3.5 text-rose-400" /></button>
                 </div>
               ))}
             </div>
@@ -2782,73 +2813,79 @@ const CATEGORY_SECTION: Record<AssetCategory, Partial<Record<SystemType, number>
   other: { VSS: 400, EAC: 1000, Intercom: 1500 },
 };
 
-async function syncAssetToWorkbook(projectId: string, category: AssetCategory, system: SystemType, description: string, price: number, quantity: number) {
+async function getOrCreateProjectQuote(projectId: string, system: SystemType): Promise<Quote> {
+  const quotes = await API.quotes.list();
+  const existing = quotes.find((q: Quote) => q.projectId === projectId);
+  if (existing) return existing;
+  const projects = await API.projects.list();
+  const proj = projects.find((p: Project) => p.id === projectId);
+  const sysCategories = SYSTEM_CATEGORIES[system] || SYSTEM_CATEGORIES.VSS;
+  const categories: QuoteCategory[] = sysCategories.map(sc => ({ id: crypto.randomUUID?.() || `cat-${sc.sectionNumber}`, name: sc.name, type: system === "Intercom" ? "Intercom" as QuoteType : system === "EAC" ? "Access Control" as QuoteType : "Video Surveillance" as QuoteType, system, sectionNumber: sc.sectionNumber, importRatePercent: sc.importRatePercent, lineItems: [] }));
+  return API.quotes.create({ clientName: proj?.client || "", refNumber: `Q-${projectId.slice(0, 8).toUpperCase()}`, date: new Date().toISOString().slice(0, 10), status: "draft", quoteType: system === "Intercom" ? "Intercom" as QuoteType : "Multiple" as QuoteType, exchangeRate: parseFloat(localStorage.getItem("fx_rate") || String(DEFAULT_EXCHANGE_RATE)), projectId, categories });
+}
+
+// Creates or updates the one QuoteLineItem tied to this ProjectAsset (matched by id, not
+// description, since descriptions can collide or change) so Cost & Margin, BOM, and Synthesis
+// all reflect the asset's current category/system/price/quantity — the same real data
+// Asset List reads, not a separate in-memory preview.
+async function upsertAssetLineItem(projectId: string, asset: ProjectAsset, storeDevices: CatalogDevice[]) {
   if (!projectId) return;
   try {
-    const quotes = await API.quotes.list();
-    let projectQuote = quotes.find((q: Quote) => q.projectId === projectId);
-    if (!projectQuote) {
-      const projects = await API.projects.list();
-      const proj = projects.find((p: Project) => p.id === projectId);
-      const sysCategories = SYSTEM_CATEGORIES[system] || SYSTEM_CATEGORIES.VSS;
-      const categories = sysCategories.map(sc => ({ id: crypto.randomUUID?.() || `cat-${sc.sectionNumber}`, name: sc.name, type: system === "Intercom" ? "Intercom" as QuoteType : system === "EAC" ? "Access Control" as QuoteType : "Video Surveillance" as QuoteType, system, sectionNumber: sc.sectionNumber, importRatePercent: sc.importRatePercent, lineItems: [] }));
-      projectQuote = await API.quotes.create({ clientName: proj?.client || "", refNumber: `Q-${projectId.slice(0, 8).toUpperCase()}`, date: new Date().toISOString().slice(0, 10), status: "draft", quoteType: system === "Intercom" ? "Intercom" as QuoteType : "Multiple" as QuoteType, exchangeRate: parseFloat(localStorage.getItem("fx_rate") || String(DEFAULT_EXCHANGE_RATE)), projectId, categories });
-    }
-    const sysCategories = SYSTEM_CATEGORIES[system] || SYSTEM_CATEGORIES.VSS;
-    const targetSection = CATEGORY_SECTION[category]?.[system] ?? sysCategories[3]?.sectionNumber ?? sysCategories[0].sectionNumber;
-    const categories = projectQuote.categories || [];
-    let targetCat = categories.find((c: QuoteCategory) => c.system === system && c.sectionNumber === targetSection);
+    const price = assetUnitCost(asset, storeDevices);
+    const description = describeAsset(asset, storeDevices);
+    const quote = await getOrCreateProjectQuote(projectId, asset.system);
+    const categories: QuoteCategory[] = quote.categories.map(c => ({ ...c, lineItems: [...c.lineItems] }));
+
+    let existingCatIndex = -1;
+    categories.forEach((cat, i) => { if (cat.lineItems.some(li => li.projectAssetId === asset.id)) existingCatIndex = i; });
+    const existingItem = existingCatIndex !== -1 ? categories[existingCatIndex].lineItems.find(li => li.projectAssetId === asset.id) : undefined;
+
+    const sysCategories = SYSTEM_CATEGORIES[asset.system] || SYSTEM_CATEGORIES.VSS;
+    const targetSection = CATEGORY_SECTION[asset.category]?.[asset.system] ?? sysCategories[3]?.sectionNumber ?? sysCategories[0].sectionNumber;
+    let targetCat = categories.find(c => c.system === asset.system && c.sectionNumber === targetSection);
     if (!targetCat) {
       const sc = sysCategories.find(s => s.sectionNumber === targetSection);
-      targetCat = { id: crypto.randomUUID?.() || `cat${Date.now()}`, name: sc?.name || "Hardware", type: system === "Intercom" ? "Intercom" as QuoteType : system === "EAC" ? "Access Control" as QuoteType : "Video Surveillance" as QuoteType, system, sectionNumber: targetSection, importRatePercent: sc?.importRatePercent || 0, lineItems: [] };
+      targetCat = { id: crypto.randomUUID?.() || `cat${Date.now()}`, name: sc?.name || "Hardware", type: asset.system === "Intercom" ? "Intercom" as QuoteType : asset.system === "EAC" ? "Access Control" as QuoteType : "Video Surveillance" as QuoteType, system: asset.system, sectionNumber: targetSection, importRatePercent: sc?.importRatePercent || 0, lineItems: [] };
       categories.push(targetCat);
     }
-    const existingItem = targetCat.lineItems.find((li: QuoteLineItem) => li.description === description);
-    if (existingItem) {
-      existingItem.quantity += quantity;
-      const sellPrice = existingItem.unitCost * (1 + existingItem.markupPercent);
-      existingItem.sellPrice = sellPrice;
-      existingItem.costTotal = existingItem.unitCost * existingItem.quantity;
-      existingItem.sellTotal = sellPrice * existingItem.quantity;
-      existingItem.profit = existingItem.sellTotal - existingItem.costTotal;
-    } else {
-      const defaultMarkup = sysCategories.find(s => s.sectionNumber === targetSection)?.defaultMarkup || 0.35;
-      const sellPrice = price * (1 + defaultMarkup);
-      targetCat.lineItems.push({ id: crypto.randomUUID?.() || `li${Date.now()}`, itemNumber: String(targetCat.lineItems.length + 1).padStart(2, "0"), description, unitCost: price, quantity, markupPercent: defaultMarkup, sellPrice, costTotal: price * quantity, sellTotal: sellPrice * quantity, profit: (sellPrice - price) * quantity, jmdConversion: sellPrice * (parseFloat(localStorage.getItem("fx_rate") || String(DEFAULT_EXCHANGE_RATE))) });
+
+    if (existingCatIndex !== -1 && categories[existingCatIndex] !== targetCat) {
+      categories[existingCatIndex].lineItems = categories[existingCatIndex].lineItems.filter(li => li.projectAssetId !== asset.id);
     }
-    await API.quotes.update(projectQuote.id, { categories });
-  } catch (err) { console.error("Workbook sync failed:", err); }
+
+    const markupPercent = existingItem?.markupPercent ?? (sysCategories.find(s => s.sectionNumber === targetSection)?.defaultMarkup || 0.35);
+    const sellPrice = price * (1 + markupPercent);
+    const updatedItem: QuoteLineItem = {
+      id: existingItem?.id || crypto.randomUUID?.() || `li${Date.now()}`,
+      itemNumber: existingItem?.itemNumber || String(targetCat.lineItems.length + 1).padStart(2, "0"),
+      description,
+      unitCost: price,
+      quantity: asset.quantity,
+      markupPercent,
+      sellPrice,
+      costTotal: price * asset.quantity,
+      sellTotal: sellPrice * asset.quantity,
+      profit: (sellPrice - price) * asset.quantity,
+      jmdConversion: sellPrice * asset.quantity * (parseFloat(localStorage.getItem("fx_rate") || String(DEFAULT_EXCHANGE_RATE))),
+      projectAssetId: asset.id,
+    };
+    targetCat.lineItems = targetCat.lineItems.some(li => li.projectAssetId === asset.id)
+      ? targetCat.lineItems.map(li => li.projectAssetId === asset.id ? updatedItem : li)
+      : [...targetCat.lineItems, updatedItem];
+
+    await API.quotes.update(quote.id, { categories });
+  } catch (err) { console.error("Workbook asset sync failed:", err); }
 }
 
-async function updateAssetPriceInWorkbook(projectId: string, description: string, newUnitCost: number) {
+async function removeAssetLineItem(projectId: string, assetId: string) {
   if (!projectId) return;
   try {
     const quotes = await API.quotes.list();
-    const projectQuote = quotes.find((q: Quote) => q.projectId === projectId);
-    if (!projectQuote) return;
-    let changed = false;
-    const categories = projectQuote.categories.map(cat => ({
-      ...cat,
-      lineItems: cat.lineItems.map(li => {
-        if (li.description !== description) return li;
-        changed = true;
-        const sellPrice = newUnitCost * (1 + li.markupPercent);
-        return { ...li, unitCost: newUnitCost, sellPrice, costTotal: newUnitCost * li.quantity, sellTotal: sellPrice * li.quantity, profit: (sellPrice - newUnitCost) * li.quantity };
-      }),
-    }));
-    if (changed) await API.quotes.update(projectQuote.id, { categories });
-  } catch (err) { console.error("Workbook price sync failed:", err); }
-}
-
-async function removeAssetFromWorkbook(projectId: string, description: string) {
-  if (!projectId) return;
-  try {
-    const quotes = await API.quotes.list();
-    const projectQuote = quotes.find((q: Quote) => q.projectId === projectId);
-    if (!projectQuote) return;
-    const categories = projectQuote.categories.map(cat => ({ ...cat, lineItems: cat.lineItems.filter(li => li.description !== description) }));
-    await API.quotes.update(projectQuote.id, { categories });
-  } catch (err) { console.error("Workbook remove failed:", err); }
+    const quote = quotes.find((q: Quote) => q.projectId === projectId);
+    if (!quote) return;
+    const categories = quote.categories.map(cat => ({ ...cat, lineItems: cat.lineItems.filter(li => li.projectAssetId !== assetId) }));
+    await API.quotes.update(quote.id, { categories });
+  } catch (err) { console.error("Workbook asset removal failed:", err); }
 }
 
 function describeAsset(asset: ProjectAsset, storeDevices: CatalogDevice[]): string {
@@ -3178,35 +3215,34 @@ function SynthesisTab({ quoteCategories, synthesisOverrides, exchangeRate, fmt, 
   );
 }
 
-function AssetListTab({ quoteCategories, projectAssets, storeDevices, exchangeRate, fmt, onLineItemUpdate, fieldSaveStatus }: { quoteCategories: QuoteCategory[]; projectAssets: ProjectAsset[]; storeDevices: CatalogDevice[]; exchangeRate: number; fmt: (n: number, compact?: boolean) => string; onLineItemUpdate: (categoryId: string, itemId: string, updates: Partial<QuoteLineItem>) => void; fieldSaveStatus: Record<string, "saved" | "saving" | "">; }) {
+function AssetListTab({ quoteCategories, exchangeRate, fmt, onLineItemUpdate, fieldSaveStatus }: { quoteCategories: QuoteCategory[]; exchangeRate: number; fmt: (n: number, compact?: boolean) => string; onLineItemUpdate: (categoryId: string, itemId: string, updates: Partial<QuoteLineItem>) => void; fieldSaveStatus: Record<string, "saved" | "saving" | "">; }) {
   const [clientExportMode, setClientExportMode] = useState(false);
   const [collapsedCategories, setCollapsedCategories] = useState<Set<string>>(new Set());
   const toggleCollapse = (id: string) => { setCollapsedCategories(prev => { const next = new Set(prev); next.has(id) ? next.delete(id) : next.add(id); return next; }); };
 
+  // Project-asset rows are read from the same real QuoteLineItem data every other Workbook
+  // tab reads (tagged via projectAssetId when Project Assets syncs), not a separate in-memory
+  // preview computed straight from projectAssets — so this can never drift from Cost & Margin,
+  // BOM, or Synthesis.
   const allItems = useMemo(() => {
     const items: AssetListItem[] = [];
-    projectAssets.forEach(asset => {
-      const unitCost = assetUnitCost(asset, storeDevices);
-      const description = describeAsset(asset, storeDevices);
-      const sellPrice = unitCost * 1.35;
-      items.push({ id: asset.id, item: description, qty: asset.quantity, cost: unitCost, markupPercent: 0.35, sell: sellPrice, costTotal: unitCost * asset.quantity, total: sellPrice * asset.quantity, profit: (sellPrice - unitCost) * asset.quantity, isProjectAsset: true, deviceType: asset.category, system: asset.system });
-    });
     quoteCategories.forEach(cat => {
       cat.lineItems.filter(li => li.quantity > 0).forEach(li => {
         const r = recalcLineItem(li, exchangeRate);
-        items.push({ id: li.id, item: li.description, qty: li.quantity, cost: li.unitCost, markupPercent: li.markupPercent, sell: r.sellPrice, costTotal: r.costTotal, total: r.sellTotal, profit: r.profit, system: cat.system, sourceCategory: cat.name, sourceItemId: li.id });
+        items.push({ id: li.id, item: li.description, qty: li.quantity, cost: li.unitCost, markupPercent: li.markupPercent, sell: r.sellPrice, costTotal: r.costTotal, total: r.sellTotal, profit: r.profit, isProjectAsset: !!li.projectAssetId, system: cat.system, sourceCategory: cat.name, sourceItemId: li.id });
       });
     });
     return items;
-  }, [projectAssets, storeDevices, quoteCategories, exchangeRate]);
+  }, [quoteCategories, exchangeRate]);
+  const assetItems = allItems.filter(i => i.isProjectAsset);
 
   return (
     <div className="space-y-4">
       <div className="flex items-center gap-2 mb-2"><button onClick={() => setClientExportMode(!clientExportMode)} className={clsx("h-9 md:h-7 px-3 rounded-lg text-[12px] font-bold cursor-pointer", clientExportMode ? "text-white" : "text-[#8b949e]")} style={clientExportMode ? { background: "rgba(16,185,129,0.15)", border: "1px solid rgba(16,185,129,0.30)" } : G.btn}><EyeOff className="w-3 h-3 mr-1" />{clientExportMode ? "Client View" : "Internal View"}</button></div>
-      {projectAssets.length > 0 && (
+      {assetItems.length > 0 && (
         <div className="rounded-2xl overflow-hidden" style={G.card}>
-          <div className="w-full px-4 py-3 flex items-center justify-between" style={{ borderBottom: "1px solid rgba(255,255,255,0.06)", background: "rgba(255,255,255,0.02)" }}><div className="flex items-center gap-2"><h3 className="text-white text-[15px] font-extrabold">Project Assets</h3><span className="text-[#8b949e] text-[12px]">({projectAssets.length})</span></div></div>
-          <div className="overflow-x-auto"><table className="w-full" style={{ minWidth: clientExportMode ? "400px" : "800px" }}><thead><tr style={{ borderBottom: "1px solid rgba(255,255,255,0.06)" }}><th className="px-3 py-2.5 text-[#8b949e] text-[11px] font-extrabold uppercase tracking-widest text-left">Item</th><th className="px-3 py-2.5 text-[#8b949e] text-[11px] font-extrabold uppercase tracking-widest text-center">QTY</th>{!clientExportMode && <><th className="px-3 py-2.5 text-[#8b949e] text-[11px] font-extrabold uppercase tracking-widest text-right">Cost</th><th className="px-3 py-2.5 text-[#8b949e] text-[11px] font-extrabold uppercase tracking-widest text-right">Markup %</th></>}<th className="px-3 py-2.5 text-[#8b949e] text-[11px] font-extrabold uppercase tracking-widest text-right">Sell</th>{!clientExportMode && <th className="px-3 py-2.5 text-[#8b949e] text-[11px] font-extrabold uppercase tracking-widest text-right">Cost Total</th>}<th className="px-3 py-2.5 text-[#8b949e] text-[11px] font-extrabold uppercase tracking-widest text-right">Total</th>{!clientExportMode && <th className="px-3 py-2.5 text-[#8b949e] text-[11px] font-extrabold uppercase tracking-widest text-right">Profit</th>}</tr></thead><tbody>{allItems.filter(i => i.isProjectAsset).map(item => (<tr key={item.id} style={{ borderBottom: "1px solid rgba(255,255,255,0.03)" }}><td className="px-3 py-2.5 text-white text-[13px] font-bold">{item.item}</td><td className="px-3 py-2.5 text-white text-[13px] text-center">{item.qty}</td>{!clientExportMode && <><td className="px-3 py-2.5 text-[#8b949e] text-[13px] text-right">{fmt(item.cost)}</td><td className="px-3 py-2.5 text-[#8b949e] text-[13px] text-right">{(item.markupPercent * 100).toFixed(0)}%</td></>}<td className="px-3 py-2.5 text-white text-[13px] font-extrabold text-right">{fmt(item.sell)}</td>{!clientExportMode && <td className="px-3 py-2.5 text-[#8b949e] text-[13px] text-right">{fmt(item.costTotal)}</td>}<td className="px-3 py-2.5 text-white text-[13px] font-extrabold text-right">{fmt(item.total)}</td>{!clientExportMode && <td className="px-3 py-2.5 text-[12px] font-extrabold text-right" style={{ color: item.profit >= 0 ? "#34d399" : "#f87171" }}>{fmt(item.profit)}</td>}</tr>))}</tbody></table></div>
+          <div className="w-full px-4 py-3 flex items-center justify-between" style={{ borderBottom: "1px solid rgba(255,255,255,0.06)", background: "rgba(255,255,255,0.02)" }}><div className="flex items-center gap-2"><h3 className="text-white text-[15px] font-extrabold">Project Assets</h3><span className="text-[#8b949e] text-[12px]">({assetItems.length})</span></div></div>
+          <div className="overflow-x-auto"><table className="w-full" style={{ minWidth: clientExportMode ? "400px" : "800px" }}><thead><tr style={{ borderBottom: "1px solid rgba(255,255,255,0.06)" }}><th className="px-3 py-2.5 text-[#8b949e] text-[11px] font-extrabold uppercase tracking-widest text-left">Item</th><th className="px-3 py-2.5 text-[#8b949e] text-[11px] font-extrabold uppercase tracking-widest text-center">QTY</th>{!clientExportMode && <><th className="px-3 py-2.5 text-[#8b949e] text-[11px] font-extrabold uppercase tracking-widest text-right">Cost</th><th className="px-3 py-2.5 text-[#8b949e] text-[11px] font-extrabold uppercase tracking-widest text-right">Markup %</th></>}<th className="px-3 py-2.5 text-[#8b949e] text-[11px] font-extrabold uppercase tracking-widest text-right">Sell</th>{!clientExportMode && <th className="px-3 py-2.5 text-[#8b949e] text-[11px] font-extrabold uppercase tracking-widest text-right">Cost Total</th>}<th className="px-3 py-2.5 text-[#8b949e] text-[11px] font-extrabold uppercase tracking-widest text-right">Total</th>{!clientExportMode && <th className="px-3 py-2.5 text-[#8b949e] text-[11px] font-extrabold uppercase tracking-widest text-right">Profit</th>}</tr></thead><tbody>{assetItems.map(item => (<tr key={item.id} style={{ borderBottom: "1px solid rgba(255,255,255,0.03)" }}><td className="px-3 py-2.5 text-white text-[13px] font-bold">{item.item}</td><td className="px-3 py-2.5 text-white text-[13px] text-center">{item.qty}</td>{!clientExportMode && <><td className="px-3 py-2.5 text-[#8b949e] text-[13px] text-right">{fmt(item.cost)}</td><td className="px-3 py-2.5 text-[#8b949e] text-[13px] text-right">{(item.markupPercent * 100).toFixed(0)}%</td></>}<td className="px-3 py-2.5 text-white text-[13px] font-extrabold text-right">{fmt(item.sell)}</td>{!clientExportMode && <td className="px-3 py-2.5 text-[#8b949e] text-[13px] text-right">{fmt(item.costTotal)}</td>}<td className="px-3 py-2.5 text-white text-[13px] font-extrabold text-right">{fmt(item.total)}</td>{!clientExportMode && <td className="px-3 py-2.5 text-[12px] font-extrabold text-right" style={{ color: item.profit >= 0 ? "#34d399" : "#f87171" }}>{fmt(item.profit)}</td>}</tr>))}</tbody></table></div>
         </div>
       )}
       {quoteCategories.filter(c => !c.name.includes("Importation")).map(category => {
@@ -3456,7 +3492,7 @@ function Workbook({ navigate }: { navigate: (p: Page) => void }) {
           </div>
           <p className="px-4 md:px-6 pt-2.5 pb-1 text-[#8b949e] text-[12px] md:text-[13px] flex-shrink-0">{wbTabs[activeTabIndex]?.description}</p>
           <div className="flex-1 overflow-y-auto px-3 md:px-5 py-4 space-y-4" style={{ scrollbarWidth: "thin", scrollbarColor: "rgba(255,255,255,0.08) transparent" }}>
-            {activeTab === "asset-list" && <AssetListTab quoteCategories={quoteCategories} projectAssets={projectAssets} storeDevices={storeDevices} exchangeRate={exchangeRate} fmt={fmt} onLineItemUpdate={updateQuoteLineItem} fieldSaveStatus={fieldSaveStatus} />}
+            {activeTab === "asset-list" && <AssetListTab quoteCategories={quoteCategories} exchangeRate={exchangeRate} fmt={fmt} onLineItemUpdate={updateQuoteLineItem} fieldSaveStatus={fieldSaveStatus} />}
             {activeTab === "cost-margin" && <CostMarginTab quoteCategories={quoteCategories} exchangeRate={exchangeRate} fmt={fmt} onLineItemUpdate={updateQuoteLineItem} fieldSaveStatus={fieldSaveStatus} systemFilter={systemFilter} onSystemFilterChange={setSystemFilter} />}
             {activeTab === "bom" && <BomTab quoteCategories={quoteCategories} synthesisOverrides={synthesisOverrides} exchangeRate={exchangeRate} fmt={fmt} onLineItemUpdate={updateQuoteLineItem} onAddLineItem={addLineItem} onBomEditWithOverride={handleBomEditWithOverride} fieldSaveStatus={fieldSaveStatus} systemFilter={systemFilter} onSystemFilterChange={setSystemFilter} />}
             {activeTab === "synthesis" && <SynthesisTab quoteCategories={quoteCategories} synthesisOverrides={synthesisOverrides} exchangeRate={exchangeRate} fmt={fmt} onSaveOverride={handleSaveOverride} fieldSaveStatus={fieldSaveStatus} />}
