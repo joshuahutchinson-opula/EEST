@@ -1,4 +1,4 @@
-import { useState, useMemo, createContext, useContext, useEffect, useCallback, useRef, Suspense, Fragment } from "react";
+import { useState, useMemo, createContext, useContext, useEffect, useCallback, useRef, Fragment } from "react";
 import { toast, Toaster } from "sonner";
 import { motion, AnimatePresence } from "motion/react";
 import {
@@ -7,15 +7,14 @@ import {
   Search, Bell, Settings, TrendingUp, Star, BarChart3,
   ChevronDown, Loader2, ArrowLeft, CheckCircle2, Clock,
   AlertTriangle, Key, Download, Share2, FileText,
-  Grid3x3, List, ZoomIn, ZoomOut, MousePointer, Move,
+  Grid3x3, List, Move,
   Trash2, X, Package, AlertCircle, RotateCcw,
   ChevronRight, Upload, Pencil, Lock,
   Cpu, Activity, CheckSquare, ChevronUp, ExternalLink,
   Phone, Mail, MessageSquare, StickyNote, Users, Store,
   DoorOpen, PanelRight, Zap, Server, Cable, Box, Save,
   Sun, Moon, SlidersHorizontal, ShoppingCart, History,
-  RotateCw, Maximize2, Minimize2, LogOut, Undo2, Redo2, Ruler, Magnet,
-  AlignStartVertical, AlignEndVertical, AlignStartHorizontal, AlignEndHorizontal, AlignHorizontalJustifyCenter, AlignVerticalJustifyCenter,
+  RotateCw, Maximize2, Minimize2, LogOut,
   ListTodo, PlusCircle, GanttChart, ClipboardCheck,
   Link2, Copy, Filter, CheckCheck, Paperclip, Image,
   BellRing, Layout, BarChart4, Table2, Hash, Info, FileDown,
@@ -23,14 +22,7 @@ import {
   UserCheck, Send, EyeOff, GanttChartSquare, Boxes, PackageOpen,
 } from "lucide-react";
 import { clsx } from "clsx";
-import { Stage as KonvaStage, Layer as KonvaLayer, Rect as KonvaRect, Circle as KonvaCircle, Line as KonvaLine, Text as KonvaText, Image as KonvaImage, Group as KonvaGroup, Arc as KonvaArc, Transformer as KonvaTransformer } from "react-konva";
-import type Konva from "konva";
-import { Canvas as ThreeCanvas } from "@react-three/fiber";
-import { OrbitControls, useGLTF, Environment, ContactShadows } from "@react-three/drei";
-import * as pdfjsLib from "pdfjs-dist";
 import logoImg from "./assets/2026-06-14_21.13.34_e-techsystemsja.com_2f51395e09e8-removebg-preview (1).png";
-
-pdfjsLib.GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.js`;
 
 const API_BASE = import.meta.env.VITE_API_URL || "/api";
 const GCT_RATE = 0.15;
@@ -111,7 +103,7 @@ function makeFmt(currency: "USD" | "JMD") {
   };
 }
 
-type Page = "login" | "dashboard" | "design-studio" | "project-detail" | "design-canvas" | "workbook" | "install-tracker" | "device-library";
+type Page = "login" | "dashboard" | "design-studio" | "project-detail" | "workbook" | "install-tracker" | "device-library";
 type Stage = "lead" | "opportunity" | "assessment-scheduled" | "assessment-completed" | "proposal" | "negotiation" | "win" | "lose";
 type ProjectStage = "support" | "planning" | "procurement" | "installation" | "commissioning" | "complete";
 type PipelineType = "sales" | "project";
@@ -207,7 +199,7 @@ interface CatalogDevice {
   id: string;
   model: string;
   manufacturer: string;
-  category: "camera" | "access-control" | "nvr" | "analytics" | "intercom" | "other";
+  category: "camera" | "access-control" | "nvr" | "analytics" | "intercom" | "other" | "switch" | "poe-injector" | "patch-panel" | "rack" | "ups";
   system: SystemType;
   cameraType?: CameraType;
   resolution?: string;
@@ -234,37 +226,41 @@ interface CatalogDevice {
 interface Column { id: Stage; label: string; color: string; }
 interface ProjectColumn { id: ProjectStage; label: string; color: string; }
 
-type CanvasDevice = {
-  id: string;
-  type: "camera" | "door" | "panel" | "power" | "server" | "intercom" | "cable";
-  x: number;
-  y: number;
-  rot: number;
-  fov?: number;
-  range?: number;
-  label: string;
-  selected?: boolean;
-  connectedTo?: string[];
-  doorConfig?: { swing: "inswinging" | "outswinging"; lockType: string; readers: string[]; accessType: string; keyOverride: boolean };
-  cablePoints?: { x: number; y: number }[];
-  deviceStoreRef?: string;
-  imageUrl?: string;
-  radius?: number;
-  width?: number;
-  height?: number;
-};
-interface CanvasLayoutData {
-  devices: CanvasDevice[];
-  imageUrl: string;
-  image3DUrl: string;
-  scaleCalibration?: { pixelDistance: number; realDistance: number; unit: "ft" | "m" };
+type AssetCategory = "camera" | "access-control" | "network-hardware" | "cable-wire" | "intercom" | "other";
+
+interface CableSpec {
+  cableType: "CAT-6" | "CAT-6A" | "Fiber-SM" | "Fiber-MM" | "Coax-RG59" | "Power-18AWG" | "Power-14AWG" | "Speaker-Wire" | "Other";
+  lengthFt?: number;
+  shielding?: "UTP" | "STP" | "FTP";
+  jacketRating?: "Plenum (CMP)" | "Riser (CMR)" | "PVC (CM)" | "Direct Burial";
+  connectorType?: string;
+  color?: string;
+  runDescription?: string;
+  costPerFt?: number;
 }
-type FloorPlanFile = { id: string; type: "2d" | "3d"; url: string; originalName: string; format: string; is3DModel?: boolean; };
+
+interface ProjectAsset {
+  id: string;
+  projectId: string;
+  category: AssetCategory;
+  system: SystemType;
+  deviceStoreRef?: string;
+  cableSpec?: CableSpec;
+  quantity: number;
+  location: string;
+  zoneId?: string;
+  purpose: string;
+  coveragePhotos?: string[];
+  notes?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
 type IconType = React.ComponentType<{ className?: string }>;
 
 interface SynthesisOverride { id: string; projectId: string; sectionNumber: string; overrideValue: number | null; isOverridden: boolean; overriddenBy?: string; overriddenAt?: string; }
 interface WorkbookAuditEntry { id: string; projectId: string; fieldPath: string; oldValue: string; newValue: string; changedBy: string; changedAt: string; }
-interface AssetListItem { id: string; item: string; qty: number; cost: number; markupPercent: number; sell: number; costTotal: number; total: number; profit: number; isCanvasDevice?: boolean; deviceType?: string; system?: SystemType; sourceCategory?: string; sourceItemId?: string; }
+interface AssetListItem { id: string; item: string; qty: number; cost: number; markupPercent: number; sell: number; costTotal: number; total: number; profit: number; isProjectAsset?: boolean; deviceType?: string; system?: SystemType; sourceCategory?: string; sourceItemId?: string; }
 interface InventoryItem { id: string; name: string; quantityOnHand: number; location?: string; notes?: string; deviceId?: string; model?: string; manufacturer?: string; sku?: string; }
 interface InventoryTransaction { id: string; itemId: string; itemName: string; userName: string; action: string; quantity: number; purpose?: string; notes?: string; createdAt: string; }
 interface Subcontractor { id: string; projectId: string; name: string; trade?: string; email?: string; shareToken?: string | null; createdAt: string; documents: { id: string; filename: string; fileUrl: string; uploadedBy?: string; createdAt: string; }[]; }
@@ -444,10 +440,11 @@ const API = {
     addDevice: (zoneId: string, data: Partial<InstallDevice>) => apiFetch<InstallDevice>(`/install/zones/${zoneId}/devices`, { method: "POST", body: JSON.stringify(data) }),
     updateStatus: (zoneId: string, deviceId: string, status: InstallStatus) => apiFetch<void>(`/install/zones/${zoneId}/devices/${deviceId}`, { method: "PATCH", body: JSON.stringify({ status }) }),
   },
-  canvas: {
-    get: (projectId: string) => apiFetch<{ projectId: string; layoutData: Partial<CanvasLayoutData> }>(`/canvas/${projectId}`),
-    save: (projectId: string, data: { layoutData: CanvasLayoutData }) => apiFetch<void>(`/canvas/${projectId}`, { method: "PUT", body: JSON.stringify(data) }),
-    upload: (projectId: string, file: File) => { const fd = new FormData(); fd.append("file", file); return apiFetch<{ url: string }>(`/canvas/${projectId}/upload`, { method: "POST", body: fd }); },
+  projectAssets: {
+    list: (projectId: string) => apiFetch<ProjectAsset[]>(`/projects/${projectId}/assets`),
+    create: (projectId: string, data: Partial<ProjectAsset>) => apiFetch<ProjectAsset>(`/projects/${projectId}/assets`, { method: "POST", body: JSON.stringify(data) }),
+    update: (projectId: string, assetId: string, data: Partial<ProjectAsset>) => apiFetch<ProjectAsset>(`/projects/${projectId}/assets/${assetId}`, { method: "PATCH", body: JSON.stringify(data) }),
+    delete: (projectId: string, assetId: string) => apiFetch<void>(`/projects/${projectId}/assets/${assetId}`, { method: "DELETE" }),
   },
   fx: {
     getRate: async () => {
@@ -715,7 +712,6 @@ function Breadcrumb({ page, projectName }: { page: Page; projectName?: string })
   else if (page === "workbook") crumbs.push({ label: "Workbook", page: "workbook" });
   else if (page === "install-tracker") crumbs.push({ label: "Install Tracker", page: "install-tracker" });
   else if (page === "device-library") crumbs.push({ label: "Device Library", page: "device-library" });
-  else if (page === "design-canvas") crumbs.push({ label: "Projects", page: "design-studio" }, { label: "Design Canvas" });
   else if (page === "project-detail") crumbs.push({ label: "Projects", page: "design-studio" }, { label: projectName || "Project Detail" });
   return (
     <div className="flex items-center gap-1.5 text-[13px]">
@@ -1626,7 +1622,7 @@ function DealModal({ project, column, onClose, navigate, onUpdate, onDelete, pip
         </div>
         <div className="px-5 md:px-7 pb-7 flex gap-2.5">
           <button onClick={() => { navigate("project-detail"); onClose(); }} className="flex-1 h-10 rounded-xl flex items-center justify-center gap-2 text-white text-[15px] font-extrabold cursor-pointer min-h-[44px]" style={{ background: "#3b82f6", boxShadow: "0 4px 20px rgba(59,130,246,0.4)" }}><ExternalLink className="w-3.5 h-3.5" />Open</button>
-          <button onClick={() => { navigate("design-canvas"); onClose(); }} className="flex-1 h-10 rounded-xl flex items-center justify-center gap-2 text-[#e6edf3] text-[15px] font-extrabold cursor-pointer min-h-[44px]" style={G.btn}><Layers className="w-3.5 h-3.5 text-violet-400" />Design</button>
+          <button onClick={() => { localStorage.setItem("pd_tab", "assets"); navigate("project-detail"); onClose(); }} className="flex-1 h-10 rounded-xl flex items-center justify-center gap-2 text-[#e6edf3] text-[15px] font-extrabold cursor-pointer min-h-[44px]" style={G.btn}><Package className="w-3.5 h-3.5 text-violet-400" />Assets</button>
           <button onClick={() => { onDelete(project.id); onClose(); }} className="h-10 px-3 rounded-xl text-rose-400 text-[15px] font-extrabold cursor-pointer min-h-[44px]" style={{ background: "rgba(244,63,94,0.10)", border: "1px solid rgba(244,63,94,0.20)" }}><Trash2 className="w-3.5 h-3.5" /></button>
         </div>
       </motion.div>
@@ -1713,7 +1709,6 @@ function DesignStudio({ navigate }: { navigate: (p: Page) => void }) {
   const [projects, setProjects] = useState<Project[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
-  const [studioView, setStudioView] = useState<"projects" | "canvas">("projects");
 
   const fetchProjects = useCallback(async () => { setLoading(true); try { const data = await API.projects.list(); setProjects(data); } catch { setProjects([]); } finally { setLoading(false); } }, []);
   useEffect(() => { fetchProjects(); }, [fetchProjects]);
@@ -1748,23 +1743,13 @@ function DesignStudio({ navigate }: { navigate: (p: Page) => void }) {
         <div><h1 className="text-white font-extrabold text-2xl md:text-3xl tracking-tight">System Design Studio</h1></div>
         <div className="flex items-center gap-2">
           <div className="flex items-center rounded-xl p-0.5 gap-0.5" style={G.btn}>
-            <button onClick={() => setStudioView("projects")} className={clsx("h-7 px-3 rounded-lg text-[13px] md:text-[14px] font-bold cursor-pointer", studioView === "projects" ? "text-white" : "text-[#8b949e]")} style={studioView === "projects" ? { background: "rgba(255,255,255,0.12)" } : undefined}>Projects</button>
-            <button onClick={() => setStudioView("canvas")} className={clsx("h-7 px-3 rounded-lg text-[13px] md:text-[14px] font-bold cursor-pointer", studioView === "canvas" ? "text-white" : "text-[#8b949e]")} style={studioView === "canvas" ? { background: "rgba(255,255,255,0.12)" } : undefined}>Canvas</button>
+            {(["grid","list"] as const).map((m) => (
+              <button key={m} onClick={() => setViewMode(m)} className={clsx("w-7 h-7 rounded-lg flex items-center justify-center cursor-pointer", viewMode === m ? "text-white" : "text-[#8b949e]")} style={viewMode === m ? { background: "rgba(255,255,255,0.12)" } : undefined}>{m === "grid" ? <Grid3x3 className="w-3.5 h-3.5" /> : <List className="w-3.5 h-3.5" />}</button>
+            ))}
           </div>
-          {studioView === "projects" && (
-            <div className="flex items-center rounded-xl p-0.5 gap-0.5" style={G.btn}>
-              {(["grid","list"] as const).map((m) => (
-                <button key={m} onClick={() => setViewMode(m)} className={clsx("w-7 h-7 rounded-lg flex items-center justify-center cursor-pointer", viewMode === m ? "text-white" : "text-[#8b949e]")} style={viewMode === m ? { background: "rgba(255,255,255,0.12)" } : undefined}>{m === "grid" ? <Grid3x3 className="w-3.5 h-3.5" /> : <List className="w-3.5 h-3.5" />}</button>
-              ))}
-            </div>
-          )}
         </div>
       </div>
-      {studioView === "canvas" ? (
-        <div className="rounded-2xl p-8 text-center" style={G.card}><Layers className="w-12 h-12 text-[#484f58] mx-auto mb-3" /><p className="text-[#8b949e] text-[15px]">Open the Design Canvas to place devices on floor plans and 3D models.</p><button onClick={() => navigate("design-canvas")} className="mt-4 h-9 px-5 rounded-xl text-white text-[14px] font-extrabold cursor-pointer min-h-[44px]" style={{ background: "#3b82f6" }}>Open Canvas</button></div>
-      ) : (
-        <>
-          <div className="flex items-center gap-2 mb-4 md:mb-5 flex-wrap">
+      <div className="flex items-center gap-2 mb-4 md:mb-5 flex-wrap">
             {stageFilters.map((f) => (
               <button key={f.id} onClick={() => setFilter(f.id)} className={clsx("h-7 px-3 rounded-full text-[13px] md:text-[14px] font-bold cursor-pointer", filter === f.id ? "text-white" : "text-[#8b949e]")} style={filter === f.id ? { background: "#3b82f6", boxShadow: "0 2px 12px rgba(59,130,246,0.3)" } : G.subtle}>{f.label}</button>
             ))}
@@ -1806,8 +1791,6 @@ function DesignStudio({ navigate }: { navigate: (p: Page) => void }) {
               </div>
             </div>
           )}
-        </>
-      )}
     </div>
   );
 }
@@ -1871,8 +1854,8 @@ function ProjectDetail({ navigate }: { navigate: (p: Page) => void }) {
   const badge = isProjPipe ? projectStageBadge(p.projectStage || "planning") : stageBadge(p.stage);
   const ls = p.leadSource ? LEAD_SOURCE_STYLES[p.leadSource] : null;
   const team = getDeduplicatedTeam(p);
-  const tabs = ["overview","tasks","documents","quotes","change-orders","audit-log","gantt","subcontractors","procurement","commissioning"];
-  const tabLabels: Record<string, string> = { overview: "Overview", tasks: "Tasks", documents: "Files", quotes: "Quotes", "change-orders": "Change Orders", "audit-log": "Audit Log", gantt: "Timeline", subcontractors: "Subcontractors", procurement: "Procurement", commissioning: "Commissioning" };
+  const tabs = ["overview","tasks","documents","quotes","assets","change-orders","audit-log","gantt","subcontractors","procurement","commissioning"];
+  const tabLabels: Record<string, string> = { overview: "Overview", tasks: "Tasks", documents: "Files", quotes: "Quotes", assets: "Assets", "change-orders": "Change Orders", "audit-log": "Audit Log", gantt: "Timeline", subcontractors: "Subcontractors", procurement: "Procurement", commissioning: "Commissioning" };
   const stageHistory = p.stageHistory || [{ stage: p.stage, date: p.createdAt?.slice(0,10) || new Date().toISOString().slice(0,10) }];
 
   return (
@@ -1900,7 +1883,7 @@ function ProjectDetail({ navigate }: { navigate: (p: Page) => void }) {
           <p className="text-[#8b949e] text-[14px] md:text-[15px] flex items-center gap-1.5"><Building2 className="w-3.5 h-3.5" /> {p.client} · <MapPin className="w-3.5 h-3.5 ml-1" /> {p.location}</p>
         </div>
         <div className="flex items-center gap-2 flex-shrink-0 flex-wrap">
-          {[{ label: "Design", icon: Layers, action: () => navigate("design-canvas") },{ label: "Install", icon: CheckSquare, action: () => navigate("install-tracker") }].map(({ label, icon: Icon, action }) => (
+          {[{ label: "Assets", icon: Package, action: () => setActiveTab("assets") },{ label: "Install", icon: CheckSquare, action: () => navigate("install-tracker") }].map(({ label, icon: Icon, action }) => (
             <button key={label} onClick={action} className="flex items-center gap-1.5 h-9 px-3 md:px-4 rounded-xl text-white text-[13px] md:text-[14px] font-bold hover:bg-white/[0.10] cursor-pointer min-h-[44px]" style={G.btn}><Icon className="w-3.5 h-3.5" /> {label}</button>
           ))}
           <button onClick={handleGenerateShareLink} className="flex items-center gap-1.5 h-9 px-3 rounded-xl text-white text-[13px] font-bold cursor-pointer" style={G.btn}><Share2 className="w-3.5 h-3.5" /> Share</button>
@@ -1977,6 +1960,7 @@ function ProjectDetail({ navigate }: { navigate: (p: Page) => void }) {
           )}
         </div>
       )}
+      {activeTab === "assets" && <ProjectAssetsTab projectId={p.id} projectName={p.name} clientName={p.client} />}
       {activeTab === "gantt" && <GanttView projectId={p.id} />}
       {activeTab === "subcontractors" && <SubcontractorTab projectId={p.id} />}
       {activeTab === "procurement" && <ProcurementTab projectId={p.id} />}
@@ -2319,700 +2303,298 @@ function CommissioningTab({ projectId }: { projectId: string }) {
   );
 }
 
-function GLTFModel({ url }: { url: string }) {
-  const { scene } = useGLTF(url);
-  const clonedScene = useMemo(() => scene.clone(), [scene]);
-  return <primitive object={clonedScene} scale={1} position={[0, -0.5, 0]} rotation={[0, 0, 0]} />;
-}
+const ASSET_CATEGORY_LABELS: Record<AssetCategory, string> = { camera: "Camera", "access-control": "Access Control", "network-hardware": "Network Hardware", "cable-wire": "Cable / Wire", intercom: "Intercom", other: "Other" };
+const CATALOG_CATEGORIES_FOR_ASSET: Record<AssetCategory, CatalogDevice["category"][]> = {
+  camera: ["camera"],
+  "access-control": ["access-control"],
+  "network-hardware": ["switch", "poe-injector", "patch-panel", "rack", "ups", "nvr"],
+  "cable-wire": [],
+  intercom: ["intercom"],
+  other: ["camera", "access-control", "nvr", "analytics", "intercom", "other", "switch", "poe-injector", "patch-panel", "rack", "ups"],
+};
+const INSTALL_DEVICE_TYPE_FOR_ASSET: Record<AssetCategory, InstallDevice["type"] | null> = { camera: "camera", "access-control": "access", "network-hardware": "server", "cable-wire": null, intercom: "intercom", other: "panel" };
+const DEFAULT_SYSTEM_FOR_ASSET: Record<AssetCategory, SystemType> = { camera: "VSS", "access-control": "EAC", "network-hardware": "VSS", "cable-wire": "VSS", intercom: "Intercom", other: "VSS" };
 
-function ThreeDViewer({ file }: { file: FloorPlanFile }) {
-  if (!file.is3DModel) {
-    return (<div className="w-full h-full flex items-center justify-center" style={{ background: "#070c1a" }}><img src={file.url} alt="3D Rendering" className="max-w-full max-h-full object-contain" /></div>);
-  }
-  return (
-    <ThreeCanvas camera={{ position: [3, 2, 5], fov: 50 }} style={{ background: "#070c1a" }}>
-      <Suspense fallback={null}>
-        <ambientLight intensity={0.5} />
-        <directionalLight position={[10, 10, 5]} intensity={1} />
-        <directionalLight position={[-10, -10, -5]} intensity={0.5} />
-        <GLTFModel url={file.url} />
-        <Environment preset="city" />
-        <ContactShadows position={[0, -1.5, 0]} opacity={0.4} scale={5} blur={2.5} />
-        <OrbitControls enableDamping dampingFactor={0.05} />
-        <gridHelper args={[10, 10, "#333", "#222"]} />
-      </Suspense>
-    </ThreeCanvas>
-  );
-}
-const CANVAS_TOOLS = [
-  { id: "select", icon: MousePointer, label: "Select" },
-  { id: "camera", icon: Camera, label: "Camera" },
-  { id: "door", icon: DoorOpen, label: "Door" },
-  { id: "panel", icon: PanelRight, label: "Panel" },
-  { id: "power", icon: Zap, label: "Power" },
-  { id: "server", icon: Server, label: "NVR" },
-  { id: "intercom", icon: Phone, label: "Intercom" },
-  { id: "cable", icon: Cable, label: "Cable" },
-  { id: "calibrate", icon: Ruler, label: "Calibrate Scale" },
-  { id: "measure", icon: Move, label: "Measure" },
-  { id: "trash", icon: Trash2, label: "Delete" },
-];
-
-function DesignCanvas({ navigate }: { navigate: (p: Page) => void }) {
-  const [activeTool, setActiveTool] = useState("select");
-  const [showDeviceTray, setShowDeviceTray] = useState(false);
-  const [showProperties, setShowProperties] = useState(true);
-  const [showFov, setShowFov] = useState(true);
-  const [view3D, setView3D] = useState(false);
-  const [devicesHistory, setDevicesHistory] = useState<{ past: CanvasDevice[][]; present: CanvasDevice[]; future: CanvasDevice[][] }>({ past: [], present: [], future: [] });
-  const devices = devicesHistory.present;
-  const commitDevices = useCallback((updater: CanvasDevice[] | ((prev: CanvasDevice[]) => CanvasDevice[])) => {
-    setDevicesHistory((h) => {
-      const next = typeof updater === "function" ? (updater as (p: CanvasDevice[]) => CanvasDevice[])(h.present) : updater;
-      return { past: [...h.past, h.present].slice(-50), present: next, future: [] };
-    });
-  }, []);
-  const undo = useCallback(() => {
-    setDevicesHistory((h) => h.past.length === 0 ? h : { past: h.past.slice(0, -1), present: h.past[h.past.length - 1], future: [h.present, ...h.future] });
-  }, []);
-  const redo = useCallback(() => {
-    setDevicesHistory((h) => h.future.length === 0 ? h : { past: [...h.past, h.present], present: h.future[0], future: h.future.slice(1) });
-  }, []);
-  const [selectedIds, setSelectedIds] = useState<string[]>([]);
-  const [marqueeStart, setMarqueeStart] = useState<{ x: number; y: number } | null>(null);
-  const [marqueeEnd, setMarqueeEnd] = useState<{ x: number; y: number } | null>(null);
-  const multiDragRef = useRef<{ draggedId: string; starts: Record<string, { x: number; y: number }> } | null>(null);
-  const [storeSearch, setStoreSearch] = useState("");
-  const [cablePoints, setCablePoints] = useState<{ x: number; y: number }[]>([]);
-  const [pendingPoints, setPendingPoints] = useState<{ x: number; y: number }[]>([]);
-  const [calibrationInput, setCalibrationInput] = useState("");
-  const [calibrationUnit, setCalibrationUnit] = useState<"ft" | "m">("ft");
-  const [measurements, setMeasurements] = useState<{ id: string; p1: { x: number; y: number }; p2: { x: number; y: number } }[]>([]);
-  const [showLayersPanel, setShowLayersPanel] = useState(false);
-  const [layerVisibility, setLayerVisibility] = useState({ floorplan: true, devices: true, cabling: true, annotations: true });
-  const [scaleCalibration, setScaleCalibration] = useState<CanvasLayoutData["scaleCalibration"]>(undefined);
-  const [showGrid, setShowGrid] = useState(false);
-  const [snapEnabled, setSnapEnabled] = useState(false);
-  const [gridInterval, setGridInterval] = useState<0.5 | 1 | 2>(1);
-  const [projectId, setProjectId] = useState<string>(() => localStorage.getItem("canvas_last_project") || "");
+function ProjectAssetsTab({ projectId, projectName, clientName }: { projectId: string; projectName: string; clientName: string }) {
+  const [assets, setAssets] = useState<ProjectAsset[]>([]);
   const [storeDevices, setStoreDevices] = useState<CatalogDevice[]>([]);
-  const [floorPlan2D, setFloorPlan2D] = useState<FloorPlanFile | null>(null);
-  const [floorPlan3D, setFloorPlan3D] = useState<FloorPlanFile | null>(null);
-  const [pdfRendering, setPdfRendering] = useState(false);
-  const [floorPlanImage, setFloorPlanImage] = useState<HTMLImageElement | null>(null);
-  const [stageSize, setStageSize] = useState({ width: 1200, height: 800 });
-  const [scale, setScale] = useState(1);
-  const [position, setPosition] = useState({ x: 0, y: 0 });
-  const floorPlanRect = useMemo(() => {
-    if (!floorPlanImage) return null;
-    const padding = 20;
-    const availableWidth = stageSize.width - padding * 2;
-    const availableHeight = stageSize.height - padding * 2;
-    const fitScale = Math.min(availableWidth / floorPlanImage.width, availableHeight / floorPlanImage.height);
-    const width = floorPlanImage.width * fitScale;
-    const height = floorPlanImage.height * fitScale;
-    return { x: (stageSize.width - width) / 2, y: (stageSize.height - height) / 2, width, height };
-  }, [floorPlanImage, stageSize.width, stageSize.height]);
-  const toContentCoords = useCallback((raw: { x: number; y: number }) => ({ x: (raw.x - position.x) / scale, y: (raw.y - position.y) / scale }), [position, scale]);
-  const pxPerFoot = useMemo(() => {
-    if (!scaleCalibration) return null;
-    const feet = scaleCalibration.unit === "m" ? scaleCalibration.realDistance * 3.28084 : scaleCalibration.realDistance;
-    if (!feet) return null;
-    return scaleCalibration.pixelDistance / feet;
-  }, [scaleCalibration]);
-  const gridSize = pxPerFoot ? pxPerFoot * gridInterval : null;
-  const snap = useCallback((v: number) => gridSize ? Math.round(v / gridSize) * gridSize : v, [gridSize]);
-  const stageRef = useRef<any>(null);
-  const containerRef = useRef<HTMLDivElement>(null);
-  const transformerRef = useRef<Konva.Transformer>(null);
-  const dragSnapshotRef = useRef<CanvasDevice[] | null>(null);
-  const justMarqueedRef = useRef(false);
+  const [zones, setZones] = useState<InstallZone[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [showAdd, setShowAdd] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [search, setSearch] = useState("");
+  const [categoryFilter, setCategoryFilter] = useState<AssetCategory | "all">("all");
+  const [uploadingPhoto, setUploadingPhoto] = useState<string | null>(null);
 
-  const selected = selectedIds.length === 1 ? devices.find((c) => c.id === selectedIds[0]) : undefined;
-  const selectedDevices = selectedIds.map((id) => devices.find((d) => d.id === id)).filter((d): d is CanvasDevice => !!d && d.type !== "cable");
-  const storeDevice = selected?.deviceStoreRef ? storeDevices.find(d => d.id === selected.deviceStoreRef) : null;
+  const [category, setCategory] = useState<AssetCategory>("camera");
+  const [system, setSystem] = useState<SystemType>("VSS");
+  const [deviceStoreRef, setDeviceStoreRef] = useState("");
+  const [quantity, setQuantity] = useState("1");
+  const [location, setLocation] = useState("");
+  const [zoneId, setZoneId] = useState("");
+  const [purpose, setPurpose] = useState("");
+  const [notes, setNotes] = useState("");
+  const [cableType, setCableType] = useState<CableSpec["cableType"]>("CAT-6");
+  const [lengthFt, setLengthFt] = useState("");
+  const [runDescription, setRunDescription] = useState("");
+  const [costPerFt, setCostPerFt] = useState("");
 
-  useEffect(() => { API.devices.list().then(setStoreDevices).catch(() => setStoreDevices([])); }, []);
+  const resetForm = () => { setCategory("camera"); setSystem("VSS"); setDeviceStoreRef(""); setQuantity("1"); setLocation(""); setZoneId(""); setPurpose(""); setNotes(""); setCableType("CAT-6"); setLengthFt(""); setRunDescription(""); setCostPerFt(""); };
 
-  useEffect(() => {
-    const updateSize = () => { if (containerRef.current) setStageSize({ width: containerRef.current.clientWidth, height: containerRef.current.clientHeight }); };
-    updateSize();
-    window.addEventListener("resize", updateSize);
-    return () => window.removeEventListener("resize", updateSize);
-  }, []);
-
-  useEffect(() => {
-    const loadCanvas = async () => {
-      try {
-        const projects = await API.projects.list();
-        const pid = projectId || projects[0]?.id;
-        if (pid) {
-          setProjectId(pid);
-          localStorage.setItem("canvas_last_project", pid);
-          const data = await API.canvas.get(pid);
-          if (data.layoutData?.imageUrl) {
-            setFloorPlan2D({ id: "2d-" + pid, type: "2d", url: data.layoutData.imageUrl, originalName: "floor-plan", format: data.layoutData.imageUrl.match(/\.(\w+)(\?|$)/)?.[1] || "png" });
-            const img = new window.Image();
-            img.crossOrigin = "anonymous";
-            img.src = data.layoutData.imageUrl;
-            img.onload = () => setFloorPlanImage(img);
-          }
-          if (data.layoutData?.image3DUrl) {
-            const is3DModel = /\.(glb|gltf|obj|stl|fbx)$/i.test(data.layoutData.image3DUrl);
-            setFloorPlan3D({ id: "3d-" + pid, type: "3d", url: data.layoutData.image3DUrl, originalName: "3d-model", format: data.layoutData.image3DUrl.match(/\.(\w+)(\?|$)/)?.[1] || "png", is3DModel });
-          }
-          if (data.layoutData?.devices) setDevicesHistory({ past: [], present: data.layoutData.devices, future: [] });
-          if (data.layoutData?.scaleCalibration) setScaleCalibration(data.layoutData.scaleCalibration);
-        }
-      } catch {}
-    };
-    loadCanvas();
-  }, []);
-
-  useEffect(() => {
-    const tr = transformerRef.current;
-    const stage = stageRef.current;
-    if (!tr || !stage) return;
-    const selectableIds = selectedIds.filter((id) => devices.find((d) => d.id === id)?.type !== "cable");
-    if (selectableIds.length === 0) {
-      tr.nodes([]);
-      tr.getLayer()?.batchDraw();
-      return;
-    }
-    const nodes = selectableIds.map((id) => stage.findOne("#" + id)).filter(Boolean);
-    tr.nodes(nodes);
-    tr.getLayer()?.batchDraw();
-  }, [selectedIds, devices]);
-
-  useEffect(() => {
-    if (activeTool === "measure" && pendingPoints.length === 2) {
-      const [p1, p2] = pendingPoints;
-      setMeasurements((prev) => [...prev, { id: `m${Date.now()}`, p1, p2 }]);
-      setPendingPoints([]);
-    }
-  }, [activeTool, pendingPoints]);
-
-  const handleTransformEnd = () => {
-    const nodes = transformerRef.current?.nodes() || [];
-    if (nodes.length === 0) return;
-    const results: Record<string, { x: number; y: number; rot: number; scaleX: number; scaleY: number }> = {};
-    nodes.forEach((node: any) => {
-      const scaleX = node.scaleX();
-      const scaleY = node.scaleY();
-      const rotation = node.rotation();
-      node.scaleX(1);
-      node.scaleY(1);
-      const x = snapEnabled ? snap(node.x()) : node.x();
-      const y = snapEnabled ? snap(node.y()) : node.y();
-      results[node.id()] = { x, y, rot: rotation, scaleX, scaleY };
-    });
-    commitDevices((prev) => prev.map((d) => {
-      const r = results[d.id];
-      if (!r) return d;
-      const next: CanvasDevice = { ...d, x: r.x, y: r.y, rot: r.rot };
-      if (d.type === "camera") next.radius = Math.max(6, (d.radius ?? defaultRadius) * Math.max(r.scaleX, r.scaleY));
-      else { next.width = Math.max(8, (d.width ?? defaultWidth(d.type)) * r.scaleX); next.height = Math.max(8, (d.height ?? defaultHeight(d.type)) * r.scaleY); }
-      return next;
-    }));
-  };
-
-  const saveCanvas = useCallback(async () => {
-    if (!projectId) return;
+  const fetchAll = useCallback(async () => {
+    setLoading(true);
     try {
-      await API.canvas.save(projectId, { layoutData: { devices, imageUrl: floorPlan2D?.url || "", image3DUrl: floorPlan3D?.url || "", scaleCalibration } });
-      const camCount = devices.filter(d => d.type === "camera").length;
-      const devCount = devices.filter(d => d.type !== "cable").length;
-      API.projects.update(projectId, { cameras: camCount, devices: devCount }).catch(() => {});
-    } catch (err) { console.error("Canvas save failed:", err); }
-  }, [devices, floorPlan2D, floorPlan3D, projectId, scaleCalibration]);
+      const [assetData, deviceData, zoneData] = await Promise.all([API.projectAssets.list(projectId), API.devices.list(), API.install.zones()]);
+      setAssets(assetData);
+      setStoreDevices(deviceData);
+      setZones(zoneData.filter(z => z.projectId === projectId));
+    } catch { setAssets([]); } finally { setLoading(false); }
+  }, [projectId]);
+  useEffect(() => { fetchAll(); }, [fetchAll]);
 
-  useEffect(() => { const t = setTimeout(() => { if (devices.length > 0 || floorPlan2D || floorPlan3D) saveCanvas(); }, 800); return () => clearTimeout(t); }, [devices, saveCanvas]);
-
-  useEffect(() => {
-    const handler = (e: KeyboardEvent) => {
-      if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement || e.target instanceof HTMLSelectElement) return;
-      if (!(e.ctrlKey || e.metaKey) || e.key.toLowerCase() !== "z") return;
-      e.preventDefault();
-      if (e.shiftKey) redo(); else undo();
-    };
-    window.addEventListener("keydown", handler);
-    return () => window.removeEventListener("keydown", handler);
-  }, [undo, redo]);
-
-  const syncDeviceToWorkbook = async (device: CatalogDevice) => {
-    if (!projectId) return;
+  const handleAdd = async () => {
+    const qty = parseInt(quantity) || 1;
+    const cableSpec: CableSpec | undefined = category === "cable-wire" ? { cableType, lengthFt: parseFloat(lengthFt) || undefined, runDescription: runDescription.trim() || undefined, costPerFt: parseFloat(costPerFt) || undefined } : undefined;
+    setSaving(true);
     try {
-      const quotes = await API.quotes.list();
-      let projectQuote = quotes.find((q: Quote) => q.projectId === projectId);
-      if (!projectQuote) {
-        const projects = await API.projects.list();
-        const proj = projects.find((p: Project) => p.id === projectId);
-        const system = device.system || "VSS";
-        const sysCategories = SYSTEM_CATEGORIES[system] || SYSTEM_CATEGORIES.VSS;
-        const categories = sysCategories.map(sc => ({ id: crypto.randomUUID?.() || `cat-${sc.sectionNumber}`, name: sc.name, type: system === "Intercom" ? "Intercom" as QuoteType : system === "EAC" ? "Access Control" as QuoteType : "Video Surveillance" as QuoteType, system, sectionNumber: sc.sectionNumber, importRatePercent: sc.importRatePercent, lineItems: [] }));
-        projectQuote = await API.quotes.create({ clientName: proj?.client || "", refNumber: `Q-${projectId.slice(0, 8).toUpperCase()}`, date: new Date().toISOString().slice(0, 10), status: "draft", quoteType: system === "Intercom" ? "Intercom" as QuoteType : "Multiple" as QuoteType, exchangeRate: parseFloat(localStorage.getItem("fx_rate") || String(DEFAULT_EXCHANGE_RATE)), projectId, categories });
+      const created = await API.projectAssets.create(projectId, { category, system, deviceStoreRef: deviceStoreRef || undefined, cableSpec, quantity: qty, location: location.trim(), zoneId: zoneId || undefined, purpose: purpose.trim(), notes: notes.trim() || undefined });
+      setAssets(prev => [...prev, created]);
+      const description = describeAsset(created, storeDevices);
+      const price = assetUnitCost(created, storeDevices);
+      syncAssetToWorkbook(projectId, category, system, description, price, qty).catch(() => {});
+      const installType = INSTALL_DEVICE_TYPE_FOR_ASSET[category];
+      if (zoneId && installType) {
+        API.install.addDevice(zoneId, { name: description, type: installType, location: location.trim(), status: "pending" }).catch(() => {});
       }
-      const system = device.system || "VSS";
-      const targetSection = device.category === "camera" ? 400 : device.category === "access-control" ? 1000 : device.category === "nvr" ? 200 : device.category === "intercom" ? 1500 : 400;
-      const categories = projectQuote.categories || [];
-      let targetCat = categories.find((c: QuoteCategory) => c.system === system && c.sectionNumber === targetSection);
-      if (!targetCat) {
-        const sc = (SYSTEM_CATEGORIES[system] || SYSTEM_CATEGORIES.VSS).find(s => s.sectionNumber === targetSection);
-        targetCat = { id: crypto.randomUUID?.() || `cat${Date.now()}`, name: sc?.name || "Hardware", type: system === "Intercom" ? "Intercom" as QuoteType : system === "EAC" ? "Access Control" as QuoteType : "Video Surveillance" as QuoteType, system, sectionNumber: targetSection, importRatePercent: sc?.importRatePercent || 0, lineItems: [] };
-        categories.push(targetCat);
-      }
-      const existingItem = targetCat.lineItems.find((li: QuoteLineItem) => li.description === `${device.manufacturer} ${device.model}`);
-      if (existingItem) {
-        existingItem.quantity += 1;
-        const sellPrice = existingItem.unitCost * (1 + existingItem.markupPercent);
-        existingItem.sellPrice = sellPrice;
-        existingItem.costTotal = existingItem.unitCost * existingItem.quantity;
-        existingItem.sellTotal = sellPrice * existingItem.quantity;
-        existingItem.profit = existingItem.sellTotal - existingItem.costTotal;
-      } else {
-        const price = device.price || 0;
-        const defaultMarkup = (SYSTEM_CATEGORIES[system] || SYSTEM_CATEGORIES.VSS).find(s => s.sectionNumber === targetSection)?.defaultMarkup || 0.35;
-        const sellPrice = price * (1 + defaultMarkup);
-        targetCat.lineItems.push({ id: crypto.randomUUID?.() || `li${Date.now()}`, itemNumber: String(targetCat.lineItems.length + 1).padStart(2, "0"), description: `${device.manufacturer} ${device.model}`, unitCost: price, quantity: 1, markupPercent: defaultMarkup, sellPrice, costTotal: price, sellTotal: sellPrice, profit: sellPrice - price, jmdConversion: sellPrice * (parseFloat(localStorage.getItem("fx_rate") || String(DEFAULT_EXCHANGE_RATE))) });
-      }
-      await API.quotes.update(projectQuote.id, { categories });
-    } catch (err) { console.error("Workbook sync failed:", err); }
+      toast.success("Asset added");
+      setShowAdd(false);
+      resetForm();
+    } catch { toast.error("Failed to add asset"); } finally { setSaving(false); }
   };
 
-  const removeDeviceFromWorkbook = async (deviceLabel: string) => {
-    if (!projectId) return;
+  const handleDelete = async (asset: ProjectAsset) => {
     try {
-      const quotes = await API.quotes.list();
-      const projectQuote = quotes.find((q: Quote) => q.projectId === projectId);
-      if (!projectQuote) return;
-      const categories = projectQuote.categories.map(cat => ({ ...cat, lineItems: cat.lineItems.filter(li => !li.description.includes(deviceLabel.replace(/-\d+$/, ""))) }));
-      await API.quotes.update(projectQuote.id, { categories });
-    } catch (err) { console.error("Workbook remove failed:", err); }
+      await API.projectAssets.delete(projectId, asset.id);
+      setAssets(prev => prev.filter(a => a.id !== asset.id));
+      removeAssetFromWorkbook(projectId, describeAsset(asset, storeDevices)).catch(() => {});
+      toast.success("Asset removed");
+    } catch { toast.error("Failed to remove asset"); }
   };
 
-  const addDevice = (type: CanvasDevice["type"], x: number, y: number, storeRef?: string, imgUrl?: string) => {
-    const newDevice: CanvasDevice = { id: `dev${Date.now()}`, type, x, y, rot: 0, fov: type === "camera" ? 80 : undefined, range: type === "camera" ? 90 : undefined, label: `${type.toUpperCase()}-${String(devices.length + 1).padStart(2, "0")}`, doorConfig: type === "door" ? { swing: "inswinging", lockType: "Electric Strike", readers: [], accessType: "Card", keyOverride: true } : undefined, deviceStoreRef: storeRef, imageUrl: imgUrl };
-    commitDevices((prev) => [...prev, newDevice]);
-    setSelectedIds([newDevice.id]);
+  const handlePhotoUpload = async (asset: ProjectAsset, e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setUploadingPhoto(asset.id);
+    try {
+      const result = await API.documents.upload(projectId, file);
+      const photos = [...(asset.coveragePhotos || []), result.fileUrl];
+      const updated = await API.projectAssets.update(projectId, asset.id, { coveragePhotos: photos });
+      setAssets(prev => prev.map(a => a.id === asset.id ? updated : a));
+      toast.success("Photo uploaded");
+    } catch { toast.error("Upload failed"); }
+    setUploadingPhoto(null);
+    e.target.value = "";
   };
 
-  const placeDeviceFromStore = (device: CatalogDevice) => {
-    const typeMap: Record<string, CanvasDevice["type"]> = { camera: "camera", "access-control": "door", nvr: "server", analytics: "server", intercom: "intercom", other: "camera" };
-    const centerX = stageSize.width / 2 + (Math.random() * 100 - 50);
-    const centerY = stageSize.height / 2 + (Math.random() * 100 - 50);
-    addDevice(typeMap[device.category] || "camera", centerX, centerY, device.id, device.imageUrl);
-    syncDeviceToWorkbook(device);
-    toast.success(`${device.model} placed on canvas`);
+  const filtered = useMemo(() => {
+    let result = assets;
+    if (categoryFilter !== "all") result = result.filter(a => a.category === categoryFilter);
+    if (search.trim()) { const q = search.toLowerCase(); result = result.filter(a => describeAsset(a, storeDevices).toLowerCase().includes(q) || a.location.toLowerCase().includes(q) || a.purpose.toLowerCase().includes(q)); }
+    return result;
+  }, [assets, storeDevices, categoryFilter, search]);
+
+  const grouped = useMemo(() => {
+    const map = new Map<AssetCategory, ProjectAsset[]>();
+    filtered.forEach(a => { const list = map.get(a.category) || []; list.push(a); map.set(a.category, list); });
+    return map;
+  }, [filtered]);
+
+  const exportRows = () => filtered.map(a => ({ category: ASSET_CATEGORY_LABELS[a.category], item: describeAsset(a, storeDevices), qty: a.quantity, location: a.location, purpose: a.purpose }));
+
+  const exportCsv = () => {
+    const rows = exportRows();
+    const csv = ["Category,Item,Qty,Location,Purpose", ...rows.map(r => [r.category, r.item, r.qty, r.location, r.purpose].map(v => `"${String(v).replace(/"/g, '""')}"`).join(","))].join("\n");
+    const blob = new Blob([csv], { type: "text/csv" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url; a.download = `${projectName.replace(/\s+/g, "-")}-equipment-list.csv`; a.click();
+    URL.revokeObjectURL(url);
   };
 
-  const getDeviceColor = (type: CanvasDevice["type"]) => { const colors: Record<string, string> = { camera: "#3b82f6", door: "#f59e0b", panel: "#f97316", power: "#ef4444", server: "#ec4899", intercom: "#14b8a6", cable: "#8b5cf6" }; return colors[type] || "#3b82f6"; };
-  const defaultWidth = (type: CanvasDevice["type"]) => type === "server" ? 28 : type === "panel" ? 24 : 20;
-  const defaultHeight = (type: CanvasDevice["type"]) => type === "door" ? 12 : type === "panel" || type === "server" ? 16 : 20;
-  const defaultRadius = 12;
-  const deviceBounds = (dev: CanvasDevice) => {
-    if (dev.type === "camera") { const half = dev.radius ?? defaultRadius; return { left: dev.x - half, right: dev.x + half, top: dev.y - half, bottom: dev.y + half, halfW: half, halfH: half }; }
-    const halfW = (dev.width ?? defaultWidth(dev.type)) / 2;
-    const halfH = (dev.height ?? defaultHeight(dev.type)) / 2;
-    return { left: dev.x - halfW, right: dev.x + halfW, top: dev.y - halfH, bottom: dev.y + halfH, halfW, halfH };
-  };
-
-  const handleStageClick = (e: any) => {
-    const stage = e.target.getStage();
-    const raw = stage.getPointerPosition();
-    if (!raw) return;
-    const point = toContentCoords(raw);
-    if (activeTool === "calibrate" || activeTool === "measure") { setPendingPoints((prev) => prev.length >= 2 ? [point] : [...prev, point]); return; }
-    if (activeTool === "cable") { setCablePoints((prev) => [...prev, point]); return; }
-    if (activeTool === "trash") return;
-    if (activeTool === "select") {
-      if (justMarqueedRef.current) { justMarqueedRef.current = false; return; }
-      setSelectedIds([]);
-      return;
-    }
-    addDevice(activeTool as CanvasDevice["type"], point.x, point.y);
-  };
-
-  const handleDoubleClick = () => {
-    if (activeTool === "cable" && cablePoints.length >= 2) {
-      commitDevices((prev) => [...prev, { id: `dev${Date.now()}`, type: "cable", x: cablePoints[0].x, y: cablePoints[0].y, rot: 0, label: `CABLE-${String(prev.filter(d => d.type === "cable").length + 1).padStart(2, "0")}`, cablePoints: [...cablePoints] }]);
-      setCablePoints([]);
-    }
-  };
-
-  const submitCalibration = () => {
-    const realDistance = parseFloat(calibrationInput);
-    if (pendingPoints.length < 2 || !realDistance || realDistance <= 0) return;
-    const [p1, p2] = pendingPoints;
-    const pixelDistance = Math.hypot(p2.x - p1.x, p2.y - p1.y);
-    setScaleCalibration({ pixelDistance, realDistance, unit: calibrationUnit });
-    setPendingPoints([]);
-    setCalibrationInput("");
-    setActiveTool("select");
-  };
-
-  const startRecalibration = () => {
-    setScaleCalibration(undefined);
-    setPendingPoints([]);
-    setCalibrationInput("");
-    setActiveTool("calibrate");
-  };
-
-  const handleDragStart = (deviceId: string) => {
-    if (selectedIds.length > 1 && selectedIds.includes(deviceId)) {
-      const stage = stageRef.current;
-      const starts: Record<string, { x: number; y: number }> = {};
-      selectedIds.forEach((id) => {
-        const node = stage?.findOne("#" + id);
-        if (node) starts[id] = { x: node.x(), y: node.y() };
+  const exportPdf = async () => {
+    const { jsPDF } = await import("jspdf");
+    const doc = new jsPDF();
+    doc.setFontSize(16); doc.text("Equipment Summary", 14, 18);
+    doc.setFontSize(10); doc.text(`${projectName} — ${clientName}`, 14, 26);
+    doc.text(`Generated ${new Date().toLocaleDateString()}`, 14, 32);
+    let y = 44;
+    Array.from(grouped.entries()).forEach(([cat, items]) => {
+      if (y > 270) { doc.addPage(); y = 20; }
+      doc.setFontSize(12); doc.text(ASSET_CATEGORY_LABELS[cat], 14, y); y += 6;
+      doc.setFontSize(9);
+      items.forEach(a => {
+        if (y > 280) { doc.addPage(); y = 20; }
+        doc.text(`${describeAsset(a, storeDevices)}  ×${a.quantity}  ${a.location || "—"}  ${a.purpose || ""}`, 18, y);
+        y += 5;
       });
-      multiDragRef.current = { draggedId: deviceId, starts };
-    }
-  };
-
-  const handleDragMove = (deviceId: string, e: any) => {
-    const drag = multiDragRef.current;
-    if (!drag || drag.draggedId !== deviceId) return;
-    const stage = stageRef.current;
-    const node = e.target;
-    const start = drag.starts[deviceId];
-    const dx = node.x() - start.x;
-    const dy = node.y() - start.y;
-    Object.entries(drag.starts).forEach(([id, s]) => {
-      if (id === deviceId) return;
-      const other = stage?.findOne("#" + id);
-      if (other) other.position({ x: s.x + dx, y: s.y + dy });
+      y += 4;
     });
+    doc.save(`${projectName.replace(/\s+/g, "-")}-equipment-summary.pdf`);
   };
 
-  const handleDragEnd = (deviceId: string, e: any) => {
-    const node = e.target;
-    const drag = multiDragRef.current;
-    if (drag && drag.draggedId === deviceId) {
-      const start = drag.starts[deviceId];
-      const dx = (snapEnabled ? snap(node.x()) : node.x()) - start.x;
-      const dy = (snapEnabled ? snap(node.y()) : node.y()) - start.y;
-      const finalPositions: Record<string, { x: number; y: number }> = {};
-      Object.entries(drag.starts).forEach(([id, s]) => { finalPositions[id] = { x: s.x + dx, y: s.y + dy }; });
-      multiDragRef.current = null;
-      commitDevices((prev) => prev.map((d) => finalPositions[d.id] ? { ...d, x: finalPositions[d.id].x, y: finalPositions[d.id].y } : d));
-      return;
-    }
-    const x = snapEnabled ? snap(node.x()) : node.x();
-    const y = snapEnabled ? snap(node.y()) : node.y();
-    commitDevices((prev) => prev.map((d) => d.id === deviceId ? { ...d, x, y } : d));
-  };
+  const availableDevices = storeDevices.filter(d => CATALOG_CATEGORIES_FOR_ASSET[category].includes(d.category));
 
-  const handleDeviceDelete = (deviceId: string) => {
-    const dev = devices.find(d => d.id === deviceId);
-    commitDevices((prev) => prev.filter((d) => d.id !== deviceId));
-    if (dev) removeDeviceFromWorkbook(dev.label);
-    setSelectedIds((prev) => prev.filter((id) => id !== deviceId));
-  };
-
-  const alignSelection = (mode: "left" | "right" | "top" | "bottom" | "center-x" | "center-y") => {
-    if (selectedDevices.length < 2) return;
-    const bounds = selectedDevices.map((d) => ({ id: d.id, ...deviceBounds(d) }));
-    let target: number;
-    if (mode === "left") target = Math.min(...bounds.map((b) => b.left));
-    else if (mode === "right") target = Math.max(...bounds.map((b) => b.right));
-    else if (mode === "top") target = Math.min(...bounds.map((b) => b.top));
-    else if (mode === "bottom") target = Math.max(...bounds.map((b) => b.bottom));
-    else if (mode === "center-x") target = selectedDevices.reduce((s, d) => s + d.x, 0) / selectedDevices.length;
-    else target = selectedDevices.reduce((s, d) => s + d.y, 0) / selectedDevices.length;
-    commitDevices((prev) => prev.map((d) => {
-      const b = bounds.find((x) => x.id === d.id);
-      if (!b) return d;
-      if (mode === "left") return { ...d, x: target + b.halfW };
-      if (mode === "right") return { ...d, x: target - b.halfW };
-      if (mode === "top") return { ...d, y: target + b.halfH };
-      if (mode === "bottom") return { ...d, y: target - b.halfH };
-      if (mode === "center-x") return { ...d, x: target };
-      return { ...d, y: target };
-    }));
-  };
-
-  const handleStageMouseDown = (e: any) => {
-    const stage = e.target.getStage();
-    if (activeTool !== "select" || !e.evt.shiftKey || e.target !== stage) return;
-    const raw = stage.getPointerPosition();
-    if (!raw) return;
-    stage.draggable(false);
-    const point = toContentCoords(raw);
-    setMarqueeStart(point);
-    setMarqueeEnd(point);
-  };
-
-  const handleStageMouseMove = (e: any) => {
-    if (!marqueeStart) return;
-    const stage = e.target.getStage();
-    const raw = stage.getPointerPosition();
-    if (!raw) return;
-    setMarqueeEnd(toContentCoords(raw));
-  };
-
-  const handleStageMouseUp = () => {
-    if (!marqueeStart || !marqueeEnd) return;
-    const stage = stageRef.current;
-    if (stage) stage.draggable(true);
-    const minX = Math.min(marqueeStart.x, marqueeEnd.x);
-    const maxX = Math.max(marqueeStart.x, marqueeEnd.x);
-    const minY = Math.min(marqueeStart.y, marqueeEnd.y);
-    const maxY = Math.max(marqueeStart.y, marqueeEnd.y);
-    const ids = devices.filter((d) => d.type !== "cable" && d.x >= minX && d.x <= maxX && d.y >= minY && d.y <= maxY).map((d) => d.id);
-    setSelectedIds(ids);
-    if (marqueeStart.x !== marqueeEnd.x || marqueeStart.y !== marqueeEnd.y) justMarqueedRef.current = true;
-    setMarqueeStart(null);
-    setMarqueeEnd(null);
-  };
-
-  useEffect(() => {
-    if (!marqueeStart) return;
-    window.addEventListener("mouseup", handleStageMouseUp);
-    return () => window.removeEventListener("mouseup", handleStageMouseUp);
-  }, [marqueeStart, marqueeEnd, devices]);
-
-  const handleWheel = (e: any) => {
-    e.evt.preventDefault();
-    const stage = e.target.getStage();
-    const oldScale = stage.scaleX();
-    const pointer = stage.getPointerPosition();
-    if (!pointer) return;
-    const scaleBy = 1.05;
-    const newScale = e.evt.deltaY < 0 ? oldScale * scaleBy : oldScale / scaleBy;
-    setScale(newScale);
-    setPosition({ x: pointer.x - (pointer.x - stage.x()) * (newScale / oldScale), y: pointer.y - (pointer.y - stage.y()) * (newScale / oldScale) });
-  };
-
-  const uploadFile = async (type: "2d" | "3d") => {
-    const input = document.createElement("input");
-    input.type = "file";
-    input.accept = type === "2d" ? "image/*,.pdf,.dwg,.dxf" : "image/*,.glb,.gltf,.obj,.stl,.fbx";
-    input.onchange = async (e: any) => {
-      const file = e.target.files?.[0];
-      if (!file || !projectId) return;
-      const ext = file.name.split(".").pop()?.toLowerCase() || "";
-      if (type === "2d" && ext === "pdf") {
-        setPdfRendering(true);
-        try {
-          const arrayBuffer = await file.arrayBuffer();
-          const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
-          const page = await pdf.getPage(1);
-          const viewport = page.getViewport({ scale: 2 });
-          const canvas = document.createElement("canvas");
-          canvas.width = viewport.width;
-          canvas.height = viewport.height;
-          const ctx = canvas.getContext("2d")!;
-          await page.render({ canvasContext: ctx, viewport, canvas }).promise;
-          const dataUrl = canvas.toDataURL("image/png");
-          const result = await API.canvas.upload(projectId, new File([await (await fetch(dataUrl)).blob()], file.name.replace(".pdf", ".png"), { type: "image/png" }));
-          setFloorPlan2D({ id: "2d-" + projectId, type: "2d", url: result.url, originalName: file.name, format: "png" });
-          const img = new window.Image(); img.crossOrigin = "anonymous"; img.src = result.url; img.onload = () => setFloorPlanImage(img);
-          toast.success("PDF rendered and uploaded");
-        } catch { toast.error("Failed to render PDF"); }
-        setPdfRendering(false);
-        return;
-      }
-      try {
-        const result = await API.canvas.upload(projectId, file);
-        if (type === "2d") {
-          setFloorPlan2D({ id: "2d-" + projectId, type: "2d", url: result.url, originalName: file.name, format: ext });
-          const img = new window.Image(); img.crossOrigin = "anonymous"; img.src = result.url; img.onload = () => setFloorPlanImage(img);
-        } else {
-          const is3DModel = /\.(glb|gltf|obj|stl|fbx)$/i.test(file.name);
-          setFloorPlan3D({ id: "3d-" + projectId, type: "3d", url: result.url, originalName: file.name, format: ext, is3DModel });
-        }
-        toast.success(type === "2d" ? "Floor plan uploaded" : "3D file uploaded");
-      } catch { toast.error("Upload failed"); }
-    };
-    input.click();
-  };
-
-  const filteredStoreDevices = storeSearch.trim() ? storeDevices.filter(d => d.model.toLowerCase().includes(storeSearch.toLowerCase()) || d.manufacturer.toLowerCase().includes(storeSearch.toLowerCase())) : storeDevices;
-  const CAT_COLOR: Record<string, { bg: string; text: string; label: string }> = { camera: { bg: "rgba(59,130,246,0.12)", text: "#60a5fa", label: "Camera" }, "access-control": { bg: "rgba(139,92,246,0.12)", text: "#a78bfa", label: "Access" }, nvr: { bg: "rgba(16,185,129,0.12)", text: "#34d399", label: "NVR" }, analytics: { bg: "rgba(249,115,22,0.12)", text: "#fb923c", label: "VMS" }, intercom: { bg: "rgba(20,184,166,0.12)", text: "#2dd4bf", label: "Intercom" }, other: { bg: "rgba(100,100,100,0.12)", text: "#8b949e", label: "Other" } };
+  if (loading) return <div className="space-y-3"><Skeleton className="h-10 w-48" /><Skeleton className="h-40 rounded-2xl" /></div>;
 
   return (
-    <div className="fixed inset-0 flex flex-col" style={{ background: "#070c1a" }}>
-      <header className="h-12 flex items-center gap-2 md:gap-4 px-3 md:px-4 flex-shrink-0 z-40" style={G.liquidGlass}>
-        <button onClick={() => navigate("design-studio")} className="flex items-center gap-1.5 text-[#8b949e] hover:text-white text-[13px] font-bold flex-shrink-0 cursor-pointer min-h-[44px]"><ArrowLeft className="w-3.5 h-3.5" /><span className="hidden md:inline">Back</span></button>
+    <div className="space-y-4">
+      <div className="flex items-center gap-2 flex-wrap">
+        <button onClick={() => setShowAdd(true)} className="flex items-center gap-1.5 h-9 px-3 rounded-xl text-white text-[13px] font-extrabold cursor-pointer" style={{ background: "#3b82f6" }}><Plus className="w-3.5 h-3.5" /> Add Asset</button>
+        <div className="relative"><Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3 h-3 text-[#484f58]" /><input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search assets…" className="h-9 rounded-xl pl-7 pr-3 text-[13px] text-[#e6edf3] focus:outline-none w-48" style={G.input} /></div>
+        <select value={categoryFilter} onChange={e => setCategoryFilter(e.target.value as AssetCategory | "all")} className="h-9 rounded-xl px-2 text-[13px] cursor-pointer" style={{ ...G.input, background: "#0d1117", color: "#e6edf3" }}>
+          <option value="all">All Categories</option>
+          {(Object.keys(ASSET_CATEGORY_LABELS) as AssetCategory[]).map(c => <option key={c} value={c}>{ASSET_CATEGORY_LABELS[c]}</option>)}
+        </select>
         <div className="flex-1" />
-        {pdfRendering && <span className="text-[#8b949e] text-[12px] flex items-center gap-1"><Loader2 className="w-3 h-3 animate-spin" /> Rendering PDF...</span>}
-        <button onClick={() => uploadFile("2d")} className="flex items-center gap-1.5 h-7 px-2 rounded-xl text-[#8b949e] hover:text-white text-[12px] font-bold cursor-pointer" style={G.btn}><Upload className="w-3 h-3" /> 2D</button>
-        <button onClick={() => uploadFile("3d")} className="flex items-center gap-1.5 h-7 px-2 rounded-xl text-[#8b949e] hover:text-white text-[12px] font-bold cursor-pointer" style={G.btn}><Box className="w-3 h-3" /> 3D</button>
-        <button onClick={() => setView3D(!view3D)} className={clsx("flex items-center gap-1.5 h-7 px-2 rounded-xl text-[12px] font-bold cursor-pointer", view3D ? "text-violet-400" : "text-[#8b949e]")} style={view3D ? { background: "rgba(139,92,246,0.15)" } : G.btn}><Eye className="w-3 h-3" /> {view3D ? "2D" : "3D"}</button>
-        <button onClick={() => setShowFov(!showFov)} className={clsx("flex items-center gap-1.5 h-7 px-2 rounded-xl text-[12px] font-bold cursor-pointer", showFov ? "text-blue-400" : "text-[#8b949e]")} style={showFov ? { background: "rgba(59,130,246,0.15)" } : G.btn}><Eye className="w-3 h-3" /> FOV</button>
-        <div className="relative">
-          <button onClick={() => setShowLayersPanel(!showLayersPanel)} className={clsx("flex items-center gap-1.5 h-7 px-2 rounded-xl text-[12px] font-bold cursor-pointer", showLayersPanel ? "text-violet-400" : "text-[#8b949e]")} style={showLayersPanel ? { background: "rgba(139,92,246,0.15)" } : G.btn}><Layers className="w-3 h-3" /> Layers</button>
-          {showLayersPanel && (
-            <>
-              <div className="fixed inset-0 z-10" onClick={() => setShowLayersPanel(false)} />
-              <div className="absolute right-0 top-9 z-20 w-48 rounded-xl overflow-hidden py-1.5" style={{ background: "rgba(7,12,26,0.97)", border: "1px solid rgba(255,255,255,0.12)", boxShadow: "0 8px 32px rgba(0,0,0,0.8)", backdropFilter: "blur(20px)" }}>
-                {([["floorplan", "Floor Plan"], ["devices", "Devices"], ["cabling", "Cabling"], ["annotations", "Annotations"]] as const).map(([key, label]) => (
-                  <button key={key} onClick={() => setLayerVisibility((prev) => ({ ...prev, [key]: !prev[key] }))} className="w-full flex items-center justify-between gap-2 px-3 py-2 text-[12px] font-bold text-[#e6edf3] hover:bg-white/[0.06] transition-colors cursor-pointer min-h-[36px]">
-                    <span>{label}</span>
-                    {layerVisibility[key] ? <Eye className="w-3.5 h-3.5 text-violet-400" /> : <EyeOff className="w-3.5 h-3.5 text-[#484f58]" />}
-                  </button>
-                ))}
-              </div>
-            </>
-          )}
-        </div>
-        <button onClick={() => setShowDeviceTray(!showDeviceTray)} className={clsx("flex items-center gap-1.5 h-7 px-2 rounded-xl text-[12px] font-bold cursor-pointer", showDeviceTray ? "text-white" : "text-[#8b949e]")} style={G.btn}><Store className="w-3 h-3" /> Store</button>
-      </header>
-      <div className="flex-1 relative overflow-hidden" ref={containerRef}>
-        <motion.div className="absolute left-0 top-0 bottom-0 w-80 z-30 flex flex-col" style={G.liquidGlass} animate={{ x: showDeviceTray ? 0 : -320 }} transition={{ type: "spring", stiffness: 300, damping: 30 }}>
-          <div className="px-4 py-3 flex items-center justify-between" style={{ borderBottom: "1px solid rgba(255,255,255,0.07)" }}><p className="text-white text-[14px] font-extrabold">Device Store</p><button onClick={() => setShowDeviceTray(false)} className="w-6 h-6 rounded-lg hover:bg-white/[0.08] flex items-center justify-center cursor-pointer min-w-[44px] min-h-[44px]"><X className="w-3.5 h-3.5 text-[#8b949e]" /></button></div>
-          <div className="px-3 py-2.5"><div className="relative"><Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3 h-3 text-[#484f58]" /><input value={storeSearch} onChange={(e) => setStoreSearch(e.target.value)} placeholder="Search device store..." className="w-full h-7 rounded-xl pl-7 pr-2.5 text-[13px] text-[#e6edf3] focus:outline-none" style={G.input} /></div></div>
-          <div className="flex-1 overflow-y-auto" style={{ scrollbarWidth: "none" }}>
-            {filteredStoreDevices.map((device) => { const cc = CAT_COLOR[device.category] ?? CAT_COLOR.other; return (
-              <button key={device.id} onClick={() => placeDeviceFromStore(device)} className="w-full flex items-center gap-2.5 px-3 py-2.5 hover:bg-white/[0.04] transition-colors cursor-pointer text-left" style={{ borderBottom: "1px solid rgba(255,255,255,0.04)" }}>
-                <div className="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0" style={{ background: "rgba(255,255,255,0.04)" }}>{device.imageUrl ? <img src={device.imageUrl} alt="" className="w-full h-full object-contain p-0.5 opacity-70" /> : <Camera className="w-3.5 h-3.5 text-[#484f58]" />}</div>
-                <div className="flex-1 min-w-0"><p className="text-white text-[13px] font-bold truncate">{device.model}</p><p className="text-[#8b949e] text-[11px]">{device.manufacturer}{device.price ? ` · $${device.price.toFixed(0)}` : ""}</p></div>
-                <span className="inline-block px-1.5 py-0.5 rounded text-[10px] font-extrabold uppercase flex-shrink-0" style={{ background: cc.bg, color: cc.text }}>{cc.label}</span>
-              </button>
-            ); })}
-            {filteredStoreDevices.length === 0 && <div className="px-4 py-8 text-center"><p className="text-[#8b949e] text-[13px]">No devices found</p></div>}
-          </div>
-        </motion.div>
-        {view3D && floorPlan3D ? (
-          <div className="absolute inset-0"><ThreeDViewer file={floorPlan3D} /><div className="absolute bottom-4 left-4 px-3 py-1.5 rounded-xl text-[12px] font-bold text-white" style={G.liquidGlass}>3D View — {floorPlan3D.originalName}</div></div>
-        ) : (
-          <KonvaStage ref={stageRef} width={stageSize.width} height={stageSize.height} scaleX={scale} scaleY={scale} x={position.x} y={position.y} draggable onClick={handleStageClick} onDblClick={handleDoubleClick} onWheel={handleWheel} onMouseDown={handleStageMouseDown} onMouseMove={handleStageMouseMove} onMouseUp={handleStageMouseUp} style={{ background: "#070c1a", cursor: activeTool === "select" ? "default" : "crosshair" }}>
-            {showGrid && gridSize && layerVisibility.annotations && (() => {
-              const topLeft = toContentCoords({ x: 0, y: 0 });
-              const bottomRight = toContentCoords({ x: stageSize.width, y: stageSize.height });
-              const lines: React.ReactNode[] = [];
-              const startX = Math.floor(topLeft.x / gridSize) * gridSize;
-              const startY = Math.floor(topLeft.y / gridSize) * gridSize;
-              let count = 0;
-              for (let x = startX; x <= bottomRight.x && count < 400; x += gridSize, count++) lines.push(<KonvaLine key={`gx${x}`} points={[x, topLeft.y, x, bottomRight.y]} stroke="rgba(255,255,255,0.06)" strokeWidth={1 / scale} listening={false} />);
-              for (let y = startY; y <= bottomRight.y && count < 400; y += gridSize, count++) lines.push(<KonvaLine key={`gy${y}`} points={[topLeft.x, y, bottomRight.x, y]} stroke="rgba(255,255,255,0.06)" strokeWidth={1 / scale} listening={false} />);
-              return <KonvaLayer listening={false}>{lines}</KonvaLayer>;
-            })()}
-            <KonvaLayer>
-              {layerVisibility.floorplan && floorPlanImage && floorPlanRect && <KonvaImage image={floorPlanImage} x={floorPlanRect.x} y={floorPlanRect.y} width={floorPlanRect.width} height={floorPlanRect.height} opacity={0.5} listening={false} />}
-              {activeTool === "cable" && cablePoints.length > 0 && <KonvaLine points={cablePoints.flatMap(p => [p.x, p.y])} stroke="#8b5cf6" strokeWidth={2} dash={[6, 3]} listening={false} />}
-              {(activeTool === "calibrate" || activeTool === "measure") && pendingPoints.length > 0 && (
-                <>
-                  {pendingPoints.length === 2 && <KonvaLine points={pendingPoints.flatMap(p => [p.x, p.y])} stroke={activeTool === "calibrate" ? "#f59e0b" : "#10b981"} strokeWidth={2} dash={[4, 4]} listening={false} />}
-                  {pendingPoints.map((p, i) => <KonvaCircle key={i} x={p.x} y={p.y} radius={4} fill={activeTool === "calibrate" ? "#f59e0b" : "#10b981"} listening={false} />)}
-                </>
-              )}
-              {layerVisibility.annotations && pxPerFoot && measurements.map((m) => {
-                const midX = (m.p1.x + m.p2.x) / 2;
-                const midY = (m.p1.y + m.p2.y) / 2;
-                const distFt = Math.hypot(m.p2.x - m.p1.x, m.p2.y - m.p1.y) / pxPerFoot;
-                return (
-                  <KonvaGroup key={m.id}>
-                    <KonvaLine points={[m.p1.x, m.p1.y, m.p2.x, m.p2.y]} stroke="#10b981" strokeWidth={1.5} dash={[8, 4]} listening={false} />
-                    <KonvaText text={`${distFt.toFixed(1)} ft`} x={midX} y={midY - 18} fontSize={11} fontStyle="bold" fill="#10b981" align="center" offsetX={20} width={40} listening={false} />
-                    <KonvaCircle x={midX} y={midY} radius={7} fill="rgba(16,185,129,0.9)" onClick={(e) => { e.cancelBubble = true; setMeasurements((prev) => prev.filter((x) => x.id !== m.id)); }} onTap={(e) => { e.cancelBubble = true; setMeasurements((prev) => prev.filter((x) => x.id !== m.id)); }} />
-                    <KonvaText text="×" x={midX} y={midY} fontSize={11} fontStyle="bold" fill="#fff" align="center" verticalAlign="middle" offsetX={4} offsetY={7} width={8} height={14} listening={false} />
-                  </KonvaGroup>
-                );
-              })}
-              {layerVisibility.cabling && devices.filter((dev) => dev.type === "cable").map((dev) => {
-                const isSelected = selectedIds.includes(dev.id);
-                return dev.cablePoints ? <KonvaLine key={dev.id} points={dev.cablePoints.flatMap(p => [p.x, p.y])} stroke={getDeviceColor(dev.type)} strokeWidth={isSelected ? 2.5 : 1.5} dash={isSelected ? [] : [6, 3]} listening={false} /> : null;
-              })}
-              {layerVisibility.devices && devices.filter((dev) => dev.type !== "cable").map((dev) => {
-                const color = getDeviceColor(dev.type);
-                const isSelected = selectedIds.includes(dev.id);
-                const radius = dev.radius ?? defaultRadius;
-                const w = dev.width ?? defaultWidth(dev.type);
-                const h = dev.height ?? defaultHeight(dev.type);
-                const selectDevice = (e: any) => {
-                  e.cancelBubble = true;
-                  setSelectedIds((prev) => e.evt?.shiftKey ? (prev.includes(dev.id) ? prev.filter((id) => id !== dev.id) : [...prev, dev.id]) : [dev.id]);
-                };
-                return (
-                  <KonvaGroup key={dev.id} id={dev.id} x={dev.x} y={dev.y} rotation={dev.rot} draggable onClick={selectDevice} onTap={selectDevice} onDragStart={() => handleDragStart(dev.id)} onDragMove={(e) => handleDragMove(dev.id, e)} onDragEnd={(e) => handleDragEnd(dev.id, e)}>
-                    {showFov && dev.type === "camera" && <KonvaArc x={0} y={0} innerRadius={0} outerRadius={dev.range || 45} angle={dev.fov || 80} rotation={-(dev.fov || 80) / 2} fill={isSelected ? "rgba(59,130,246,0.22)" : "rgba(59,130,246,0.08)"} listening={false} />}
-                    {dev.type === "camera" && <KonvaCircle radius={radius} fill={color} stroke={isSelected ? "#fff" : "rgba(255,255,255,0.5)"} strokeWidth={isSelected ? 2 : 1} />}
-                    {dev.type === "door" && <KonvaRect x={-w / 2} y={-h / 2} width={w} height={h} fill="rgba(245,158,11,0.2)" stroke={isSelected ? "#f59e0b" : "rgba(245,158,11,0.5)"} strokeWidth={isSelected ? 2 : 1} cornerRadius={2} />}
-                    {dev.type === "panel" && <KonvaRect x={-w / 2} y={-h / 2} width={w} height={h} fill="rgba(249,115,22,0.2)" stroke={isSelected ? "#f97316" : "rgba(249,115,22,0.5)"} strokeWidth={isSelected ? 2 : 1} cornerRadius={2} />}
-                    {dev.type === "power" && <KonvaRect x={-w / 2} y={-h / 2} width={w} height={h} fill="rgba(239,68,68,0.2)" stroke={isSelected ? "#ef4444" : "rgba(239,68,68,0.5)"} strokeWidth={isSelected ? 2 : 1} cornerRadius={2} />}
-                    {dev.type === "server" && <KonvaRect x={-w / 2} y={-h / 2} width={w} height={h} fill="rgba(236,72,153,0.2)" stroke={isSelected ? "#ec4899" : "rgba(236,72,153,0.5)"} strokeWidth={isSelected ? 2 : 1} cornerRadius={2} />}
-                    {dev.type === "intercom" && <KonvaRect x={-w / 2} y={-h / 2} width={w} height={h} fill="rgba(20,184,166,0.2)" stroke={isSelected ? "#14b8a6" : "rgba(20,184,166,0.5)"} strokeWidth={isSelected ? 2 : 1} cornerRadius={2} />}
-                    <KonvaText text={dev.label} fontSize={8} fill={isSelected ? "#fff" : "#8b949e"} y={16} align="center" width={80} x={-40} rotation={-dev.rot} listening={false} />
-                  </KonvaGroup>
-                );
-              })}
-              <KonvaTransformer ref={transformerRef} onTransformEnd={handleTransformEnd} rotationSnaps={[0, 15, 30, 45, 60, 75, 90, 105, 120, 135, 150, 165, 180, 195, 210, 225, 240, 255, 270, 285, 300, 315, 330, 345]} />
-              {marqueeStart && marqueeEnd && (
-                <KonvaRect x={Math.min(marqueeStart.x, marqueeEnd.x)} y={Math.min(marqueeStart.y, marqueeEnd.y)} width={Math.abs(marqueeEnd.x - marqueeStart.x)} height={Math.abs(marqueeEnd.y - marqueeStart.y)} fill="rgba(59,130,246,0.12)" stroke="#3b82f6" strokeWidth={1 / scale} listening={false} />
-              )}
-              {!floorPlan2D && <KonvaText text="Upload a floor plan or 3D model to begin" fontSize={14} fill="#8b949e" x={stageSize.width / 2 - 120} y={stageSize.height / 2 - 10} listening={false} />}
-            </KonvaLayer>
-          </KonvaStage>
-        )}
-        {activeTool === "calibrate" && pendingPoints.length === 2 && (() => {
-          const midX = (pendingPoints[0].x + pendingPoints[1].x) / 2;
-          const midY = (pendingPoints[0].y + pendingPoints[1].y) / 2;
-          const screenX = midX * scale + position.x;
-          const screenY = midY * scale + position.y;
-          return (
-            <div className="absolute z-40 flex items-center gap-2 px-3 py-2 rounded-xl" style={{ ...G.liquidGlass, left: screenX, top: screenY, transform: "translate(-50%, -120%)" }} onClick={(e) => e.stopPropagation()}>
-              <span className="text-white text-[12px] font-bold whitespace-nowrap">This is</span>
-              <input autoFocus type="number" min="0" step="0.1" value={calibrationInput} onChange={(e) => setCalibrationInput(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter") submitCalibration(); if (e.key === "Escape") { setPendingPoints([]); setCalibrationInput(""); } }} className="w-16 h-7 rounded-lg px-2 text-[12px] text-white focus:outline-none" style={G.input} />
-              <select value={calibrationUnit} onChange={(e) => setCalibrationUnit(e.target.value as "ft" | "m")} className="h-7 rounded-lg px-1 text-[12px] cursor-pointer" style={{ ...G.input, background: "#0d1117", color: "#e6edf3" }}>
-                <option value="ft">ft</option>
-                <option value="m">m</option>
-              </select>
-              <button onClick={submitCalibration} disabled={!calibrationInput || parseFloat(calibrationInput) <= 0} className="h-7 px-2.5 rounded-lg text-white text-[12px] font-bold cursor-pointer disabled:opacity-40" style={{ background: "#3b82f6" }}>Set</button>
-            </div>
-          );
-        })()}
-        {scaleCalibration && pxPerFoot && (
-          <div className="absolute top-3 left-3 z-30 flex items-center gap-2 px-3 py-1.5 rounded-xl" style={G.liquidGlass}>
-            <Ruler className="w-3 h-3 text-amber-400" />
-            <span className="text-white text-[12px] font-bold whitespace-nowrap">Scale: 1ft = {pxPerFoot.toFixed(1)}px</span>
-            <button onClick={startRecalibration} className="text-[#8b949e] hover:text-white text-[11px] font-bold cursor-pointer underline">Recalibrate</button>
-          </div>
-        )}
-        {showProperties && selected && (
-          <div className="absolute right-0 top-0 bottom-0 w-72 z-30 flex flex-col" style={G.liquidGlass}>
-            <div className="px-4 py-3 flex items-center justify-between" style={{ borderBottom: "1px solid rgba(255,255,255,0.07)" }}><p className="text-white text-[14px] font-extrabold">Properties</p><button onClick={() => setShowProperties(false)} className="w-6 h-6 rounded-lg hover:bg-white/[0.08] flex items-center justify-center cursor-pointer min-w-[44px] min-h-[44px]"><X className="w-3.5 h-3.5 text-[#8b949e]" /></button></div>
-            <div className="flex-1 p-4 overflow-y-auto space-y-4" style={{ scrollbarWidth: "none" }}>
-              <div><p className="text-[#8b949e] text-[12px] font-extrabold uppercase tracking-widest mb-2">Device</p><div className="rounded-xl p-3" style={G.card}><p className="text-white text-[14px] font-extrabold">{selected.label}</p><p className="text-[#8b949e] text-[12px] mt-1 capitalize">{selected.type}</p></div></div>
-              {storeDevice && <div><p className="text-[#8b949e] text-[12px] font-extrabold uppercase tracking-widest mb-2">Device Store Info</p><div className="rounded-xl p-3 space-y-2" style={G.card}><p className="text-white text-[14px] font-extrabold">{storeDevice.model}</p><p className="text-[#8b949e] text-[12px]">{storeDevice.manufacturer}</p>{storeDevice.price && <div className="flex justify-between"><span className="text-[#8b949e] text-[12px]">Price</span><span className="text-white text-[12px] font-extrabold">${storeDevice.price.toFixed(2)}</span></div>}</div></div>}
-              {selected.type === "camera" && (
-                <div><p className="text-[#8b949e] text-[12px] font-extrabold uppercase tracking-widest mb-2">Camera Settings</p><div className="rounded-xl p-3 space-y-2" style={G.card}>
-                  <div className="flex items-center justify-between"><span className="text-[#8b949e] text-[13px]">Rotation</span><input type="range" min="0" max="360" value={selected.rot} onPointerDown={() => { dragSnapshotRef.current = devicesHistory.present; }} onChange={(e) => { const rot = parseInt(e.target.value); setDevicesHistory((h) => ({ ...h, present: h.present.map((d) => d.id === selected.id ? { ...d, rot } : d) })); }} onPointerUp={() => { const preDragSnapshot = dragSnapshotRef.current; if (preDragSnapshot) { setDevicesHistory((h) => ({ past: [...h.past, preDragSnapshot].slice(-50), present: h.present, future: [] })); dragSnapshotRef.current = null; } }} className="w-24" /><span className="text-white text-[12px] font-extrabold">{selected.rot}°</span></div>
-                  <div className="flex items-center justify-between"><span className="text-[#8b949e] text-[13px]">FOV</span><select value={selected.fov || 80} onChange={(e) => commitDevices((prev) => prev.map((d) => d.id === selected.id ? { ...d, fov: parseInt(e.target.value) } : d))} className="cursor-pointer" style={{ ...G.input, background: "#0d1117", color: "#e6edf3", padding: "2px 6px", borderRadius: "6px" }}><option value="60">60°</option><option value="80">80°</option><option value="100">100°</option><option value="120">120°</option><option value="180">180°</option><option value="360">360°</option></select></div>
-                </div></div>
-              )}
-              <button onClick={() => handleDeviceDelete(selected.id)} className="w-full h-8 rounded-xl text-rose-400 text-[13px] font-bold flex items-center justify-center gap-1.5 cursor-pointer" style={{ background: "rgba(244,63,94,0.10)", border: "1px solid rgba(244,63,94,0.20)" }}><Trash2 className="w-3 h-3" /> Delete</button>
-            </div>
-          </div>
-        )}
-        <div className="absolute bottom-5 left-1/2 -translate-x-1/2 z-40 flex items-center gap-1 px-2 py-2 rounded-2xl overflow-x-auto max-w-[95vw]" style={G.liquidGlass}>
-          {CANVAS_TOOLS.map((tool) => (
-            <button key={tool.id} disabled={tool.id === "measure" && !scaleCalibration} onClick={() => { setActiveTool(tool.id); if (tool.id !== "cable") setCablePoints([]); if (tool.id !== "calibrate" && tool.id !== "measure") setPendingPoints([]); }} title={tool.id === "measure" && !scaleCalibration ? "Calibrate scale first" : tool.label} className={clsx("w-8 h-8 rounded-xl flex items-center justify-center flex-shrink-0 cursor-pointer min-w-[44px] min-h-[44px] md:min-w-0 md:min-h-0 disabled:opacity-40 disabled:cursor-not-allowed", activeTool === tool.id ? "text-white" : "text-[#8b949e]")} style={activeTool === tool.id ? { background: "#3b82f6", boxShadow: "0 4px 16px rgba(59,130,246,0.45)" } : undefined}><tool.icon className="w-3.5 h-3.5" /></button>
-          ))}
-          <div className="w-px h-6 mx-1" style={{ background: "rgba(255,255,255,0.10)" }} />
-          <button onClick={undo} disabled={devicesHistory.past.length === 0} title="Undo (Ctrl+Z)" className="w-8 h-8 rounded-xl flex items-center justify-center flex-shrink-0 cursor-pointer min-w-[44px] min-h-[44px] md:min-w-0 md:min-h-0 text-[#8b949e] disabled:opacity-40 disabled:cursor-not-allowed"><Undo2 className="w-3.5 h-3.5" /></button>
-          <button onClick={redo} disabled={devicesHistory.future.length === 0} title="Redo (Ctrl+Shift+Z)" className="w-8 h-8 rounded-xl flex items-center justify-center flex-shrink-0 cursor-pointer min-w-[44px] min-h-[44px] md:min-w-0 md:min-h-0 text-[#8b949e] disabled:opacity-40 disabled:cursor-not-allowed"><Redo2 className="w-3.5 h-3.5" /></button>
-          <div className="w-px h-6 mx-1" style={{ background: "rgba(255,255,255,0.10)" }} />
-          <button onClick={() => setShowGrid(!showGrid)} disabled={!scaleCalibration} title={scaleCalibration ? "Toggle grid" : "Calibrate scale first"} className={clsx("w-8 h-8 rounded-xl flex items-center justify-center flex-shrink-0 cursor-pointer min-w-[44px] min-h-[44px] md:min-w-0 md:min-h-0 disabled:opacity-40 disabled:cursor-not-allowed", showGrid ? "text-blue-400" : "text-[#8b949e]")} style={showGrid ? { background: "rgba(59,130,246,0.15)" } : undefined}><Grid3x3 className="w-3.5 h-3.5" /></button>
-          <button onClick={() => setSnapEnabled(!snapEnabled)} disabled={!scaleCalibration} title={scaleCalibration ? "Toggle snap-to-grid" : "Calibrate scale first"} className={clsx("w-8 h-8 rounded-xl flex items-center justify-center flex-shrink-0 cursor-pointer min-w-[44px] min-h-[44px] md:min-w-0 md:min-h-0 disabled:opacity-40 disabled:cursor-not-allowed", snapEnabled ? "text-blue-400" : "text-[#8b949e]")} style={snapEnabled ? { background: "rgba(59,130,246,0.15)" } : undefined}><Magnet className="w-3.5 h-3.5" /></button>
-          {scaleCalibration && (showGrid || snapEnabled) && (
-            <select value={gridInterval} onChange={(e) => setGridInterval(parseFloat(e.target.value) as 0.5 | 1 | 2)} className="h-7 rounded-lg px-1.5 text-[11px] cursor-pointer flex-shrink-0" style={{ ...G.input, background: "#0d1117", color: "#e6edf3" }}>
-              <option value={0.5}>6in</option>
-              <option value={1}>1ft</option>
-              <option value={2}>2ft</option>
-            </select>
-          )}
-          <div className="w-px h-6 mx-1" style={{ background: "rgba(255,255,255,0.10)" }} />
-          {([["left", AlignStartVertical, "Align left"], ["center-x", AlignVerticalJustifyCenter, "Align center (X)"], ["right", AlignEndVertical, "Align right"], ["top", AlignStartHorizontal, "Align top"], ["center-y", AlignHorizontalJustifyCenter, "Align middle (Y)"], ["bottom", AlignEndHorizontal, "Align bottom"]] as const).map(([mode, Icon, label]) => (
-            <button key={mode} onClick={() => alignSelection(mode)} disabled={selectedDevices.length < 2} title={selectedDevices.length < 2 ? "Select 2+ devices to align" : label} className="w-8 h-8 rounded-xl flex items-center justify-center flex-shrink-0 cursor-pointer min-w-[44px] min-h-[44px] md:min-w-0 md:min-h-0 text-[#8b949e] disabled:opacity-40 disabled:cursor-not-allowed"><Icon className="w-3.5 h-3.5" /></button>
-          ))}
-          <div className="w-px h-6 mx-1" style={{ background: "rgba(255,255,255,0.10)" }} />
-          <span className="text-[#8b949e] text-[11px] ml-1">{devices.length} devices{selectedIds.length > 1 ? ` · ${selectedIds.length} selected` : ""}</span>
-        </div>
+        <span className="text-[#8b949e] text-[13px]">{filtered.length} assets</span>
+        <button onClick={exportCsv} className="flex items-center gap-1.5 h-9 px-3 rounded-xl text-[#8b949e] hover:text-white text-[13px] font-bold cursor-pointer" style={G.btn}><Download className="w-3.5 h-3.5" /> CSV</button>
+        <button onClick={exportPdf} className="flex items-center gap-1.5 h-9 px-3 rounded-xl text-[#8b949e] hover:text-white text-[13px] font-bold cursor-pointer" style={G.btn}><FileDown className="w-3.5 h-3.5" /> PDF</button>
       </div>
+
+      {showAdd && (
+        <div className="fixed inset-0 z-[400] flex items-center justify-center p-4" onClick={() => setShowAdd(false)}>
+          <div className="absolute inset-0" style={{ background: "rgba(0,0,0,0.65)", backdropFilter: "blur(8px)" }} />
+          <div onClick={e => e.stopPropagation()} className="relative z-10 w-full max-w-[560px] max-h-[85vh] overflow-y-auto rounded-2xl p-6 space-y-3" style={G.liquidGlass}>
+            <h3 className="text-white text-[16px] font-extrabold mb-2">Add Asset</h3>
+            <div className="grid grid-cols-2 gap-3">
+              <div><label className="text-[#8b949e] text-[11px] font-extrabold uppercase tracking-widest block mb-1">Category</label><select value={category} onChange={e => { setCategory(e.target.value as AssetCategory); setDeviceStoreRef(""); setSystem(DEFAULT_SYSTEM_FOR_ASSET[e.target.value as AssetCategory]); }} className="w-full h-9 rounded-xl px-2 text-[13px] cursor-pointer" style={{ ...G.input, background: "#0d1117", color: "#e6edf3" }}>{(Object.keys(ASSET_CATEGORY_LABELS) as AssetCategory[]).map(c => <option key={c} value={c}>{ASSET_CATEGORY_LABELS[c]}</option>)}</select></div>
+              <div><label className="text-[#8b949e] text-[11px] font-extrabold uppercase tracking-widest block mb-1">System</label><select value={system} onChange={e => setSystem(e.target.value as SystemType)} className="w-full h-9 rounded-xl px-2 text-[13px] cursor-pointer" style={{ ...G.input, background: "#0d1117", color: "#e6edf3" }}><option value="VSS">VSS</option><option value="EAC">EAC</option><option value="Intercom">Intercom</option></select></div>
+            </div>
+            {category === "cable-wire" ? (
+              <div className="grid grid-cols-2 gap-3">
+                <div><label className="text-[#8b949e] text-[11px] font-extrabold uppercase tracking-widest block mb-1">Cable Type</label><select value={cableType} onChange={e => setCableType(e.target.value as CableSpec["cableType"])} className="w-full h-9 rounded-xl px-2 text-[13px] cursor-pointer" style={{ ...G.input, background: "#0d1117", color: "#e6edf3" }}>{["CAT-6","CAT-6A","Fiber-SM","Fiber-MM","Coax-RG59","Power-18AWG","Power-14AWG","Speaker-Wire","Other"].map(t => <option key={t} value={t}>{t}</option>)}</select></div>
+                <div><label className="text-[#8b949e] text-[11px] font-extrabold uppercase tracking-widest block mb-1">Length (ft)</label><input type="number" value={lengthFt} onChange={e => setLengthFt(e.target.value)} className="w-full h-9 rounded-xl px-3 text-[13px] text-white focus:outline-none" style={G.input} /></div>
+                <div><label className="text-[#8b949e] text-[11px] font-extrabold uppercase tracking-widest block mb-1">Cost / ft</label><input type="number" value={costPerFt} onChange={e => setCostPerFt(e.target.value)} className="w-full h-9 rounded-xl px-3 text-[13px] text-white focus:outline-none" style={G.input} /></div>
+                <div className="col-span-2"><label className="text-[#8b949e] text-[11px] font-extrabold uppercase tracking-widest block mb-1">Run Description</label><input value={runDescription} onChange={e => setRunDescription(e.target.value)} placeholder="e.g. Camera 3 to IDF closet" className="w-full h-9 rounded-xl px-3 text-[13px] text-white focus:outline-none" style={G.input} /></div>
+              </div>
+            ) : (
+              <div><label className="text-[#8b949e] text-[11px] font-extrabold uppercase tracking-widest block mb-1">Device (optional)</label><select value={deviceStoreRef} onChange={e => setDeviceStoreRef(e.target.value)} className="w-full h-9 rounded-xl px-2 text-[13px] cursor-pointer" style={{ ...G.input, background: "#0d1117", color: "#e6edf3" }}><option value="">— Generic / unspecified —</option>{availableDevices.map(d => <option key={d.id} value={d.id}>{d.manufacturer} {d.model}</option>)}</select></div>
+            )}
+            <div className="grid grid-cols-3 gap-3">
+              <div><label className="text-[#8b949e] text-[11px] font-extrabold uppercase tracking-widest block mb-1">Quantity</label><input type="number" min="1" value={quantity} onChange={e => setQuantity(e.target.value)} className="w-full h-9 rounded-xl px-3 text-[13px] text-white focus:outline-none" style={G.input} /></div>
+              <div className="col-span-2"><label className="text-[#8b949e] text-[11px] font-extrabold uppercase tracking-widest block mb-1">Location</label><input value={location} onChange={e => setLocation(e.target.value)} placeholder="e.g. North parking entrance" className="w-full h-9 rounded-xl px-3 text-[13px] text-white focus:outline-none" style={G.input} /></div>
+            </div>
+            <div><label className="text-[#8b949e] text-[11px] font-extrabold uppercase tracking-widest block mb-1">Zone (optional — links to Install Tracker)</label><select value={zoneId} onChange={e => setZoneId(e.target.value)} className="w-full h-9 rounded-xl px-2 text-[13px] cursor-pointer" style={{ ...G.input, background: "#0d1117", color: "#e6edf3" }}><option value="">— No zone —</option>{zones.map(z => <option key={z.id} value={z.id}>{z.name}</option>)}</select></div>
+            <div><label className="text-[#8b949e] text-[11px] font-extrabold uppercase tracking-widest block mb-1">Purpose</label><input value={purpose} onChange={e => setPurpose(e.target.value)} placeholder="e.g. LPR capture at vehicle entry" className="w-full h-9 rounded-xl px-3 text-[13px] text-white focus:outline-none" style={G.input} /></div>
+            <div><label className="text-[#8b949e] text-[11px] font-extrabold uppercase tracking-widest block mb-1">Notes</label><textarea value={notes} onChange={e => setNotes(e.target.value)} rows={2} className="w-full rounded-xl px-3 py-2 text-[13px] text-white focus:outline-none resize-none" style={G.input} /></div>
+            <div className="flex gap-2 pt-2">
+              <button onClick={() => setShowAdd(false)} className="flex-1 h-10 rounded-xl text-[#8b949e] text-[14px] font-bold cursor-pointer" style={G.btn}>Cancel</button>
+              <button onClick={handleAdd} disabled={saving} className="flex-1 h-10 rounded-xl text-white text-[14px] font-extrabold cursor-pointer" style={{ background: "#3b82f6" }}>{saving ? "Adding…" : "Add Asset"}</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {filtered.length === 0 ? (
+        <EmptyState icon={Package} title="No assets yet" description="Add cameras, access control, network hardware, or cable runs to this project." action={{ label: "Add Asset", onClick: () => setShowAdd(true) }} />
+      ) : (
+        Array.from(grouped.entries()).map(([cat, items]) => (
+          <div key={cat} className="rounded-2xl overflow-hidden" style={G.card}>
+            <div className="px-4 py-3 flex items-center gap-2" style={{ borderBottom: "1px solid rgba(255,255,255,0.06)", background: "rgba(255,255,255,0.02)" }}><h3 className="text-white text-[14px] font-extrabold">{ASSET_CATEGORY_LABELS[cat]}</h3><span className="text-[#8b949e] text-[12px]">({items.length})</span></div>
+            <div className="divide-y" style={{ borderColor: "rgba(255,255,255,0.04)" }}>
+              {items.map(asset => (
+                <div key={asset.id} className="px-4 py-3 flex items-start justify-between gap-3">
+                  <div className="flex-1 min-w-0">
+                    <p className="text-white text-[13px] font-bold">{describeAsset(asset, storeDevices)} <span className="text-[#8b949e] font-semibold">×{asset.quantity}</span></p>
+                    <p className="text-[#8b949e] text-[12px] mt-0.5">{asset.location || "No location set"}{asset.purpose ? ` · ${asset.purpose}` : ""}</p>
+                    {asset.zoneId && <p className="text-[#484f58] text-[11px] mt-0.5">Zone: {zones.find(z => z.id === asset.zoneId)?.name || asset.zoneId}</p>}
+                    {asset.notes && <p className="text-[#484f58] text-[11px] mt-0.5 italic">{asset.notes}</p>}
+                    {asset.coveragePhotos && asset.coveragePhotos.length > 0 && <div className="flex gap-2 mt-2 flex-wrap">{asset.coveragePhotos.map((p, i) => <img key={i} src={p} alt="" className="w-14 h-14 rounded-lg object-cover" style={{ border: "1px solid rgba(255,255,255,0.10)" }} />)}</div>}
+                    <label className="inline-flex items-center gap-1 mt-2 text-[11px] text-blue-400 cursor-pointer">{uploadingPhoto === asset.id ? <Loader2 className="w-3 h-3 animate-spin" /> : <Upload className="w-3 h-3" />} {uploadingPhoto === asset.id ? "Uploading…" : "Add coverage photo"}<input type="file" accept="image/*" className="hidden" onChange={e => handlePhotoUpload(asset, e)} disabled={uploadingPhoto === asset.id} /></label>
+                  </div>
+                  <button onClick={() => handleDelete(asset)} className="w-8 h-8 rounded-lg flex items-center justify-center hover:bg-rose-500/10 cursor-pointer flex-shrink-0"><Trash2 className="w-3.5 h-3.5 text-rose-400" /></button>
+                </div>
+              ))}
+            </div>
+          </div>
+        ))
+      )}
     </div>
   );
 }
+
+const CATEGORY_SECTION: Record<AssetCategory, Partial<Record<SystemType, number>>> = {
+  camera: { VSS: 400, EAC: 1000, Intercom: 1500 },
+  "access-control": { VSS: 400, EAC: 1000, Intercom: 1500 },
+  "network-hardware": { VSS: 600, EAC: 1100, Intercom: 1600 },
+  "cable-wire": { VSS: 600, EAC: 1100, Intercom: 1600 },
+  intercom: { VSS: 400, EAC: 1000, Intercom: 1500 },
+  other: { VSS: 400, EAC: 1000, Intercom: 1500 },
+};
+
+async function syncAssetToWorkbook(projectId: string, category: AssetCategory, system: SystemType, description: string, price: number, quantity: number) {
+  if (!projectId) return;
+  try {
+    const quotes = await API.quotes.list();
+    let projectQuote = quotes.find((q: Quote) => q.projectId === projectId);
+    if (!projectQuote) {
+      const projects = await API.projects.list();
+      const proj = projects.find((p: Project) => p.id === projectId);
+      const sysCategories = SYSTEM_CATEGORIES[system] || SYSTEM_CATEGORIES.VSS;
+      const categories = sysCategories.map(sc => ({ id: crypto.randomUUID?.() || `cat-${sc.sectionNumber}`, name: sc.name, type: system === "Intercom" ? "Intercom" as QuoteType : system === "EAC" ? "Access Control" as QuoteType : "Video Surveillance" as QuoteType, system, sectionNumber: sc.sectionNumber, importRatePercent: sc.importRatePercent, lineItems: [] }));
+      projectQuote = await API.quotes.create({ clientName: proj?.client || "", refNumber: `Q-${projectId.slice(0, 8).toUpperCase()}`, date: new Date().toISOString().slice(0, 10), status: "draft", quoteType: system === "Intercom" ? "Intercom" as QuoteType : "Multiple" as QuoteType, exchangeRate: parseFloat(localStorage.getItem("fx_rate") || String(DEFAULT_EXCHANGE_RATE)), projectId, categories });
+    }
+    const sysCategories = SYSTEM_CATEGORIES[system] || SYSTEM_CATEGORIES.VSS;
+    const targetSection = CATEGORY_SECTION[category]?.[system] ?? sysCategories[3]?.sectionNumber ?? sysCategories[0].sectionNumber;
+    const categories = projectQuote.categories || [];
+    let targetCat = categories.find((c: QuoteCategory) => c.system === system && c.sectionNumber === targetSection);
+    if (!targetCat) {
+      const sc = sysCategories.find(s => s.sectionNumber === targetSection);
+      targetCat = { id: crypto.randomUUID?.() || `cat${Date.now()}`, name: sc?.name || "Hardware", type: system === "Intercom" ? "Intercom" as QuoteType : system === "EAC" ? "Access Control" as QuoteType : "Video Surveillance" as QuoteType, system, sectionNumber: targetSection, importRatePercent: sc?.importRatePercent || 0, lineItems: [] };
+      categories.push(targetCat);
+    }
+    const existingItem = targetCat.lineItems.find((li: QuoteLineItem) => li.description === description);
+    if (existingItem) {
+      existingItem.quantity += quantity;
+      const sellPrice = existingItem.unitCost * (1 + existingItem.markupPercent);
+      existingItem.sellPrice = sellPrice;
+      existingItem.costTotal = existingItem.unitCost * existingItem.quantity;
+      existingItem.sellTotal = sellPrice * existingItem.quantity;
+      existingItem.profit = existingItem.sellTotal - existingItem.costTotal;
+    } else {
+      const defaultMarkup = sysCategories.find(s => s.sectionNumber === targetSection)?.defaultMarkup || 0.35;
+      const sellPrice = price * (1 + defaultMarkup);
+      targetCat.lineItems.push({ id: crypto.randomUUID?.() || `li${Date.now()}`, itemNumber: String(targetCat.lineItems.length + 1).padStart(2, "0"), description, unitCost: price, quantity, markupPercent: defaultMarkup, sellPrice, costTotal: price * quantity, sellTotal: sellPrice * quantity, profit: (sellPrice - price) * quantity, jmdConversion: sellPrice * (parseFloat(localStorage.getItem("fx_rate") || String(DEFAULT_EXCHANGE_RATE))) });
+    }
+    await API.quotes.update(projectQuote.id, { categories });
+  } catch (err) { console.error("Workbook sync failed:", err); }
+}
+
+async function removeAssetFromWorkbook(projectId: string, description: string) {
+  if (!projectId) return;
+  try {
+    const quotes = await API.quotes.list();
+    const projectQuote = quotes.find((q: Quote) => q.projectId === projectId);
+    if (!projectQuote) return;
+    const categories = projectQuote.categories.map(cat => ({ ...cat, lineItems: cat.lineItems.filter(li => li.description !== description) }));
+    await API.quotes.update(projectQuote.id, { categories });
+  } catch (err) { console.error("Workbook remove failed:", err); }
+}
+
+function describeAsset(asset: ProjectAsset, storeDevices: CatalogDevice[]): string {
+  const sd = asset.deviceStoreRef ? storeDevices.find(d => d.id === asset.deviceStoreRef) : null;
+  if (sd) return `${sd.manufacturer} ${sd.model}`;
+  if (asset.cableSpec) return `${asset.cableSpec.cableType}${asset.cableSpec.runDescription ? " — " + asset.cableSpec.runDescription : ""}`;
+  return asset.purpose || asset.category;
+}
+
+function assetUnitCost(asset: ProjectAsset, storeDevices: CatalogDevice[]): number {
+  const sd = asset.deviceStoreRef ? storeDevices.find(d => d.id === asset.deviceStoreRef) : null;
+  if (sd?.price) return sd.price;
+  if (asset.cableSpec?.costPerFt && asset.cableSpec.lengthFt) return asset.cableSpec.costPerFt * asset.cableSpec.lengthFt;
+  return 0;
+}
+
 function InlineEditCell({ value, onChange, onSave, type = "text", disabled, placeholder }: { value: string | number; onChange: (val: string) => void; onSave?: () => void; type?: "text" | "number"; disabled?: boolean; placeholder?: string; }) {
   const [editing, setEditing] = useState(false);
   const [localValue, setLocalValue] = useState(String(value));
@@ -3325,16 +2907,18 @@ function SynthesisTab({ quoteCategories, synthesisOverrides, exchangeRate, fmt, 
   );
 }
 
-function AssetListTab({ quoteCategories, canvasDevices, storeDevices, exchangeRate, fmt, onLineItemUpdate, fieldSaveStatus }: { quoteCategories: QuoteCategory[]; canvasDevices: CanvasDevice[]; storeDevices: CatalogDevice[]; exchangeRate: number; fmt: (n: number, compact?: boolean) => string; onLineItemUpdate: (categoryId: string, itemId: string, updates: Partial<QuoteLineItem>) => void; fieldSaveStatus: Record<string, "saved" | "saving" | "">; }) {
+function AssetListTab({ quoteCategories, projectAssets, storeDevices, exchangeRate, fmt, onLineItemUpdate, fieldSaveStatus }: { quoteCategories: QuoteCategory[]; projectAssets: ProjectAsset[]; storeDevices: CatalogDevice[]; exchangeRate: number; fmt: (n: number, compact?: boolean) => string; onLineItemUpdate: (categoryId: string, itemId: string, updates: Partial<QuoteLineItem>) => void; fieldSaveStatus: Record<string, "saved" | "saving" | "">; }) {
   const [clientExportMode, setClientExportMode] = useState(false);
   const [collapsedCategories, setCollapsedCategories] = useState<Set<string>>(new Set());
   const toggleCollapse = (id: string) => { setCollapsedCategories(prev => { const next = new Set(prev); next.has(id) ? next.delete(id) : next.add(id); return next; }); };
 
   const allItems = useMemo(() => {
     const items: AssetListItem[] = [];
-    canvasDevices.forEach(dev => {
-      const sd = dev.deviceStoreRef ? storeDevices.find(d => d.id === dev.deviceStoreRef) : null;
-      items.push({ id: dev.id, item: dev.label, qty: 1, cost: sd?.price || 0, markupPercent: 0.35, sell: (sd?.price || 0) * 1.35, costTotal: sd?.price || 0, total: (sd?.price || 0) * 1.35, profit: ((sd?.price || 0) * 1.35) - (sd?.price || 0), isCanvasDevice: true, deviceType: dev.type, system: sd?.system });
+    projectAssets.forEach(asset => {
+      const unitCost = assetUnitCost(asset, storeDevices);
+      const description = describeAsset(asset, storeDevices);
+      const sellPrice = unitCost * 1.35;
+      items.push({ id: asset.id, item: description, qty: asset.quantity, cost: unitCost, markupPercent: 0.35, sell: sellPrice, costTotal: unitCost * asset.quantity, total: sellPrice * asset.quantity, profit: (sellPrice - unitCost) * asset.quantity, isProjectAsset: true, deviceType: asset.category, system: asset.system });
     });
     quoteCategories.forEach(cat => {
       cat.lineItems.filter(li => li.quantity > 0).forEach(li => {
@@ -3343,7 +2927,7 @@ function AssetListTab({ quoteCategories, canvasDevices, storeDevices, exchangeRa
       });
     });
     return items;
-  }, [canvasDevices, storeDevices, quoteCategories, exchangeRate]);
+  }, [projectAssets, storeDevices, quoteCategories, exchangeRate]);
 
   const totalCost = allItems.reduce((s, i) => s + i.costTotal, 0);
   const totalSell = allItems.reduce((s, i) => s + i.total, 0);
@@ -3354,15 +2938,15 @@ function AssetListTab({ quoteCategories, canvasDevices, storeDevices, exchangeRa
     <div className="space-y-4">
       <SummaryBar totalCost={totalCost} totalSell={totalSell} blendedMargin={blendedMargin} fmt={fmt} />
       <div className="flex items-center gap-2 mb-2"><button onClick={() => setClientExportMode(!clientExportMode)} className={clsx("h-7 px-3 rounded-lg text-[12px] font-bold cursor-pointer", clientExportMode ? "text-white" : "text-[#8b949e]")} style={clientExportMode ? { background: "rgba(16,185,129,0.15)", border: "1px solid rgba(16,185,129,0.30)" } : G.btn}><EyeOff className="w-3 h-3 mr-1" />{clientExportMode ? "Client View" : "Internal View"}</button></div>
-      {canvasDevices.length > 0 && (
+      {projectAssets.length > 0 && (
         <div className="rounded-2xl overflow-hidden" style={G.card}>
-          <div className="w-full px-4 py-3 flex items-center justify-between" style={{ borderBottom: "1px solid rgba(255,255,255,0.06)", background: "rgba(255,255,255,0.02)" }}><div className="flex items-center gap-2"><h3 className="text-white text-[15px] font-extrabold">Canvas Devices</h3><span className="text-[#8b949e] text-[12px]">({canvasDevices.length})</span></div></div>
-          <div className="overflow-x-auto"><table className="w-full" style={{ minWidth: clientExportMode ? "400px" : "800px" }}><thead><tr style={{ borderBottom: "1px solid rgba(255,255,255,0.06)" }}><th className="px-3 py-2.5 text-[#8b949e] text-[11px] font-extrabold uppercase tracking-widest text-left">Item</th><th className="px-3 py-2.5 text-[#8b949e] text-[11px] font-extrabold uppercase tracking-widest text-center">QTY</th>{!clientExportMode && <><th className="px-3 py-2.5 text-[#8b949e] text-[11px] font-extrabold uppercase tracking-widest text-right">Cost</th><th className="px-3 py-2.5 text-[#8b949e] text-[11px] font-extrabold uppercase tracking-widest text-right">Markup %</th></>}<th className="px-3 py-2.5 text-[#8b949e] text-[11px] font-extrabold uppercase tracking-widest text-right">Sell</th>{!clientExportMode && <th className="px-3 py-2.5 text-[#8b949e] text-[11px] font-extrabold uppercase tracking-widest text-right">Cost Total</th>}<th className="px-3 py-2.5 text-[#8b949e] text-[11px] font-extrabold uppercase tracking-widest text-right">Total</th>{!clientExportMode && <th className="px-3 py-2.5 text-[#8b949e] text-[11px] font-extrabold uppercase tracking-widest text-right">Profit</th>}</tr></thead><tbody>{allItems.filter(i => i.isCanvasDevice).map(item => (<tr key={item.id} style={{ borderBottom: "1px solid rgba(255,255,255,0.03)" }}><td className="px-3 py-2.5 text-white text-[13px] font-bold">{item.item}</td><td className="px-3 py-2.5 text-white text-[13px] text-center">{item.qty}</td>{!clientExportMode && <><td className="px-3 py-2.5 text-[#8b949e] text-[13px] text-right">{fmt(item.cost)}</td><td className="px-3 py-2.5 text-[#8b949e] text-[13px] text-right">{(item.markupPercent * 100).toFixed(0)}%</td></>}<td className="px-3 py-2.5 text-white text-[13px] font-extrabold text-right">{fmt(item.sell)}</td>{!clientExportMode && <td className="px-3 py-2.5 text-[#8b949e] text-[13px] text-right">{fmt(item.costTotal)}</td>}<td className="px-3 py-2.5 text-white text-[13px] font-extrabold text-right">{fmt(item.total)}</td>{!clientExportMode && <td className="px-3 py-2.5 text-[12px] font-extrabold text-right" style={{ color: item.profit >= 0 ? "#34d399" : "#f87171" }}>{fmt(item.profit)}</td>}</tr>))}</tbody></table></div>
+          <div className="w-full px-4 py-3 flex items-center justify-between" style={{ borderBottom: "1px solid rgba(255,255,255,0.06)", background: "rgba(255,255,255,0.02)" }}><div className="flex items-center gap-2"><h3 className="text-white text-[15px] font-extrabold">Project Assets</h3><span className="text-[#8b949e] text-[12px]">({projectAssets.length})</span></div></div>
+          <div className="overflow-x-auto"><table className="w-full" style={{ minWidth: clientExportMode ? "400px" : "800px" }}><thead><tr style={{ borderBottom: "1px solid rgba(255,255,255,0.06)" }}><th className="px-3 py-2.5 text-[#8b949e] text-[11px] font-extrabold uppercase tracking-widest text-left">Item</th><th className="px-3 py-2.5 text-[#8b949e] text-[11px] font-extrabold uppercase tracking-widest text-center">QTY</th>{!clientExportMode && <><th className="px-3 py-2.5 text-[#8b949e] text-[11px] font-extrabold uppercase tracking-widest text-right">Cost</th><th className="px-3 py-2.5 text-[#8b949e] text-[11px] font-extrabold uppercase tracking-widest text-right">Markup %</th></>}<th className="px-3 py-2.5 text-[#8b949e] text-[11px] font-extrabold uppercase tracking-widest text-right">Sell</th>{!clientExportMode && <th className="px-3 py-2.5 text-[#8b949e] text-[11px] font-extrabold uppercase tracking-widest text-right">Cost Total</th>}<th className="px-3 py-2.5 text-[#8b949e] text-[11px] font-extrabold uppercase tracking-widest text-right">Total</th>{!clientExportMode && <th className="px-3 py-2.5 text-[#8b949e] text-[11px] font-extrabold uppercase tracking-widest text-right">Profit</th>}</tr></thead><tbody>{allItems.filter(i => i.isProjectAsset).map(item => (<tr key={item.id} style={{ borderBottom: "1px solid rgba(255,255,255,0.03)" }}><td className="px-3 py-2.5 text-white text-[13px] font-bold">{item.item}</td><td className="px-3 py-2.5 text-white text-[13px] text-center">{item.qty}</td>{!clientExportMode && <><td className="px-3 py-2.5 text-[#8b949e] text-[13px] text-right">{fmt(item.cost)}</td><td className="px-3 py-2.5 text-[#8b949e] text-[13px] text-right">{(item.markupPercent * 100).toFixed(0)}%</td></>}<td className="px-3 py-2.5 text-white text-[13px] font-extrabold text-right">{fmt(item.sell)}</td>{!clientExportMode && <td className="px-3 py-2.5 text-[#8b949e] text-[13px] text-right">{fmt(item.costTotal)}</td>}<td className="px-3 py-2.5 text-white text-[13px] font-extrabold text-right">{fmt(item.total)}</td>{!clientExportMode && <td className="px-3 py-2.5 text-[12px] font-extrabold text-right" style={{ color: item.profit >= 0 ? "#34d399" : "#f87171" }}>{fmt(item.profit)}</td>}</tr>))}</tbody></table></div>
         </div>
       )}
       {quoteCategories.filter(c => !c.name.includes("Importation")).map(category => {
         const isCollapsed = collapsedCategories.has(category.id);
-        const items = allItems.filter(i => i.sourceCategory === category.name && !i.isCanvasDevice);
+        const items = allItems.filter(i => i.sourceCategory === category.name && !i.isProjectAsset);
         if (items.length === 0) return null;
         return (
           <div key={category.id} className="rounded-2xl overflow-hidden" style={G.card}>
@@ -3416,7 +3000,7 @@ function Workbook({ navigate }: { navigate: (p: Page) => void }) {
   const [exchangeRate, setExchangeRate] = useState(parseFloat(localStorage.getItem("fx_rate") || String(DEFAULT_EXCHANGE_RATE)));
   const [activeTab, setActiveTab] = useState<WorkbookTab>(() => (localStorage.getItem("wb_tab") as WorkbookTab) || "asset-list");
   const [saveStatus, setSaveStatus] = useState<"saved" | "saving" | "">("saved");
-  const [canvasDevices, setCanvasDevices] = useState<CanvasDevice[]>([]);
+  const [projectAssets, setProjectAssets] = useState<ProjectAsset[]>([]);
   const [storeDevices, setStoreDevices] = useState<CatalogDevice[]>([]);
   const [fieldSaveStatus, setFieldSaveStatus] = useState<Record<string, "saved" | "saving" | "">>({});
   const [synthesisOverrides, setSynthesisOverrides] = useState<SynthesisOverride[]>([]);
@@ -3450,7 +3034,7 @@ function Workbook({ navigate }: { navigate: (p: Page) => void }) {
   useEffect(() => {
     if (selectedProjectId) {
       localStorage.setItem("wb_last_project", selectedProjectId);
-      API.canvas.get(selectedProjectId).then(data => { if (data.layoutData?.devices) setCanvasDevices(data.layoutData.devices); else setCanvasDevices([]); }).catch(() => setCanvasDevices([]));
+      API.projectAssets.list(selectedProjectId).then(setProjectAssets).catch(() => setProjectAssets([]));
       API.workbook.getOverrides(selectedProjectId).then(setSynthesisOverrides).catch(() => setSynthesisOverrides([]));
       API.workbook.getAudit(selectedProjectId).then(setWorkbookAudit).catch(() => setWorkbookAudit([]));
     }
@@ -3536,7 +3120,7 @@ function Workbook({ navigate }: { navigate: (p: Page) => void }) {
           <button onClick={() => setShowProposalModal(true)} className="flex items-center gap-1.5 h-7 px-3 rounded-lg text-white text-[12px] font-extrabold cursor-pointer" style={{ background: "#3b82f6" }}><FileDown className="w-3 h-3" /> Proposal</button>
         </div>
       </div>
-      {!selectedQuote && canvasDevices.length === 0 ? (
+      {!selectedQuote && projectAssets.length === 0 ? (
         <div className="flex-1 flex items-center justify-center"><EmptyState icon={DollarSign} title="No workbook" description="Select a project to view its workbook." action={{ label: "Select Project", onClick: () => setShowProjectSelect(true) }} /></div>
       ) : (
         <div className="flex-1 flex flex-col overflow-hidden">
@@ -3546,7 +3130,7 @@ function Workbook({ navigate }: { navigate: (p: Page) => void }) {
             ))}
           </div>
           <div className="flex-1 overflow-y-auto px-3 md:px-5 py-4 space-y-4" style={{ scrollbarWidth: "thin", scrollbarColor: "rgba(255,255,255,0.08) transparent" }}>
-            {activeTab === "asset-list" && <AssetListTab quoteCategories={quoteCategories} canvasDevices={canvasDevices} storeDevices={storeDevices} exchangeRate={exchangeRate} fmt={fmt} onLineItemUpdate={updateQuoteLineItem} fieldSaveStatus={fieldSaveStatus} />}
+            {activeTab === "asset-list" && <AssetListTab quoteCategories={quoteCategories} projectAssets={projectAssets} storeDevices={storeDevices} exchangeRate={exchangeRate} fmt={fmt} onLineItemUpdate={updateQuoteLineItem} fieldSaveStatus={fieldSaveStatus} />}
             {activeTab === "cost-margin" && <CostMarginTab quoteCategories={quoteCategories} exchangeRate={exchangeRate} fmt={fmt} onLineItemUpdate={updateQuoteLineItem} fieldSaveStatus={fieldSaveStatus} />}
             {activeTab === "bom" && <BomTab quoteCategories={quoteCategories} synthesisOverrides={synthesisOverrides} exchangeRate={exchangeRate} fmt={fmt} onLineItemUpdate={updateQuoteLineItem} onAddLineItem={addLineItem} onBomEditWithOverride={handleBomEditWithOverride} fieldSaveStatus={fieldSaveStatus} />}
             {activeTab === "synthesis" && <SynthesisTab quoteCategories={quoteCategories} synthesisOverrides={synthesisOverrides} exchangeRate={exchangeRate} fmt={fmt} onSaveOverride={handleSaveOverride} fieldSaveStatus={fieldSaveStatus} />}
@@ -3924,7 +3508,7 @@ function LoginPage({ onLogin }: { onLogin: () => void }) {
             <p className="text-[#8b949e] text-[13px] md:text-[15px] leading-relaxed mb-8 max-w-[380px]">From New lead to New client, from Site Assessment to Final Installation. Track Leads, Design Site Plans, Build Financial Workbooks, Manage Installations, and Auto-Generate Reports in One Platform.</p>
             <div className="space-y-2">
               {[
-                { icon: Camera, title: "System Design Studio", desc: "Place Cameras, Map Cable Routes, Build Floorplans", color: "#3b82f6" },
+                { icon: Camera, title: "System Design Studio", desc: "Specify Cameras, Access Control, Network Hardware and Cable Runs per Project", color: "#3b82f6" },
                 { icon: BarChart3, title: "Sales & Tech Pipeline Tracker", desc: "Track Leads, Manage Tech Projects, Generate Workbooks and Reports", color: "#8b5cf6" },
               ].map(({ icon: Icon, title, desc, color }) => (
                 <div key={title} className="flex items-start gap-3 p-3 rounded-2xl" style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.09)" }}>
@@ -4062,7 +3646,6 @@ function AuthenticatedApp() {
   const quoteCtx: QuoteCtx = { currentQuote, setCurrentQuote, addToQuote };
 
   if (page === "login") return (<CurrencyContext.Provider value={currencyCtx}><LoginPage onLogin={handleLogin} /></CurrencyContext.Provider>);
-  if (page === "design-canvas") return (<CurrencyContext.Provider value={currencyCtx}><DesignCanvas navigate={setPage} /></CurrencyContext.Provider>);
 
   const breadcrumb = page === "project-detail" ? { label: "Projects", parent: "design-studio" as Page } : undefined;
 
@@ -4095,7 +3678,7 @@ function AuthenticatedApp() {
               <div className="space-y-3 mb-6 text-left">
                 {[
                   { icon: BarChart3, label: "Pipeline", desc: "Track sales leads and manage projects through every stage", color: "#3b82f6" },
-                  { icon: Layers, label: "Design Studio", desc: "Upload floor plans, place cameras, map cable routes", color: "#8b5cf6" },
+                  { icon: Layers, label: "Design Studio", desc: "Specify cameras, access control, network hardware, and cable runs", color: "#8b5cf6" },
                   { icon: FileText, label: "Workbook", desc: "Auto-generate BOMs, cost summaries, and proposals", color: "#10b981" },
                 ].map(item => (
                   <div key={item.label} className="flex items-start gap-3 p-3 rounded-xl" style={{ background: "rgba(255,255,255,0.03)" }}>

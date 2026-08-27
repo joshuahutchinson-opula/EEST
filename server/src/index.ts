@@ -7,7 +7,6 @@ import projectsRouter from "./routes/projects";
 import quotesRouter from "./routes/quotes";
 import devicesRouter from "./routes/devices";
 import installRouter from "./routes/install";
-import canvasRouter from "./routes/canvas";
 import authRouter from "./routes/auth";
 import changeOrdersRouter from "./routes/changeOrders";
 import auditRouter from "./routes/audit";
@@ -19,6 +18,7 @@ import inventoryRouter from "./routes/inventory";
 import procurementRouter from "./routes/procurement";
 import commissioningRouter from "./routes/commissioning";
 import subcontractorsRouter from "./routes/subcontractors";
+import projectAssetsRouter from "./routes/project-assets";
 
 dotenv.config();
 
@@ -36,7 +36,7 @@ app.use("/api/projects", projectsRouter);
 app.use("/api/quotes", quotesRouter);
 app.use("/api/devices", devicesRouter);
 app.use("/api/install", installRouter);
-app.use("/api/canvas", canvasRouter);
+app.use("/api/projects", projectAssetsRouter);
 app.use("/api/auth", authRouter);
 app.use("/api/change-orders", changeOrdersRouter);
 app.use("/api/audit", auditRouter);

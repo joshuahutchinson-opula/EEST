@@ -238,6 +238,23 @@ export async function initDB() {
         updated_at TIMESTAMPTZ DEFAULT NOW()
       );
 
+      CREATE TABLE IF NOT EXISTS project_assets (
+        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+        project_id UUID REFERENCES projects(id),
+        category TEXT NOT NULL,
+        system TEXT NOT NULL,
+        device_store_ref TEXT,
+        cable_spec JSONB,
+        quantity INTEGER DEFAULT 1,
+        location TEXT,
+        zone_id UUID,
+        purpose TEXT,
+        coverage_photos JSONB DEFAULT '[]',
+        notes TEXT,
+        created_at TIMESTAMPTZ DEFAULT NOW(),
+        updated_at TIMESTAMPTZ DEFAULT NOW()
+      );
+
       CREATE TABLE IF NOT EXISTS inventory_items (
         id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
         device_id UUID REFERENCES devices(id),
