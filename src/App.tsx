@@ -897,7 +897,7 @@ function KanbanCard({ project, column, dragging, onDragStart, onDragEnd, onClick
             <div className="flex items-center gap-1.5 flex-1 min-w-0">
               {isOverdue && <span className="w-2 h-2 rounded-full bg-rose-500 flex-shrink-0" title="Overdue" />}
               {isDueSoon && !isOverdue && <span className="w-2 h-2 rounded-full bg-amber-500 flex-shrink-0" title="Due soon" />}
-              <h3 className="text-white text-[14px] md:text-[15px] font-bold leading-snug truncate">{project.name}</h3>
+              <h3 className="text-white text-[14px] md:text-[15px] font-bold leading-snug break-words">{project.name}</h3>
             </div>
             <div className="relative flex-shrink-0">
               <button onClick={(e) => { e.stopPropagation(); setMenuOpen(!menuOpen); }} className="opacity-0 group-hover:opacity-100 transition-opacity w-8 h-8 rounded-lg hover:bg-white/10 flex items-center justify-center mt-0.5 cursor-pointer min-w-[44px] min-h-[44px] md:min-w-0 md:min-h-0"><MoreHorizontal className="w-3.5 h-3.5 text-[#8b949e]" /></button>
