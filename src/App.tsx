@@ -58,16 +58,6 @@ function downloadCSV(filename: string, rows: string[][]) {
 function fmtDate(d: string) { return new Date(d).toLocaleDateString("en-US", { month: "short", day: "numeric" }); }
 function fmtDateFull(d: string) { return new Date(d).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }); }
 
-function fovPath(cx: number, cy: number, rotDeg: number, fovDeg: number, r: number) {
-  const rot = (rotDeg * Math.PI) / 180;
-  const half = (fovDeg / 2 * Math.PI) / 180;
-  const x1 = cx + r * Math.cos(rot - half);
-  const y1 = cy + r * Math.sin(rot - half);
-  const x2 = cx + r * Math.cos(rot + half);
-  const y2 = cy + r * Math.sin(rot + half);
-  return `M${cx},${cy} L${x1.toFixed(1)},${y1.toFixed(1)} A${r},${r} 0 0,1 ${x2.toFixed(1)},${y2.toFixed(1)} Z`;
-}
-
 const G = {
   card: { background: "rgba(255,255,255,0.055)", backdropFilter: "blur(24px) saturate(160%)", WebkitBackdropFilter: "blur(24px) saturate(160%)", border: "1px solid rgba(255,255,255,0.11)", boxShadow: "0 4px 24px rgba(0,0,0,0.45), inset 0 1px 0 rgba(255,255,255,0.09)" } as React.CSSProperties,
   panel: { background: "rgba(7,12,26,0.72)", backdropFilter: "blur(40px) saturate(180%)", WebkitBackdropFilter: "blur(40px) saturate(180%)", border: "1px solid rgba(255,255,255,0.10)", boxShadow: "0 8px 40px rgba(0,0,0,0.6), inset 0 1px 0 rgba(255,255,255,0.08)" } as React.CSSProperties,
@@ -1639,52 +1629,50 @@ function DealModal({ project, column, onClose, navigate, onUpdate, onDelete, pip
   );
 }
 
-function MiniFloorPlan({ project }: { project: Project }) {
-  const hasDesign = ["proposal", "negotiation", "win"].includes(project.stage) || ["planning", "procurement", "installation", "commissioning", "complete"].includes(project.projectStage as string);
-  const variant = parseInt(project.id.replace(/\D/g, "").slice(-1) || "0") % 3;
-  if (!hasDesign) return <div className="w-full h-full flex flex-col items-center justify-center rounded-lg border border-dashed" style={{ background: "rgba(255,255,255,0.03)", borderColor: "rgba(255,255,255,0.09)" }}><Upload className="w-5 h-5 text-[#484f58] mb-1.5" /><p className="text-[#8b949e] text-[12px] font-bold">No floor plan</p></div>;
-  if (variant === 0) return <svg viewBox="0 0 200 112" className="w-full h-full"><rect width="200" height="112" fill="#070c1a" /><rect x="8" y="8" width="184" height="96" fill="rgba(255,255,255,0.02)" stroke="rgba(255,255,255,0.09)" strokeWidth="1" rx="1" /><rect x="8" y="8" width="60" height="40" fill="rgba(59,130,246,0.05)" /><rect x="8" y="56" width="60" height="48" fill="rgba(255,255,255,0.02)" /><rect x="130" y="8" width="62" height="96" fill="rgba(139,92,246,0.04)" /><text x="38" y="30" textAnchor="middle" fill="rgba(255,255,255,0.12)" fontSize="5" fontFamily="sans-serif">RECEPTION</text><text x="38" y="82" textAnchor="middle" fill="rgba(255,255,255,0.12)" fontSize="5" fontFamily="sans-serif">OFFICE</text><text x="161" y="56" textAnchor="middle" fill="rgba(255,255,255,0.12)" fontSize="5" fontFamily="sans-serif">SERVER</text><path d={fovPath(18,18,135,80,28)} fill="rgba(59,130,246,0.18)" /><circle cx="18" cy="18" r="2.5" fill="#3b82f6" /><path d={fovPath(182,18,225,80,28)} fill="rgba(59,130,246,0.18)" /><circle cx="182" cy="18" r="2.5" fill="#3b82f6" /><path d={fovPath(18,96,45,80,28)} fill="rgba(59,130,246,0.18)" /><circle cx="18" cy="96" r="2.5" fill="#3b82f6" /><text x="186" y="109" textAnchor="end" fill="rgba(59,130,246,0.4)" fontSize="5" fontFamily="sans-serif">{project.cameras} cams</text></svg>;
-  if (variant === 1) return <svg viewBox="0 0 200 112" className="w-full h-full"><rect width="200" height="112" fill="#070c1a" /><rect x="8" y="8" width="184" height="96" fill="rgba(255,255,255,0.02)" stroke="rgba(255,255,255,0.09)" strokeWidth="1" rx="1" /><rect x="8" y="8" width="184" height="22" fill="rgba(59,130,246,0.04)" /><rect x="8" y="8" width="60" height="96" fill="rgba(255,255,255,0.015)" /><text x="100" y="21" textAnchor="middle" fill="rgba(255,255,255,0.12)" fontSize="5" fontFamily="sans-serif">LOADING DOCK</text><text x="38" y="68" textAnchor="middle" fill="rgba(255,255,255,0.12)" fontSize="5" fontFamily="sans-serif">STORAGE</text><text x="133" y="72" textAnchor="middle" fill="rgba(255,255,255,0.12)" fontSize="5" fontFamily="sans-serif">WAREHOUSE</text>{[30,80,130,180].map((x,i) => <g key={i}><path d={fovPath(x,9,90,100,40)} fill="rgba(59,130,246,0.12)" /><circle cx={x} cy={9} r="2.5" fill="#3b82f6" /></g>)}<text x="186" y="109" textAnchor="end" fill="rgba(59,130,246,0.4)" fontSize="5" fontFamily="sans-serif">{project.cameras} cams</text></svg>;
-  return <svg viewBox="0 0 200 112" className="w-full h-full"><rect width="200" height="112" fill="#070c1a" /><rect x="8" y="8" width="86" height="46" fill="rgba(59,130,246,0.05)" /><rect x="106" y="8" width="86" height="46" fill="rgba(139,92,246,0.04)" /><rect x="8" y="62" width="86" height="42" fill="rgba(16,185,129,0.03)" /><rect x="106" y="62" width="86" height="42" fill="rgba(245,158,11,0.03)" /><text x="51" y="30" textAnchor="middle" fill="rgba(255,255,255,0.12)" fontSize="5" fontFamily="sans-serif">DATA HALL A</text><text x="149" y="30" textAnchor="middle" fill="rgba(255,255,255,0.12)" fontSize="5" fontFamily="sans-serif">DATA HALL B</text><text x="51" y="84" textAnchor="middle" fill="rgba(255,255,255,0.12)" fontSize="5" fontFamily="sans-serif">SERVER ROOM</text><text x="149" y="84" textAnchor="middle" fill="rgba(255,255,255,0.12)" fontSize="5" fontFamily="sans-serif">NOC</text>{[[18,18,135],[78,18,225],[18,98,45],[78,98,315],[118,18,135],[178,18,225],[118,98,45],[178,98,315]].map(([x,y,r],i) => <g key={i}><path d={fovPath(x,y,r,80,24)} fill="rgba(59,130,246,0.15)" /><circle cx={x} cy={y} r="2" fill="#3b82f6" /></g>)}<text x="186" y="109" textAnchor="end" fill="rgba(59,130,246,0.4)" fontSize="5" fontFamily="sans-serif">{project.cameras} cams</text></svg>;
-}
+const ASSET_CATEGORY_ICONS: Record<AssetCategory, IconType> = {
+  camera: Camera,
+  "access-control": Fingerprint,
+  "network-hardware": Server,
+  "cable-wire": Cable,
+  intercom: MessageSquare,
+  other: Box,
+};
 
-function UploadFloorPlanModal({ onClose, onUpload, mode }: { onClose: () => void; onUpload: (file: File, type: "2d" | "3d") => void; mode: "2d" | "3d" }) {
-  const [dragOver, setDragOver] = useState(false);
-  const [file, setFile] = useState<File | null>(null);
-  const [uploading, setUploading] = useState(false);
-  const handleUpload = async () => { if (!file) return; setUploading(true); try { onUpload(file, mode); onClose(); } catch { toast.error("Upload failed"); } finally { setUploading(false); } };
-  const twoDAccept = "image/*,.pdf,.dwg,.dxf";
-  const threeDAccept = "image/*,.glb,.gltf,.obj,.stl,.fbx";
+function ProjectAssetSummary({ projectId }: { projectId: string }) {
+  const [assets, setAssets] = useState<ProjectAsset[] | null>(null);
+
+  useEffect(() => {
+    let alive = true;
+    API.projectAssets.list(projectId).then((data) => { if (alive) setAssets(data); }).catch(() => { if (alive) setAssets([]); });
+    return () => { alive = false; };
+  }, [projectId]);
+
+  if (assets === null) return <div className="w-full h-full flex items-center justify-center"><Loader2 className="w-4 h-4 text-[#484f58] animate-spin" /></div>;
+
+  const groups = (Object.keys(ASSET_CATEGORY_LABELS) as AssetCategory[])
+    .map((cat) => {
+      const items = assets.filter((a) => a.category === cat);
+      if (items.length === 0) return null;
+      if (cat === "cable-wire") return { cat, count: items.reduce((s, a) => s + (a.cableSpec?.lengthFt || 0) * a.quantity, 0), suffix: "ft" };
+      return { cat, count: items.reduce((s, a) => s + a.quantity, 0), suffix: "" };
+    })
+    .filter((g): g is { cat: AssetCategory; count: number; suffix: string } => g !== null);
+
+  if (groups.length === 0) return <div className="w-full h-full flex flex-col items-center justify-center rounded-lg border border-dashed" style={{ background: "rgba(255,255,255,0.03)", borderColor: "rgba(255,255,255,0.09)" }}><Package className="w-5 h-5 text-[#484f58] mb-1.5" /><p className="text-[#8b949e] text-[12px] font-bold">No assets yet</p></div>;
+
   return (
-    <div className="fixed inset-0 z-[200] flex items-center justify-center p-4" onClick={onClose}>
-      <div className="absolute inset-0" style={{ background: "rgba(0,0,0,0.65)", backdropFilter: "blur(8px)" }} />
-      <motion.div initial={{ opacity: 0, scale: 0.94, y: 16 }} animate={{ opacity: 1, scale: 1, y: 0 }} exit={{ opacity: 0, scale: 0.94, y: 16 }} transition={{ type: "spring", damping: 26, stiffness: 360 }} onClick={(e) => e.stopPropagation()} className="relative z-10 w-full max-w-[480px] rounded-3xl" style={{ background: "rgba(7,12,26,0.92)", backdropFilter: "blur(52px) saturate(200%)", border: "1px solid rgba(255,255,255,0.13)", boxShadow: "0 32px 80px rgba(0,0,0,0.9)" }}>
-        <div className="flex items-center justify-between px-6 pt-6 pb-5" style={{ borderBottom: "1px solid rgba(255,255,255,0.07)" }}>
-          <div><h2 className="text-white text-[1.2rem] font-extrabold">Upload {mode === "2d" ? "Floor Plan" : "3D Model / Rendering"}</h2><p className="text-[#8b949e] text-[12px] mt-1">{mode === "2d" ? "PNG, JPG, PDF, DWG, DXF" : "PNG, JPG, GLB, GLTF, OBJ, STL, FBX"}</p></div>
-          <button onClick={onClose} className="w-8 h-8 rounded-xl flex items-center justify-center hover:bg-white/[0.08] cursor-pointer min-w-[44px] min-h-[44px]" style={{ border: "1px solid rgba(255,255,255,0.10)" }}><X className="w-4 h-4 text-[#8b949e]" /></button>
-        </div>
-        <div className="p-6">
-          <div onDragOver={(e) => { e.preventDefault(); setDragOver(true); }} onDragLeave={() => setDragOver(false)} onDrop={(e) => { e.preventDefault(); if (e.dataTransfer.files.length > 0) setFile(e.dataTransfer.files[0]); }} className={clsx("border-2 border-dashed rounded-2xl p-10 text-center transition-all cursor-pointer", dragOver ? "border-violet-400 bg-violet-500/[0.06]" : file ? "border-emerald-500/40 bg-emerald-500/[0.03]" : "border-white/[0.10] hover:border-white/[0.20]")} onClick={() => document.getElementById("floorplan-upload-2")?.click()}>
-            <input id="floorplan-upload-2" type="file" accept={mode === "2d" ? twoDAccept : threeDAccept} className="hidden" onChange={(e) => { if (e.target.files?.[0]) setFile(e.target.files[0]); }} />
-            {file ? (
-              <div className="space-y-2">
-                <div className="w-12 h-12 rounded-xl mx-auto flex items-center justify-center" style={{ background: "rgba(16,185,129,0.15)" }}><CheckCircle2 className="w-6 h-6 text-emerald-400" /></div>
-                <p className="text-white text-[15px] font-bold">{file.name}</p>
-                <p className="text-[#8b949e] text-[13px]">{(file.size / 1024).toFixed(0)} KB</p>
-              </div>
-            ) : (
-              <div className="space-y-3">
-                <div className="w-14 h-14 rounded-2xl mx-auto flex items-center justify-center" style={{ background: "rgba(139,92,246,0.12)" }}><Upload className="w-6 h-6 text-violet-400" /></div>
-                <div><p className="text-white text-[15px] font-bold">Drag & drop your {mode === "2d" ? "floor plan" : "3D file"}</p><p className="text-[#8b949e] text-[13px] mt-1">or click to browse files</p></div>
-              </div>
-            )}
-          </div>
-          <div className="flex gap-3 mt-5">
-            <button onClick={onClose} className="flex-1 h-10 rounded-xl text-[#8b949e] text-[15px] font-bold cursor-pointer min-h-[44px]" style={G.btn}>Cancel</button>
-            <button onClick={handleUpload} disabled={!file || uploading} className="flex-1 h-10 rounded-xl text-white text-[15px] font-extrabold disabled:opacity-40 flex items-center justify-center gap-2 cursor-pointer min-h-[44px]" style={{ background: "#8b5cf6", boxShadow: file ? "0 4px 20px rgba(139,92,246,0.4)" : "none" }}>{uploading ? "Uploading…" : "Upload"}</button>
-          </div>
-        </div>
-      </motion.div>
+    <div className="w-full h-full flex items-center justify-center px-3">
+      <div className="grid grid-cols-3 gap-1.5 w-full">
+        {groups.slice(0, 6).map((g) => {
+          const Icon = ASSET_CATEGORY_ICONS[g.cat];
+          return (
+            <div key={g.cat} title={ASSET_CATEGORY_LABELS[g.cat]} className="flex items-center gap-1.5 rounded-lg px-2 py-1.5" style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.06)" }}>
+              <Icon className="w-3.5 h-3.5 text-[#8b949e] flex-shrink-0" />
+              <span className="text-white text-[12px] font-bold">{g.count}{g.suffix}</span>
+            </div>
+          );
+        })}
+      </div>
     </div>
   );
 }
@@ -1773,7 +1761,7 @@ function ProjectsPage({ navigate }: { navigate: (p: Page) => void }) {
                   const badge = isProjPipe ? projectStageBadge(project.projectStage || "planning") : stageBadge(project.stage);
                   return (
                     <motion.div key={project.id} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, scale: 0.95 }} className="group rounded-2xl overflow-hidden cursor-pointer transition-all md:hover:-translate-y-1" style={{ ...G.card }} onClick={() => openProject(project.id)}>
-                      <div className="relative h-[100px] md:h-[112px] bg-[#070c1a]"><MiniFloorPlan project={project} /><div className={clsx("absolute top-2 right-2 text-[12px] font-extrabold px-2 py-0.5 rounded-full", badge.cls)}>{badge.label}</div></div>
+                      <div className="relative h-[100px] md:h-[112px] bg-[#070c1a]"><ProjectAssetSummary projectId={project.id} /><div className={clsx("absolute top-2 right-2 text-[12px] font-extrabold px-2 py-0.5 rounded-full", badge.cls)}>{badge.label}</div></div>
                       <div className="p-3 md:p-4"><h3 className="text-white text-[14px] md:text-[15px] font-bold leading-snug mb-1 line-clamp-1">{project.name}</h3><p className="text-[#8b949e] text-[12px] md:text-[13px] font-semibold mb-2 flex items-center gap-1"><Building2 className="w-3 h-3" /> {project.client}</p><div className="flex items-center justify-between"><div className="flex items-center gap-2"><span className="flex items-center gap-1 text-[#8b949e] text-[12px]"><Camera className="w-3 h-3" />{project.cameras}</span></div><div className="w-5 h-5 rounded-full flex items-center justify-center text-[11px] font-extrabold text-white" style={{ background: project.assignee.color }}>{project.assignee.initials}</div></div></div>
                     </motion.div>
                   );
