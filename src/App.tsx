@@ -429,6 +429,18 @@ function getSessionEmail(): string | null {
   } catch { return null; }
 }
 
+class UnauthorizedError extends Error {
+  constructor() { super("Unauthorized"); this.name = "UnauthorizedError"; }
+}
+
+// Set by AuthenticatedApp on mount so a 401 from anywhere (an authenticated poll like
+// NotificationBell, a stale token from a previous session, etc.) can drop the app back to
+// the login view via a React state update — never a hard window.location reload, which would
+// re-fetch the whole document (favicon/manifest included) and can loop if the token keeps
+// coming back invalid.
+let onUnauthorized: (() => void) | null = null;
+function setUnauthorizedHandler(fn: (() => void) | null) { onUnauthorized = fn; }
+
 async function apiFetch<T>(path: string, options?: RequestInit): Promise<T> {
   const token = localStorage.getItem("auth_token");
   const headers: Record<string, string> = {};
@@ -438,7 +450,8 @@ async function apiFetch<T>(path: string, options?: RequestInit): Promise<T> {
   if (res.status === 401 && !path.startsWith("/auth/")) {
     localStorage.removeItem("auth_token");
     localStorage.removeItem("app_logged_in");
-    window.location.href = "/";
+    onUnauthorized?.();
+    throw new UnauthorizedError();
   }
   if (!res.ok) throw new Error(`API error: ${res.status}`);
   return res.json();
@@ -4308,6 +4321,11 @@ function AuthenticatedApp() {
     const loggedIn = localStorage.getItem("auth_token") || localStorage.getItem("app_logged_in");
     return loggedIn ? ((saved as Page) || "dashboard") : "login";
   });
+  // A token in localStorage only means a previous session logged in — it may since have expired
+  // or been revoked server-side. Render nothing but a boot spinner until API.auth.me() confirms
+  // it's still valid, so authenticated-only children (NotificationBell's polling, etc.) never
+  // mount against a dead token.
+  const [authChecking, setAuthChecking] = useState(() => !!(localStorage.getItem("auth_token") || localStorage.getItem("app_logged_in")));
   const [currency, setCurrency] = useState<"USD" | "JMD">("USD");
   const [currentQuote, setCurrentQuote] = useState<Quote | null>(null);
   const onboardingKey = useMemo(() => `onboarding_complete:${getSessionEmail() || "local"}`, []);
@@ -4315,9 +4333,33 @@ function AuthenticatedApp() {
   const [role, setRole] = useState<Role>("admin");
   const tutorialState = useTutorialState();
 
+  useEffect(() => {
+    setUnauthorizedHandler(() => {
+      localStorage.removeItem("app_page");
+      setPage("login");
+    });
+    return () => setUnauthorizedHandler(null);
+  }, []);
+
+  useEffect(() => {
+    if (!authChecking) return;
+    let cancelled = false;
+    API.auth.me()
+      .then((u) => { if (!cancelled) { setRole(u.role); setAuthChecking(false); } })
+      .catch(() => {
+        if (cancelled) return;
+        localStorage.removeItem("auth_token");
+        localStorage.removeItem("app_logged_in");
+        localStorage.removeItem("app_page");
+        setPage("login");
+        setAuthChecking(false);
+      });
+    return () => { cancelled = true; };
+  }, [authChecking]);
+
   useEffect(() => { if (page !== "login") localStorage.setItem("app_page", page); }, [page]);
   useEffect(() => { API.fx.getRate(); const interval = setInterval(() => API.fx.getRate(), 24 * 60 * 60 * 1000); return () => clearInterval(interval); }, []);
-  useEffect(() => { if (page !== "login") API.auth.me().then((u) => setRole(u.role)).catch(() => {}); }, [page]);
+  useEffect(() => { if (page !== "login" && !authChecking) API.auth.me().then((u) => setRole(u.role)).catch(() => {}); }, [page, authChecking]);
   useEffect(() => { if (isTechRole(role) && page === "workbook") setPage("dashboard"); }, [role, page]);
 
   const currencyCtx: CurrencyCtx = useMemo(() => ({ currency, setCurrency, fmt: makeFmt(currency) }), [currency]);
@@ -4349,6 +4391,12 @@ function AuthenticatedApp() {
   };
 
   const quoteCtx: QuoteCtx = { currentQuote, setCurrentQuote, addToQuote };
+
+  if (authChecking) return (
+    <CurrencyContext.Provider value={currencyCtx}>
+      <div className="min-h-screen bg-background flex items-center justify-center"><Loader2 className="w-6 h-6 text-blue-400 animate-spin" /></div>
+    </CurrencyContext.Provider>
+  );
 
   if (page === "login") return (<CurrencyContext.Provider value={currencyCtx}><LoginPage /></CurrencyContext.Provider>);
 
