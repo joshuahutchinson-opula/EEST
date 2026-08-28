@@ -1,6 +1,6 @@
 {
-  "name": "E-Tech Project & Client Management System",
-  "short_name": "PCMS",
+  "name": "E-Tech Operations Center",
+  "short_name": "E-Tech OC",
   "description": "Full-lifecycle security project management for E-Tech Systems Jamaica.",
   "start_url": "/",
   "display": "standalone",
