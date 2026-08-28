@@ -4428,7 +4428,7 @@ function AuthenticatedApp() {
             <div className="absolute inset-0" style={{ background: "rgba(0,0,0,0.8)", backdropFilter: "blur(12px)" }} />
             <motion.div initial={{ opacity: 0, scale: 0.93 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.93 }} transition={{ type: "spring", damping: 26, stiffness: 360 }} onClick={(e) => e.stopPropagation()} className="relative z-10 w-full max-w-[500px] rounded-3xl p-8 text-center" style={G.liquidGlass}>
               <div className="w-16 h-16 rounded-2xl flex items-center justify-center mx-auto mb-5" style={{ background: "rgba(59,130,246,0.15)", border: "1px solid rgba(59,130,246,0.25)" }}><Zap className="w-8 h-8 text-blue-400" /></div>
-              <h2 className="text-white text-[1.4rem] font-extrabold mb-2">Welcome to EEST</h2>
+              <h2 className="text-white text-[1.4rem] font-extrabold mb-2">Welcome to E-Tech Operations Center</h2>
               <p className="text-[#8b949e] text-[14px] mb-6">Your full-lifecycle security project platform. Take a 30-second guided tour to see where everything lives.</p>
               <div className="space-y-3 mb-6 text-left">
                 {[
