@@ -15,9 +15,29 @@ export const BRAND_COLORS = {
 
 const ASSETS_DIR = path.join(__dirname, "..", "assets", "branding");
 
-export const LOGO_FULL_COLOR = fs.readFileSync(path.join(ASSETS_DIR, "etech-logo-full-color.png"));
-export const LOGO_GRAYSCALE = fs.readFileSync(path.join(ASSETS_DIR, "etech-logo-grayscale.png"));
-export const HEADER_BANNER = fs.readFileSync(path.join(ASSETS_DIR, "etech-header-gradient-banner.png"));
+// A missing branding asset (e.g. a build that forgot to copy server/src/assets/ into dist/)
+// must never crash the whole server at module-load time — it should only break the one
+// document-generation route that needs the image, with a clear log line pointing at why.
+function readBrandingAsset(filename: string): Buffer | null {
+  try {
+    return fs.readFileSync(path.join(ASSETS_DIR, filename));
+  } catch (err) {
+    console.error(`[branding] Failed to load branding asset "${filename}" from ${ASSETS_DIR}:`, err);
+    return null;
+  }
+}
+
+export const LOGO_FULL_COLOR = readBrandingAsset("etech-logo-full-color.png");
+export const LOGO_GRAYSCALE = readBrandingAsset("etech-logo-grayscale.png");
+export const HEADER_BANNER = readBrandingAsset("etech-header-gradient-banner.png");
+
+// Throws with a clear message if a branding asset failed to load — call at the top of any
+// document generator that relies on one of the buffers above, so the failure is scoped to
+// that one route/request instead of surfacing as a confusing ImageRun crash deep inside docx.
+function requireAsset(buf: Buffer | null, name: string): Buffer {
+  if (!buf) throw new Error(`Branding asset "${name}" is unavailable — document generation cannot proceed.`);
+  return buf;
+}
 
 export const LETTERHEAD_FOOTER_TEXT =
   "E-Tech Systems Limited: Kingston 5, St. Andrew, Jamaica. Contact T (876) 633-3648, Ext 2000 E: support@e-techsystemsja.com W: www.e-techsystemsja.com";
@@ -35,7 +55,7 @@ export function buildBrandedHeader(title: string, subtitle?: string): Header {
     children: [
       new Paragraph({
         alignment: AlignmentType.CENTER,
-        children: [new ImageRun({ type: "png", data: HEADER_BANNER, transformation: { width: 520, height: 65 } })],
+        children: [new ImageRun({ type: "png", data: requireAsset(HEADER_BANNER, "etech-header-gradient-banner.png"), transformation: { width: 520, height: 65 } })],
       }),
       new Paragraph({
         alignment: AlignmentType.CENTER,
@@ -58,7 +78,7 @@ export function buildBrandedFooter(): Footer {
         alignment: AlignmentType.CENTER,
         border: { top: { style: BorderStyle.SINGLE, size: 6, color: BRAND_COLORS.lightBlue, space: 4 } },
         spacing: { before: 100 },
-        children: [new ImageRun({ type: "png", data: LOGO_GRAYSCALE, transformation: { width: 100, height: 38 } })],
+        children: [new ImageRun({ type: "png", data: requireAsset(LOGO_GRAYSCALE, "etech-logo-grayscale.png"), transformation: { width: 100, height: 38 } })],
       }),
       new Paragraph({
         alignment: AlignmentType.CENTER,
