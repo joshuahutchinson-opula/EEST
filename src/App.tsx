@@ -2763,7 +2763,6 @@ const ADD_ASSET_MODAL_STEPS: TutorialStep[] = [
   { target: "aam-category", title: "Category & System", description: "Pick what kind of item this is and which system it belongs to — Video Surveillance, Access Control, or Intercom." },
   { target: "aam-type-fields", title: "Type-Specific Fields", description: "Cable/wire assets get cable type, length, and cost-per-foot fields; every other category lets you pick a specific device from the catalog (or leave it generic) with an editable unit price." },
   { target: "aam-qty-location", title: "Quantity & Location", description: "How many, and where it's physically going." },
-  { target: "aam-zone", title: "Zone", description: "Linking a zone here automatically creates a matching device in the Install Tracker for this project." },
   { target: "aam-purpose", title: "Purpose & Notes", description: "What this item is for, plus any freeform notes." },
 ];
 
