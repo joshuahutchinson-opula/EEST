@@ -43,6 +43,7 @@ const TEAM = [
   { name: "Akeem", initials: "AK", color: "#f97316" },
 ];
 const CURRENT_USER = TEAM[0];
+const TEAM_ALPHABETICAL = [...TEAM].sort((a, b) => a.name.localeCompare(b.name));
 
 function downloadCSV(filename: string, rows: string[][]) {
   const csv = rows.map(r => r.map(c => `"${String(c ?? "").replace(/"/g, '""')}"`).join(",")).join("\n");
@@ -1552,7 +1553,7 @@ function NewProjectModal({ onClose, onAdd, pipelineType }: { onClose: () => void
                 <div className="relative flex-1">
                   <select value={collabSelect} onChange={(e) => setCollabSelect(e.target.value)} className={`${inputCls} appearance-none cursor-pointer`} style={selectStyle}>
                     <option value="" style={{ background: "#0d1117", color: "#e6edf3" }}>Select team member</option>
-                    {TEAM.filter(t => !collaborators.find(c => c.name === t.name)).map((t) => (<option key={t.name} value={t.name} style={{ background: "#0d1117", color: "#e6edf3" }}>{t.name}</option>))}
+                    {TEAM_ALPHABETICAL.filter(t => !collaborators.find(c => c.name === t.name)).map((t) => (<option key={t.name} value={t.name} style={{ background: "#0d1117", color: "#e6edf3" }}>{t.name}</option>))}
                   </select>
                 </div>
                 <input value={collabRole} onChange={(e) => setCollabRole(e.target.value)} placeholder="Role" className={`${inputCls} flex-1`} style={G.input} />
@@ -1676,7 +1677,7 @@ function TaskList({ projectId }: { projectId: string }) {
           <div className="flex gap-2 flex-wrap">
             <select value={newAssignee} onChange={(e) => setNewAssignee(e.target.value)} className="h-7 rounded-lg px-2 text-[12px] cursor-pointer" style={{ ...G.input, background: "#0d1117", color: "#e6edf3" }}>
               <option value="">Assignee</option>
-              {TEAM.map(t => <option key={t.name} value={t.name} style={{ background: "#0d1117", color: "#e6edf3" }}>● {t.name}</option>)}
+              {TEAM_ALPHABETICAL.map(t => <option key={t.name} value={t.name} style={{ background: "#0d1117", color: "#e6edf3" }}>● {t.name}</option>)}
             </select>
             <select value={newSubcontractorId} onChange={(e) => setNewSubcontractorId(e.target.value)} className="h-7 rounded-lg px-2 text-[12px] cursor-pointer" style={{ ...G.input, background: "#0d1117", color: "#e6edf3" }}>
               <option value="">Subcontractor</option>
@@ -1700,7 +1701,7 @@ function TaskList({ projectId }: { projectId: string }) {
           <div className="flex gap-2 flex-wrap">
             <select value={editingTask.assignee || ""} onChange={(e) => setEditingTask({ ...editingTask, assignee: e.target.value })} className="h-7 rounded-lg px-2 text-[12px] cursor-pointer" style={{ ...G.input, background: "#0d1117", color: "#e6edf3" }}>
               <option value="">Assignee</option>
-              {TEAM.map(t => <option key={t.name} value={t.name} style={{ background: "#0d1117", color: "#e6edf3" }}>{t.name}</option>)}
+              {TEAM_ALPHABETICAL.map(t => <option key={t.name} value={t.name} style={{ background: "#0d1117", color: "#e6edf3" }}>{t.name}</option>)}
             </select>
             <select value={editingTask.subcontractorId || ""} onChange={(e) => setEditingTask({ ...editingTask, subcontractorId: e.target.value || undefined })} className="h-7 rounded-lg px-2 text-[12px] cursor-pointer" style={{ ...G.input, background: "#0d1117", color: "#e6edf3" }}>
               <option value="">Subcontractor</option>
