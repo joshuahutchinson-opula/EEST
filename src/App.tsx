@@ -200,7 +200,7 @@ interface CatalogDevice {
   id: string;
   model: string;
   manufacturer: string;
-  category: "camera" | "access-control" | "nvr" | "analytics" | "intercom" | "other" | "switch" | "poe-injector" | "patch-panel" | "rack" | "ups";
+  category: "camera" | "access-control" | "nvr" | "analytics" | "intercom" | "other" | "switch" | "poe-injector" | "patch-panel" | "rack" | "ups" | "server";
   system: SystemType;
   cameraType?: CameraType;
   resolution?: string;
@@ -227,7 +227,7 @@ interface CatalogDevice {
 interface Column { id: Stage; label: string; color: string; }
 interface ProjectColumn { id: ProjectStage; label: string; color: string; }
 
-type AssetCategory = "camera" | "access-control" | "network-hardware" | "cable-wire" | "intercom" | "other";
+type AssetCategory = "camera" | "access-control" | "network-hardware" | "cable-wire" | "intercom" | "software" | "other";
 
 interface CableSpec {
   cableType: "CAT-6" | "CAT-6A" | "Fiber-SM" | "Fiber-MM" | "Coax-RG59" | "Power-18AWG" | "Power-14AWG" | "Speaker-Wire" | "Other";
@@ -299,6 +299,7 @@ const SYSTEM_CATEGORIES: Record<SystemType, { sectionNumber: number; name: strin
   EAC: [
     { sectionNumber: 900, name: "Access Control System Software", defaultMarkup: 0.35, importRatePercent: 0, importBasis: "costTotal" },
     { sectionNumber: 1000, name: "Hardware", defaultMarkup: 0.35, importRatePercent: 0.44, importBasis: "costTotal" },
+    { sectionNumber: 1050, name: "Computers", defaultMarkup: 0.35, importRatePercent: 0.22, importBasis: "costTotal" },
     { sectionNumber: 1100, name: "Infrastructure", defaultMarkup: 0.35, importRatePercent: 0.44, importBasis: "costTotal" },
     { sectionNumber: 1200, name: "Professional Services", defaultMarkup: 0.50, importRatePercent: 0, importBasis: "costTotal" },
     { sectionNumber: 1300, name: "Importation", defaultMarkup: 0, importRatePercent: 0, importBasis: "costTotal" },
@@ -2011,6 +2012,7 @@ const ASSET_CATEGORY_ICONS: Record<AssetCategory, IconType> = {
   "network-hardware": Server,
   "cable-wire": Cable,
   intercom: MessageSquare,
+  software: FileText,
   other: Box,
 };
 
@@ -2734,17 +2736,18 @@ function CommissioningTab({ projectId }: { projectId: string }) {
   );
 }
 
-const ASSET_CATEGORY_LABELS: Record<AssetCategory, string> = { camera: "Camera", "access-control": "Access Control", "network-hardware": "Network Hardware", "cable-wire": "Cable / Wire", intercom: "Intercom", other: "Other" };
+const ASSET_CATEGORY_LABELS: Record<AssetCategory, string> = { camera: "Camera", "access-control": "Access Control", "network-hardware": "Network Hardware", "cable-wire": "Cable / Wire", intercom: "Intercom", software: "Software", other: "Other" };
 const CATALOG_CATEGORIES_FOR_ASSET: Record<AssetCategory, CatalogDevice["category"][]> = {
   camera: ["camera"],
   "access-control": ["access-control"],
-  "network-hardware": ["switch", "poe-injector", "patch-panel", "rack", "ups", "nvr"],
+  "network-hardware": ["switch", "poe-injector", "patch-panel", "rack", "ups", "nvr", "server"],
   "cable-wire": [],
   intercom: ["intercom"],
-  other: ["camera", "access-control", "nvr", "analytics", "intercom", "other", "switch", "poe-injector", "patch-panel", "rack", "ups"],
+  software: ["analytics"],
+  other: ["camera", "access-control", "nvr", "analytics", "intercom", "other", "switch", "poe-injector", "patch-panel", "rack", "ups", "server"],
 };
-const INSTALL_DEVICE_TYPE_FOR_ASSET: Record<AssetCategory, InstallDevice["type"] | null> = { camera: "camera", "access-control": "access", "network-hardware": "server", "cable-wire": null, intercom: "intercom", other: "panel" };
-const DEFAULT_SYSTEM_FOR_ASSET: Record<AssetCategory, SystemType> = { camera: "VSS", "access-control": "EAC", "network-hardware": "VSS", "cable-wire": "VSS", intercom: "Intercom", other: "VSS" };
+const INSTALL_DEVICE_TYPE_FOR_ASSET: Record<AssetCategory, InstallDevice["type"] | null> = { camera: "camera", "access-control": "access", "network-hardware": "server", "cable-wire": null, intercom: "intercom", software: null, other: "panel" };
+const DEFAULT_SYSTEM_FOR_ASSET: Record<AssetCategory, SystemType> = { camera: "VSS", "access-control": "EAC", "network-hardware": "VSS", "cable-wire": "VSS", intercom: "Intercom", software: "VSS", other: "VSS" };
 
 const ASSETS_TAB_STEPS: TutorialStep[] = [
   { target: "assets-add", title: "Add Asset", description: "Add a camera, access-control device, network hardware, intercom, cable run, or other item to this project." },
@@ -3046,11 +3049,30 @@ function ProjectAssetsTab({ projectId, projectName, clientName }: { projectId: s
 const CATEGORY_SECTION: Record<AssetCategory, Partial<Record<SystemType, number>>> = {
   camera: { VSS: 400, EAC: 1000, Intercom: 1500 },
   "access-control": { VSS: 400, EAC: 1000, Intercom: 1500 },
-  "network-hardware": { VSS: 600, EAC: 1100, Intercom: 1600 },
+  "network-hardware": { VSS: 500, EAC: 1000, Intercom: 1500 },
   "cable-wire": { VSS: 600, EAC: 1100, Intercom: 1600 },
   intercom: { VSS: 400, EAC: 1000, Intercom: 1500 },
+  software: { VSS: 100, EAC: 900, Intercom: 1400 },
   other: { VSS: 400, EAC: 1000, Intercom: 1500 },
 };
+
+// network-hardware is a catch-all AssetCategory covering both servers and network gear
+// (switches/NVRs/PoE/etc), which the real Workbook template splits into separate sections —
+// only distinguishable once a specific catalog device is picked (deviceStoreRef), since a
+// generic/unspecified network-hardware asset can't otherwise say which one it is.
+function resolveAssetSection(asset: ProjectAsset, storeDevices: CatalogDevice[]): { sectionNumber: number; markup: number } {
+  const sysCategories = SYSTEM_CATEGORIES[asset.system] || SYSTEM_CATEGORIES.VSS;
+  let sectionNumber = CATEGORY_SECTION[asset.category]?.[asset.system] ?? sysCategories[3]?.sectionNumber ?? sysCategories[0].sectionNumber;
+  if (asset.category === "network-hardware") {
+    const device = asset.deviceStoreRef ? storeDevices.find((d) => d.id === asset.deviceStoreRef) : undefined;
+    if (device?.category === "server") {
+      if (asset.system === "VSS") sectionNumber = 200;
+      else if (asset.system === "EAC") sectionNumber = 1050;
+    }
+  }
+  const markup = sysCategories.find((s) => s.sectionNumber === sectionNumber)?.defaultMarkup ?? 0.35;
+  return { sectionNumber, markup };
+}
 
 async function getOrCreateProjectQuote(projectId: string, system: SystemType): Promise<Quote> {
   const quotes = await API.quotes.list();
@@ -3080,7 +3102,7 @@ async function upsertAssetLineItem(projectId: string, asset: ProjectAsset, store
     const existingItem = existingCatIndex !== -1 ? categories[existingCatIndex].lineItems.find(li => li.projectAssetId === asset.id) : undefined;
 
     const sysCategories = SYSTEM_CATEGORIES[asset.system] || SYSTEM_CATEGORIES.VSS;
-    const targetSection = CATEGORY_SECTION[asset.category]?.[asset.system] ?? sysCategories[3]?.sectionNumber ?? sysCategories[0].sectionNumber;
+    const { sectionNumber: targetSection, markup: sectionDefaultMarkup } = resolveAssetSection(asset, storeDevices);
     let targetCat = categories.find(c => c.system === asset.system && c.sectionNumber === targetSection);
     if (!targetCat) {
       const sc = sysCategories.find(s => s.sectionNumber === targetSection);
@@ -3092,7 +3114,7 @@ async function upsertAssetLineItem(projectId: string, asset: ProjectAsset, store
       categories[existingCatIndex].lineItems = categories[existingCatIndex].lineItems.filter(li => li.projectAssetId !== asset.id);
     }
 
-    const markupPercent = existingItem?.markupPercent ?? (sysCategories.find(s => s.sectionNumber === targetSection)?.defaultMarkup || 0.35);
+    const markupPercent = existingItem?.markupPercent ?? sectionDefaultMarkup;
     const sellPrice = price * (1 + markupPercent);
     const updatedItem: QuoteLineItem = {
       id: existingItem?.id || crypto.randomUUID?.() || `li${Date.now()}`,
@@ -3729,8 +3751,9 @@ function Workbook({ navigate }: { navigate: (p: Page) => void }) {
     let totalCost = 0, totalSell = 0;
     projectAssets.forEach(asset => {
       const unitCost = assetUnitCost(asset, storeDevices);
+      const { markup } = resolveAssetSection(asset, storeDevices);
       totalCost += unitCost * asset.quantity;
-      totalSell += unitCost * 1.35 * asset.quantity;
+      totalSell += unitCost * (1 + markup) * asset.quantity;
     });
     quoteCategories.forEach(cat => {
       cat.lineItems.filter(li => li.quantity > 0).forEach(li => {
@@ -3809,6 +3832,7 @@ const CAT_COLOR_DS: Record<string, { bg: string; text: string; label: string }> 
   nvr: { bg: "rgba(16,185,129,0.12)", text: "#34d399", label: "NVR" },
   analytics: { bg: "rgba(249,115,22,0.12)", text: "#fb923c", label: "VMS" },
   intercom: { bg: "rgba(20,184,166,0.12)", text: "#2dd4bf", label: "Intercom" },
+  server: { bg: "rgba(234,179,8,0.12)", text: "#facc15", label: "Server" },
   other: { bg: "rgba(100,100,100,0.12)", text: "#8b949e", label: "Other" },
 };
 
@@ -3904,7 +3928,7 @@ function DeviceLibrary({ navigate: _navigate }: { navigate: (p: Page) => void })
       const text = await file.text();
       const lines = text.split("\n").filter(l => l.trim());
       const headers = lines[0].split(",").map(h => h.trim().replace(/"/g,""));
-      const VALID_CATEGORIES: CatalogDevice["category"][] = ["camera", "access-control", "nvr", "analytics", "intercom", "other", "switch", "poe-injector", "patch-panel", "rack", "ups"];
+      const VALID_CATEGORIES: CatalogDevice["category"][] = ["camera", "access-control", "nvr", "analytics", "intercom", "other", "switch", "poe-injector", "patch-panel", "rack", "ups", "server"];
       const parseCategory = (raw: string | undefined): CatalogDevice["category"] => {
         const normalized = (raw || "").trim().toLowerCase().replace(/\s+/g, "-");
         return (VALID_CATEGORIES.find(c => c === normalized) || "other") as CatalogDevice["category"];
@@ -3930,7 +3954,7 @@ function DeviceLibrary({ navigate: _navigate }: { navigate: (p: Page) => void })
     try { await API.inventory.createTransaction({ itemId, userName: txUserName.trim(), action: txAction, quantity: parseInt(txQty), purpose: txPurpose.trim() || undefined, notes: txNotes.trim() || undefined }); fetchInventory(); setShowTransaction(null); setTxUserName(""); setTxQty(""); setTxPurpose(""); setTxNotes(""); toast.success("Transaction logged"); } catch { toast.error("Failed to log transaction"); }
   };
 
-  const categories: { id: string; label: string }[] = [{ id: "all", label: "All" },{ id: "camera", label: "Cameras" },{ id: "access-control", label: "Access" },{ id: "nvr", label: "NVR" },{ id: "analytics", label: "VMS" },{ id: "intercom", label: "Intercom" }];
+  const categories: { id: string; label: string }[] = [{ id: "all", label: "All" },{ id: "camera", label: "Cameras" },{ id: "access-control", label: "Access" },{ id: "nvr", label: "NVR" },{ id: "server", label: "Server" },{ id: "analytics", label: "VMS" },{ id: "intercom", label: "Intercom" }];
   const filtered = useMemo(() => {
     let result = devices;
     if (categoryFilter !== "all") result = result.filter((d) => d.category === categoryFilter);
