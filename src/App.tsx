@@ -1087,7 +1087,7 @@ function KanbanCard({ project, column, dragging, onDragStart, onDragEnd, onClick
             ) : (
               <>
                 {ls && <span className="text-[12px] font-extrabold px-1.5 py-0.5 rounded-full" style={{ background: ls.bg, color: ls.text }}>{project.leadSource}</span>}
-                <span className={clsx("text-[12px] md:text-[13px] font-extrabold px-1.5 py-0.5 rounded-full uppercase tracking-wide", project.risk === "high" ? "bg-rose-500/20 text-rose-400" : project.risk === "medium" ? "bg-amber-500/20 text-amber-400" : "bg-emerald-500/20 text-emerald-400")}>{project.risk}</span>
+                <span className={clsx("text-[10px] md:text-[11px] font-bold px-1.5 py-0.5 rounded-full uppercase tracking-wide", project.risk === "high" ? "bg-rose-500/20 text-rose-400" : project.risk === "medium" ? "bg-amber-500/20 text-amber-400" : "bg-emerald-500/20 text-emerald-400")}>{project.risk}</span>
               </>
             )}
           </div>
