@@ -284,16 +284,6 @@ interface CommissioningReportData {
   devices: { deviceName: string; location?: string; status: string; notes?: string }[];
   generatedAt: string;
 }
-interface ProposalData {
-  project: { id: string; name: string; client: string; summary?: string; location?: string };
-  exchangeRate: number;
-  categories: { system: string; sectionNumber: number; name: string; items: { description: string; unitCost: number; quantity: number; markupPercent: number; sellPrice: number; total: number }[] }[];
-  grandTotal: number;
-  gctAmount: number;
-  grandTotalWithTax: number;
-  generatedAt: string;
-}
-
 const SYSTEM_CATEGORIES: Record<SystemType, { sectionNumber: number; name: string; defaultMarkup: number; importRatePercent: number; importBasis: "sellTotal" | "costTotal"; }[]> = {
   VSS: [
     { sectionNumber: 100, name: "Video Management System Software", defaultMarkup: 0.35, importRatePercent: 0, importBasis: "costTotal" },
@@ -467,6 +457,35 @@ async function apiFetch<T>(path: string, options?: RequestInit): Promise<T> {
   return res.json();
 }
 
+// For server-generated binary documents (docx/xlsx) — same auth/401 handling as apiFetch, but
+// hands back the raw bytes plus whatever filename the server suggested via Content-Disposition,
+// so the caller can trigger a same-tab download the same way the old client-side jsPDF/CSV
+// exports did (build a blob, click a throwaway anchor), without a page navigation.
+async function apiFetchBlob(path: string, options?: RequestInit): Promise<{ blob: Blob; filename: string }> {
+  const token = localStorage.getItem("auth_token");
+  const headers: Record<string, string> = {};
+  if (!(options?.body instanceof FormData)) headers["Content-Type"] = "application/json";
+  if (token) headers["Authorization"] = `Bearer ${token}`;
+  const res = await fetch(`${API_BASE}${path}`, { ...options, headers });
+  if (res.status === 401 && !path.startsWith("/auth/")) {
+    localStorage.removeItem("auth_token");
+    localStorage.removeItem("app_logged_in");
+    onUnauthorized?.();
+    throw new UnauthorizedError();
+  }
+  if (!res.ok) throw new Error(`API error: ${res.status}`);
+  const disposition = res.headers.get("Content-Disposition") || "";
+  const match = disposition.match(/filename="?([^"]+)"?/);
+  return { blob: await res.blob(), filename: match ? match[1] : "download" };
+}
+
+function downloadBlob(blob: Blob, filename: string) {
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url; a.download = filename; a.click();
+  URL.revokeObjectURL(url);
+}
+
 const API = {
   auth: {
     me: () => apiFetch<{ email: string; name: string; oid: string; role: "admin" | "tech"; allowedDomain: string }>("/auth/me"),
@@ -558,7 +577,7 @@ const API = {
     logAudit: (projectId: string, fieldPath: string, oldValue: string, newValue: string) => apiFetch<void>(`/workbook/${projectId}/audit`, { method: "POST", body: JSON.stringify({ fieldPath, oldValue, newValue, changedBy: CURRENT_USER.name }) }),
     getPriceHistory: (deviceId: string) => apiFetch<{ price: number; recordedAt: string }[]>(`/workbook/devices/${deviceId}/price-history`),
   },
-  proposals: { generate: (projectId: string) => apiFetch<ProposalData>(`/workbook/${projectId}/proposal`, { method: "POST" }) },
+  proposals: { generate: (projectId: string) => apiFetchBlob(`/workbook/${projectId}/proposal`, { method: "POST" }) },
   publicStatus: { get: (token: string) => apiFetch<PublicProjectStatus>(`/public/status/${token}`) },
   inventory: {
     items: () => apiFetch<InventoryItem[]>("/inventory/items"),
@@ -3767,46 +3786,12 @@ function AssetListTab({ quoteCategories, exchangeRate, fmt, onLineItemUpdate, fi
   );
 }
 function ProposalGeneratorModal({ open, onClose, projectId }: { open: boolean; onClose: () => void; projectId: string; }) {
-  const { fmt } = useCurrency();
   const [generating, setGenerating] = useState(false);
   const handleGenerate = async () => {
     setGenerating(true);
     try {
-      const data = await API.proposals.generate(projectId);
-      const { jsPDF } = await import("jspdf");
-      const doc = new jsPDF();
-      const pageHeight = doc.internal.pageSize.getHeight();
-      let y = 18;
-      const ensureRoom = (needed: number) => { if (y + needed > pageHeight - 16) { doc.addPage(); y = 18; } };
-
-      doc.setFontSize(18); doc.text("Project Proposal", 14, y); y += 8;
-      doc.setFontSize(11); doc.text(`${data.project.name} — ${data.project.client}`, 14, y); y += 6;
-      if (data.project.location) { doc.setFontSize(10); doc.text(data.project.location, 14, y); y += 6; }
-      doc.setFontSize(9); doc.setTextColor(120); doc.text(`Generated ${new Date(data.generatedAt).toLocaleDateString()}`, 14, y); doc.setTextColor(0); y += 8;
-      if (data.project.summary) { doc.setFontSize(10); const lines = doc.splitTextToSize(data.project.summary, 180); doc.text(lines, 14, y); y += lines.length * 5 + 4; }
-
-      data.categories.forEach(cat => {
-        ensureRoom(16);
-        doc.setFontSize(12); doc.text(`${cat.sectionNumber} — ${cat.name}`, 14, y); y += 6;
-        doc.setFontSize(9);
-        cat.items.forEach(item => {
-          ensureRoom(6);
-          doc.text(item.description, 16, y);
-          doc.text(`×${item.quantity}`, 130, y);
-          doc.text(fmt(item.total), 196, y, { align: "right" });
-          y += 5;
-        });
-        y += 3;
-      });
-
-      ensureRoom(24);
-      doc.setFontSize(11);
-      doc.text("Grand Total", 130, y); doc.text(fmt(data.grandTotal), 196, y, { align: "right" }); y += 6;
-      doc.text("GCT (15%)", 130, y); doc.text(fmt(data.gctAmount), 196, y, { align: "right" }); y += 6;
-      doc.setFontSize(13);
-      doc.text("Total", 130, y); doc.text(fmt(data.grandTotalWithTax), 196, y, { align: "right" });
-
-      doc.save(`${data.project.name.replace(/\s+/g, "-")}-proposal.pdf`);
+      const { blob, filename } = await API.proposals.generate(projectId);
+      downloadBlob(blob, filename);
       toast.success("Proposal generated");
       onClose();
     } catch { toast.error("Failed to generate proposal"); }
@@ -3818,10 +3803,10 @@ function ProposalGeneratorModal({ open, onClose, projectId }: { open: boolean; o
       <div className="absolute inset-0" style={{ background: "rgba(0,0,0,0.65)", backdropFilter: "blur(8px)" }} />
       <motion.div initial={{ opacity: 0, scale: 0.93 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.93 }} transition={{ type: "spring", damping: 26, stiffness: 360 }} onClick={e => e.stopPropagation()} className="relative z-10 w-full max-w-[480px] rounded-2xl p-6" style={G.liquidGlass}>
         <h3 className="text-white text-[16px] font-extrabold mb-2">Generate Proposal</h3>
-        <p className="text-[#8b949e] text-[13px] mb-4">Creates a formatted PDF with project scope, device list, pricing summary, company boilerplate, and terms.</p>
+        <p className="text-[#8b949e] text-[13px] mb-4">Creates a branded Word document with project scope, device list, and pricing summary.</p>
         <div className="flex gap-2">
           <button onClick={onClose} className="flex-1 h-10 rounded-xl text-[#8b949e] text-[14px] font-bold cursor-pointer" style={G.btn}>Cancel</button>
-          <button onClick={handleGenerate} disabled={generating} className="flex-1 h-10 rounded-xl text-white text-[14px] font-extrabold cursor-pointer flex items-center justify-center gap-2" style={{ background: "#3b82f6" }}>{generating ? <Loader2 className="w-4 h-4 animate-spin" /> : <FileDown className="w-4 h-4" />}{generating ? "Generating..." : "Generate PDF"}</button>
+          <button onClick={handleGenerate} disabled={generating} className="flex-1 h-10 rounded-xl text-white text-[14px] font-extrabold cursor-pointer flex items-center justify-center gap-2" style={{ background: "#3b82f6" }}>{generating ? <Loader2 className="w-4 h-4 animate-spin" /> : <FileDown className="w-4 h-4" />}{generating ? "Generating..." : "Generate Word Doc"}</button>
         </div>
       </motion.div>
     </div>

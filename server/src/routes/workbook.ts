@@ -1,6 +1,7 @@
 import { Router, Request, Response } from "express";
 import pool from "../db";
 import { requireAdmin } from "../lib/roles";
+import { buildProposalDocx } from "../lib/docxDocuments";
 
 const router = Router();
 
@@ -161,15 +162,20 @@ router.post("/:projectId/proposal", async (req: Request, res: Response) => {
     }
 
     const gct = grandTotal * 0.15;
-    res.json({
+    const proposalData = {
       project: projectResult.rows[0],
       exchangeRate,
-      categories: Object.values(grouped),
+      categories: Object.values(grouped) as any,
       grandTotal,
       gctAmount: gct,
       grandTotalWithTax: grandTotal + gct,
       generatedAt: new Date().toISOString(),
-    });
+    };
+    const buffer = await buildProposalDocx(proposalData);
+    const filename = `${(proposalData.project.name as string).replace(/\s+/g, "-")}-proposal.docx`;
+    res.setHeader("Content-Type", "application/vnd.openxmlformats-officedocument.wordprocessingml.document");
+    res.setHeader("Content-Disposition", `attachment; filename="${filename}"`);
+    res.send(buffer);
   } catch (err) {
     console.error("POST /workbook/:projectId/proposal error:", err);
     res.status(500).json({ error: "Failed to generate proposal" });
