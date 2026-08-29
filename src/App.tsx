@@ -3047,7 +3047,16 @@ function ProjectAssetsTab({ projectId, projectName, clientName }: { projectId: s
                     )}
                     {asset.zoneId && <p className="text-[#484f58] text-[11px] mt-0.5">Zone: {zones.find(z => z.id === asset.zoneId)?.name || asset.zoneId}</p>}
                     {asset.notes && <p className="text-[#484f58] text-[11px] mt-0.5 italic">{asset.notes}</p>}
-                    {asset.category === "camera" && asset.coveragePhotos && asset.coveragePhotos.length > 0 && <div className="flex gap-2 mt-2 flex-wrap">{asset.coveragePhotos.map((p, i) => <img key={i} src={p} alt="" className="w-14 h-14 rounded-lg object-cover" style={{ border: "1px solid rgba(255,255,255,0.10)" }} />)}</div>}
+                    {asset.category === "camera" && asset.coveragePhotos && asset.coveragePhotos.length > 0 && (
+                      <div className="flex gap-2 mt-2 flex-wrap">
+                        {asset.coveragePhotos.map((p, i) => (
+                          <div key={i} className="relative group/photo">
+                            <img src={p} alt="" className="w-14 h-14 rounded-lg object-cover" style={{ border: "1px solid rgba(255,255,255,0.10)" }} />
+                            <img src={p} alt="" className="hidden group-hover/photo:block absolute z-50 pointer-events-none rounded-xl object-cover" style={{ bottom: "calc(100% + 8px)", left: 0, width: "220px", height: "220px", border: "2px solid rgba(255,255,255,0.20)", boxShadow: "0 12px 40px rgba(0,0,0,0.6)" }} />
+                          </div>
+                        ))}
+                      </div>
+                    )}
                     {asset.category === "camera" && <label onClick={e => e.stopPropagation()} className="inline-flex items-center gap-1 mt-2 text-[11px] text-blue-400 cursor-pointer">{uploadingPhoto === asset.id ? <Loader2 className="w-3 h-3 animate-spin" /> : <Upload className="w-3 h-3" />} {uploadingPhoto === asset.id ? "Uploading…" : "Add coverage photo"}<input type="file" accept="image/*" className="hidden" onChange={e => handlePhotoUpload(asset, e)} disabled={uploadingPhoto === asset.id} /></label>}
                   </div>
                   <button onClick={(e) => { e.stopPropagation(); handleDelete(asset); }} className="w-8 h-8 rounded-lg flex items-center justify-center hover:bg-rose-500/10 cursor-pointer flex-shrink-0"><Trash2 className="w-3.5 h-3.5 text-rose-400" /></button>
