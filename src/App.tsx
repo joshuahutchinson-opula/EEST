@@ -3708,7 +3708,8 @@ function Workbook({ navigate }: { navigate: (p: Page) => void }) {
       if (q.id !== selectedQuoteId) return q;
       const updated = { ...q, categories: q.categories.map((cat) => {
         if (cat.id !== categoryId) return cat;
-        const newItem: QuoteLineItem = { id: crypto.randomUUID?.() || `li${Date.now()}`, itemNumber: String(cat.lineItems.length + 1).padStart(2, "0"), description: "", unitCost: 0, quantity: 0, markupPercent: 0.35, sellPrice: 0, costTotal: 0, sellTotal: 0, profit: 0, jmdConversion: 0 };
+        const defaultMarkup = SYSTEM_CATEGORIES[cat.system]?.find((s) => s.sectionNumber === cat.sectionNumber)?.defaultMarkup ?? 0.35;
+        const newItem: QuoteLineItem = { id: crypto.randomUUID?.() || `li${Date.now()}`, itemNumber: String(cat.lineItems.length + 1).padStart(2, "0"), description: "", unitCost: 0, quantity: 0, markupPercent: defaultMarkup, sellPrice: 0, costTotal: 0, sellTotal: 0, profit: 0, jmdConversion: 0 };
         return { ...cat, lineItems: [...cat.lineItems, newItem] };
       }) };
       autoSave(updated);
