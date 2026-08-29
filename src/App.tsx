@@ -2326,7 +2326,10 @@ function ProjectDetail({ navigate }: { navigate: (p: Page) => void }) {
   const team = getDeduplicatedTeam(p);
   const tabs = ["overview","tasks","documents","assets","change-orders","audit-log","gantt","subcontractors","procurement","commissioning"];
   const tabLabels: Record<string, string> = { overview: "Overview", tasks: "Tasks", documents: "Files", assets: "Assets", "change-orders": "Change Orders", "audit-log": "Audit Log", gantt: "Timeline", subcontractors: "Subcontractors", procurement: "Procurement", commissioning: "Commissioning" };
-  const stageHistory = p.stageHistory || [{ stage: p.stage, date: p.createdAt?.slice(0,10) || new Date().toISOString().slice(0,10) }];
+  const stageHistory = p.stageHistory || [{ stage: isProjPipe ? (p.projectStage || "planning") : p.stage, date: p.createdAt?.slice(0,10) || new Date().toISOString().slice(0,10) }];
+  const PROJECT_STAGE_VALUES = new Set<string>(["support", "planning", "procurement", "installation", "commissioning", "complete"]);
+  const currentPipelineHistory = stageHistory.filter((e) => typeof e.stage !== "string" || (isProjPipe ? PROJECT_STAGE_VALUES.has(e.stage) : !PROJECT_STAGE_VALUES.has(e.stage)));
+  const priorPipelineHistory = stageHistory.filter((e) => typeof e.stage === "string" && (isProjPipe ? !PROJECT_STAGE_VALUES.has(e.stage) : PROJECT_STAGE_VALUES.has(e.stage)));
   const liveCameraCount = projectAssets.filter(a => a.category === "camera").reduce((s, a) => s + a.quantity, 0);
   const liveDeviceCount = projectAssets.filter(a => a.category !== "cable-wire").reduce((s, a) => s + a.quantity, 0);
   const installDevices = installZones.flatMap(z => z.devices);
@@ -2394,10 +2397,10 @@ function ProjectDetail({ navigate }: { navigate: (p: Page) => void }) {
           </div>
           <div className="space-y-4">
             <div data-tour="pd-timeline" className="rounded-2xl p-4 md:p-5" style={G.card}>
-              <h3 className="text-white text-[15px] md:text-[16px] font-extrabold mb-4">Timeline</h3>
+              <h3 className="text-white text-[15px] md:text-[16px] font-extrabold mb-4">{isProjPipe ? "Project History" : "Timeline"}</h3>
               <div className="space-y-2">
-                {stageHistory.map((entry, i) => {
-                  const isLast = i === stageHistory.length - 1;
+                {currentPipelineHistory.map((entry, i) => {
+                  const isLast = i === currentPipelineHistory.length - 1;
                   return (
                     <div key={i} className="flex items-center gap-3">
                       <div className={clsx("w-5 h-5 rounded-full flex items-center justify-center flex-shrink-0", isLast ? "bg-blue-500/20 ring-2 ring-blue-500/40" : "bg-emerald-500/20")}>{isLast ? <Clock className="w-3 h-3 text-blue-400" /> : <CheckCircle2 className="w-3 h-3 text-emerald-400" />}</div>
@@ -2406,6 +2409,19 @@ function ProjectDetail({ navigate }: { navigate: (p: Page) => void }) {
                   );
                 })}
               </div>
+              {priorPipelineHistory.length > 0 && (
+                <div className="mt-4 pt-4" style={{ borderTop: "1px solid rgba(255,255,255,0.07)" }}>
+                  <p className="text-[#8b949e] text-[11px] font-extrabold uppercase tracking-widest mb-2">Sales History</p>
+                  <div className="space-y-2">
+                    {priorPipelineHistory.map((entry, i) => (
+                      <div key={i} className="flex items-center gap-3">
+                        <div className="w-5 h-5 rounded-full flex items-center justify-center flex-shrink-0 bg-white/[0.06]"><CheckCircle2 className="w-3 h-3 text-[#8b949e]" /></div>
+                        <div className="flex-1 flex items-center justify-between"><span className="text-[13px] font-bold text-[#8b949e]">{typeof entry.stage === "string" ? entry.stage.replace(/-/g, " ").replace(/\b\w/g, c => c.toUpperCase()) : entry.stage}</span><span className="text-[#8b949e] text-[12px]">{fmtDateFull(entry.date)}</span></div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
             </div>
           </div>
         </div>
