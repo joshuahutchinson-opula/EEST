@@ -3317,6 +3317,10 @@ function BomTab({ quoteCategories, synthesisOverrides, exchangeRate, fmt, onLine
   useAutoTutorial("workbook.bom", BOM_STEPS);
   const bodyRef = useRef<HTMLDivElement>(null);
   const [stickyScrollLeft, setStickyScrollLeft] = useState(0);
+  // Description/List/Qty are locked by default — a row must be explicitly unlocked before any
+  // of the three become editable, rather than being always-editable inline.
+  const [unlockedRows, setUnlockedRows] = useState<Set<string>>(new Set());
+  const toggleUnlock = (id: string) => setUnlockedRows((prev) => { const next = new Set(prev); if (next.has(id)) next.delete(id); else next.add(id); return next; });
 
   useEffect(() => { const body = bodyRef.current; if (!body) return; const handler = () => setStickyScrollLeft(body.scrollLeft); body.addEventListener("scroll", handler); return () => body.removeEventListener("scroll", handler); }, []);
 
@@ -3370,12 +3374,18 @@ function BomTab({ quoteCategories, synthesisOverrides, exchangeRate, fmt, onLine
                   const extendedJMD = listPriceJMD * child.item.quantity;
                   const fieldKey = `bom-${section.id}-${child.item.id}`;
                   const fs = fieldSaveStatus[fieldKey];
+                  const isUnlocked = unlockedRows.has(child.item.id);
                   return (
                     <tr key={child.item.id} style={{ borderBottom: "1px solid rgba(255,255,255,0.03)" }}>
                       <td className="sticky left-0 px-4 py-2 text-[#8b949e] text-[12px] font-mono" style={{ background: "rgba(7,12,26,0.9)", paddingLeft: section.children.length > 1 ? "28px" : "16px" }}>{child.subNumber}</td>
-                      <td className="px-4 py-2 text-white text-[13px] font-bold max-w-[250px] truncate">{child.item.description}</td>
-                      <td className="px-4 py-2 text-right text-white text-[13px]">{fmt(listPriceJMD)}</td>
-                      <td className="px-4 py-2 text-center"><InlineEditCell type="number" value={child.item.quantity} onChange={(val) => onLineItemUpdate(section.id, child.item.id, { quantity: parseInt(val) || 0 })} /></td>
+                      <td className="px-4 py-2 text-white text-[13px] font-bold max-w-[250px]">
+                        <div className="flex items-center gap-1.5">
+                          <button onClick={() => toggleUnlock(child.item.id)} className="flex-shrink-0 w-5 h-5 rounded flex items-center justify-center hover:bg-white/[0.08] cursor-pointer" title={isUnlocked ? "Lock this row" : "Unlock to edit this row"}><Pencil className={clsx("w-3 h-3", isUnlocked ? "text-blue-400" : "text-[#484f58]")} /></button>
+                          {isUnlocked ? <InlineEditCell value={child.item.description} onChange={(val) => onLineItemUpdate(section.id, child.item.id, { description: val })} /> : <span className="truncate">{child.item.description}</span>}
+                        </div>
+                      </td>
+                      <td className="px-4 py-2 text-right text-white text-[13px]">{isUnlocked ? <InlineEditCell type="number" value={Number(listPriceJMD.toFixed(2))} onChange={(val) => { const newSellUSD = (parseFloat(val) || 0) / exchangeRate; const denom = 1 + child.item.markupPercent; onLineItemUpdate(section.id, child.item.id, { unitCost: denom !== 0 ? newSellUSD / denom : newSellUSD }); }} /> : fmt(listPriceJMD)}</td>
+                      <td className="px-4 py-2 text-center">{isUnlocked ? <InlineEditCell type="number" value={child.item.quantity} onChange={(val) => onLineItemUpdate(section.id, child.item.id, { quantity: parseInt(val) || 0 })} /> : <span className="text-[#8b949e] text-[13px]">{child.item.quantity}</span>}</td>
                       <td className="px-4 py-2 text-right text-white text-[13px] font-extrabold flex items-center justify-end gap-1">{fmt(extendedJMD)}{fs === "saving" && <Loader2 className="w-2.5 h-2.5 animate-spin text-[#8b949e]" />}{fs === "saved" && <CheckCircle2 className="w-2.5 h-2.5 text-emerald-400" />}</td>
                     </tr>
                   );
