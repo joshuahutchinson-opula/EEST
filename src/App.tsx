@@ -278,12 +278,6 @@ interface PublicProjectStatus {
 }
 interface ProcurementOrder { id: string; projectId: string; supplierName?: string; status: string; totalCost: number; generatedFrom?: string; createdAt: string; items: { id: string; description: string; quantity: number; unitCost: number; totalCost: number; leadTimeDays?: number; trackingNumber?: string; received: boolean; }[]; }
 interface CommissioningItem { id: string; projectId: string; deviceId?: string; deviceName: string; location?: string; status: "pending" | "pass" | "fail"; notes?: string; photos?: string[]; createdAt?: string; updatedAt?: string; }
-interface CommissioningReportData {
-  project: { name: string; client: string } | null;
-  summary: { total: number; passed: number; failed: number; pending: number };
-  devices: { deviceName: string; location?: string; status: string; notes?: string }[];
-  generatedAt: string;
-}
 const SYSTEM_CATEGORIES: Record<SystemType, { sectionNumber: number; name: string; defaultMarkup: number; importRatePercent: number; importBasis: "sellTotal" | "costTotal"; }[]> = {
   VSS: [
     { sectionNumber: 100, name: "Video Management System Software", defaultMarkup: 0.35, importRatePercent: 0, importBasis: "costTotal" },
@@ -597,7 +591,7 @@ const API = {
     add: (projectId: string, data: any) => apiFetch<CommissioningItem>(`/commissioning/${projectId}`, { method: "POST", body: JSON.stringify(data) }),
     update: (projectId: string, deviceId: string, data: any) => apiFetch<void>(`/commissioning/${projectId}/${deviceId}`, { method: "PATCH", body: JSON.stringify(data) }),
     bulk: (projectId: string, deviceIds: string[], status: string) => apiFetch<void>(`/commissioning/${projectId}/bulk`, { method: "POST", body: JSON.stringify({ deviceIds, status }) }),
-    generateReport: (projectId: string) => apiFetch<CommissioningReportData>(`/commissioning/${projectId}/report`, { method: "POST" }),
+    generateReport: (projectId: string) => apiFetchBlob(`/commissioning/${projectId}/report`, { method: "POST" }),
   },
   subcontractors: {
     list: (projectId: string) => apiFetch<Subcontractor[]>(`/subcontractors/${projectId}`),
@@ -2872,31 +2866,8 @@ function CommissioningTab({ projectId }: { projectId: string }) {
 
   const handleGenerateReport = async () => {
     try {
-      const data = await API.commissioning.generateReport(projectId);
-      const { jsPDF } = await import("jspdf");
-      const doc = new jsPDF();
-      const pageHeight = doc.internal.pageSize.getHeight();
-      let y = 18;
-      const ensureRoom = (needed: number) => { if (y + needed > pageHeight - 16) { doc.addPage(); y = 18; } };
-
-      doc.setFontSize(18); doc.text("Commissioning Handover Report", 14, y); y += 8;
-      if (data.project) { doc.setFontSize(11); doc.text(`${data.project.name} — ${data.project.client}`, 14, y); y += 6; }
-      doc.setFontSize(9); doc.setTextColor(120); doc.text(`Generated ${new Date(data.generatedAt).toLocaleDateString()}`, 14, y); doc.setTextColor(0); y += 8;
-
-      doc.setFontSize(10);
-      doc.text(`${data.summary.total} devices — ${data.summary.passed} passed, ${data.summary.failed} failed, ${data.summary.pending} pending`, 14, y); y += 8;
-
-      doc.setFontSize(9);
-      data.devices.forEach(d => {
-        ensureRoom(6);
-        doc.text(d.deviceName, 14, y);
-        doc.text(d.location || "—", 100, y);
-        doc.text(d.status.toUpperCase(), 196, y, { align: "right" });
-        y += 5;
-        if (d.notes) { ensureRoom(5); doc.setFontSize(8); doc.setTextColor(120); doc.text(d.notes, 16, y); doc.setTextColor(0); doc.setFontSize(9); y += 5; }
-      });
-
-      doc.save(`${(data.project?.name || "project").replace(/\s+/g, "-")}-commissioning-report.pdf`);
+      const { blob, filename } = await API.commissioning.generateReport(projectId);
+      downloadBlob(blob, filename);
       toast.success("Report generated");
     } catch { toast.error("Failed to generate report"); }
   };

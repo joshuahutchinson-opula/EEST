@@ -1,5 +1,6 @@
 import { Router, Request, Response } from "express";
 import pool from "../db";
+import { buildCommissioningReportDocx } from "../lib/docxDocuments";
 
 const router = Router();
 
@@ -147,20 +148,34 @@ router.post("/:projectId/bulk", async (req: Request, res: Response) => {
 router.post("/:projectId/report", async (req: Request, res: Response) => {
   try {
     const { projectId } = req.params;
+    // installed_photos ("as-installed", Phase 7.2) lives on install_devices, a different table
+    // from the generic commissioning-item photos field — joined here by device_id, which is
+    // populated from install_devices.id at /sync time (see the sync route below). Items synced
+    // instead from a canvas layout have no install_devices row and so no as-installed photos.
     const result = await pool.query(
-      `SELECT device_name AS "deviceName", location, status, notes FROM commissioning_checklists WHERE project_id = $1 ORDER BY created_at`,
+      `SELECT cc.device_name AS "deviceName", cc.location, cc.status, cc.notes,
+              idv.installed_photos AS "installedPhotos"
+       FROM commissioning_checklists cc
+       LEFT JOIN install_devices idv ON idv.id::text = cc.device_id
+       WHERE cc.project_id = $1
+       ORDER BY cc.created_at`,
       [projectId]
     );
     const passed = result.rows.filter(r => r.status === "pass").length;
     const failed = result.rows.filter(r => r.status === "fail").length;
     const pending = result.rows.filter(r => r.status !== "pass" && r.status !== "fail").length;
     const projectResult = await pool.query(`SELECT name, client FROM projects WHERE id = $1`, [projectId]);
-    res.json({
+    const reportData = {
       project: projectResult.rows[0] || null,
       summary: { total: result.rows.length, passed, failed, pending },
       devices: result.rows,
       generatedAt: new Date().toISOString(),
-    });
+    };
+    const buffer = await buildCommissioningReportDocx(reportData);
+    const filename = `${(reportData.project?.name || "project").replace(/\s+/g, "-")}-commissioning-report.docx`;
+    res.setHeader("Content-Type", "application/vnd.openxmlformats-officedocument.wordprocessingml.document");
+    res.setHeader("Content-Disposition", `attachment; filename="${filename}"`);
+    res.send(buffer);
   } catch (err) {
     console.error("POST /commissioning/:projectId/report error:", err);
     res.status(500).json({ error: "Failed to generate report" });

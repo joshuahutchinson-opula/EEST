@@ -6,11 +6,34 @@ import {
   BRANDED_DOCUMENT_STYLES,
   BRANDED_PAGE_MARGINS,
   sectionHeading,
+  brandRuleParagraph,
   BRAND_COLORS,
   TABLE_HEADER_SHADING,
   TABLE_HEADER_TEXT_COLOR,
   ZEBRA_ROW_SHADING,
+  resolveUploadPath,
 } from "./branding";
+
+type DocxImageType = "jpg" | "png" | "gif" | "bmp";
+function imageTypeFromUrl(url: string): DocxImageType {
+  const ext = url.split(".").pop()?.toLowerCase();
+  if (ext === "png") return "png";
+  if (ext === "gif") return "gif";
+  if (ext === "bmp") return "bmp";
+  return "jpg"; // covers jpg/jpeg and is the safest default for camera photos
+}
+
+// Reads an uploaded photo (coverage photo, as-installed photo, etc. — anything stored via the
+// generic /uploads/documents mechanism) into an ImageRun, skipping silently if the file is
+// missing rather than failing the whole document generation over one bad photo.
+function tryLoadImageRun(fileUrl: string, width: number, height: number): ImageRun | null {
+  try {
+    const data = fs.readFileSync(resolveUploadPath(fileUrl));
+    return new ImageRun({ type: imageTypeFromUrl(fileUrl), data, transformation: { width, height } });
+  } catch {
+    return null;
+  }
+}
 
 export function fmtUSD(n: number): string {
   return `$${(Number.isFinite(n) ? n : 0).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
@@ -101,6 +124,67 @@ export async function buildProposalDocx(data: ProposalDocxData): Promise<Buffer>
         headers: { default: buildBrandedHeader("Project Proposal") },
         footers: { default: buildBrandedFooter() },
         children: [...children, ...tables, new Paragraph({ spacing: { before: 300 }, children: [] }), totalsTable],
+      },
+    ],
+  });
+  return Packer.toBuffer(doc);
+}
+
+// === 6.3 — Commissioning Report ==============================================================
+
+export interface CommissioningReportDocxData {
+  project: { name: string; client: string } | null;
+  summary: { total: number; passed: number; failed: number; pending: number };
+  devices: { deviceName: string; location?: string; status: string; notes?: string; installedPhotos?: string[] }[];
+  generatedAt: string;
+}
+
+const STATUS_LABEL: Record<string, string> = { pass: "PASS", fail: "FAIL", pending: "PENDING" };
+
+export async function buildCommissioningReportDocx(data: CommissioningReportDocxData): Promise<Buffer> {
+  const children: (Paragraph | Table)[] = [];
+  if (data.project) children.push(new Paragraph({ children: [new TextRun({ text: `${data.project.name} — ${data.project.client}`, bold: true, size: 26 })] }));
+  children.push(new Paragraph({ spacing: { after: 100 }, children: [new TextRun({ text: `Generated ${new Date(data.generatedAt).toLocaleDateString()}`, size: 16, color: "999999" })] }));
+  children.push(
+    new Paragraph({
+      spacing: { after: 240 },
+      children: [new TextRun({ text: `${data.summary.total} devices — ${data.summary.passed} passed, ${data.summary.failed} failed, ${data.summary.pending} pending`, size: 20, bold: true, color: BRAND_COLORS.navy })],
+    })
+  );
+
+  for (const device of data.devices) {
+    children.push(brandRuleParagraph());
+    children.push(
+      new Paragraph({
+        spacing: { after: 60 },
+        children: [
+          new TextRun({ text: device.deviceName, bold: true, size: 22 }),
+          new TextRun({ text: `   ${STATUS_LABEL[device.status] || device.status.toUpperCase()}`, bold: true, size: 18, color: device.status === "pass" ? "1E8E3E" : device.status === "fail" ? "D93025" : "8A6D00" }),
+        ],
+      })
+    );
+    children.push(new Paragraph({ children: [new TextRun({ text: device.location || "No location recorded", size: 18, color: "555555" })] }));
+    if (device.notes) children.push(new Paragraph({ spacing: { before: 60 }, children: [new TextRun({ text: device.notes, size: 18, italics: true, color: "666666" })] }));
+
+    const photoRuns = (device.installedPhotos || []).slice(0, 4).map((url) => tryLoadImageRun(url, 150, 112)).filter((r): r is ImageRun => r !== null);
+    if (photoRuns.length > 0) {
+      children.push(
+        new Paragraph({
+          spacing: { before: 100, after: 100 },
+          children: photoRuns.flatMap((run, i) => (i > 0 ? [new TextRun({ text: "   " }), run] : [run])),
+        })
+      );
+    }
+  }
+
+  const doc = new Document({
+    styles: BRANDED_DOCUMENT_STYLES,
+    sections: [
+      {
+        properties: { page: { margin: BRANDED_PAGE_MARGINS } },
+        headers: { default: buildBrandedHeader("Commissioning Handover Report") },
+        footers: { default: buildBrandedFooter() },
+        children,
       },
     ],
   });
