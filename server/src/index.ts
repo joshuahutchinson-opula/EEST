@@ -29,6 +29,7 @@ import commissioningRouter from "./routes/commissioning";
 import subcontractorsRouter from "./routes/subcontractors";
 import projectAssetsRouter from "./routes/project-assets";
 import tutorialsRouter from "./routes/tutorials";
+import publicRouter from "./routes/public";
 
 dotenv.config();
 
@@ -61,6 +62,7 @@ app.use("/api/procurement", procurementRouter);
 app.use("/api/commissioning", commissioningRouter);
 app.use("/api/subcontractors", subcontractorsRouter);
 app.use("/api/users/me/tutorials", tutorialsRouter);
+app.use("/api/public", publicRouter);
 
 app.get("/api/health", (_req, res) => {
   res.json({ status: "ok", timestamp: new Date().toISOString() });

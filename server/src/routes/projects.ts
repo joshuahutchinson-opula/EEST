@@ -1,4 +1,5 @@
 import { Router, Request, Response } from "express";
+import crypto from "crypto";
 import pool from "../db";
 import { isTech } from "../lib/roles";
 
@@ -151,6 +152,38 @@ router.delete("/:id", async (req: Request, res: Response) => {
   } catch (err) {
     console.error("DELETE /projects/:id error:", err);
     res.status(500).json({ error: "Failed to delete project" });
+  }
+});
+
+// POST /api/projects/:id/share-link — generate (or rotate) this project's public read-only
+// status link. The token alone is the credential (see routes/public.ts), so a fresh random one
+// invalidates any link handed out previously.
+router.post("/:id/share-link", async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
+    const token = crypto.randomBytes(24).toString("hex");
+    const result = await pool.query(
+      `UPDATE projects SET public_share_token = $2, public_share_enabled = TRUE WHERE id = $1 AND deleted_at IS NULL RETURNING public_share_token AS "token"`,
+      [id, token]
+    );
+    if (result.rows.length === 0) return res.status(404).json({ error: "Project not found" });
+    res.json({ token: result.rows[0].token });
+  } catch (err) {
+    console.error("POST /projects/:id/share-link error:", err);
+    res.status(500).json({ error: "Failed to generate share link" });
+  }
+});
+
+// DELETE /api/projects/:id/share-link — revoke; keeps the old token around (disabled) rather
+// than clearing it, purely so a stale bookmark 404s the same way a never-issued token would.
+router.delete("/:id/share-link", async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
+    await pool.query(`UPDATE projects SET public_share_enabled = FALSE WHERE id = $1`, [id]);
+    res.json({ success: true });
+  } catch (err) {
+    console.error("DELETE /projects/:id/share-link error:", err);
+    res.status(500).json({ error: "Failed to revoke share link" });
   }
 });
 

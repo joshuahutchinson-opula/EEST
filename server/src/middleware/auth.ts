@@ -9,6 +9,7 @@ const PUBLIC_PATH_PATTERNS = [
   /^\/auth\//,
   /^\/health$/,
   /^\/subcontractors\/public\//,
+  /^\/public\/status\//,
 ];
 
 export async function authMiddleware(req: Request, res: Response, next: NextFunction) {
