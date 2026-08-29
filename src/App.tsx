@@ -783,7 +783,7 @@ const APP_INTRO_STEPS: TutorialStep[] = [
   { target: "nav-install-tracker", title: "Installation", description: "Track device-by-device installation progress across every project currently in the Installation stage." },
   { target: "nav-device-library", title: "Device Library", description: "Your catalog of cameras, access control, and network hardware — the building blocks you pull into a project's Assets." },
   { target: "tour-notifications", title: "Notifications", description: "Stay on top of task assignments, sales wins, and updates across every project from here." },
-  { target: "tour-help-menu", title: "Help", description: "Every walkthrough in the app lives here — replay this tour or any surface's own walkthrough any time you want a refresher." },
+  { target: "tour-user-menu", title: "Your Account", description: "Sign out from here. Every other page and tab has its own quick walkthrough too, the first time you land on it." },
 ];
 
 interface TutorialCtxValue {
@@ -922,63 +922,6 @@ function SpotlightTour({ steps, onFinish }: { steps: TutorialStep[]; onFinish: (
   );
 }
 
-interface TutorialRegistryEntry {
-  key: string;
-  label: string;
-  page: Page;
-  tabStorageKey?: string;
-  tabValue?: string;
-  tabEventName?: string;
-  openModalFlag?: string;
-  steps: TutorialStep[];
-}
-
-function HelpMenu({ registry, navigate }: { registry: TutorialRegistryEntry[]; navigate: (p: Page) => void }) {
-  const [open, setOpen] = useState(false);
-  const { replay } = useTutorials();
-
-  const handleReplay = (entry: TutorialRegistryEntry) => {
-    setOpen(false);
-    if (entry.tabStorageKey && entry.tabValue) {
-      localStorage.setItem(entry.tabStorageKey, entry.tabValue);
-      if (entry.tabEventName) window.dispatchEvent(new CustomEvent(entry.tabEventName, { detail: entry.tabValue }));
-    }
-    if (entry.openModalFlag) {
-      localStorage.setItem(entry.openModalFlag, "true");
-      window.dispatchEvent(new CustomEvent(entry.openModalFlag));
-    }
-    navigate(entry.page);
-    replay({ key: entry.key, steps: entry.steps });
-  };
-
-  return (
-    <div className="relative">
-      <button data-tour="tour-help-menu" onClick={() => setOpen(!open)} className="relative w-8 h-8 rounded-xl flex items-center justify-center hover:bg-white/[0.08] transition-colors cursor-pointer" style={G.btn}>
-        <Info className="w-3.5 h-3.5 text-[#8b949e]" />
-      </button>
-      {open && (
-        <>
-          <div className="fixed inset-0 z-50" onClick={() => setOpen(false)} />
-          <motion.div initial={{ opacity: 0, scale: 0.95, y: -8 }} animate={{ opacity: 1, scale: 1, y: 0 }} exit={{ opacity: 0, scale: 0.95, y: -8 }} transition={{ type: "spring", damping: 26, stiffness: 360 }} className="absolute right-0 top-full mt-2 z-[60] w-72 rounded-2xl overflow-hidden" style={{ background: "rgba(7,12,26,0.97)", border: "1px solid rgba(255,255,255,0.12)", boxShadow: "0 8px 32px rgba(0,0,0,0.8)", backdropFilter: "blur(20px)" }}>
-            <div className="px-4 py-3" style={{ borderBottom: "1px solid rgba(255,255,255,0.07)" }}>
-              <p className="text-white text-[14px] font-extrabold">Walkthroughs</p>
-              <p className="text-[#8b949e] text-[12px] mt-0.5">Replay any guided tour</p>
-            </div>
-            <div className="max-h-[360px] overflow-y-auto py-1" style={{ scrollbarWidth: "none" }}>
-              {registry.map((entry) => (
-                <button key={entry.key} onClick={() => handleReplay(entry)} className="w-full flex items-center justify-between gap-2.5 px-4 py-2.5 text-[#8b949e] hover:text-white hover:bg-white/[0.05] transition-colors text-left cursor-pointer min-h-[44px] text-[13px] font-bold">
-                  <span className="flex items-center gap-2.5"><Sparkles className="w-3.5 h-3.5 text-blue-400 flex-shrink-0" /> {entry.label}</span>
-                  <RotateCw className="w-3 h-3 flex-shrink-0" />
-                </button>
-              ))}
-            </div>
-          </motion.div>
-        </>
-      )}
-    </div>
-  );
-}
-
 const NAV_ITEMS: { id: Page; label: string }[] = [
   { id: "dashboard", label: "Pipeline" },
   { id: "projects", label: "Projects" },
@@ -1007,7 +950,7 @@ function Breadcrumb({ page, projectName }: { page: Page; projectName?: string })
   );
 }
 
-function AppTopbar({ page, navigate, breadcrumb, tutorialRegistry }: { page: Page; navigate: (p: Page) => void; breadcrumb?: { label: string; parent: Page }; tutorialRegistry: TutorialRegistryEntry[] }) {
+function AppTopbar({ page, navigate, breadcrumb }: { page: Page; navigate: (p: Page) => void; breadcrumb?: { label: string; parent: Page } }) {
   const role = useRole();
   const navItems = isTechRole(role) ? NAV_ITEMS.filter((n) => n.id !== "workbook") : NAV_ITEMS;
   const activeTab = navItems.find((n) => n.id === page)?.id ?? null;
@@ -1034,7 +977,6 @@ function AppTopbar({ page, navigate, breadcrumb, tutorialRegistry }: { page: Pag
       <div className="flex items-center gap-1 md:gap-1.5">
         <div className="hidden md:block"><CurrencyToggle /></div>
         <NotificationBell />
-        <HelpMenu registry={tutorialRegistry} navigate={navigate} />
         <UserMenu />
       </div>
     </header>
@@ -2275,11 +2217,6 @@ function ProjectDetail({ navigate }: { navigate: (p: Page) => void }) {
   const [synthOverrides, setSynthOverrides] = useState<SynthesisOverride[]>([]);
 
   useEffect(() => { localStorage.setItem("pd_tab", activeTab); }, [activeTab]);
-  useEffect(() => {
-    const handler = (e: Event) => { const tab = (e as CustomEvent<string>).detail; if (tab) setActiveTab(tab); };
-    window.addEventListener("eest:set-pd-tab", handler);
-    return () => window.removeEventListener("eest:set-pd-tab", handler);
-  }, []);
 
   const fetchProject = useCallback(async () => {
     setLoading(true);
@@ -2893,15 +2830,6 @@ function ProjectAssetsTab({ projectId, projectName, clientName }: { projectId: s
 
   const openAddForm = () => { resetForm(); setEditingAssetId(null); setShowForm(true); };
 
-  useEffect(() => {
-    const flag = "tutorial_open_modal:add-asset-modal";
-    if (localStorage.getItem(flag)) { localStorage.removeItem(flag); openAddForm(); }
-    const handler = () => openAddForm();
-    window.addEventListener(flag, handler);
-    return () => window.removeEventListener(flag, handler);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
   const openEditForm = (asset: ProjectAsset) => {
     setEditingAssetId(asset.id);
     setCategory(asset.category);
@@ -3389,8 +3317,7 @@ function CostMarginTab({ quoteCategories, exchangeRate, fmt, onLineItemUpdate, f
   );
 }
 const BOM_STEPS: TutorialStep[] = [
-  { target: "wb-bom-filter", title: "System Filter", description: "Switch between Video Surveillance, Access Control, and Intercom sections." },
-  { target: "wb-bom-table", title: "Bill of Materials", description: "The client-facing BOM, priced in JMD — every section's line items with quantity (click to edit), list price, and extended total, plus import lines and a running Subtotal, GCT, and Total. A section shows an override badge if its total was manually overridden on the Synthesis tab." },
+  { target: "wb-bom-table", title: "Bill of Materials", description: "The client-facing BOM, priced in JMD — switch between Video Surveillance, Access Control, and Intercom above the table. Every section's line items show quantity (click to edit), list price, and extended total, plus import lines and a running Subtotal, GCT, and Total. A section shows an override badge if its total was manually overridden on the Synthesis tab." },
 ];
 
 function BomTab({ quoteCategories, synthesisOverrides, exchangeRate, fmt, onLineItemUpdate, onAddLineItem, onBomEditWithOverride, fieldSaveStatus, systemFilter, onSystemFilterChange }: { quoteCategories: QuoteCategory[]; synthesisOverrides: SynthesisOverride[]; exchangeRate: number; fmt: (n: number, compact?: boolean) => string; onLineItemUpdate: (categoryId: string, itemId: string, updates: Partial<QuoteLineItem>) => void; onAddLineItem: (categoryId: string) => void; onBomEditWithOverride: (sectionNumber: string, sectionName: string, callback: () => void) => void; fieldSaveStatus: Record<string, "saved" | "saving" | "">; systemFilter: SystemType; onSystemFilterChange: (s: SystemType) => void; }) {
@@ -3727,11 +3654,6 @@ function Workbook({ navigate }: { navigate: (p: Page) => void }) {
   const [systemFilter, setSystemFilter] = useState<SystemType>("VSS");
 
   useEffect(() => { localStorage.setItem("wb_tab", activeTab); }, [activeTab]);
-  useEffect(() => {
-    const handler = (e: Event) => { const tab = (e as CustomEvent<string>).detail as WorkbookTab | undefined; if (tab) setActiveTab(tab); };
-    window.addEventListener("eest:set-wb-tab", handler);
-    return () => window.removeEventListener("eest:set-wb-tab", handler);
-  }, []);
   useEffect(() => { API.fx.getRate().then(r => setExchangeRate(r)); }, []);
   useEffect(() => { API.devices.list().then(setStoreDevices).catch(() => setStoreDevices([])); }, []);
 
@@ -4451,20 +4373,6 @@ export default function App() {
   return <AuthenticatedApp />;
 }
 
-const TUTORIAL_REGISTRY: TutorialRegistryEntry[] = [
-  { key: "app-intro", label: "Getting Started", page: "dashboard", steps: APP_INTRO_STEPS },
-  { key: "dashboard", label: "Pipeline (Dashboard)", page: "dashboard", steps: DASHBOARD_STEPS },
-  { key: "projects", label: "Projects", page: "projects", steps: PROJECTS_STEPS },
-  { key: "project-detail", label: "Project Detail — Overview", page: "project-detail", tabStorageKey: "pd_tab", tabValue: "overview", tabEventName: "eest:set-pd-tab", steps: PD_OVERVIEW_STEPS },
-  { key: "project-detail.assets", label: "Project Detail — Assets", page: "project-detail", tabStorageKey: "pd_tab", tabValue: "assets", tabEventName: "eest:set-pd-tab", steps: ASSETS_TAB_STEPS },
-  { key: "add-asset-modal", label: "Add Asset Form", page: "project-detail", tabStorageKey: "pd_tab", tabValue: "assets", tabEventName: "eest:set-pd-tab", openModalFlag: "tutorial_open_modal:add-asset-modal", steps: ADD_ASSET_MODAL_STEPS },
-  { key: "workbook.asset-list", label: "Workbook — Asset List", page: "workbook", tabStorageKey: "wb_tab", tabValue: "asset-list", tabEventName: "eest:set-wb-tab", steps: ASSET_LIST_STEPS },
-  { key: "workbook.cost-margin", label: "Workbook — Cost & Margin", page: "workbook", tabStorageKey: "wb_tab", tabValue: "cost-margin", tabEventName: "eest:set-wb-tab", steps: COST_MARGIN_STEPS },
-  { key: "workbook.bom", label: "Workbook — BOM", page: "workbook", tabStorageKey: "wb_tab", tabValue: "bom", tabEventName: "eest:set-wb-tab", steps: BOM_STEPS },
-  { key: "workbook.synthesis", label: "Workbook — Synthesis", page: "workbook", tabStorageKey: "wb_tab", tabValue: "synthesis", tabEventName: "eest:set-wb-tab", steps: SYNTHESIS_STEPS },
-  { key: "install-tracker", label: "Installation", page: "install-tracker", steps: INSTALL_TRACKER_STEPS },
-  { key: "device-library", label: "Device Library", page: "device-library", steps: DEVICE_LIBRARY_STEPS },
-];
 
 function AuthenticatedApp() {
   const [page, setPage] = useState<Page>(() => {
@@ -4560,7 +4468,7 @@ function AuthenticatedApp() {
       <TutorialContext.Provider value={tutorialState}>
         <div className="min-h-screen bg-background">
           <Toaster position="bottom-right" theme="dark" toastOptions={{ style: { background: "rgba(7,12,26,0.95)", border: "1px solid rgba(255,255,255,0.12)", color: "#e6edf3", backdropFilter: "blur(20px)" } }} />
-          <AppTopbar page={page} navigate={setPage} breadcrumb={breadcrumb} tutorialRegistry={TUTORIAL_REGISTRY} />
+          <AppTopbar page={page} navigate={setPage} breadcrumb={breadcrumb} />
           <div className="pt-14">
             <AnimatePresence mode="wait">
               <motion.div key={page} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }} transition={{ duration: 0.2, ease: "easeOut" }}>
