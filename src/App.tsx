@@ -3425,7 +3425,7 @@ const COST_MARGIN_STEPS: TutorialStep[] = [
   { target: "wb-cm-table", title: "Cost & Margin Table", description: "Click any Qty, Cost, or Markup % cell to edit it inline — Sell Price, Total Cost, Total Sell, and Profit recalculate automatically, plus an Import line where a section carries an import rate. This data is internal only and never appears in client exports." },
 ];
 
-function CostMarginTab({ quoteCategories, exchangeRate, fmt, onLineItemUpdate, fieldSaveStatus, systemFilter, onSystemFilterChange }: { quoteCategories: QuoteCategory[]; exchangeRate: number; fmt: (n: number, compact?: boolean) => string; onLineItemUpdate: (categoryId: string, itemId: string, updates: Partial<QuoteLineItem>) => void; fieldSaveStatus: Record<string, "saved" | "saving" | "">; systemFilter: SystemType; onSystemFilterChange: (s: SystemType) => void; }) {
+function CostMarginTab({ quoteCategories, exchangeRate, fmt, onLineItemUpdate, onAddLineItem, fieldSaveStatus, systemFilter, onSystemFilterChange }: { quoteCategories: QuoteCategory[]; exchangeRate: number; fmt: (n: number, compact?: boolean) => string; onLineItemUpdate: (categoryId: string, itemId: string, updates: Partial<QuoteLineItem>) => void; onAddLineItem: (categoryId: string) => void; fieldSaveStatus: Record<string, "saved" | "saving" | "">; systemFilter: SystemType; onSystemFilterChange: (s: SystemType) => void; }) {
   useAutoTutorial("workbook.cost-margin", COST_MARGIN_STEPS);
   const filteredCategories = quoteCategories.filter(c => c.system === systemFilter && c.sectionNumber !== 800 && c.sectionNumber !== 1300 && c.sectionNumber !== 1800);
   const importCategories = quoteCategories.filter(c => c.system === systemFilter && (c.sectionNumber === 800 || c.sectionNumber === 1300 || c.sectionNumber === 1800));
@@ -3456,10 +3456,11 @@ function CostMarginTab({ quoteCategories, exchangeRate, fmt, onLineItemUpdate, f
                     const fieldKey = `cm-${category.id}-${li.id}`;
                     const fs = fieldSaveStatus[fieldKey];
                     const itemNumber = category.lineItems.filter(x => x.quantity > 0).length > 1 ? `${category.sectionNumber}.${i + 1}` : String(category.sectionNumber);
+                    const incomplete = li.unitCost === 0 || li.markupPercent === 0;
                     return (
-                      <tr key={li.id} style={{ borderBottom: "1px solid rgba(255,255,255,0.03)" }}>
+                      <tr key={li.id} style={{ borderBottom: "1px solid rgba(255,255,255,0.03)", borderLeft: incomplete ? "3px solid #f59e0b" : "3px solid transparent" }}>
                         <td className="px-3 py-2 text-[#8b949e] text-[12px] font-mono">{itemNumber}</td>
-                        <td className="px-3 py-2 text-white text-[13px] font-bold">{li.description}</td>
+                        <td className="px-3 py-2 text-white text-[13px] font-bold"><span className="flex items-center gap-1.5">{incomplete && <span title={li.unitCost === 0 ? "Cost is $0 — pricing incomplete" : "Markup is 0% — pricing incomplete"} className="flex-shrink-0"><AlertTriangle className="w-3 h-3 text-amber-400" /></span>}{li.description}</span></td>
                         <td className="px-3 py-2 text-center"><InlineEditCell type="number" value={li.quantity} onChange={(val) => onLineItemUpdate(category.id, li.id, { quantity: parseInt(val) || 0 })} /></td>
                         <td className="px-3 py-2 text-right"><InlineEditCell type="number" value={li.unitCost} onChange={(val) => onLineItemUpdate(category.id, li.id, { unitCost: parseFloat(val) || 0 })} /></td>
                         <td className="px-3 py-2 text-right"><InlineEditCell type="number" value={Math.round(li.markupPercent * 100)} onChange={(val) => onLineItemUpdate(category.id, li.id, { markupPercent: (parseFloat(val) || 0) / 100 })} /><span className="text-[#8b949e] text-[12px]">%</span></td>
@@ -3470,6 +3471,7 @@ function CostMarginTab({ quoteCategories, exchangeRate, fmt, onLineItemUpdate, f
                       </tr>
                     );
                   })}
+                  <tr style={{ borderBottom: "1px solid rgba(255,255,255,0.03)" }}><td colSpan={9} className="px-3 py-1.5"><button onClick={() => onAddLineItem(category.id)} className="flex items-center gap-1 text-[#8b949e] hover:text-white text-[12px] font-bold cursor-pointer"><PlusCircle className="w-3 h-3" /> Add Line Item</button></td></tr>
                   {category.importRatePercent > 0 && (
                     <tr style={{ borderBottom: "1px solid rgba(255,255,255,0.03)" }}>
                       <td colSpan={6} className="px-3 py-2 text-right text-[#8b949e] text-[12px] font-bold">Import ({Math.round(category.importRatePercent * 100)}% of cost)</td>
@@ -3541,38 +3543,42 @@ function BomTab({ quoteCategories, synthesisOverrides, exchangeRate, fmt, onLine
           <table style={{ minWidth: "900px" }}>
             <tbody>
               <tr style={{ background: systemFilter === "VSS" ? "rgba(59,130,246,0.06)" : systemFilter === "EAC" ? "rgba(139,92,246,0.06)" : "rgba(20,184,166,0.06)" }}><td colSpan={5} className="sticky left-0 px-4 py-2.5 text-white text-[14px] font-extrabold uppercase tracking-widest" style={{ background: "rgba(7,12,26,0.9)" }}>{systemFilter === "VSS" ? "Video Surveillance" : systemFilter === "EAC" ? "Access Control" : "Intercom"}</td></tr>
-              {bomData.map(section => {
-                if (section.children.length === 0) return (
-                  <tr key={section.id} style={{ borderBottom: "1px solid rgba(255,255,255,0.03)" }}>
-                    <td className="sticky left-0 px-4 py-2 text-[#8b949e] text-[12px] font-mono" style={{ background: "rgba(7,12,26,0.9)" }}>{section.sectionNumber}</td>
-                    <td className="px-4 py-2 text-[#8b949e] text-[13px]">{section.name}</td>
-                    <td className="px-4 py-2 text-right text-white text-[13px]">—</td>
-                    <td className="px-4 py-2 text-center text-[#8b949e] text-[13px]">0</td>
-                    <td className="px-4 py-2 text-right text-white text-[13px] font-extrabold flex items-center justify-end gap-1">—{section.override && <OverrideIndicator isOverridden={true} />}</td>
-                  </tr>
-                );
-                return section.children.map((child, ci) => {
-                  const listPriceJMD = child.item.sellPrice * exchangeRate;
-                  const extendedJMD = listPriceJMD * child.item.quantity;
-                  const fieldKey = `bom-${section.id}-${child.item.id}`;
-                  const fs = fieldSaveStatus[fieldKey];
-                  const isUnlocked = unlockedRows.has(child.item.id);
-                  return (
-                    <tr key={child.item.id} style={{ borderBottom: "1px solid rgba(255,255,255,0.03)" }}>
-                      <td className="sticky left-0 px-4 py-2 text-[#8b949e] text-[12px] font-mono" style={{ background: "rgba(7,12,26,0.9)", paddingLeft: section.children.length > 1 ? "28px" : "16px" }}>{child.subNumber}</td>
-                      <td className="px-4 py-2 text-white text-[13px] font-bold max-w-[250px]">
-                        <div className="flex items-center gap-1.5">
-                          <button onClick={() => toggleUnlock(child.item.id)} className="flex-shrink-0 w-5 h-5 rounded flex items-center justify-center hover:bg-white/[0.08] cursor-pointer" title={isUnlocked ? "Lock this row" : "Unlock to edit this row"}><Pencil className={clsx("w-3 h-3", isUnlocked ? "text-blue-400" : "text-[#484f58]")} /></button>
-                          {isUnlocked ? <InlineEditCell value={child.item.description} onChange={(val) => onLineItemUpdate(section.id, child.item.id, { description: val })} /> : <span className="truncate">{child.item.description}</span>}
-                        </div>
-                      </td>
-                      <td className="px-4 py-2 text-right text-white text-[13px]">{isUnlocked ? <InlineEditCell type="number" value={Number(listPriceJMD.toFixed(2))} onChange={(val) => { const newSellUSD = (parseFloat(val) || 0) / exchangeRate; const denom = 1 + child.item.markupPercent; onLineItemUpdate(section.id, child.item.id, { unitCost: denom !== 0 ? newSellUSD / denom : newSellUSD }); }} /> : fmt(listPriceJMD)}</td>
-                      <td className="px-4 py-2 text-center">{isUnlocked ? <InlineEditCell type="number" value={child.item.quantity} onChange={(val) => onLineItemUpdate(section.id, child.item.id, { quantity: parseInt(val) || 0 })} /> : <span className="text-[#8b949e] text-[13px]">{child.item.quantity}</span>}</td>
-                      <td className="px-4 py-2 text-right text-white text-[13px] font-extrabold flex items-center justify-end gap-1">{fmt(extendedJMD)}{fs === "saving" && <Loader2 className="w-2.5 h-2.5 animate-spin text-[#8b949e]" />}{fs === "saved" && <CheckCircle2 className="w-2.5 h-2.5 text-emerald-400" />}</td>
+              {bomData.map(section => (
+                <Fragment key={section.id}>
+                  {section.children.length === 0 ? (
+                    <tr style={{ borderBottom: "1px solid rgba(255,255,255,0.03)" }}>
+                      <td className="sticky left-0 px-4 py-2 text-[#8b949e] text-[12px] font-mono" style={{ background: "rgba(7,12,26,0.9)" }}>{section.sectionNumber}</td>
+                      <td className="px-4 py-2 text-[#8b949e] text-[13px]">{section.name}</td>
+                      <td className="px-4 py-2 text-right text-white text-[13px]">—</td>
+                      <td className="px-4 py-2 text-center text-[#8b949e] text-[13px]">0</td>
+                      <td className="px-4 py-2 text-right text-white text-[13px] font-extrabold flex items-center justify-end gap-1">—{section.override && <OverrideIndicator isOverridden={true} />}</td>
                     </tr>
-                  );
-                });
-              })}
+                  ) : section.children.map((child) => {
+                    const listPriceJMD = child.item.sellPrice * exchangeRate;
+                    const extendedJMD = listPriceJMD * child.item.quantity;
+                    const fieldKey = `bom-${section.id}-${child.item.id}`;
+                    const fs = fieldSaveStatus[fieldKey];
+                    const isUnlocked = unlockedRows.has(child.item.id);
+                    const incomplete = child.item.unitCost === 0 || child.item.markupPercent === 0;
+                    return (
+                      <tr key={child.item.id} style={{ borderBottom: "1px solid rgba(255,255,255,0.03)", borderLeft: incomplete ? "3px solid #f59e0b" : "3px solid transparent" }}>
+                        <td className="sticky left-0 px-4 py-2 text-[#8b949e] text-[12px] font-mono" style={{ background: "rgba(7,12,26,0.9)", paddingLeft: section.children.length > 1 ? "28px" : "16px" }}>{child.subNumber}</td>
+                        <td className="px-4 py-2 text-white text-[13px] font-bold max-w-[250px]">
+                          <div className="flex items-center gap-1.5">
+                            <button onClick={() => toggleUnlock(child.item.id)} className="flex-shrink-0 w-5 h-5 rounded flex items-center justify-center hover:bg-white/[0.08] cursor-pointer" title={isUnlocked ? "Lock this row" : "Unlock to edit this row"}><Pencil className={clsx("w-3 h-3", isUnlocked ? "text-blue-400" : "text-[#484f58]")} /></button>
+                            {incomplete && <span title={child.item.unitCost === 0 ? "Cost is $0 — pricing incomplete" : "Markup is 0% — pricing incomplete"} className="flex-shrink-0"><AlertTriangle className="w-3 h-3 text-amber-400" /></span>}
+                            {isUnlocked ? <InlineEditCell value={child.item.description} onChange={(val) => onLineItemUpdate(section.id, child.item.id, { description: val })} /> : <span className="truncate">{child.item.description}</span>}
+                          </div>
+                        </td>
+                        <td className="px-4 py-2 text-right text-white text-[13px]">{isUnlocked ? <InlineEditCell type="number" value={Number(listPriceJMD.toFixed(2))} onChange={(val) => { const newSellUSD = (parseFloat(val) || 0) / exchangeRate; const denom = 1 + child.item.markupPercent; onLineItemUpdate(section.id, child.item.id, { unitCost: denom !== 0 ? newSellUSD / denom : newSellUSD }); }} /> : fmt(listPriceJMD)}</td>
+                        <td className="px-4 py-2 text-center">{isUnlocked ? <InlineEditCell type="number" value={child.item.quantity} onChange={(val) => onLineItemUpdate(section.id, child.item.id, { quantity: parseInt(val) || 0 })} /> : <span className="text-[#8b949e] text-[13px]">{child.item.quantity}</span>}</td>
+                        <td className="px-4 py-2 text-right text-white text-[13px] font-extrabold flex items-center justify-end gap-1">{fmt(extendedJMD)}{fs === "saving" && <Loader2 className="w-2.5 h-2.5 animate-spin text-[#8b949e]" />}{fs === "saved" && <CheckCircle2 className="w-2.5 h-2.5 text-emerald-400" />}</td>
+                      </tr>
+                    );
+                  })}
+                  <tr style={{ borderBottom: "1px solid rgba(255,255,255,0.03)" }}><td colSpan={5} className="px-4 py-1.5"><button onClick={() => onAddLineItem(section.id)} className="flex items-center gap-1 text-[#8b949e] hover:text-white text-[12px] font-bold cursor-pointer"><PlusCircle className="w-3 h-3" /> Add Line Item</button></td></tr>
+                </Fragment>
+              ))}
               {bomData.filter(b => b.importAmount > 0).map(section => (
                 <tr key={`import-${section.id}`} style={{ borderBottom: "1px solid rgba(255,255,255,0.03)" }}>
                   <td className="sticky left-0 px-4 py-2 text-[#8b949e] text-[12px] font-mono" style={{ background: "rgba(7,12,26,0.9)" }}>{section.sectionNumber}.9</td>
@@ -3599,13 +3605,27 @@ const SYNTHESIS_STEPS: TutorialStep[] = [
   { target: "wb-synth-reference", title: "Reference Figures", description: "Suggested PM and contingency percentages, shown for reference only — they're never applied to any total automatically." },
 ];
 
-function SynthesisTab({ quoteCategories, synthesisOverrides, exchangeRate, fmt, onSaveOverride, fieldSaveStatus }: { quoteCategories: QuoteCategory[]; synthesisOverrides: SynthesisOverride[]; exchangeRate: number; fmt: (n: number, compact?: boolean) => string; onSaveOverride: (sectionNumber: string, value: number | null, isOverridden: boolean) => void; fieldSaveStatus: Record<string, "saved" | "saving" | "">; }) {
+const SYNTHESIS_GROUP_FOR_SYSTEM: Record<SystemType, "video" | "access" | "intercom"> = { VSS: "video", EAC: "access", Intercom: "intercom" };
+
+function SynthesisTab({ quoteCategories, synthesisOverrides, exchangeRate, fmt, onSaveOverride, fieldSaveStatus, systemFilter, onSystemFilterChange }: { quoteCategories: QuoteCategory[]; synthesisOverrides: SynthesisOverride[]; exchangeRate: number; fmt: (n: number, compact?: boolean) => string; onSaveOverride: (sectionNumber: string, value: number | null, isOverridden: boolean) => void; fieldSaveStatus: Record<string, "saved" | "saving" | "">; systemFilter: SystemType; onSystemFilterChange: (s: SystemType) => void; }) {
   useAutoTutorial("workbook.synthesis", SYNTHESIS_STEPS);
   const [collapsedVideo, setCollapsedVideo] = useState(false);
   const [collapsedAccess, setCollapsedAccess] = useState(false);
   const [collapsedIntercom, setCollapsedIntercom] = useState(false);
   const [editingSection, setEditingSection] = useState<string | null>(null);
   const [editValue, setEditValue] = useState("");
+
+  // The system filter here doesn't hide any group's contribution to the Grand Total below —
+  // that figure is explicitly the true across-all-systems total that drives the client quote,
+  // so filtering it would be misleading, not just a view change. Instead the filter focuses the
+  // section table on the selected system by auto-expanding its group and collapsing the other
+  // two; a user can still manually re-expand a collapsed group afterward.
+  useEffect(() => {
+    const group = SYNTHESIS_GROUP_FOR_SYSTEM[systemFilter];
+    setCollapsedVideo(group !== "video");
+    setCollapsedAccess(group !== "access");
+    setCollapsedIntercom(group !== "intercom");
+  }, [systemFilter]);
 
   const getSectionSubtotal = (sectionNumber: string): number => {
     const cat = quoteCategories.find(c => String(c.sectionNumber) === sectionNumber);
@@ -3657,6 +3677,11 @@ function SynthesisTab({ quoteCategories, synthesisOverrides, exchangeRate, fmt, 
 
   return (
     <div className="space-y-0">
+      <div data-tour="wb-synth-filter" className="flex items-center gap-2 mb-4">
+        {(["VSS","EAC","Intercom"] as SystemType[]).map(s => (
+          <button key={s} onClick={() => onSystemFilterChange(s)} className={clsx("h-9 md:h-7 px-3 rounded-lg text-[12px] font-extrabold cursor-pointer", systemFilter === s ? "text-white" : "text-[#8b949e]")} style={systemFilter === s ? { background: s === "VSS" ? "#3b82f6" : s === "EAC" ? "#8b5cf6" : "#14b8a6" } : G.btn}>{s}</button>
+        ))}
+      </div>
       <div data-tour="wb-synth-table" className="rounded-2xl overflow-hidden" style={G.card}>
         <div className="overflow-x-auto">
           <table className="w-full" style={{ minWidth: "700px" }}>
@@ -3700,11 +3725,13 @@ const ASSET_LIST_STEPS: TutorialStep[] = [
   { target: "wb-al-manual-table", title: "Manually Added Items", description: "Line items added directly in the Workbook rather than from Project Assets, grouped by category. Click any cell to edit description, quantity, or cost inline; collapse a category to tidy up the view." },
 ];
 
-function AssetListTab({ quoteCategories, exchangeRate, fmt, onLineItemUpdate, fieldSaveStatus }: { quoteCategories: QuoteCategory[]; exchangeRate: number; fmt: (n: number, compact?: boolean) => string; onLineItemUpdate: (categoryId: string, itemId: string, updates: Partial<QuoteLineItem>) => void; fieldSaveStatus: Record<string, "saved" | "saving" | "">; }) {
+function AssetListTab({ quoteCategories, exchangeRate, fmt, onLineItemUpdate, fieldSaveStatus, systemFilter, onSystemFilterChange }: { quoteCategories: QuoteCategory[]; exchangeRate: number; fmt: (n: number, compact?: boolean) => string; onLineItemUpdate: (categoryId: string, itemId: string, updates: Partial<QuoteLineItem>) => void; fieldSaveStatus: Record<string, "saved" | "saving" | "">; systemFilter: SystemType; onSystemFilterChange: (s: SystemType) => void; }) {
   useAutoTutorial("workbook.asset-list", ASSET_LIST_STEPS);
   const [clientExportMode, setClientExportMode] = useState(false);
   const [collapsedCategories, setCollapsedCategories] = useState<Set<string>>(new Set());
   const toggleCollapse = (id: string) => { setCollapsedCategories(prev => { const next = new Set(prev); next.has(id) ? next.delete(id) : next.add(id); return next; }); };
+
+  const filteredCategories = useMemo(() => quoteCategories.filter(c => c.system === systemFilter), [quoteCategories, systemFilter]);
 
   // Project-asset rows are read from the same real QuoteLineItem data every other Workbook
   // tab reads (tagged via projectAssetId when Project Assets syncs), not a separate in-memory
@@ -3712,24 +3739,29 @@ function AssetListTab({ quoteCategories, exchangeRate, fmt, onLineItemUpdate, fi
   // BOM, or Synthesis.
   const allItems = useMemo(() => {
     const items: AssetListItem[] = [];
-    quoteCategories.forEach(cat => {
+    filteredCategories.forEach(cat => {
       cat.lineItems.filter(li => li.quantity > 0).forEach(li => {
         const r = recalcLineItem(li, exchangeRate);
         items.push({ id: li.id, item: li.description, qty: li.quantity, cost: li.unitCost, markupPercent: li.markupPercent, sell: r.sellPrice, costTotal: r.costTotal, total: r.sellTotal, profit: r.profit, isProjectAsset: !!li.projectAssetId, system: cat.system, sourceCategory: cat.name, sourceItemId: li.id });
       });
     });
     return items;
-  }, [quoteCategories, exchangeRate]);
+  }, [filteredCategories, exchangeRate]);
   const assetItems = allItems.filter(i => i.isProjectAsset);
 
   return (
     <div className="space-y-4">
+      <div data-tour="wb-al-filter" className="flex items-center gap-2">
+        {(["VSS","EAC","Intercom"] as SystemType[]).map(s => (
+          <button key={s} onClick={() => onSystemFilterChange(s)} className={clsx("h-9 md:h-7 px-3 rounded-lg text-[12px] font-extrabold cursor-pointer", systemFilter === s ? "text-white" : "text-[#8b949e]")} style={systemFilter === s ? { background: s === "VSS" ? "#3b82f6" : s === "EAC" ? "#8b5cf6" : "#14b8a6" } : G.btn}>{s}</button>
+        ))}
+      </div>
       <div data-tour="wb-al-toggle" className="flex items-center gap-2 mb-2"><button onClick={() => setClientExportMode(!clientExportMode)} className={clsx("h-9 md:h-7 px-3 rounded-lg text-[12px] font-bold cursor-pointer", clientExportMode ? "text-white" : "text-[#8b949e]")} style={clientExportMode ? { background: "rgba(16,185,129,0.15)", border: "1px solid rgba(16,185,129,0.30)" } : G.btn}><EyeOff className="w-3 h-3 mr-1" />{clientExportMode ? "Client View" : "Internal View"}</button></div>
       <div data-tour="wb-al-assets-table" className="rounded-2xl overflow-hidden" style={G.card}>
         <div className="w-full px-4 py-3 flex items-center justify-between" style={{ borderBottom: "1px solid rgba(255,255,255,0.06)", background: "rgba(255,255,255,0.02)" }}><div className="flex items-center gap-2"><h3 className="text-white text-[15px] font-extrabold">Project Assets</h3><span className="text-[#8b949e] text-[12px]">({assetItems.length})</span></div></div>
         <div className="overflow-x-auto"><table className="w-full" style={{ minWidth: clientExportMode ? "400px" : "800px" }}><thead><tr style={{ borderBottom: "1px solid rgba(255,255,255,0.06)" }}><th className="px-3 py-2.5 text-[#8b949e] text-[11px] font-extrabold uppercase tracking-widest text-left">Item</th><th className="px-3 py-2.5 text-[#8b949e] text-[11px] font-extrabold uppercase tracking-widest text-center">QTY</th>{!clientExportMode && <><th className="px-3 py-2.5 text-[#8b949e] text-[11px] font-extrabold uppercase tracking-widest text-right">Cost</th><th className="px-3 py-2.5 text-[#8b949e] text-[11px] font-extrabold uppercase tracking-widest text-right">Markup %</th></>}<th className="px-3 py-2.5 text-[#8b949e] text-[11px] font-extrabold uppercase tracking-widest text-right">Sell</th>{!clientExportMode && <th className="px-3 py-2.5 text-[#8b949e] text-[11px] font-extrabold uppercase tracking-widest text-right">Cost Total</th>}<th className="px-3 py-2.5 text-[#8b949e] text-[11px] font-extrabold uppercase tracking-widest text-right">Total</th>{!clientExportMode && <th className="px-3 py-2.5 text-[#8b949e] text-[11px] font-extrabold uppercase tracking-widest text-right">Profit</th>}</tr></thead><tbody>{assetItems.length === 0 ? (<tr><td colSpan={clientExportMode ? 4 : 8} className="px-3 py-4 text-[#8b949e] text-[13px] text-center">No project assets yet</td></tr>) : assetItems.map(item => (<tr key={item.id} style={{ borderBottom: "1px solid rgba(255,255,255,0.03)" }}><td className="px-3 py-2.5 text-white text-[13px] font-bold">{item.item}</td><td className="px-3 py-2.5 text-white text-[13px] text-center">{item.qty}</td>{!clientExportMode && <><td className="px-3 py-2.5 text-[#8b949e] text-[13px] text-right">{fmt(item.cost)}</td><td className="px-3 py-2.5 text-[#8b949e] text-[13px] text-right">{(item.markupPercent * 100).toFixed(0)}%</td></>}<td className="px-3 py-2.5 text-white text-[13px] font-extrabold text-right">{fmt(item.sell)}</td>{!clientExportMode && <td className="px-3 py-2.5 text-[#8b949e] text-[13px] text-right">{fmt(item.costTotal)}</td>}<td className="px-3 py-2.5 text-white text-[13px] font-extrabold text-right">{fmt(item.total)}</td>{!clientExportMode && <td className="px-3 py-2.5 text-[12px] font-extrabold text-right" style={{ color: item.profit >= 0 ? "#34d399" : "#f87171" }}>{fmt(item.profit)}</td>}</tr>))}</tbody></table></div>
       </div>
-      {quoteCategories.filter(c => !c.name.includes("Importation")).map(category => {
+      {filteredCategories.filter(c => !c.name.includes("Importation")).map(category => {
         const isCollapsed = collapsedCategories.has(category.id);
         const items = allItems.filter(i => i.sourceCategory === category.name && !i.isProjectAsset);
         return (
@@ -3959,20 +3991,23 @@ function Workbook({ navigate }: { navigate: (p: Page) => void }) {
           <div className="px-4 md:px-6 pt-3 flex-shrink-0">
             <SummaryBar totalCost={workbookTotals.totalCost} totalSell={workbookTotals.totalSell} blendedMargin={workbookTotals.blendedMargin} fmt={fmt} />
           </div>
-          <div className="flex items-center gap-1 px-4 py-2 overflow-x-auto flex-shrink-0" style={{ borderBottom: "1px solid rgba(255,255,255,0.06)", scrollbarWidth: "none" }}>
+          <div className="flex items-center gap-0.5 px-4 py-2 overflow-x-auto flex-shrink-0" style={{ borderBottom: "1px solid rgba(255,255,255,0.06)", scrollbarWidth: "none" }}>
             {wbTabs.map((tab, i) => (
-              <button key={tab.id} onClick={() => setActiveTab(tab.id)} className={clsx("flex items-center gap-1.5 h-8 px-3 rounded-lg text-[13px] font-bold whitespace-nowrap cursor-pointer", activeTab === tab.id ? "text-white" : "text-[#8b949e] hover:text-white")} style={activeTab === tab.id ? { background: "rgba(59,130,246,0.20)", border: "1px solid rgba(59,130,246,0.30)" } : undefined}>
-                <span className="w-4 h-4 rounded-full flex items-center justify-center text-[10px] font-extrabold flex-shrink-0" style={{ background: activeTab === tab.id ? "#3b82f6" : "rgba(255,255,255,0.08)", color: activeTab === tab.id ? "#fff" : "#8b949e" }}>{i + 1}</span>
-                {tab.label}
-              </button>
+              <Fragment key={tab.id}>
+                {i > 0 && <ChevronRight className="w-3.5 h-3.5 text-[#484f58] flex-shrink-0 mx-0.5" />}
+                <button onClick={() => setActiveTab(tab.id)} className={clsx("flex items-center gap-1.5 h-8 px-3 rounded-lg text-[13px] font-bold whitespace-nowrap cursor-pointer", activeTab === tab.id ? "text-white" : "text-[#8b949e] hover:text-white")} style={activeTab === tab.id ? { background: "rgba(59,130,246,0.20)", border: "1px solid rgba(59,130,246,0.30)" } : undefined}>
+                  <span className="w-4 h-4 rounded-full flex items-center justify-center text-[10px] font-extrabold flex-shrink-0" style={{ background: activeTab === tab.id ? "#3b82f6" : i < activeTabIndex ? "rgba(16,185,129,0.35)" : "rgba(255,255,255,0.08)", color: activeTab === tab.id ? "#fff" : i < activeTabIndex ? "#34d399" : "#8b949e" }}>{i < activeTabIndex ? <CheckCircle2 className="w-2.5 h-2.5" /> : i + 1}</span>
+                  {tab.label}
+                </button>
+              </Fragment>
             ))}
           </div>
           <p className="px-4 md:px-6 pt-2.5 pb-1 text-[#8b949e] text-[12px] md:text-[13px] flex-shrink-0">{wbTabs[activeTabIndex]?.description}</p>
           <div className="flex-1 overflow-y-auto px-3 md:px-5 py-4 space-y-4" style={{ scrollbarWidth: "thin", scrollbarColor: "rgba(255,255,255,0.08) transparent" }}>
-            {activeTab === "asset-list" && <AssetListTab quoteCategories={quoteCategories} exchangeRate={exchangeRate} fmt={fmt} onLineItemUpdate={updateQuoteLineItem} fieldSaveStatus={fieldSaveStatus} />}
-            {activeTab === "cost-margin" && <CostMarginTab quoteCategories={quoteCategories} exchangeRate={exchangeRate} fmt={fmt} onLineItemUpdate={updateQuoteLineItem} fieldSaveStatus={fieldSaveStatus} systemFilter={systemFilter} onSystemFilterChange={setSystemFilter} />}
+            {activeTab === "asset-list" && <AssetListTab quoteCategories={quoteCategories} exchangeRate={exchangeRate} fmt={fmt} onLineItemUpdate={updateQuoteLineItem} fieldSaveStatus={fieldSaveStatus} systemFilter={systemFilter} onSystemFilterChange={setSystemFilter} />}
+            {activeTab === "cost-margin" && <CostMarginTab quoteCategories={quoteCategories} exchangeRate={exchangeRate} fmt={fmt} onLineItemUpdate={updateQuoteLineItem} onAddLineItem={addLineItem} fieldSaveStatus={fieldSaveStatus} systemFilter={systemFilter} onSystemFilterChange={setSystemFilter} />}
             {activeTab === "bom" && <BomTab quoteCategories={quoteCategories} synthesisOverrides={synthesisOverrides} exchangeRate={exchangeRate} fmt={fmt} onLineItemUpdate={updateQuoteLineItem} onAddLineItem={addLineItem} onBomEditWithOverride={handleBomEditWithOverride} fieldSaveStatus={fieldSaveStatus} systemFilter={systemFilter} onSystemFilterChange={setSystemFilter} />}
-            {activeTab === "synthesis" && <SynthesisTab quoteCategories={quoteCategories} synthesisOverrides={synthesisOverrides} exchangeRate={exchangeRate} fmt={fmt} onSaveOverride={handleSaveOverride} fieldSaveStatus={fieldSaveStatus} />}
+            {activeTab === "synthesis" && <SynthesisTab quoteCategories={quoteCategories} synthesisOverrides={synthesisOverrides} exchangeRate={exchangeRate} fmt={fmt} onSaveOverride={handleSaveOverride} fieldSaveStatus={fieldSaveStatus} systemFilter={systemFilter} onSystemFilterChange={setSystemFilter} />}
             <div className="flex items-center justify-between flex-wrap gap-2 pt-2">
               {activeTabIndex > 0 ? (
                 <button onClick={() => setActiveTab(wbTabs[activeTabIndex - 1].id)} className="flex items-center gap-1.5 h-10 md:h-9 px-4 rounded-xl text-[#8b949e] hover:text-white text-[13px] font-bold cursor-pointer" style={G.btn}><ChevronLeft className="w-3.5 h-3.5" /> {wbTabs[activeTabIndex - 1].label}</button>
