@@ -778,7 +778,7 @@ const APP_INTRO_STEPS: TutorialStep[] = [
   { target: "nav-dashboard", title: "Pipeline", description: "Track every sales lead and support project through its stages — Lead to Won on the sales side, Planning to Complete on the project side." },
   { target: "nav-projects", title: "Projects", description: "Browse every active project here. Click into one to see its assets, workbook, tasks, and install progress in one place." },
   { target: "nav-workbook", title: "Workbook", description: "Build out Asset List, Cost & Margin, BOM, and Synthesis for a project's quote — everything rolls up automatically as you go." },
-  { target: "nav-install-tracker", title: "Install Tracker", description: "Track device-by-device installation progress across every project currently in the Installation stage." },
+  { target: "nav-install-tracker", title: "Installation", description: "Track device-by-device installation progress across every project currently in the Installation stage." },
   { target: "nav-device-library", title: "Device Library", description: "Your catalog of cameras, access control, and network hardware — the building blocks you pull into a project's Assets." },
   { target: "tour-notifications", title: "Notifications", description: "Stay on top of task assignments, sales wins, and updates across every project from here." },
   { target: "tour-help-menu", title: "Help", description: "Every walkthrough in the app lives here — replay this tour or any surface's own walkthrough any time you want a refresher." },
@@ -981,7 +981,7 @@ const NAV_ITEMS: { id: Page; label: string }[] = [
   { id: "dashboard", label: "Pipeline" },
   { id: "projects", label: "Projects" },
   { id: "workbook", label: "Workbook" },
-  { id: "install-tracker", label: "Install Tracker" },
+  { id: "install-tracker", label: "Installation" },
   { id: "device-library", label: "Device Library" },
 ];
 
@@ -990,7 +990,7 @@ function Breadcrumb({ page, projectName }: { page: Page; projectName?: string })
   if (page === "dashboard") crumbs.push({ label: "Pipeline", page: "dashboard" });
   else if (page === "projects") crumbs.push({ label: "Projects", page: "projects" });
   else if (page === "workbook") crumbs.push({ label: "Workbook", page: "workbook" });
-  else if (page === "install-tracker") crumbs.push({ label: "Install Tracker", page: "install-tracker" });
+  else if (page === "install-tracker") crumbs.push({ label: "Installation", page: "install-tracker" });
   else if (page === "device-library") crumbs.push({ label: "Device Library", page: "device-library" });
   else if (page === "project-detail") crumbs.push({ label: "Projects", page: "projects" }, { label: projectName || "Project Detail" });
   return (
@@ -1157,7 +1157,7 @@ const DASHBOARD_STEPS: TutorialStep[] = [
   { target: "db-kanban-column", title: "Kanban Columns", description: "Each column is a stage. Drag any card from one column to another to move it through the pipeline — the move saves automatically and logs to the project's audit trail." },
   { target: "db-kanban-card", title: "Card Details", description: "Every card shows the client, value, risk, assignee, due date, and a quick-actions menu for deleting the deal or (once a sales deal is Won) moving it into the Project pipeline. Click a card to open its full detail." },
   { target: "db-new-project", title: "New Project", description: "Add a new lead or project directly from here." },
-  { target: "nav-projects", title: "More Sections", description: "Head to Projects, Workbook, Install Tracker, or Device Library from the nav bar to dig into a specific project." },
+  { target: "nav-projects", title: "More Sections", description: "Head to Projects, Workbook, Installation, or Device Library from the nav bar to dig into a specific project." },
 ];
 
 function Dashboard({ navigate }: { navigate: (p: Page) => void }) {
@@ -2196,7 +2196,7 @@ const PD_OVERVIEW_STEPS: TutorialStep[] = [
   { target: "pd-scope", title: "Project Scope", description: "A written summary of what this project covers." },
   { target: "pd-team", title: "Team", description: "Everyone assigned to this project and their role." },
   { target: "pd-timeline", title: "Stage Timeline", description: "The full history of stage changes this project has gone through, with dates." },
-  { target: "pd-quick-actions", title: "Quick Actions", description: "Jump straight to the Assets tab, the Install Tracker for this project, or generate a client-facing shareable link." },
+  { target: "pd-quick-actions", title: "Quick Actions", description: "Jump straight to the Assets tab, the Installation page for this project, or generate a client-facing shareable link." },
 ];
 
 function ProjectDetail({ navigate }: { navigate: (p: Page) => void }) {
@@ -2296,7 +2296,7 @@ function ProjectDetail({ navigate }: { navigate: (p: Page) => void }) {
           <p className="text-[#8b949e] text-[14px] md:text-[15px] flex items-center gap-1.5"><Building2 className="w-3.5 h-3.5" /> {p.client} · <MapPin className="w-3.5 h-3.5 ml-1" /> {p.location}</p>
         </div>
         <div data-tour="pd-quick-actions" className="flex items-center gap-2 flex-shrink-0 flex-wrap">
-          {[{ label: "Assets", icon: Package, action: () => setActiveTab("assets") },{ label: "Install", icon: CheckSquare, action: () => navigate("install-tracker") }].map(({ label, icon: Icon, action }) => (
+          {[{ label: "Assets", icon: Package, action: () => setActiveTab("assets") },{ label: "Installation", icon: CheckSquare, action: () => navigate("install-tracker") }].map(({ label, icon: Icon, action }) => (
             <button key={label} onClick={action} className="flex items-center gap-1.5 h-9 px-3 md:px-4 rounded-xl text-white text-[13px] md:text-[14px] font-bold hover:bg-white/[0.10] cursor-pointer min-h-[44px]" style={G.btn}><Icon className="w-3.5 h-3.5" /> {label}</button>
           ))}
           <button onClick={handleGenerateShareLink} className="flex items-center gap-1.5 h-9 px-3 rounded-xl text-white text-[13px] font-bold cursor-pointer" style={G.btn}><Share2 className="w-3.5 h-3.5" /> Share</button>
@@ -2710,7 +2710,7 @@ function CommissioningTab({ projectId }: { projectId: string }) {
           <button onClick={handleAdd} className="w-full h-8 rounded-lg text-white text-[13px] font-extrabold cursor-pointer" style={{ background: "#10b981" }}>Save</button>
         </div>
       )}
-      {checklist.length === 0 && !showAdd ? <EmptyState icon={ClipboardCheck} title="No commissioning data" description="Sync from Install Tracker or add devices manually." action={{ label: "Sync Devices", onClick: async () => { await API.commissioning.sync(projectId); const data = await API.commissioning.list(projectId); setChecklist(data); toast.success("Synced"); } }} /> : checklist.map((item) => (
+      {checklist.length === 0 && !showAdd ? <EmptyState icon={ClipboardCheck} title="No commissioning data" description="Sync from Installation or add devices manually." action={{ label: "Sync Devices", onClick: async () => { await API.commissioning.sync(projectId); const data = await API.commissioning.list(projectId); setChecklist(data); toast.success("Synced"); } }} /> : checklist.map((item) => (
         <div key={item.id} className="rounded-xl p-3" style={G.card}>
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
@@ -2756,7 +2756,7 @@ const ASSETS_TAB_STEPS: TutorialStep[] = [
   { target: "assets-add", title: "Add Asset", description: "Add a camera, access-control device, network hardware, intercom, cable run, or other item to this project." },
   { target: "assets-search", title: "Search & Filter", description: "Search by item, location, or purpose, or filter down to a single category." },
   { target: "assets-export", title: "Export", description: "Download the full equipment list as a CSV, or a formatted PDF equipment summary for the client." },
-  { target: "assets-row", title: "Asset Rows", description: "Click any asset to edit it. Update its unit price inline, upload coverage photos, or delete it — each row also shows its linked Install Tracker zone." },
+  { target: "assets-row", title: "Asset Rows", description: "Click any asset to edit it. Update its unit price inline, upload coverage photos, or delete it — each row also shows its linked Installation zone." },
 ];
 
 const ADD_ASSET_MODAL_STEPS: TutorialStep[] = [
@@ -4127,7 +4127,7 @@ function InstallTracker({ navigate: _navigate }: { navigate: (p: Page) => void }
   return (
     <div className="px-3 md:px-5 py-4 md:py-6 max-w-[1600px] mx-auto w-full">
       <div className="mb-4 md:mb-6 flex items-center justify-between">
-        <div><h1 className="text-white font-extrabold text-2xl md:text-3xl tracking-tight">Install Tracker</h1><p className="text-[#8b949e] text-[13px] mt-0.5">{total} devices across {zones.length} zones</p></div>
+        <div><h1 className="text-white font-extrabold text-2xl md:text-3xl tracking-tight">Installation</h1><p className="text-[#8b949e] text-[13px] mt-0.5">{total} devices across {zones.length} zones</p></div>
       </div>
       {projects.length === 0 && zones.length === 0 ? <EmptyState icon={CheckSquare} title="No active installs" description="Projects in Installation stage will appear here." /> : (
         <>
@@ -4225,7 +4225,7 @@ function LoginPage() {
             <p className="text-[#8b949e] text-[13px] md:text-[15px] leading-relaxed mb-8 max-w-[380px]">From New lead to New client, from Site Assessment to Final Installation. Track Leads, Design Site Plans, Build Financial Workbooks, Manage Installations, and Auto-Generate Reports in One Platform.</p>
             <div className="space-y-2">
               {[
-                { icon: Camera, title: "Projects", desc: "Browse every project by stage and owner, then drill in for its Project Assets, Workbook, and Install Tracker", color: "#3b82f6" },
+                { icon: Camera, title: "Projects", desc: "Browse every project by stage and owner, then drill in for its Project Assets, Workbook, and Installation", color: "#3b82f6" },
                 { icon: BarChart3, title: "Sales & Tech Pipeline Tracker", desc: "Track Leads, Manage Tech Projects, Generate Workbooks and Reports", color: "#8b5cf6" },
               ].map(({ icon: Icon, title, desc, color }) => (
                 <div key={title} className="flex items-start gap-3 p-3 rounded-2xl" style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.09)" }}>
@@ -4356,7 +4356,7 @@ const TUTORIAL_REGISTRY: TutorialRegistryEntry[] = [
   { key: "workbook.cost-margin", label: "Workbook — Cost & Margin", page: "workbook", tabStorageKey: "wb_tab", tabValue: "cost-margin", tabEventName: "eest:set-wb-tab", steps: COST_MARGIN_STEPS },
   { key: "workbook.bom", label: "Workbook — BOM", page: "workbook", tabStorageKey: "wb_tab", tabValue: "bom", tabEventName: "eest:set-wb-tab", steps: BOM_STEPS },
   { key: "workbook.synthesis", label: "Workbook — Synthesis", page: "workbook", tabStorageKey: "wb_tab", tabValue: "synthesis", tabEventName: "eest:set-wb-tab", steps: SYNTHESIS_STEPS },
-  { key: "install-tracker", label: "Install Tracker", page: "install-tracker", steps: INSTALL_TRACKER_STEPS },
+  { key: "install-tracker", label: "Installation", page: "install-tracker", steps: INSTALL_TRACKER_STEPS },
   { key: "device-library", label: "Device Library", page: "device-library", steps: DEVICE_LIBRARY_STEPS },
 ];
 
