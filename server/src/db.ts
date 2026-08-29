@@ -121,7 +121,8 @@ export async function initDB() {
         location TEXT,
         status TEXT DEFAULT 'pending',
         assignee TEXT,
-        notes TEXT
+        notes TEXT,
+        installed_photos JSONB DEFAULT '[]'
       );
 
       CREATE TABLE IF NOT EXISTS canvas_layouts (
@@ -320,6 +321,7 @@ export async function initDB() {
     await client.query(`ALTER TABLE project_assets ADD COLUMN IF NOT EXISTS unit_cost NUMERIC`);
     await client.query(`ALTER TABLE project_assets ADD COLUMN IF NOT EXISTS access_control_type TEXT`);
     await client.query(`ALTER TABLE projects ADD COLUMN IF NOT EXISTS contacts JSONB DEFAULT '[]'`);
+    await client.query(`ALTER TABLE install_devices ADD COLUMN IF NOT EXISTS installed_photos JSONB DEFAULT '[]'`);
     // One-time backfill from the old single-contact columns into the new array column — only
     // touches rows that still have the default empty array so it's safe to run on every boot.
     await client.query(`

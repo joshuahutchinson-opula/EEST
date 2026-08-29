@@ -192,7 +192,7 @@ const QuoteContext = createContext<QuoteCtx>({ currentQuote: null, setCurrentQuo
 const useQuote = () => useContext(QuoteContext);
 
 type InstallStatus = "pending" | "in-progress" | "complete" | "failed";
-interface InstallDevice { id: string; name: string; type: "camera" | "access" | "nvr" | "door" | "panel" | "power" | "server" | "intercom"; location: string; status: InstallStatus; assignee: string; notes?: string; }
+interface InstallDevice { id: string; name: string; type: "camera" | "access" | "nvr" | "door" | "panel" | "power" | "server" | "intercom"; location: string; status: InstallStatus; assignee: string; notes?: string; installedPhotos?: string[]; }
 interface InstallZone { id: string; name: string; devices: InstallDevice[]; projectId?: string; isQuickSupport?: boolean; }
 
 type DeviceTag = "LPR" | "Night Vision" | "Thermal" | "PTZ" | "Panoramic" | "WDR" | "Lightfinder" | "IR" | "4K" | "8MP" | "Indoor" | "Outdoor";
@@ -496,6 +496,7 @@ const API = {
     createZone: (data: { name: string; projectId?: string; isQuickSupport?: boolean }) => apiFetch<InstallZone>("/install/zones", { method: "POST", body: JSON.stringify(data) }),
     addDevice: (zoneId: string, data: Partial<InstallDevice>) => apiFetch<InstallDevice>(`/install/zones/${zoneId}/devices`, { method: "POST", body: JSON.stringify(data) }),
     updateStatus: (zoneId: string, deviceId: string, status: InstallStatus) => apiFetch<void>(`/install/zones/${zoneId}/devices/${deviceId}`, { method: "PATCH", body: JSON.stringify({ status }) }),
+    addInstalledPhoto: (zoneId: string, deviceId: string, photoUrl: string) => apiFetch<void>(`/install/zones/${zoneId}/devices/${deviceId}`, { method: "PATCH", body: JSON.stringify({ addPhoto: photoUrl }) }),
   },
   projectAssets: {
     list: (projectId: string) => apiFetch<ProjectAsset[]>(`/projects/${projectId}/assets`),
@@ -4095,6 +4096,7 @@ const INSTALL_TRACKER_STEPS: TutorialStep[] = [
   { target: "it-filter", title: "Status Filter", description: "Narrow the device list down to just one status." },
   { target: "it-project-row", title: "Projects & Zones", description: "Click a project to expand its zones and devices. \"Task\" adds a quick task (title, priority, due date) directly to that project." },
   { target: "it-device-row", title: "Device Status", description: "Each device shows its assignee and a status dropdown — Pending, In Progress, Complete, or Failed — that updates immediately." },
+  { target: "it-device-photo", title: "As-Installed Photo", description: "Attach a photo of the device as it was actually installed — separate from the pre-install coverage photo on Project Assets." },
 ];
 
 function InstallTracker({ navigate: _navigate }: { navigate: (p: Page) => void }) {
@@ -4108,6 +4110,7 @@ function InstallTracker({ navigate: _navigate }: { navigate: (p: Page) => void }
   const [taskTitle, setTaskTitle] = useState("");
   const [taskPriority, setTaskPriority] = useState<TaskPriority>("medium");
   const [taskDueDate, setTaskDueDate] = useState("");
+  const [uploadingDevicePhoto, setUploadingDevicePhoto] = useState<string | null>(null);
 
   const fetchData = useCallback(async () => {
     setLoading(true);
@@ -4123,6 +4126,20 @@ function InstallTracker({ navigate: _navigate }: { navigate: (p: Page) => void }
   const updateStatus = async (zoneId: string, deviceId: string, status: InstallStatus) => {
     setZones((prev) => prev.map((z) => z.id !== zoneId ? z : { ...z, devices: z.devices.map((d) => d.id !== deviceId ? d : { ...d, status }) }));
     try { await API.install.updateStatus(zoneId, deviceId, status); } catch {}
+  };
+
+  const handleDevicePhotoUpload = async (projectId: string, zoneId: string, deviceId: string, e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setUploadingDevicePhoto(deviceId);
+    try {
+      const result = await API.documents.upload(projectId, file);
+      await API.install.addInstalledPhoto(zoneId, deviceId, result.fileUrl);
+      setZones((prev) => prev.map((z) => z.id !== zoneId ? z : { ...z, devices: z.devices.map((d) => d.id !== deviceId ? d : { ...d, installedPhotos: [...(d.installedPhotos || []), result.fileUrl] }) }));
+      toast.success("As-installed photo uploaded");
+    } catch { toast.error("Upload failed"); }
+    setUploadingDevicePhoto(null);
+    e.target.value = "";
   };
 
   const handleAddTask = async (projectId: string) => {
@@ -4199,13 +4216,22 @@ function InstallTracker({ navigate: _navigate }: { navigate: (p: Page) => void }
                     const meta = STATUS_META[device.status];
                     const TypeIcon = typeIcons[device.type] ?? Camera;
                     return (
-                      <div key={device.id} data-tour="it-device-row" className="grid gap-2 px-3 py-3 items-center" style={{ gridTemplateColumns: "36px 2fr 1fr 120px", borderTop: "1px solid rgba(255,255,255,0.04)" }}>
-                        <div className="w-7 h-7 rounded-xl flex items-center justify-center" style={{ background: "rgba(255,255,255,0.04)" }}><TypeIcon className="w-3.5 h-3.5 text-[#8b949e]" /></div>
-                        <div className="min-w-0"><p className="text-white text-[13px] font-bold truncate">{device.name}</p><p className="text-[#8b949e] text-[11px]">{device.location}</p></div>
-                        <span className="text-[#8b949e] text-[12px] truncate">{device.assignee}</span>
-                        <select value={device.status} onChange={(e) => { const z = projectZones.find(z => z.devices.some(d => d.id === device.id)); if (z) updateStatus(z.id, device.id, e.target.value as InstallStatus); }} className={clsx("w-full h-7 rounded-xl border px-2 text-[12px] font-extrabold appearance-none cursor-pointer", meta.bg, meta.color)} style={{ background: "#0d1117" }}>
-                          {Object.entries(STATUS_META).map(([val, m]) => (<option key={val} value={val} style={{ background: "#0d1117", color: "#e6edf3" }}>{m.label}</option>))}
-                        </select>
+                      <div key={device.id} data-tour="it-device-row" style={{ borderTop: "1px solid rgba(255,255,255,0.04)" }}>
+                        <div className="grid gap-2 px-3 py-3 items-center" style={{ gridTemplateColumns: "36px 2fr 1fr 120px" }}>
+                          <div className="w-7 h-7 rounded-xl flex items-center justify-center" style={{ background: "rgba(255,255,255,0.04)" }}><TypeIcon className="w-3.5 h-3.5 text-[#8b949e]" /></div>
+                          <div className="min-w-0"><p className="text-white text-[13px] font-bold truncate">{device.name}</p><p className="text-[#8b949e] text-[11px]">{device.location}</p></div>
+                          <span className="text-[#8b949e] text-[12px] truncate">{device.assignee}</span>
+                          <select value={device.status} onChange={(e) => { const z = projectZones.find(z => z.devices.some(d => d.id === device.id)); if (z) updateStatus(z.id, device.id, e.target.value as InstallStatus); }} className={clsx("w-full h-7 rounded-xl border px-2 text-[12px] font-extrabold appearance-none cursor-pointer", meta.bg, meta.color)} style={{ background: "#0d1117" }}>
+                            {Object.entries(STATUS_META).map(([val, m]) => (<option key={val} value={val} style={{ background: "#0d1117", color: "#e6edf3" }}>{m.label}</option>))}
+                          </select>
+                        </div>
+                        <div className="px-3 pb-3 pl-[52px] flex items-center gap-2 flex-wrap" data-tour="it-device-photo">
+                          {(device.installedPhotos || []).map((p, i) => <img key={i} src={p} alt="" className="w-12 h-12 rounded-lg object-cover" style={{ border: "1px solid rgba(255,255,255,0.10)" }} />)}
+                          <label className="inline-flex items-center gap-1 text-[11px] text-blue-400 cursor-pointer">
+                            {uploadingDevicePhoto === device.id ? <Loader2 className="w-3 h-3 animate-spin" /> : <Upload className="w-3 h-3" />} {uploadingDevicePhoto === device.id ? "Uploading…" : "Add as-installed photo"}
+                            <input type="file" accept="image/*" className="hidden" onChange={(e) => { const z = projectZones.find(z => z.devices.some(d => d.id === device.id)); if (z) handleDevicePhotoUpload(project.id, z.id, device.id, e); }} disabled={uploadingDevicePhoto === device.id} />
+                          </label>
+                        </div>
                       </div>
                     );
                   })}

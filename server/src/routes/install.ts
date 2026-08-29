@@ -23,6 +23,7 @@ router.get("/zones", async (_req: Request, res: Response) => {
           status: d.status,
           assignee: d.assignee || "",
           notes: d.notes || undefined,
+          installedPhotos: d.installed_photos || [],
         })),
       });
     }
@@ -68,11 +69,16 @@ router.post("/zones/:zoneId/devices", async (req: Request, res: Response) => {
 router.patch("/zones/:zoneId/devices/:deviceId", async (req: Request, res: Response) => {
   try {
     const { zoneId, deviceId } = req.params;
-    const { status } = req.body;
-    await pool.query(
-      "UPDATE install_devices SET status = $1 WHERE id = $2 AND zone_id = $3",
-      [status, deviceId, zoneId]
-    );
+    const { status, addPhoto } = req.body;
+    if (status) {
+      await pool.query("UPDATE install_devices SET status = $1 WHERE id = $2 AND zone_id = $3", [status, deviceId, zoneId]);
+    }
+    if (addPhoto) {
+      await pool.query(
+        "UPDATE install_devices SET installed_photos = installed_photos || $1::jsonb WHERE id = $2 AND zone_id = $3",
+        [JSON.stringify([addPhoto]), deviceId, zoneId]
+      );
+    }
     res.json({ success: true });
   } catch (err) {
     console.error("PATCH /install/zones/:zoneId/devices/:deviceId error:", err);
