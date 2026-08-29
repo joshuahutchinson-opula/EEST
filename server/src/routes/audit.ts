@@ -1,7 +1,15 @@
 import { Router, Request, Response } from "express";
 import pool from "../db";
+import { isTech } from "../lib/roles";
 
 const router = Router();
+
+// Field paths that carry a dollar value or client contact info — audit entries logging a change
+// to one of these must never reach a Tech-authenticated request, even though today's frontend
+// only ever logs stage-transition fields (see the comment on POST below). This is a server-side
+// guardrail against a future caller writing e.g. "value" or "contacts" into the audit trail and
+// having it served back to Tech verbatim.
+const TECH_HIDDEN_AUDIT_FIELDS = new Set(["value", "contacts", "costImpact", "unitCost", "sellPrice", "costTotal", "sellTotal", "profit"]);
 
 // GET /api/audit/:projectId
 router.get("/:projectId", async (req: Request, res: Response) => {
@@ -11,19 +19,22 @@ router.get("/:projectId", async (req: Request, res: Response) => {
       "SELECT * FROM audit_logs WHERE project_id = $1 ORDER BY created_at DESC LIMIT 100",
       [projectId]
     );
+    const tech = isTech(req);
     res.json(
-      result.rows.map((row) => ({
-        id: row.id,
-        projectId: row.project_id,
-        event: row.event,
-        details: row.details,
-        user: row.user_name,
-        userEmail: row.user_email || undefined,
-        field: row.field_path || undefined,
-        oldValue: row.old_value ?? undefined,
-        newValue: row.new_value ?? undefined,
-        timestamp: row.created_at,
-      }))
+      result.rows
+        .filter((row) => !tech || !TECH_HIDDEN_AUDIT_FIELDS.has(row.field_path))
+        .map((row) => ({
+          id: row.id,
+          projectId: row.project_id,
+          event: row.event,
+          details: row.details,
+          user: row.user_name,
+          userEmail: row.user_email || undefined,
+          field: row.field_path || undefined,
+          oldValue: row.old_value ?? undefined,
+          newValue: row.new_value ?? undefined,
+          timestamp: row.created_at,
+        }))
     );
   } catch (err) {
     console.error("GET /audit/:projectId error:", err);

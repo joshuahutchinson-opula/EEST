@@ -2461,7 +2461,7 @@ function ProjectDetail({ navigate }: { navigate: (p: Page) => void }) {
   const badge = isProjPipe ? projectStageBadge(p.projectStage || "planning") : stageBadge(p.stage);
   const ls = p.leadSource ? LEAD_SOURCE_STYLES[p.leadSource] : null;
   const team = getDeduplicatedTeam(p);
-  const tabs = ["overview","tasks","documents","assets","change-orders","audit-log","gantt","subcontractors","procurement","commissioning"];
+  const tabs = ["overview","tasks","documents","assets","change-orders","audit-log","gantt","subcontractors", ...(tech ? [] : ["procurement"]), "commissioning"];
   const tabLabels: Record<string, string> = { overview: "Overview", tasks: "Tasks", documents: "Files", assets: "Assets", "change-orders": "Change Orders", "audit-log": "Audit Log", gantt: "Timeline", subcontractors: "Subcontractors", procurement: "Procurement", commissioning: "Commissioning" };
   const stageHistory = p.stageHistory || [{ stage: isProjPipe ? (p.projectStage || "planning") : p.stage, date: p.createdAt?.slice(0,10) || new Date().toISOString().slice(0,10) }];
   const PROJECT_STAGE_VALUES = new Set<string>(["support", "planning", "procurement", "installation", "commissioning", "complete"]);
@@ -2582,7 +2582,7 @@ function ProjectDetail({ navigate }: { navigate: (p: Page) => void }) {
             </div>
           )}
           {changeOrders.length === 0 && !showNewCO ? <EmptyState icon={AlertTriangle} title="No change orders" description="Create one to track scope changes." /> : (
-            <div className="space-y-2">{changeOrders.map((co) => (<div key={co.id} className="rounded-2xl p-4" style={G.card}><div className="flex items-center justify-between"><div><p className="text-white text-[15px] font-bold">{co.title}</p>{co.description && <p className="text-[#8b949e] text-[13px] mt-0.5">{co.description}</p>}</div><span className={clsx("text-[12px] font-extrabold px-2 py-0.5 rounded-full", co.status === "approved" ? "bg-emerald-500/12 text-emerald-400" : co.status === "submitted" ? "bg-blue-500/12 text-blue-400" : co.status === "rejected" ? "bg-rose-500/12 text-rose-400" : "bg-amber-500/12 text-amber-400")}>{co.status}</span></div><div className="flex items-center justify-between mt-2"><span className="text-[#8b949e] text-[12px]">{co.createdBy} · {fmtDateFull(co.createdAt)}</span><div className="flex items-center gap-2">{co.costImpact !== 0 && <span className="text-white text-[14px] font-extrabold">{fmt(co.costImpact)}</span>}{!tech && <button onClick={async () => { try { const { blob, filename } = await API.changeOrders.generateDocx(p.id, co.id); downloadBlob(blob, filename); } catch { toast.error("Failed to generate document"); } }} className="w-7 h-7 rounded-lg flex items-center justify-center hover:bg-white/[0.08] cursor-pointer" title="Download Change Order document"><FileDown className="w-3.5 h-3.5 text-[#8b949e]" /></button>}</div></div></div>))}</div>
+            <div className="space-y-2">{changeOrders.map((co) => (<div key={co.id} className="rounded-2xl p-4" style={G.card}><div className="flex items-center justify-between"><div><p className="text-white text-[15px] font-bold">{co.title}</p>{co.description && <p className="text-[#8b949e] text-[13px] mt-0.5">{co.description}</p>}</div><span className={clsx("text-[12px] font-extrabold px-2 py-0.5 rounded-full", co.status === "approved" ? "bg-emerald-500/12 text-emerald-400" : co.status === "submitted" ? "bg-blue-500/12 text-blue-400" : co.status === "rejected" ? "bg-rose-500/12 text-rose-400" : "bg-amber-500/12 text-amber-400")}>{co.status}</span></div><div className="flex items-center justify-between mt-2"><span className="text-[#8b949e] text-[12px]">{co.createdBy} · {fmtDateFull(co.createdAt)}</span><div className="flex items-center gap-2">{!tech && co.costImpact !== 0 && <span className="text-white text-[14px] font-extrabold">{fmt(co.costImpact)}</span>}{!tech && <button onClick={async () => { try { const { blob, filename } = await API.changeOrders.generateDocx(p.id, co.id); downloadBlob(blob, filename); } catch { toast.error("Failed to generate document"); } }} className="w-7 h-7 rounded-lg flex items-center justify-center hover:bg-white/[0.08] cursor-pointer" title="Download Change Order document"><FileDown className="w-3.5 h-3.5 text-[#8b949e]" /></button>}</div></div></div>))}</div>
           )}
         </div>
       )}
@@ -2596,7 +2596,7 @@ function ProjectDetail({ navigate }: { navigate: (p: Page) => void }) {
       {activeTab === "assets" && <ProjectAssetsTab projectId={p.id} projectName={p.name} clientName={p.client} />}
       {activeTab === "gantt" && <GanttView projectId={p.id} />}
       {activeTab === "subcontractors" && <SubcontractorTab projectId={p.id} />}
-      {activeTab === "procurement" && <ProcurementTab projectId={p.id} />}
+      {activeTab === "procurement" && !tech && <ProcurementTab projectId={p.id} />}
       {activeTab === "commissioning" && <CommissioningTab projectId={p.id} />}
     </div>
   );

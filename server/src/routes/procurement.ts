@@ -1,8 +1,12 @@
 import { Router, Request, Response } from "express";
 import pool from "../db";
-import { isTech } from "../lib/roles";
+import { requireAdmin } from "../lib/roles";
 
 const router = Router();
+
+// Procurement is fully off-limits to the Tech role, not just its cost figures — same
+// reasoning as workbook.ts's blanket gate: Tech has no legitimate use for supplier/PO data.
+router.use(requireAdmin);
 
 router.get("/:projectId", async (req: Request, res: Response) => {
   try {
@@ -21,14 +25,13 @@ router.get("/:projectId", async (req: Request, res: Response) => {
        GROUP BY po.id ORDER BY po.created_at DESC`,
       [req.params.projectId]
     );
-    const tech = isTech(req);
     const rows = result.rows.map(row => ({
       ...row,
-      totalCost: tech ? 0 : Number(row.totalCost) || 0,
+      totalCost: Number(row.totalCost) || 0,
       items: (row.items || []).map((item: any) => ({
         ...item,
-        unitCost: tech ? 0 : Number(item.unitCost) || 0,
-        totalCost: tech ? 0 : Number(item.totalCost) || 0,
+        unitCost: Number(item.unitCost) || 0,
+        totalCost: Number(item.totalCost) || 0,
       })),
     }));
     res.json(rows);
@@ -66,11 +69,10 @@ router.post("/:projectId", async (req: Request, res: Response) => {
       }
       await client.query(`UPDATE procurement_orders SET total_cost = $2 WHERE id = $1`, [orderId, totalCost]);
       await client.query("COMMIT");
-      const tech = isTech(req);
       res.status(201).json({
         id: orderId, projectId, supplierName: supplierName || null, status: "pending",
-        totalCost: tech ? 0 : totalCost, generatedFrom: generatedFrom || null, createdAt: new Date().toISOString(),
-        items: (items || []).map((item: any) => tech ? { ...item, unitCost: 0, totalCost: 0 } : item),
+        totalCost, generatedFrom: generatedFrom || null, createdAt: new Date().toISOString(),
+        items: items || [],
       });
     } catch (err) {
       await client.query("ROLLBACK");
