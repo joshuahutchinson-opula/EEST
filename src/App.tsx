@@ -1751,16 +1751,30 @@ function DocumentList({ projectId }: { projectId: string }) {
         <Upload className="w-3.5 h-3.5" /> {uploading ? "Uploading..." : "Upload File"}
         <input type="file" className="hidden" onChange={handleUpload} disabled={uploading} />
       </label>
-      {documents.length === 0 ? <p className="text-[#8b949e] text-[13px]">No files uploaded yet</p> : documents.map(doc => (
-        <div key={doc.id} className="flex items-center justify-between px-3 py-2 rounded-xl group hover:bg-white/[0.02]" style={G.subtle}>
-          <div className="flex items-center gap-2 min-w-0">
-            <Paperclip className="w-3.5 h-3.5 text-[#484f58] flex-shrink-0" />
-            <a href={doc.fileUrl} target="_blank" rel="noopener noreferrer" className="text-white text-[13px] font-bold truncate hover:text-blue-400">{doc.filename}</a>
-            <span className="text-[#8b949e] text-[11px] flex-shrink-0">{doc.fileSize ? `${(doc.fileSize / 1024).toFixed(0)} KB` : ""}</span>
+      {documents.length === 0 ? <p className="text-[#8b949e] text-[13px]">No files uploaded yet</p> : documents.map(doc => {
+        const ext = doc.filename.split(".").pop()?.toLowerCase() || "";
+        const isImage = ["jpg", "jpeg", "png", "gif", "webp", "svg"].includes(ext);
+        const isPdf = ext === "pdf";
+        return (
+          <div key={doc.id} className="flex items-center justify-between px-3 py-2 rounded-xl group hover:bg-white/[0.02]" style={G.subtle}>
+            <div className="relative group/preview flex items-center gap-2 min-w-0">
+              <Paperclip className="w-3.5 h-3.5 text-[#484f58] flex-shrink-0" />
+              <a href={doc.fileUrl} target="_blank" rel="noopener noreferrer" className="text-white text-[13px] font-bold truncate hover:text-blue-400">{doc.filename}</a>
+              <span className="text-[#8b949e] text-[11px] flex-shrink-0">{doc.fileSize ? `${(doc.fileSize / 1024).toFixed(0)} KB` : ""}</span>
+              <div className="hidden group-hover/preview:flex absolute z-50 pointer-events-none items-center justify-center rounded-xl overflow-hidden" style={{ bottom: "calc(100% + 8px)", left: 0, width: "200px", height: "200px", background: "rgba(7,12,26,0.97)", border: "1px solid rgba(255,255,255,0.15)", boxShadow: "0 12px 40px rgba(0,0,0,0.6)" }}>
+                {isImage ? (
+                  <img src={doc.fileUrl} alt="" className="w-full h-full object-cover" />
+                ) : isPdf ? (
+                  <iframe src={`${doc.fileUrl}#page=1&view=FitH`} className="w-full h-full" style={{ border: "none" }} title={doc.filename} />
+                ) : (
+                  <div className="flex flex-col items-center gap-2"><FileText className="w-10 h-10 text-[#8b949e]" /><span className="text-[#8b949e] text-[11px] uppercase font-bold">{ext || "file"}</span></div>
+                )}
+              </div>
+            </div>
+            <button onClick={() => setConfirmDelete(doc.id)} className="opacity-0 group-hover:opacity-100 w-6 h-6 rounded-lg hover:bg-rose-500/10 flex items-center justify-center cursor-pointer flex-shrink-0"><Trash2 className="w-3 h-3 text-rose-400" /></button>
           </div>
-          <button onClick={() => setConfirmDelete(doc.id)} className="opacity-0 group-hover:opacity-100 w-6 h-6 rounded-lg hover:bg-rose-500/10 flex items-center justify-center cursor-pointer flex-shrink-0"><Trash2 className="w-3 h-3 text-rose-400" /></button>
-        </div>
-      ))}
+        );
+      })}
     </div>
   );
 }
