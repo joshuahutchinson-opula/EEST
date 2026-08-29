@@ -1041,7 +1041,7 @@ function AppTopbar({ page, navigate, breadcrumb, tutorialRegistry }: { page: Pag
   );
 }
 
-function KanbanCard({ project, column, dragging, onDragStart, onDragEnd, onClick, onDelete, onMoveToProjects }: { project: Project; column: Column | ProjectColumn; dragging: string | null; onDragStart: (e: React.DragEvent<HTMLDivElement>, id: string) => void; onDragEnd: () => void; onClick: () => void; onDelete: (id: string) => void; onMoveToProjects?: (id: string) => void; }) {
+function KanbanCard({ project, column, dragging, onDragStart, onDragEnd, onClick, onDelete, onMoveToProjects, liveValue }: { project: Project; column: Column | ProjectColumn; dragging: string | null; onDragStart: (e: React.DragEvent<HTMLDivElement>, id: string) => void; onDragEnd: () => void; onClick: () => void; onDelete: (id: string) => void; onMoveToProjects?: (id: string) => void; liveValue?: number | null; }) {
   const { fmt } = useCurrency();
   const isDragging = dragging === project.id;
   const [menuOpen, setMenuOpen] = useState(false);
@@ -1092,6 +1092,7 @@ function KanbanCard({ project, column, dragging, onDragStart, onDragEnd, onClick
             )}
           </div>
           {!isProjectPipeline && <div className="flex items-center gap-2 mb-2.5"><span className="text-white font-extrabold text-[16px] md:text-[17px] tracking-tight">{fmt(project.value, true)}</span></div>}
+          {isProjectPipeline && liveValue != null && <div className="flex items-center gap-2 mb-2.5"><span className="text-white font-extrabold text-[16px] md:text-[17px] tracking-tight">{fmt(liveValue, true)}</span></div>}
           <div className="flex items-center gap-3 mb-3">
             <span className="flex items-center gap-1 text-[#8b949e] text-[14px] md:text-[15px] font-semibold"><Camera className="w-3 h-3" />{project.cameras} cams</span>
             <span className="flex items-center gap-1 text-[#8b949e] text-[14px] md:text-[15px] font-semibold"><Fingerprint className="w-3 h-3" />{project.devices} devices</span>
@@ -1126,7 +1127,7 @@ function KanbanCard({ project, column, dragging, onDragStart, onDragEnd, onClick
   );
 }
 
-function KanbanColumn({ column, projects, totalValue, dragging, isOver, onDragStart, onDragEnd, onDragOver, onDragLeave, onDrop, onCardClick, onDelete, onMoveToProjects }: { column: Column | ProjectColumn; projects: Project[]; totalValue: number; dragging: string | null; isOver: boolean; onDragStart: (e: React.DragEvent<HTMLDivElement>, id: string) => void; onDragEnd: () => void; onDragOver: (e: React.DragEvent<HTMLDivElement>) => void; onDragLeave: () => void; onDrop: () => void; onCardClick: (p: Project) => void; onDelete: (id: string) => void; onMoveToProjects?: (id: string) => void; }) {
+function KanbanColumn({ column, projects, totalValue, dragging, isOver, onDragStart, onDragEnd, onDragOver, onDragLeave, onDrop, onCardClick, onDelete, onMoveToProjects, projectValues }: { column: Column | ProjectColumn; projects: Project[]; totalValue: number; dragging: string | null; isOver: boolean; onDragStart: (e: React.DragEvent<HTMLDivElement>, id: string) => void; onDragEnd: () => void; onDragOver: (e: React.DragEvent<HTMLDivElement>) => void; onDragLeave: () => void; onDrop: () => void; onCardClick: (p: Project) => void; onDelete: (id: string) => void; onMoveToProjects?: (id: string) => void; projectValues?: Map<string, number | null>; }) {
   const { fmt } = useCurrency();
   const isProjectColumn = PROJECT_COLUMNS.some(c => c.id === column.id);
   return (
@@ -1139,12 +1140,12 @@ function KanbanColumn({ column, projects, totalValue, dragging, isOver, onDragSt
           </div>
           <span className="text-[#8b949e] text-[13px] md:text-[14px] px-1.5 py-0.5 rounded-full font-extrabold" style={{ background: "rgba(255,255,255,0.08)" }}>{projects.length}</span>
         </div>
-        {!isProjectColumn && <p className="text-[#484f58] text-[14px] md:text-[15px] font-extrabold ml-4">{fmt(totalValue, true)}</p>}
+        {(!isProjectColumn || totalValue > 0) && <p className="text-[#484f58] text-[14px] md:text-[15px] font-extrabold ml-4">{fmt(totalValue, true)}</p>}
       </div>
       <div className="flex-1 p-2 space-y-2 overflow-y-auto" style={{ scrollbarWidth: "none", scrollBehavior: "smooth", WebkitOverflowScrolling: "touch", minHeight: "120px", maxHeight: "calc(100vh - 250px)" }}>
         <AnimatePresence mode="popLayout">
           {projects.map((p) => (
-            <KanbanCard key={p.id} project={p} column={column} dragging={dragging} onDragStart={onDragStart} onDragEnd={onDragEnd} onClick={() => onCardClick(p)} onDelete={onDelete} onMoveToProjects={onMoveToProjects} />
+            <KanbanCard key={p.id} project={p} column={column} dragging={dragging} onDragStart={onDragStart} onDragEnd={onDragEnd} onClick={() => onCardClick(p)} onDelete={onDelete} onMoveToProjects={onMoveToProjects} liveValue={projectValues?.get(p.id)} />
           ))}
         </AnimatePresence>
         {isOver && <div className="h-14 rounded-xl border-2 border-dashed border-blue-500/35 bg-blue-500/[0.04] flex items-center justify-center"><p className="text-blue-400/60 text-[14px] font-extrabold">Drop here</p></div>}
@@ -1168,6 +1169,7 @@ function Dashboard({ navigate }: { navigate: (p: Page) => void }) {
   const tech = isTechRole(role);
   useAutoTutorial("dashboard", DASHBOARD_STEPS);
   const [projects, setProjects] = useState<Project[]>([]);
+  const [quotes, setQuotes] = useState<Quote[]>([]);
   const [loading, setLoading] = useState(true);
   const [dragging, setDragging] = useState<string | null>(null);
   const [dragOverCol, setDragOverCol] = useState<string | null>(null);
@@ -1186,10 +1188,19 @@ function Dashboard({ navigate }: { navigate: (p: Page) => void }) {
 
   const fetchProjects = useCallback(async () => { setLoading(true); try { const data = await API.projects.list(); setProjects(data); } catch { setProjects([]); } finally { setLoading(false); } }, []);
   useEffect(() => { fetchProjects(); }, [fetchProjects]);
+  useEffect(() => { API.quotes.list().then(setQuotes).catch(() => setQuotes([])); }, []);
 
   const salesProjects = projects.filter(p => !p.pipelineType || p.pipelineType === "sales");
   const projectProjects = projects.filter(p => p.pipelineType === "project");
   const currentProjects = pipelineType === "sales" ? salesProjects : projectProjects;
+  // Project-pipeline items never have a manually-entered value — their card/column totals are
+  // always the live Workbook Synthesis grand total (no per-project override lookup here, to
+  // avoid an extra fetch per card; ProjectDetail's own stat card is override-aware).
+  const projectValues = useMemo(() => {
+    const map = new Map<string, number | null>();
+    projectProjects.forEach((p) => map.set(p.id, computeSynthesisTotal(quotes.find((q) => q.projectId === p.id))));
+    return map;
+  }, [projectProjects, quotes]);
 
   const activeSales = salesProjects.filter((p) => !["win", "lose"].includes(p.stage));
   const pipeline = activeSales.reduce((s, p) => s + p.value, 0);
@@ -1320,7 +1331,7 @@ function Dashboard({ navigate }: { navigate: (p: Page) => void }) {
 
   return (
     <div>
-      {selectedDeal && selectedColumn && <DealModal project={selectedDeal} column={selectedColumn} onClose={() => setSelectedDeal(null)} navigate={navigate} onUpdate={handleUpdate} onDelete={handleDelete} pipelineType={pipelineType} />}
+      {selectedDeal && selectedColumn && <DealModal project={selectedDeal} column={selectedColumn} onClose={() => setSelectedDeal(null)} navigate={navigate} onUpdate={handleUpdate} onDelete={handleDelete} pipelineType={pipelineType} liveValue={projectValues.get(selectedDeal.id)} />}
       {showNewProject && <NewProjectModal onClose={() => setShowNewProject(false)} onAdd={async (p) => { setProjects((prev) => [p, ...prev]); try { await API.projects.create(p); } catch { fetchProjects(); } }} pipelineType={pipelineType} />}
       {progressAnim && (
         <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -20 }} className="fixed bottom-6 left-1/2 -translate-x-1/2 z-[250] px-5 py-3 rounded-2xl flex items-center gap-3" style={{ background: "rgba(16,185,129,0.95)", backdropFilter: "blur(20px)", boxShadow: "0 8px 32px rgba(16,185,129,0.4)" }}>
@@ -1391,8 +1402,8 @@ function Dashboard({ navigate }: { navigate: (p: Page) => void }) {
             <div className="flex gap-2 md:gap-3 min-w-max pb-3">
               {columns.map((col) => {
                 const colProjects = currentProjects.filter((p) => pipelineType === "sales" ? p.stage === col.id : p.projectStage === col.id);
-                const totalValue = colProjects.reduce((s, p) => s + p.value, 0);
-                return <KanbanColumn key={col.id} column={col} projects={colProjects} totalValue={totalValue} dragging={dragging} isOver={dragOverCol === col.id} onDragStart={handleDragStart} onDragEnd={handleDragEnd} onDragOver={(e) => { e.preventDefault(); setDragOverCol(col.id); }} onDragLeave={() => setDragOverCol(null)} onDrop={() => handleDrop(col.id)} onCardClick={(p) => setSelectedDeal(p)} onDelete={handleDelete} onMoveToProjects={handleMoveToProjects} />;
+                const totalValue = pipelineType === "sales" ? colProjects.reduce((s, p) => s + p.value, 0) : colProjects.reduce((s, p) => s + (projectValues.get(p.id) || 0), 0);
+                return <KanbanColumn key={col.id} column={col} projects={colProjects} totalValue={totalValue} dragging={dragging} isOver={dragOverCol === col.id} onDragStart={handleDragStart} onDragEnd={handleDragEnd} onDragOver={(e) => { e.preventDefault(); setDragOverCol(col.id); }} onDragLeave={() => setDragOverCol(null)} onDrop={() => handleDrop(col.id)} onCardClick={(p) => setSelectedDeal(p)} onDelete={handleDelete} onMoveToProjects={handleMoveToProjects} projectValues={projectValues} />;
               })}
             </div>
           </div>
@@ -1811,6 +1822,28 @@ function DocumentList({ projectId }: { projectId: string }) {
     </div>
   );
 }
+// A project's displayed "value" is never manually entered once it's in the Project pipeline —
+// it's always this, the live Workbook Synthesis grand total (with GCT), the same number
+// Synthesis itself displays. Returns null when there's no quote yet or it's still empty, so
+// callers can omit the value entirely rather than showing a misleading $0.
+function computeSynthesisTotal(quote: Quote | undefined | null, overrides: SynthesisOverride[] = []): number | null {
+  if (!quote || quote.categories.length === 0) return null;
+  const exchangeRate = toNum(quote.exchangeRate, DEFAULT_EXCHANGE_RATE);
+  const getSectionSubtotal = (sectionNumber: string): number => {
+    const cat = quote.categories.find((c) => String(c.sectionNumber) === sectionNumber);
+    if (!cat) return 0;
+    return cat.lineItems.filter((li) => li.quantity > 0).reduce((s, li) => s + recalcLineItem(li, exchangeRate).sellTotal, 0);
+  };
+  const getDisplayValue = (sectionNumber: string): number => {
+    const override = overrides.find((o) => o.sectionNumber === sectionNumber && o.isOverridden);
+    if (override && override.overrideValue !== null) return toNum(override.overrideValue);
+    return getSectionSubtotal(sectionNumber);
+  };
+  const grandTotal = SYNTHESIS_SECTIONS.reduce((s, sec) => s + getDisplayValue(sec.section), 0);
+  if (grandTotal <= 0) return null;
+  return grandTotal + grandTotal * GCT_RATE;
+}
+
 function WorkbookSynthesisPreview({ projectId, onOpenWorkbook }: { projectId: string; onOpenWorkbook: () => void }) {
   const { fmt } = useCurrency();
   const [loading, setLoading] = useState(true);
@@ -1881,7 +1914,7 @@ function WorkbookSynthesisPreview({ projectId, onOpenWorkbook }: { projectId: st
   );
 }
 
-function DealModal({ project, column, onClose, navigate, onUpdate, onDelete, pipelineType }: { project: Project; column: Column | ProjectColumn; onClose: () => void; navigate: (p: Page) => void; onUpdate: (p: Project) => void; onDelete: (id: string) => void; pipelineType: PipelineType }) {
+function DealModal({ project, column, onClose, navigate, onUpdate, onDelete, pipelineType, liveValue }: { project: Project; column: Column | ProjectColumn; onClose: () => void; navigate: (p: Page) => void; onUpdate: (p: Project) => void; onDelete: (id: string) => void; pipelineType: PipelineType; liveValue?: number | null }) {
   const [activeTab, setActiveTab] = useState("info");
   const { fmt } = useCurrency();
   const tech = isTechRole(useRole());
@@ -1978,7 +2011,9 @@ function DealModal({ project, column, onClose, navigate, onUpdate, onDelete, pip
             <div className="space-y-3">
               <div className="grid grid-cols-2 gap-2">
                 {[
-                  { label: "Value", value: isProjectPipeline ? "—" : fmt(project.value, true), color: "#3b82f6" },
+                  ...(isProjectPipeline
+                    ? (liveValue != null ? [{ label: "Value", value: fmt(liveValue, true), color: "#3b82f6" }] : [])
+                    : [{ label: "Value", value: fmt(project.value, true), color: "#3b82f6" }]),
                   { label: "Devices", value: String(project.devices), color: "#06b6d4" },
                   { label: "Cameras", value: String(project.cameras), color: "#8b5cf6" },
                   { label: "Due Date", value: fmtDateFull(project.dueDate), color: "#f59e0b" },
@@ -2236,6 +2271,8 @@ function ProjectDetail({ navigate }: { navigate: (p: Page) => void }) {
   const [shareUrl, setShareUrl] = useState("");
   const [projectAssets, setProjectAssets] = useState<ProjectAsset[]>([]);
   const [installZones, setInstallZones] = useState<InstallZone[]>([]);
+  const [projectQuote, setProjectQuote] = useState<Quote | null>(null);
+  const [synthOverrides, setSynthOverrides] = useState<SynthesisOverride[]>([]);
 
   useEffect(() => { localStorage.setItem("pd_tab", activeTab); }, [activeTab]);
   useEffect(() => {
@@ -2261,6 +2298,10 @@ function ProjectDetail({ navigate }: { navigate: (p: Page) => void }) {
       API.changeOrders.list(project.id).then(setChangeOrders).catch(() => setChangeOrders([]));
       API.projectAssets.list(project.id).then(setProjectAssets).catch(() => setProjectAssets([]));
       API.install.zones().then(zones => setInstallZones(zones.filter(z => z.projectId === project.id))).catch(() => setInstallZones([]));
+      if (project.pipelineType === "project") {
+        API.quotes.list().then(qs => setProjectQuote(qs.find(q => q.projectId === project.id) || null)).catch(() => setProjectQuote(null));
+        API.workbook.getOverrides(project.id).then(setSynthOverrides).catch(() => setSynthOverrides([]));
+      }
     }
   }, [project]);
 
@@ -2290,6 +2331,10 @@ function ProjectDetail({ navigate }: { navigate: (p: Page) => void }) {
   const liveDeviceCount = projectAssets.filter(a => a.category !== "cable-wire").reduce((s, a) => s + a.quantity, 0);
   const installDevices = installZones.flatMap(z => z.devices);
   const liveProgress = installDevices.length > 0 ? Math.round((installDevices.filter(d => d.status === "complete").length / installDevices.length) * 100) : 0;
+  const liveValue = isProjPipe ? computeSynthesisTotal(projectQuote, synthOverrides) : null;
+  const valueCard = tech ? [] : (isProjPipe
+    ? (liveValue != null ? [{ label: "Value", value: fmt(liveValue, true), icon: DollarSign, color: "#3b82f6" }] : [])
+    : [{ label: "Value", value: fmt(p.value, true), icon: DollarSign, color: "#3b82f6" }]);
 
   return (
     <div className="px-3 md:px-5 py-4 md:py-6 max-w-[1600px] mx-auto w-full">
@@ -2324,7 +2369,7 @@ function ProjectDetail({ navigate }: { navigate: (p: Page) => void }) {
       </div>
       <div data-tour="pd-stats" className="grid grid-cols-2 md:grid-cols-5 gap-2 md:gap-3 mb-4 md:mb-6">
         {[
-          { label: "Value", value: isProjPipe || tech ? "—" : fmt(p.value, true), icon: DollarSign, color: "#3b82f6" },
+          ...valueCard,
           { label: "Cameras", value: String(liveCameraCount), icon: Camera, color: "#8b5cf6" },
           { label: "Devices", value: String(liveDeviceCount), icon: Fingerprint, color: "#06b6d4" },
           { label: "Due Date", value: fmtDate(p.dueDate), icon: Calendar, color: "#f59e0b" },
