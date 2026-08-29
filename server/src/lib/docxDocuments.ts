@@ -190,3 +190,81 @@ export async function buildCommissioningReportDocx(data: CommissioningReportDocx
   });
   return Packer.toBuffer(doc);
 }
+
+// === 6.4 — Client Equipment Summary ==========================================================
+
+const ASSET_CATEGORY_LABELS: Record<string, string> = {
+  camera: "Camera",
+  "access-control": "Access Control",
+  "network-hardware": "Network Hardware",
+  "cable-wire": "Cable / Wire",
+  intercom: "Intercom",
+  software: "Software",
+  other: "Other",
+};
+
+export interface EquipmentSummaryDocxData {
+  project: { name: string; client: string };
+  assets: { category: string; quantity: number; location?: string; purpose?: string; manufacturer?: string; model?: string; cableSpec?: { cableType: string; runDescription?: string } }[];
+  generatedAt: string;
+}
+
+function describeEquipmentAsset(a: EquipmentSummaryDocxData["assets"][number]): string {
+  if (a.manufacturer || a.model) return `${a.manufacturer || ""} ${a.model || ""}`.trim();
+  if (a.cableSpec) return `${a.cableSpec.cableType}${a.cableSpec.runDescription ? " — " + a.cableSpec.runDescription : ""}`;
+  return a.purpose || ASSET_CATEGORY_LABELS[a.category] || a.category;
+}
+
+export async function buildEquipmentSummaryDocx(data: EquipmentSummaryDocxData): Promise<Buffer> {
+  const grouped = new Map<string, EquipmentSummaryDocxData["assets"]>();
+  for (const a of data.assets) {
+    const list = grouped.get(a.category) || [];
+    list.push(a);
+    grouped.set(a.category, list);
+  }
+
+  const children: (Paragraph | Table)[] = [
+    new Paragraph({ children: [new TextRun({ text: `${data.project.name} — ${data.project.client}`, bold: true, size: 26 })] }),
+    new Paragraph({ spacing: { after: 240 }, children: [new TextRun({ text: `Generated ${new Date(data.generatedAt).toLocaleDateString()}`, size: 16, color: "999999" })] }),
+  ];
+
+  // Fixed category order (rather than first-seen-in-filter order, which only made sense when
+  // this export respected the on-screen search/filter) so a client-facing document is always
+  // laid out the same way regardless of what an admin last had filtered on screen.
+  for (const cat of Object.keys(ASSET_CATEGORY_LABELS)) {
+    const items = grouped.get(cat);
+    if (!items || items.length === 0) continue;
+    children.push(sectionHeading(`${ASSET_CATEGORY_LABELS[cat]} (${items.length})`));
+    children.push(
+      new Table({
+        width: { size: 100, type: WidthType.PERCENTAGE },
+        rows: [
+          new TableRow({ children: [headerCell("Item", 40), headerCell("Qty", 10), headerCell("Location", 25), headerCell("Purpose", 25)] }),
+          ...items.map((a, i) =>
+            new TableRow({
+              children: [
+                bodyCell(describeEquipmentAsset(a), 40, { shaded: i % 2 === 1 }),
+                bodyCell(String(a.quantity), 10, { align: AlignmentType.CENTER, shaded: i % 2 === 1 }),
+                bodyCell(a.location || "—", 25, { shaded: i % 2 === 1 }),
+                bodyCell(a.purpose || "", 25, { shaded: i % 2 === 1 }),
+              ],
+            })
+          ),
+        ],
+      })
+    );
+  }
+
+  const doc = new Document({
+    styles: BRANDED_DOCUMENT_STYLES,
+    sections: [
+      {
+        properties: { page: { margin: BRANDED_PAGE_MARGINS } },
+        headers: { default: buildBrandedHeader("Client Equipment Summary") },
+        footers: { default: buildBrandedFooter() },
+        children,
+      },
+    ],
+  });
+  return Packer.toBuffer(doc);
+}

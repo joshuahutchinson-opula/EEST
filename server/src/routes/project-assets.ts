@@ -1,6 +1,7 @@
 import { Router, Request, Response } from "express";
 import pool from "../db";
 import { isTech } from "../lib/roles";
+import { buildEquipmentSummaryDocx } from "../lib/docxDocuments";
 
 const router = Router();
 
@@ -21,6 +22,36 @@ const mapRow = (row: any, tech: boolean) => ({
   notes: row.notes || undefined,
   createdAt: row.created_at,
   updatedAt: row.updated_at,
+});
+
+// GET /api/projects/:projectId/assets/equipment-summary — branded docx, grouped by category,
+// never priced (safe for Tech role too, unlike the main asset list).
+router.get("/:projectId/assets/equipment-summary", async (req: Request, res: Response) => {
+  try {
+    const { projectId } = req.params;
+    const projectResult = await pool.query(`SELECT name, client FROM projects WHERE id = $1`, [projectId]);
+    if (projectResult.rows.length === 0) return res.status(404).json({ error: "Project not found" });
+    const assetsResult = await pool.query(
+      `SELECT pa.category, pa.quantity, pa.location, pa.purpose, pa.cable_spec AS "cableSpec", d.manufacturer, d.model
+       FROM project_assets pa
+       LEFT JOIN devices d ON d.id = pa.device_store_ref
+       WHERE pa.project_id = $1
+       ORDER BY pa.created_at`,
+      [projectId]
+    );
+    const buffer = await buildEquipmentSummaryDocx({
+      project: projectResult.rows[0],
+      assets: assetsResult.rows,
+      generatedAt: new Date().toISOString(),
+    });
+    const filename = `${(projectResult.rows[0].name as string).replace(/\s+/g, "-")}-equipment-summary.docx`;
+    res.setHeader("Content-Type", "application/vnd.openxmlformats-officedocument.wordprocessingml.document");
+    res.setHeader("Content-Disposition", `attachment; filename="${filename}"`);
+    res.send(buffer);
+  } catch (err) {
+    console.error("GET /projects/:projectId/assets/equipment-summary error:", err);
+    res.status(500).json({ error: "Failed to generate equipment summary" });
+  }
 });
 
 // GET /api/projects/:projectId/assets

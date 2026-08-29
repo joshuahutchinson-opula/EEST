@@ -523,6 +523,7 @@ const API = {
     create: (projectId: string, data: Partial<ProjectAsset>) => apiFetch<ProjectAsset>(`/projects/${projectId}/assets`, { method: "POST", body: JSON.stringify(data) }),
     update: (projectId: string, assetId: string, data: Partial<ProjectAsset>) => apiFetch<ProjectAsset>(`/projects/${projectId}/assets/${assetId}`, { method: "PATCH", body: JSON.stringify(data) }),
     delete: (projectId: string, assetId: string) => apiFetch<void>(`/projects/${projectId}/assets/${assetId}`, { method: "DELETE" }),
+    equipmentSummary: (projectId: string) => apiFetchBlob(`/projects/${projectId}/assets/equipment-summary`),
   },
   fx: {
     getRate: async () => {
@@ -2950,7 +2951,7 @@ const DEFAULT_SYSTEM_FOR_ASSET: Record<AssetCategory, SystemType> = { camera: "V
 const ASSETS_TAB_STEPS: TutorialStep[] = [
   { target: "assets-add", title: "Add Asset", description: "Add a camera, access-control device, network hardware, intercom, cable run, or other item to this project." },
   { target: "assets-search", title: "Search & Filter", description: "Search by item, location, or purpose, or filter down to a single category." },
-  { target: "assets-export", title: "Export", description: "Download the full equipment list as a CSV, or a formatted PDF equipment summary for the client." },
+  { target: "assets-export", title: "Export", description: "Download the full equipment list as a CSV, or a branded Word equipment summary for the client." },
   { target: "assets-row", title: "Asset Rows", description: "Click any asset to edit it. Update its unit price inline, upload coverage photos, or delete it — each row also shows its linked Installation zone." },
 ];
 
@@ -3122,25 +3123,11 @@ function ProjectAssetsTab({ projectId, projectName, clientName }: { projectId: s
     URL.revokeObjectURL(url);
   };
 
-  const exportPdf = async () => {
-    const { jsPDF } = await import("jspdf");
-    const doc = new jsPDF();
-    doc.setFontSize(16); doc.text("Equipment Summary", 14, 18);
-    doc.setFontSize(10); doc.text(`${projectName} — ${clientName}`, 14, 26);
-    doc.text(`Generated ${new Date().toLocaleDateString()}`, 14, 32);
-    let y = 44;
-    Array.from(grouped.entries()).forEach(([cat, items]) => {
-      if (y > 270) { doc.addPage(); y = 20; }
-      doc.setFontSize(12); doc.text(ASSET_CATEGORY_LABELS[cat], 14, y); y += 6;
-      doc.setFontSize(9);
-      items.forEach(a => {
-        if (y > 280) { doc.addPage(); y = 20; }
-        doc.text(`${describeAsset(a, storeDevices)}  ×${a.quantity}  ${a.location || "—"}  ${a.purpose || ""}`, 18, y);
-        y += 5;
-      });
-      y += 4;
-    });
-    doc.save(`${projectName.replace(/\s+/g, "-")}-equipment-summary.pdf`);
+  const exportEquipmentSummary = async () => {
+    try {
+      const { blob, filename } = await API.projectAssets.equipmentSummary(projectId);
+      downloadBlob(blob, filename);
+    } catch { toast.error("Failed to generate equipment summary"); }
   };
 
   const availableDevices = storeDevices.filter(d => CATALOG_CATEGORIES_FOR_ASSET[category].includes(d.category));
@@ -3160,7 +3147,7 @@ function ProjectAssetsTab({ projectId, projectName, clientName }: { projectId: s
         <span className="text-[#8b949e] text-[13px]">{filtered.length} assets</span>
         <div data-tour="assets-export" className="flex items-center gap-2">
           <button onClick={exportCsv} className="flex items-center gap-1.5 h-9 px-3 rounded-xl text-[#8b949e] hover:text-white text-[13px] font-bold cursor-pointer" style={G.btn}><Download className="w-3.5 h-3.5" /> CSV</button>
-          <button onClick={exportPdf} className="flex items-center gap-1.5 h-9 px-3 rounded-xl text-[#8b949e] hover:text-white text-[13px] font-bold cursor-pointer" style={G.btn}><FileDown className="w-3.5 h-3.5" /> PDF</button>
+          <button onClick={exportEquipmentSummary} className="flex items-center gap-1.5 h-9 px-3 rounded-xl text-[#8b949e] hover:text-white text-[13px] font-bold cursor-pointer" style={G.btn}><FileDown className="w-3.5 h-3.5" /> Equipment Summary</button>
         </div>
       </div>
 
