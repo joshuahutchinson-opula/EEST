@@ -2,6 +2,7 @@ import { Router, Request, Response } from "express";
 import pool from "../db";
 import { requireAdmin } from "../lib/roles";
 import { buildProposalDocx } from "../lib/docxDocuments";
+import { buildWorkbookXlsx, XlsxCategory } from "../lib/xlsxExport";
 
 const router = Router();
 
@@ -179,6 +180,84 @@ router.post("/:projectId/proposal", async (req: Request, res: Response) => {
   } catch (err) {
     console.error("POST /workbook/:projectId/proposal error:", err);
     res.status(500).json({ error: "Failed to generate proposal" });
+  }
+});
+
+// GET /api/workbook/:projectId/export-xlsx — populates the real MOH-SurAc template's Synthesis
+// and {System} BoM sheets with this project's live Workbook data. Separate from the docx
+// Proposal — an additional export option, not a replacement.
+router.get("/:projectId/export-xlsx", async (req: Request, res: Response) => {
+  try {
+    const { projectId } = req.params;
+    const projectResult = await pool.query(`SELECT id, name, client FROM projects WHERE id = $1`, [projectId]);
+    if (projectResult.rows.length === 0) return res.status(404).json({ error: "Project not found" });
+
+    const [quoteResult, overridesResult] = await Promise.all([
+      pool.query(
+        `SELECT q.ref_number AS "refNumber", q.exchange_rate AS "exchangeRate",
+                qc.system, qc.section_number AS "sectionNumber", qc.name AS "categoryName", qc.import_rate_percent AS "importRatePercent",
+                qli.description, qli.unit_cost AS "unitCost", qli.quantity, qli.markup_percent AS "markupPercent"
+         FROM quotes q
+         LEFT JOIN quote_categories qc ON qc.quote_id = q.id
+         LEFT JOIN quote_line_items qli ON qli.category_id = qc.id
+         WHERE q.project_id = $1
+         ORDER BY qc.system, qc.section_number, qli.item_number`,
+        [projectId]
+      ),
+      pool.query(
+        `SELECT section_number AS "sectionNumber", override_value AS "overrideValue", is_overridden AS "isOverridden"
+         FROM synthesis_overrides WHERE project_id = $1 AND is_overridden = TRUE`,
+        [projectId]
+      ),
+    ]);
+
+    const exchangeRate = quoteResult.rows[0]?.exchangeRate || 163;
+    const grouped = new Map<string, XlsxCategory>();
+    for (const row of quoteResult.rows) {
+      if (!row.categoryName || !row.description) continue;
+      const key = `${row.system}-${row.sectionNumber}`;
+      if (!grouped.has(key)) {
+        grouped.set(key, { system: row.system, sectionNumber: Number(row.sectionNumber), name: row.categoryName, importRatePercent: Number(row.importRatePercent) || 0, lineItems: [] });
+      }
+      grouped.get(key)!.lineItems.push({
+        description: row.description,
+        unitCost: parseFloat(row.unitCost) || 0,
+        quantity: parseInt(row.quantity, 10) || 0,
+        markupPercent: parseFloat(row.markupPercent) || 0,
+      });
+    }
+
+    // Contingency Plan (700.5 for VSS, 1200.5 for EAC) has no backing quote_categories row at
+    // all in this app — it only ever exists as a manual Synthesis override on that pseudo-
+    // section — so it's represented here as a single synthetic line item carrying that
+    // override amount, the only place its value actually lives.
+    for (const o of overridesResult.rows) {
+      const sectionNumber = parseFloat(o.sectionNumber);
+      if (sectionNumber % 1 === 0 || o.overrideValue === null) continue;
+      const system: XlsxCategory["system"] = sectionNumber < 900 ? "VSS" : sectionNumber < 1400 ? "EAC" : "Intercom";
+      grouped.set(`${system}-${sectionNumber}`, {
+        system,
+        sectionNumber,
+        name: "Contingency Plan",
+        importRatePercent: 0,
+        lineItems: [{ description: "Contingency Plan", unitCost: Number(o.overrideValue), quantity: 1, markupPercent: 0 }],
+      });
+    }
+
+    const buffer = await buildWorkbookXlsx({
+      projectName: projectResult.rows[0].name,
+      clientName: projectResult.rows[0].client,
+      refNumber: quoteResult.rows[0]?.refNumber || "",
+      exchangeRate,
+      categories: [...grouped.values()],
+    });
+    const filename = `${(projectResult.rows[0].name as string).replace(/\s+/g, "-")}-workbook.xlsx`;
+    res.setHeader("Content-Type", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
+    res.setHeader("Content-Disposition", `attachment; filename="${filename}"`);
+    res.send(buffer);
+  } catch (err) {
+    console.error("GET /workbook/:projectId/export-xlsx error:", err);
+    res.status(500).json({ error: "Failed to generate workbook export" });
   }
 });
 
