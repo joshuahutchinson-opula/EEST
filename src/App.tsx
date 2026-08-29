@@ -240,12 +240,15 @@ interface CableSpec {
   costPerFt?: number;
 }
 
+type AccessControlType = "Biometric" | "Card Reader" | "Push/Request Button" | "Key Override" | "Lock" | "Buzzer";
+
 interface ProjectAsset {
   id: string;
   projectId: string;
   category: AssetCategory;
   system: SystemType;
   deviceStoreRef?: string;
+  accessControlType?: AccessControlType;
   cableSpec?: CableSpec;
   unitCost?: number;
   quantity: number;
@@ -2783,6 +2786,7 @@ function ProjectAssetsTab({ projectId, projectName, clientName }: { projectId: s
   const [category, setCategory] = useState<AssetCategory>("camera");
   const [system, setSystem] = useState<SystemType>("VSS");
   const [deviceStoreRef, setDeviceStoreRef] = useState("");
+  const [accessControlType, setAccessControlType] = useState<AccessControlType>("Card Reader");
   const [quantity, setQuantity] = useState("1");
   const [location, setLocation] = useState("");
   const [zoneId, setZoneId] = useState("");
@@ -2794,7 +2798,7 @@ function ProjectAssetsTab({ projectId, projectName, clientName }: { projectId: s
   const [costPerFt, setCostPerFt] = useState("");
   const [unitPrice, setUnitPrice] = useState("");
 
-  const resetForm = () => { setCategory("camera"); setSystem("VSS"); setDeviceStoreRef(""); setQuantity("1"); setLocation(""); setZoneId(""); setPurpose(""); setNotes(""); setCableType("CAT-6"); setLengthFt(""); setRunDescription(""); setCostPerFt(""); setUnitPrice(""); };
+  const resetForm = () => { setCategory("camera"); setSystem("VSS"); setDeviceStoreRef(""); setAccessControlType("Card Reader"); setQuantity("1"); setLocation(""); setZoneId(""); setPurpose(""); setNotes(""); setCableType("CAT-6"); setLengthFt(""); setRunDescription(""); setCostPerFt(""); setUnitPrice(""); };
 
   const fetchAll = useCallback(async () => {
     setLoading(true);
@@ -2823,6 +2827,7 @@ function ProjectAssetsTab({ projectId, projectName, clientName }: { projectId: s
     setCategory(asset.category);
     setSystem(asset.system);
     setDeviceStoreRef(asset.deviceStoreRef || "");
+    setAccessControlType(asset.accessControlType || "Card Reader");
     setQuantity(String(asset.quantity));
     setLocation(asset.location);
     setZoneId(asset.zoneId || "");
@@ -2846,7 +2851,7 @@ function ProjectAssetsTab({ projectId, projectName, clientName }: { projectId: s
   const handleSave = async () => {
     const qty = parseInt(quantity) || 1;
     const cableSpec: CableSpec | undefined = category === "cable-wire" ? { cableType, lengthFt: parseFloat(lengthFt) || undefined, runDescription: runDescription.trim() || undefined, costPerFt: parseFloat(costPerFt) || undefined } : undefined;
-    const payload = { category, system, deviceStoreRef: deviceStoreRef || undefined, cableSpec, unitCost: category === "cable-wire" ? undefined : (parseFloat(unitPrice) || 0), quantity: qty, location: location.trim(), zoneId: zoneId || undefined, purpose: purpose.trim(), notes: notes.trim() || undefined };
+    const payload = { category, system, deviceStoreRef: deviceStoreRef || undefined, accessControlType: category === "access-control" ? accessControlType : undefined, cableSpec, unitCost: category === "cable-wire" ? undefined : (parseFloat(unitPrice) || 0), quantity: qty, location: location.trim(), zoneId: zoneId || undefined, purpose: purpose.trim(), notes: notes.trim() || undefined };
     setSaving(true);
     try {
       let result: ProjectAsset;
@@ -2983,6 +2988,9 @@ function ProjectAssetsTab({ projectId, projectName, clientName }: { projectId: s
               <div><label className="text-[#8b949e] text-[11px] font-extrabold uppercase tracking-widest block mb-1">Category</label><select value={category} onChange={e => { setCategory(e.target.value as AssetCategory); setDeviceStoreRef(""); setSystem(DEFAULT_SYSTEM_FOR_ASSET[e.target.value as AssetCategory]); }} className="w-full h-9 rounded-xl px-2 text-[13px] cursor-pointer" style={{ ...G.input, background: "#0d1117", color: "#e6edf3" }}>{(Object.keys(ASSET_CATEGORY_LABELS) as AssetCategory[]).map(c => <option key={c} value={c}>{ASSET_CATEGORY_LABELS[c]}</option>)}</select></div>
               <div><label className="text-[#8b949e] text-[11px] font-extrabold uppercase tracking-widest block mb-1">System</label><select value={system} onChange={e => setSystem(e.target.value as SystemType)} className="w-full h-9 rounded-xl px-2 text-[13px] cursor-pointer" style={{ ...G.input, background: "#0d1117", color: "#e6edf3" }}><option value="VSS">VSS</option><option value="EAC">EAC</option><option value="Intercom">Intercom</option></select></div>
             </div>
+            {category === "access-control" && (
+              <div><label className="text-[#8b949e] text-[11px] font-extrabold uppercase tracking-widest block mb-1">Type</label><select value={accessControlType} onChange={e => setAccessControlType(e.target.value as AccessControlType)} className="w-full h-9 rounded-xl px-2 text-[13px] cursor-pointer" style={{ ...G.input, background: "#0d1117", color: "#e6edf3" }}>{(["Biometric", "Card Reader", "Push/Request Button", "Key Override", "Lock", "Buzzer"] as AccessControlType[]).map(t => <option key={t} value={t}>{t}</option>)}</select></div>
+            )}
             {category === "cable-wire" ? (
               <div data-tour="aam-type-fields" className="grid grid-cols-2 gap-3">
                 <div><label className="text-[#8b949e] text-[11px] font-extrabold uppercase tracking-widest block mb-1">Cable Type</label><select value={cableType} onChange={e => setCableType(e.target.value as CableSpec["cableType"])} className="w-full h-9 rounded-xl px-2 text-[13px] cursor-pointer" style={{ ...G.input, background: "#0d1117", color: "#e6edf3" }}>{["CAT-6","CAT-6A","Fiber-SM","Fiber-MM","Coax-RG59","Power-18AWG","Power-14AWG","Speaker-Wire","Other"].map(t => <option key={t} value={t}>{t}</option>)}</select></div>

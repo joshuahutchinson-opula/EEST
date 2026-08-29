@@ -10,6 +10,7 @@ const mapRow = (row: any, tech: boolean) => ({
   category: row.category,
   system: row.system,
   deviceStoreRef: row.device_store_ref || undefined,
+  accessControlType: row.access_control_type || undefined,
   cableSpec: row.cable_spec ? (tech ? { ...row.cable_spec, costPerFt: undefined } : row.cable_spec) : undefined,
   unitCost: tech ? undefined : (row.unit_cost !== null && row.unit_cost !== undefined ? Number(row.unit_cost) : undefined),
   quantity: row.quantity,
@@ -43,11 +44,11 @@ router.post("/:projectId/assets", async (req: Request, res: Response) => {
   try {
     const { projectId } = req.params;
     const tech = isTech(req);
-    const { category, system, deviceStoreRef, cableSpec, unitCost, quantity, location, zoneId, purpose, notes } = req.body;
+    const { category, system, deviceStoreRef, accessControlType, cableSpec, unitCost, quantity, location, zoneId, purpose, notes } = req.body;
     const result = await pool.query(
-      `INSERT INTO project_assets (project_id, category, system, device_store_ref, cable_spec, unit_cost, quantity, location, zone_id, purpose, notes)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11) RETURNING *`,
-      [projectId, category, system, deviceStoreRef || null, cableSpec ? JSON.stringify(cableSpec) : null, tech ? null : (unitCost ?? null), quantity || 1, location || "", zoneId || null, purpose || "", notes || null]
+      `INSERT INTO project_assets (project_id, category, system, device_store_ref, access_control_type, cable_spec, unit_cost, quantity, location, zone_id, purpose, notes)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12) RETURNING *`,
+      [projectId, category, system, deviceStoreRef || null, accessControlType || null, cableSpec ? JSON.stringify(cableSpec) : null, tech ? null : (unitCost ?? null), quantity || 1, location || "", zoneId || null, purpose || "", notes || null]
     );
     res.status(201).json(mapRow(result.rows[0], tech));
   } catch (err) {
@@ -61,24 +62,25 @@ router.patch("/:projectId/assets/:assetId", async (req: Request, res: Response) 
   try {
     const { projectId, assetId } = req.params;
     const tech = isTech(req);
-    const { category, system, deviceStoreRef, cableSpec, unitCost, quantity, location, zoneId, purpose, coveragePhotos, notes } = req.body;
+    const { category, system, deviceStoreRef, accessControlType, cableSpec, unitCost, quantity, location, zoneId, purpose, coveragePhotos, notes } = req.body;
     const sanitizedCableSpec = tech && cableSpec ? { ...cableSpec, costPerFt: undefined } : cableSpec;
     const result = await pool.query(
       `UPDATE project_assets SET
         category = COALESCE($3, category),
         system = COALESCE($4, system),
         device_store_ref = COALESCE($5, device_store_ref),
-        cable_spec = COALESCE($6, cable_spec),
-        unit_cost = COALESCE($7, unit_cost),
-        quantity = COALESCE($8, quantity),
-        location = COALESCE($9, location),
-        zone_id = COALESCE($10, zone_id),
-        purpose = COALESCE($11, purpose),
-        coverage_photos = COALESCE($12, coverage_photos),
-        notes = COALESCE($13, notes),
+        access_control_type = COALESCE($6, access_control_type),
+        cable_spec = COALESCE($7, cable_spec),
+        unit_cost = COALESCE($8, unit_cost),
+        quantity = COALESCE($9, quantity),
+        location = COALESCE($10, location),
+        zone_id = COALESCE($11, zone_id),
+        purpose = COALESCE($12, purpose),
+        coverage_photos = COALESCE($13, coverage_photos),
+        notes = COALESCE($14, notes),
         updated_at = NOW()
        WHERE id = $1 AND project_id = $2 RETURNING *`,
-      [assetId, projectId, category, system, deviceStoreRef, sanitizedCableSpec ? JSON.stringify(sanitizedCableSpec) : undefined, tech ? undefined : unitCost, quantity, location, zoneId, purpose, coveragePhotos ? JSON.stringify(coveragePhotos) : undefined, notes]
+      [assetId, projectId, category, system, deviceStoreRef, accessControlType, sanitizedCableSpec ? JSON.stringify(sanitizedCableSpec) : undefined, tech ? undefined : unitCost, quantity, location, zoneId, purpose, coveragePhotos ? JSON.stringify(coveragePhotos) : undefined, notes]
     );
     if (result.rows.length === 0) return res.status(404).json({ error: "Asset not found" });
     res.json(mapRow(result.rows[0], tech));
