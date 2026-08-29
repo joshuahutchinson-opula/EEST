@@ -330,6 +330,11 @@ export async function initDB() {
       await client.query(`ALTER TABLE devices ADD CONSTRAINT devices_sku_unique UNIQUE (sku)`);
     } catch {}
 
+    // The Axis Q1700-LE LPV Kit catalog entry points at a dead manufacturer image (404s) —
+    // clear it so DeviceImage falls back to the placeholder icon instead of a broken image.
+    // No current/working replacement URL was available to substitute in its place.
+    await client.query(`UPDATE devices SET image_url = NULL WHERE image_url ILIKE '%q1700le_lpv_kit%'`);
+
     console.log("Database tables initialized");
   } finally {
     client.release();
