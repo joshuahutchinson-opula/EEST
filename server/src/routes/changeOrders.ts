@@ -1,6 +1,7 @@
 import { Router, Request, Response } from "express";
 import pool from "../db";
-import { isTech } from "../lib/roles";
+import { isTech, requireAdmin } from "../lib/roles";
+import { buildChangeOrderDocx } from "../lib/docxDocuments";
 
 const router = Router();
 
@@ -93,6 +94,38 @@ router.patch("/:projectId/:id", async (req: Request, res: Response) => {
   } catch (err) {
     console.error("PATCH /change-orders/:projectId/:id error:", err);
     res.status(500).json({ error: "Failed to update change order" });
+  }
+});
+
+// GET /api/change-orders/:projectId/:id/docx — always priced (the client needs the price to
+// approve it), so this is the one document type in Phase 6 that stays admin-only end to end.
+router.get("/:projectId/:id/docx", requireAdmin, async (req: Request, res: Response) => {
+  try {
+    const { projectId, id } = req.params;
+    const [projectResult, coResult] = await Promise.all([
+      pool.query(`SELECT name, client FROM projects WHERE id = $1`, [projectId]),
+      pool.query(`SELECT * FROM change_orders WHERE id = $1 AND project_id = $2`, [id, projectId]),
+    ]);
+    if (projectResult.rows.length === 0 || coResult.rows.length === 0) return res.status(404).json({ error: "Change order not found" });
+    const row = coResult.rows[0];
+    const buffer = await buildChangeOrderDocx({
+      project: projectResult.rows[0],
+      changeOrder: {
+        title: row.title,
+        description: row.description,
+        costImpact: Number(row.cost_impact),
+        status: row.status,
+        createdBy: row.created_by,
+        createdAt: row.created_at,
+      },
+    });
+    const filename = `${(row.title as string).replace(/\s+/g, "-")}-change-order.docx`;
+    res.setHeader("Content-Type", "application/vnd.openxmlformats-officedocument.wordprocessingml.document");
+    res.setHeader("Content-Disposition", `attachment; filename="${filename}"`);
+    res.send(buffer);
+  } catch (err) {
+    console.error("GET /change-orders/:projectId/:id/docx error:", err);
+    res.status(500).json({ error: "Failed to generate change order document" });
   }
 });
 

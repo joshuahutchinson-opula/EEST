@@ -268,3 +268,59 @@ export async function buildEquipmentSummaryDocx(data: EquipmentSummaryDocxData):
   });
   return Packer.toBuffer(doc);
 }
+
+// === 6.5 — Change Order ======================================================================
+// Always shows pricing — a change order document exists specifically to communicate a price
+// change for approval, so unlike Equipment Summary/Client Status there is no no-pricing
+// variant of this one. Generation is gated to admin server-side (see the route), matching how
+// the rest of the app treats "produce a formal pricing document" as an admin-only action.
+
+export interface ChangeOrderDocxData {
+  project: { name: string; client: string };
+  changeOrder: { title: string; description: string; costImpact: number; status: string; createdBy: string; createdAt: string };
+}
+
+const CO_STATUS_LABEL: Record<string, string> = { draft: "Draft", submitted: "Submitted", approved: "Approved", rejected: "Rejected" };
+const CO_STATUS_COLOR: Record<string, string> = { draft: "8A6D00", submitted: "1D4D89", approved: "1E8E3E", rejected: "D93025" };
+
+export async function buildChangeOrderDocx(data: ChangeOrderDocxData): Promise<Buffer> {
+  const co = data.changeOrder;
+  const children: (Paragraph | Table)[] = [
+    new Paragraph({ children: [new TextRun({ text: `${data.project.name} — ${data.project.client}`, bold: true, size: 26 })] }),
+    new Paragraph({
+      spacing: { before: 100, after: 240 },
+      children: [
+        new TextRun({ text: `${CO_STATUS_LABEL[co.status] || co.status}`, bold: true, size: 20, color: CO_STATUS_COLOR[co.status] || "555555" }),
+        new TextRun({ text: `   Submitted by ${co.createdBy || "—"} on ${new Date(co.createdAt).toLocaleDateString()}`, size: 16, color: "999999" }),
+      ],
+    }),
+    sectionHeading(co.title),
+    sectionHeading("What Changed"),
+    new Paragraph({ spacing: { after: 240 }, children: [new TextRun({ text: co.description || "No description provided.", size: 20 })] }),
+  ];
+
+  const priceTable = new Table({
+    width: { size: 60, type: WidthType.PERCENTAGE },
+    rows: [
+      new TableRow({
+        children: [
+          bodyCell("Price Impact", 60, { align: AlignmentType.RIGHT, bold: true }),
+          new TableCell({ width: { size: 40, type: WidthType.PERCENTAGE }, children: [new Paragraph({ alignment: AlignmentType.RIGHT, children: [new TextRun({ text: fmtUSD(co.costImpact), bold: true, size: 24, color: BRAND_COLORS.navy })] })] }),
+        ],
+      }),
+    ],
+  });
+
+  const doc = new Document({
+    styles: BRANDED_DOCUMENT_STYLES,
+    sections: [
+      {
+        properties: { page: { margin: BRANDED_PAGE_MARGINS } },
+        headers: { default: buildBrandedHeader("Change Order") },
+        footers: { default: buildBrandedFooter() },
+        children: [...children, priceTable],
+      },
+    ],
+  });
+  return Packer.toBuffer(doc);
+}
