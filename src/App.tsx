@@ -3645,8 +3645,12 @@ function Workbook({ navigate }: { navigate: (p: Page) => void }) {
   }, [selectedProjectId]);
 
   const selectedProject = projects.find((p) => p.id === selectedProjectId);
+  // Must stay in lockstep with selectedProjectId — previously only set selectedQuoteId when it
+  // was still empty, so switching from a project with a quote to a different project left the
+  // FIRST project's quote (and its line items) selected and visibly displayed under the new
+  // project's name until the user happened to land on a project with no quote at all.
+  useEffect(() => { setSelectedQuoteId(quotes.find((q) => q.projectId === selectedProjectId)?.id || ""); }, [selectedProjectId, quotes]);
   const selectedQuote = quotes.find((q) => q.id === selectedQuoteId);
-  useEffect(() => { if (selectedProjectId && !selectedQuoteId) { const pq = quotes.find((q) => q.projectId === selectedProjectId); if (pq) setSelectedQuoteId(pq.id); } }, [selectedProjectId, quotes, selectedQuoteId]);
   const quoteCategories = selectedQuote?.categories || [];
 
   const autoSave = useCallback(async (q: Quote) => { setSaveStatus("saving"); try { await API.quotes.update(q.id, { categories: q.categories, exchangeRate }); setTimeout(() => setSaveStatus("saved"), 800); } catch { setSaveStatus("saved"); } }, [exchangeRate]);
@@ -3744,7 +3748,7 @@ function Workbook({ navigate }: { navigate: (p: Page) => void }) {
   return (
     <div className="flex flex-col h-[calc(100vh-56px)] overflow-hidden">
       {overrideConflict && <OverrideConflictModal open={true} sectionName={overrideConflict.sectionName} onUpdateOverride={() => { overrideConflict.pendingCallback?.(); handleSaveOverride(overrideConflict.sectionNumber, null, false); setOverrideConflict(null); }} onKeepOverride={() => { overrideConflict.pendingCallback?.(); setOverrideConflict(null); }} onCancel={() => setOverrideConflict(null)} />}
-      {showProjectSelect && <SelectProjectModal onClose={() => setShowProjectSelect(false)} onSelect={(id: string) => { setSelectedProjectId(id); setShowProjectSelect(false); }} currentId={selectedProjectId} projects={projects} />}
+      {showProjectSelect && <SelectProjectModal onClose={() => setShowProjectSelect(false)} onSelect={(id: string) => { setSelectedProjectId(id); setSelectedQuoteId(quotes.find((q) => q.projectId === id)?.id || ""); setShowProjectSelect(false); }} currentId={selectedProjectId} projects={projects} />}
       {showProposalModal && <ProposalGeneratorModal open={true} onClose={() => setShowProposalModal(false)} projectId={selectedProjectId} />}
       <div className="px-4 md:px-6 py-3 flex flex-col md:flex-row md:items-center justify-between flex-shrink-0 gap-2" style={{ borderBottom: "1px solid rgba(255,255,255,0.07)" }}>
         <div>
