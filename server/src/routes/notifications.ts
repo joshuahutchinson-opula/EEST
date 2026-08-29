@@ -1,20 +1,27 @@
 import { Router, Request, Response } from "express";
 import pool from "../db";
+import { isTech } from "../lib/roles";
 
 const router = Router();
+
+// Company-wide "System" broadcasts that are inherently sales/financial in nature and must
+// never reach Tech, who sees only their own activity — Admin still sees every System row.
+const ADMIN_ONLY_NOTIFICATION_TYPES = ["sales-win"];
 
 router.get("/", async (req: Request, res: Response) => {
   try {
     const user = (req as any).user?.name || "System";
+    const tech = isTech(req);
     const result = await pool.query(
       `SELECT id, user_name AS "user", project_id AS "projectId", event, details,
               notification_type AS "notificationType", action_url AS "actionUrl",
               is_read AS "isRead", created_at AS "timestamp"
        FROM audit_logs
-       WHERE user_name = $1 OR user_name = 'System' OR user_name IS NULL
+       WHERE (user_name = $1 OR user_name = 'System' OR user_name IS NULL)
+         AND ($2 = FALSE OR notification_type IS NULL OR NOT (notification_type = ANY($3)))
        ORDER BY created_at DESC
        LIMIT 200`,
-      [user]
+      [user, tech, ADMIN_ONLY_NOTIFICATION_TYPES]
     );
     res.json(result.rows);
   } catch (err) {
@@ -70,7 +77,14 @@ router.patch("/:id/read", async (req: Request, res: Response) => {
 router.patch("/read-all", async (req: Request, res: Response) => {
   try {
     const user = (req as any).user?.name || "System";
-    await pool.query(`UPDATE audit_logs SET is_read = TRUE WHERE (user_name = $1 OR user_name = 'System' OR user_name IS NULL) AND is_read IS NOT TRUE`, [user]);
+    const tech = isTech(req);
+    await pool.query(
+      `UPDATE audit_logs SET is_read = TRUE
+       WHERE (user_name = $1 OR user_name = 'System' OR user_name IS NULL)
+         AND is_read IS NOT TRUE
+         AND ($2 = FALSE OR notification_type IS NULL OR NOT (notification_type = ANY($3)))`,
+      [user, tech, ADMIN_ONLY_NOTIFICATION_TYPES]
+    );
     res.json({ success: true });
   } catch (err) {
     console.error("PATCH /notifications/read-all error:", err);
