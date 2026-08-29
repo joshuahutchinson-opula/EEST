@@ -2191,7 +2191,7 @@ function ProjectsPage({ navigate }: { navigate: (p: Page) => void }) {
   );
 }
 const PD_OVERVIEW_STEPS: TutorialStep[] = [
-  { target: "pd-stats", title: "Key Stats", description: "Contract value, live camera and device counts (pulled straight from the Assets tab), due date, and install progress." },
+  { target: "pd-stats", title: "Key Stats", description: "Value, live camera and device counts (pulled straight from the Assets tab), due date, and install progress." },
   { target: "pd-tabs", title: "Everything About This Project", description: "Overview, Tasks, Files, Assets, Change Orders, Audit Log, Timeline, Subcontractors, Procurement, and Commissioning all live behind these tabs." },
   { target: "pd-scope", title: "Project Scope", description: "A written summary of what this project covers." },
   { target: "pd-team", title: "Team", description: "Everyone assigned to this project and their role." },
@@ -2304,7 +2304,7 @@ function ProjectDetail({ navigate }: { navigate: (p: Page) => void }) {
       </div>
       <div data-tour="pd-stats" className="grid grid-cols-2 md:grid-cols-5 gap-2 md:gap-3 mb-4 md:mb-6">
         {[
-          { label: "Contract Value", value: isProjPipe || tech ? "—" : fmt(p.value, true), icon: DollarSign, color: "#3b82f6" },
+          { label: "Value", value: isProjPipe || tech ? "—" : fmt(p.value, true), icon: DollarSign, color: "#3b82f6" },
           { label: "Cameras", value: String(liveCameraCount), icon: Camera, color: "#8b5cf6" },
           { label: "Devices", value: String(liveDeviceCount), icon: Fingerprint, color: "#06b6d4" },
           { label: "Due Date", value: fmtDate(p.dueDate), icon: Calendar, color: "#f59e0b" },
