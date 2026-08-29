@@ -21,9 +21,7 @@ function mapRow(row: any) {
     cameras: row.cameras,
     devices: row.devices,
     location: row.location || "",
-    contact: row.contact_name
-      ? { name: row.contact_name, title: row.contact_title || "", email: row.contact_email || "", phone: row.contact_phone || "" }
-      : undefined,
+    contacts: row.contacts || [],
     summary: row.summary || undefined,
     notes: row.notes || undefined,
     collaborators: row.collaborators || [],
@@ -37,16 +35,16 @@ function mapRow(row: any) {
 }
 
 // Tech must not see the Sales pipeline (leads/deals) at all, or any project's dollar value
-// or point-of-contact — regardless of what the frontend chooses to render.
+// or points-of-contact — regardless of what the frontend chooses to render.
 function redactForTech(project: ReturnType<typeof mapRow>) {
-  return { ...project, value: 0, contact: undefined };
+  return { ...project, value: 0, contacts: [] };
 }
 
-// Prevents a Tech-role write from smuggling a contact or dollar value into the database
+// Prevents a Tech-role write from smuggling contacts or a dollar value into the database
 // even though the UI never exposes those fields to them.
-function stripTechWriteFields<T extends { contact?: any; value?: any }>(body: T, tech: boolean): T {
+function stripTechWriteFields<T extends { contacts?: any; value?: any }>(body: T, tech: boolean): T {
   if (!tech) return body;
-  const { contact, value, ...rest } = body;
+  const { contacts, value, ...rest } = body;
   return rest as T;
 }
 
@@ -89,15 +87,15 @@ router.get("/:id", async (req: Request, res: Response) => {
 // POST /api/projects
 router.post("/", async (req: Request, res: Response) => {
   try {
-    const { name, client, value, stage, risk, assignee, dueDate, cameras, devices, location, contact, summary, notes, collaborators, leadSource, stageHistory, pipelineType, projectStage } = stripTechWriteFields(req.body, isTech(req));
+    const { name, client, value, stage, risk, assignee, dueDate, cameras, devices, location, contacts, summary, notes, collaborators, leadSource, stageHistory, pipelineType, projectStage } = stripTechWriteFields(req.body, isTech(req));
     const result = await pool.query(
-      `INSERT INTO projects (name, client, value, stage, risk, assignee_name, assignee_initials, assignee_color, due_date, cameras, devices, location, contact_name, contact_title, contact_email, contact_phone, summary, notes, collaborators, lead_source, stage_history, pipeline_type, project_stage)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23) RETURNING *`,
+      `INSERT INTO projects (name, client, value, stage, risk, assignee_name, assignee_initials, assignee_color, due_date, cameras, devices, location, contacts, summary, notes, collaborators, lead_source, stage_history, pipeline_type, project_stage)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20) RETURNING *`,
       [
         name, client, value || 0, stage || "assessment-scheduled", risk || "low",
         assignee?.name || "", assignee?.initials || "", assignee?.color || "#3b82f6",
         dueDate || null, cameras || 0, devices || 0, location || "",
-        contact?.name || null, contact?.title || null, contact?.email || null, contact?.phone || null,
+        JSON.stringify(contacts || []),
         summary || null, notes || null, JSON.stringify(collaborators || []),
         leadSource || null, JSON.stringify(stageHistory || []),
         pipelineType || "sales", projectStage || null,
@@ -116,18 +114,18 @@ router.post("/", async (req: Request, res: Response) => {
 router.patch("/:id", async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
-    const { name, client, value, stage, risk, assignee, dueDate, cameras, devices, location, contact, summary, notes, collaborators, leadSource, stageHistory, pipelineType, projectStage } = stripTechWriteFields(req.body, isTech(req));
+    const { name, client, value, stage, risk, assignee, dueDate, cameras, devices, location, contacts, summary, notes, collaborators, leadSource, stageHistory, pipelineType, projectStage } = stripTechWriteFields(req.body, isTech(req));
     const result = await pool.query(
       `UPDATE projects SET name=COALESCE($2,name), client=COALESCE($3,client), value=COALESCE($4,value), stage=COALESCE($5,stage), risk=COALESCE($6,risk),
        assignee_name=COALESCE($7,assignee_name), assignee_initials=COALESCE($8,assignee_initials), assignee_color=COALESCE($9,assignee_color),
        due_date=COALESCE($10,due_date), cameras=COALESCE($11,cameras), devices=COALESCE($12,devices), location=COALESCE($13,location),
-       contact_name=COALESCE($14,contact_name), contact_title=COALESCE($15,contact_title), contact_email=COALESCE($16,contact_email), contact_phone=COALESCE($17,contact_phone),
-       summary=COALESCE($18,summary), notes=COALESCE($19,notes), collaborators=COALESCE($20,collaborators),
-       lead_source=COALESCE($21,lead_source), stage_history=COALESCE($22,stage_history),
-       pipeline_type=COALESCE($23,pipeline_type), project_stage=COALESCE($24,project_stage),
+       contacts=COALESCE($14,contacts),
+       summary=COALESCE($15,summary), notes=COALESCE($16,notes), collaborators=COALESCE($17,collaborators),
+       lead_source=COALESCE($18,lead_source), stage_history=COALESCE($19,stage_history),
+       pipeline_type=COALESCE($20,pipeline_type), project_stage=COALESCE($21,project_stage),
        updated_at=NOW() WHERE id=$1 AND deleted_at IS NULL RETURNING *`,
       [id, name, client, value, stage, risk, assignee?.name, assignee?.initials, assignee?.color, dueDate, cameras, devices, location,
-       contact?.name, contact?.title, contact?.email, contact?.phone, summary, notes, collaborators ? JSON.stringify(collaborators) : null,
+       contacts ? JSON.stringify(contacts) : null, summary, notes, collaborators ? JSON.stringify(collaborators) : null,
        leadSource, stageHistory ? JSON.stringify(stageHistory) : null,
        pipelineType, projectStage]
     );

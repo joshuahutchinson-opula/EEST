@@ -131,7 +131,7 @@ interface Project {
   cameras: number;
   devices: number;
   location: string;
-  contact?: { name: string; title: string; email: string; phone: string };
+  contacts?: { name: string; title: string; email: string; phone: string }[];
   summary?: string;
   notes?: string;
   collaborators?: { name: string; initials: string; color: string; role: string }[];
@@ -1417,6 +1417,13 @@ function NewProjectModal({ onClose, onAdd, pipelineType }: { onClose: () => void
   const [contactTitle, setContactTitle] = useState("");
   const [contactEmail, setContactEmail] = useState("");
   const [contactPhone, setContactPhone] = useState("");
+  const [contacts, setContacts] = useState<{ name: string; title: string; email: string; phone: string }[]>([]);
+  const addContact = () => {
+    if (!contactName.trim()) return;
+    setContacts((prev) => [...prev, { name: contactName.trim(), title: contactTitle.trim(), email: contactEmail.trim(), phone: contactPhone.trim() }]);
+    setContactName(""); setContactTitle(""); setContactEmail(""); setContactPhone("");
+  };
+  const removeContact = (idx: number) => setContacts((prev) => prev.filter((_, i) => i !== idx));
   const [notes, setNotes] = useState("");
   const [supportType, setSupportType] = useState<SupportType>("contract-support");
   const [submitting, setSubmitting] = useState(false);
@@ -1455,7 +1462,7 @@ function NewProjectModal({ onClose, onAdd, pipelineType }: { onClose: () => void
       leadSource: pipelineType === "sales" ? leadSource : undefined,
       collaborators: collaborators.length > 0 ? collaborators : undefined,
       stageHistory: [{ stage: pipelineType === "sales" ? stage : projectStage, date: new Date().toISOString().slice(0, 10) }],
-      contact: contactName.trim() ? { name: contactName.trim(), title: contactTitle.trim(), email: contactEmail.trim(), phone: contactPhone.trim() } : undefined,
+      contacts: (() => { const all = [...contacts, ...(contactName.trim() ? [{ name: contactName.trim(), title: contactTitle.trim(), email: contactEmail.trim(), phone: contactPhone.trim() }] : [])]; return all.length > 0 ? all : undefined; })(),
       createdAt: now,
       updatedAt: now,
       pipelineType,
@@ -1572,13 +1579,24 @@ function NewProjectModal({ onClose, onAdd, pipelineType }: { onClose: () => void
               )}
             </div>
             {!tech && <div style={{ borderTop: "1px solid rgba(255,255,255,0.07)", paddingTop: "12px" }}>
-              <p className="text-[#8b949e] text-[12px] font-extrabold uppercase tracking-widest mb-3">Contact (optional)</p>
+              <p className="text-[#8b949e] text-[12px] font-extrabold uppercase tracking-widest mb-3">Contacts (optional)</p>
+              {contacts.length > 0 && (
+                <div className="space-y-1.5 mb-3">
+                  {contacts.map((c, i) => (
+                    <div key={i} className="flex items-center justify-between gap-2 rounded-xl px-3 py-2" style={G.subtle}>
+                      <span className="text-[#e6edf3] text-[13px] font-bold truncate">{c.name}{c.title && <span className="text-[#8b949e] font-semibold"> · {c.title}</span>}</span>
+                      <button type="button" onClick={() => removeContact(i)} className="flex-shrink-0 w-6 h-6 rounded-lg flex items-center justify-center hover:bg-rose-500/10 cursor-pointer"><X className="w-3 h-3 text-rose-400" /></button>
+                    </div>
+                  ))}
+                </div>
+              )}
               <div className="grid grid-cols-2 gap-3">
                 <div><label className={labelCls}>Name</label><input value={contactName} onChange={(e) => setContactName(e.target.value)} placeholder="Full name" className={inputCls} style={G.input} /></div>
                 <div><label className={labelCls}>Title</label><input value={contactTitle} onChange={(e) => setContactTitle(e.target.value)} placeholder="Job title" className={inputCls} style={G.input} /></div>
                 <div><label className={labelCls}>Email</label><input type="email" value={contactEmail} onChange={(e) => setContactEmail(e.target.value)} placeholder="email@company.com" className={inputCls} style={G.input} /></div>
                 <div><label className={labelCls}>Phone</label><input value={contactPhone} onChange={(e) => setContactPhone(e.target.value)} placeholder="+1 (876) 555-0000" className={inputCls} style={G.input} /></div>
               </div>
+              <button type="button" onClick={addContact} disabled={!contactName.trim()} className="mt-2 flex items-center gap-1.5 h-8 px-3 rounded-lg text-[12px] font-extrabold cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed" style={{ background: "rgba(59,130,246,0.15)", color: "#60a5fa" }}><Plus className="w-3 h-3" /> Add Another Contact</button>
             </div>}
             <div><label className={labelCls}>Project Scope</label><textarea value={summary} onChange={(e) => setSummary(e.target.value)} placeholder="Brief description…" rows={3} className="w-full rounded-xl px-3 py-2.5 text-[#e6edf3] text-[14px] placeholder:text-[#484f58] focus:outline-none resize-none" style={G.input} /></div>
             <div><label className={labelCls}>Notes</label><textarea value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="Internal notes…" rows={2} className="w-full rounded-xl px-3 py-2.5 text-[#e6edf3] text-[14px] placeholder:text-[#484f58] focus:outline-none resize-none" style={G.input} /></div>
@@ -1985,14 +2003,14 @@ function DealModal({ project, column, onClose, navigate, onUpdate, onDelete, pip
           {activeTab === "tasks" && <TaskList projectId={project.id} />}
           {activeTab === "documents" && <DocumentList projectId={project.id} />}
           {activeTab === "contact" && (
-            <div className="space-y-2">
-              {project.contact ? (
-                <div className="space-y-2">
-                  {project.contact.name && <div className="flex items-center gap-2 text-[#e6edf3] text-[14px]"><Users className="w-3.5 h-3.5 text-[#8b949e]" />{project.contact.name}{project.contact.title && <span className="text-[#8b949e]">· {project.contact.title}</span>}</div>}
-                  {project.contact.email && <div className="flex items-center gap-2 text-[#e6edf3] text-[14px]"><Mail className="w-3.5 h-3.5 text-[#8b949e]" />{project.contact.email}</div>}
-                  {project.contact.phone && <div className="flex items-center gap-2 text-[#e6edf3] text-[14px]"><Phone className="w-3.5 h-3.5 text-[#8b949e]" />{project.contact.phone}</div>}
+            <div className="space-y-3">
+              {project.contacts && project.contacts.length > 0 ? project.contacts.map((c, i) => (
+                <div key={i} className="space-y-1.5 rounded-xl p-3" style={G.subtle}>
+                  {c.name && <div className="flex items-center gap-2 text-[#e6edf3] text-[14px]"><Users className="w-3.5 h-3.5 text-[#8b949e]" />{c.name}{c.title && <span className="text-[#8b949e]">· {c.title}</span>}</div>}
+                  {c.email && <div className="flex items-center gap-2 text-[#e6edf3] text-[14px]"><Mail className="w-3.5 h-3.5 text-[#8b949e]" />{c.email}</div>}
+                  {c.phone && <div className="flex items-center gap-2 text-[#e6edf3] text-[14px]"><Phone className="w-3.5 h-3.5 text-[#8b949e]" />{c.phone}</div>}
                 </div>
-              ) : <p className="text-[#8b949e] text-[14px]">No contact info added yet.</p>}
+              )) : <p className="text-[#8b949e] text-[14px]">No contact info added yet.</p>}
             </div>
           )}
           {activeTab === "notes" && <div>{project.notes ? <p className="text-[#8b949e] text-[14px] whitespace-pre-wrap">{project.notes}</p> : <p className="text-[#8b949e] text-[14px]">No notes yet.</p>}</div>}

@@ -319,6 +319,15 @@ export async function initDB() {
     await client.query(`ALTER TABLE subcontractors ADD COLUMN IF NOT EXISTS share_token TEXT UNIQUE`);
     await client.query(`ALTER TABLE project_assets ADD COLUMN IF NOT EXISTS unit_cost NUMERIC`);
     await client.query(`ALTER TABLE project_assets ADD COLUMN IF NOT EXISTS access_control_type TEXT`);
+    await client.query(`ALTER TABLE projects ADD COLUMN IF NOT EXISTS contacts JSONB DEFAULT '[]'`);
+    // One-time backfill from the old single-contact columns into the new array column — only
+    // touches rows that still have the default empty array so it's safe to run on every boot.
+    await client.query(`
+      UPDATE projects SET contacts = jsonb_build_array(jsonb_build_object(
+        'name', contact_name, 'title', COALESCE(contact_title, ''), 'email', COALESCE(contact_email, ''), 'phone', COALESCE(contact_phone, '')
+      ))
+      WHERE contacts = '[]'::jsonb AND contact_name IS NOT NULL AND contact_name != ''
+    `);
     await client.query(`ALTER TABLE tasks ADD COLUMN IF NOT EXISTS subcontractor_id UUID REFERENCES subcontractors(id) ON DELETE SET NULL`);
     await client.query(`ALTER TABLE quote_line_items ADD COLUMN IF NOT EXISTS project_asset_id UUID REFERENCES project_assets(id) ON DELETE SET NULL`);
     await client.query(`ALTER TABLE audit_logs ADD COLUMN IF NOT EXISTS field_path TEXT`);
