@@ -3,6 +3,9 @@ import fs from "fs";
 import {
   buildBrandedHeader,
   buildBrandedFooter,
+  buildCoverPage,
+  emptyHeader,
+  emptyFooter,
   BRANDED_DOCUMENT_STYLES,
   BRANDED_PAGE_MARGINS,
   sectionHeading,
@@ -59,6 +62,7 @@ function bodyCell(text: string, width: number, opts?: { align?: (typeof Alignmen
 
 export interface ProposalDocxData {
   project: { id: string; name: string; client: string; summary?: string; location?: string };
+  refNumber?: string;
   exchangeRate: number;
   categories: { system: string; sectionNumber: number; name: string; items: { description: string; unitCost: number; quantity: number; markupPercent: number; sellPrice: number; total: number }[] }[];
   grandTotal: number;
@@ -69,7 +73,7 @@ export interface ProposalDocxData {
 
 export async function buildProposalDocx(data: ProposalDocxData): Promise<Buffer> {
   const children: Paragraph[] = [
-    new Paragraph({ children: [new TextRun({ text: `${data.project.name} — ${data.project.client}`, bold: true, size: 26 })] }),
+    new Paragraph({ pageBreakBefore: true, children: [new TextRun({ text: `${data.project.name} — ${data.project.client}`, bold: true, size: 26 })] }),
   ];
   if (data.project.location) children.push(new Paragraph({ children: [new TextRun({ text: data.project.location, size: 18, color: "666666" })] }));
   children.push(new Paragraph({ spacing: { after: 200 }, children: [new TextRun({ text: `Generated ${new Date(data.generatedAt).toLocaleDateString()}`, size: 16, color: "999999" })] }));
@@ -120,10 +124,16 @@ export async function buildProposalDocx(data: ProposalDocxData): Promise<Buffer>
     styles: BRANDED_DOCUMENT_STYLES,
     sections: [
       {
-        properties: { page: { margin: BRANDED_PAGE_MARGINS } },
-        headers: { default: buildBrandedHeader("Project Proposal") },
-        footers: { default: buildBrandedFooter() },
-        children: [...children, ...tables, new Paragraph({ spacing: { before: 300 }, children: [] }), totalsTable],
+        properties: { page: { margin: BRANDED_PAGE_MARGINS }, titlePage: true },
+        headers: { first: emptyHeader(), default: buildBrandedHeader("Project Proposal") },
+        footers: { first: emptyFooter(), default: buildBrandedFooter() },
+        children: [
+          ...buildCoverPage("Project Proposal", { preparedFor: data.project.client, reference: data.refNumber, date: new Date(data.generatedAt).toLocaleDateString() }),
+          ...children,
+          ...tables,
+          new Paragraph({ spacing: { before: 300 }, children: [] }),
+          totalsTable,
+        ],
       },
     ],
   });
@@ -143,8 +153,8 @@ const STATUS_LABEL: Record<string, string> = { pass: "PASS", fail: "FAIL", pendi
 
 export async function buildCommissioningReportDocx(data: CommissioningReportDocxData): Promise<Buffer> {
   const children: (Paragraph | Table)[] = [];
-  if (data.project) children.push(new Paragraph({ children: [new TextRun({ text: `${data.project.name} — ${data.project.client}`, bold: true, size: 26 })] }));
-  children.push(new Paragraph({ spacing: { after: 100 }, children: [new TextRun({ text: `Generated ${new Date(data.generatedAt).toLocaleDateString()}`, size: 16, color: "999999" })] }));
+  if (data.project) children.push(new Paragraph({ pageBreakBefore: true, children: [new TextRun({ text: `${data.project.name} — ${data.project.client}`, bold: true, size: 26 })] }));
+  children.push(new Paragraph({ pageBreakBefore: !data.project, spacing: { after: 100 }, children: [new TextRun({ text: `Generated ${new Date(data.generatedAt).toLocaleDateString()}`, size: 16, color: "999999" })] }));
   children.push(
     new Paragraph({
       spacing: { after: 240 },
@@ -181,10 +191,13 @@ export async function buildCommissioningReportDocx(data: CommissioningReportDocx
     styles: BRANDED_DOCUMENT_STYLES,
     sections: [
       {
-        properties: { page: { margin: BRANDED_PAGE_MARGINS } },
-        headers: { default: buildBrandedHeader("Commissioning Handover Report") },
-        footers: { default: buildBrandedFooter() },
-        children,
+        properties: { page: { margin: BRANDED_PAGE_MARGINS }, titlePage: true },
+        headers: { first: emptyHeader(), default: buildBrandedHeader("Commissioning Handover Report") },
+        footers: { first: emptyFooter(), default: buildBrandedFooter() },
+        children: [
+          ...buildCoverPage("Commissioning Handover Report", { preparedFor: data.project?.client, date: new Date(data.generatedAt).toLocaleDateString() }),
+          ...children,
+        ],
       },
     ],
   });
@@ -224,7 +237,7 @@ export async function buildEquipmentSummaryDocx(data: EquipmentSummaryDocxData):
   }
 
   const children: (Paragraph | Table)[] = [
-    new Paragraph({ children: [new TextRun({ text: `${data.project.name} — ${data.project.client}`, bold: true, size: 26 })] }),
+    new Paragraph({ pageBreakBefore: true, children: [new TextRun({ text: `${data.project.name} — ${data.project.client}`, bold: true, size: 26 })] }),
     new Paragraph({ spacing: { after: 240 }, children: [new TextRun({ text: `Generated ${new Date(data.generatedAt).toLocaleDateString()}`, size: 16, color: "999999" })] }),
   ];
 
@@ -259,10 +272,13 @@ export async function buildEquipmentSummaryDocx(data: EquipmentSummaryDocxData):
     styles: BRANDED_DOCUMENT_STYLES,
     sections: [
       {
-        properties: { page: { margin: BRANDED_PAGE_MARGINS } },
-        headers: { default: buildBrandedHeader("Client Equipment Summary") },
-        footers: { default: buildBrandedFooter() },
-        children,
+        properties: { page: { margin: BRANDED_PAGE_MARGINS }, titlePage: true },
+        headers: { first: emptyHeader(), default: buildBrandedHeader("Client Equipment Summary") },
+        footers: { first: emptyFooter(), default: buildBrandedFooter() },
+        children: [
+          ...buildCoverPage("Client Equipment Summary", { preparedFor: data.project.client, date: new Date(data.generatedAt).toLocaleDateString() }),
+          ...children,
+        ],
       },
     ],
   });
@@ -277,7 +293,7 @@ export async function buildEquipmentSummaryDocx(data: EquipmentSummaryDocxData):
 
 export interface ChangeOrderDocxData {
   project: { name: string; client: string };
-  changeOrder: { title: string; description: string; costImpact: number; status: string; createdBy: string; createdAt: string };
+  changeOrder: { id: string; title: string; description: string; costImpact: number; status: string; createdBy: string; createdAt: string };
 }
 
 const CO_STATUS_LABEL: Record<string, string> = { draft: "Draft", submitted: "Submitted", approved: "Approved", rejected: "Rejected" };
@@ -286,7 +302,7 @@ const CO_STATUS_COLOR: Record<string, string> = { draft: "8A6D00", submitted: "1
 export async function buildChangeOrderDocx(data: ChangeOrderDocxData): Promise<Buffer> {
   const co = data.changeOrder;
   const children: (Paragraph | Table)[] = [
-    new Paragraph({ children: [new TextRun({ text: `${data.project.name} — ${data.project.client}`, bold: true, size: 26 })] }),
+    new Paragraph({ pageBreakBefore: true, children: [new TextRun({ text: `${data.project.name} — ${data.project.client}`, bold: true, size: 26 })] }),
     new Paragraph({
       spacing: { before: 100, after: 240 },
       children: [
@@ -315,10 +331,14 @@ export async function buildChangeOrderDocx(data: ChangeOrderDocxData): Promise<B
     styles: BRANDED_DOCUMENT_STYLES,
     sections: [
       {
-        properties: { page: { margin: BRANDED_PAGE_MARGINS } },
-        headers: { default: buildBrandedHeader("Change Order") },
-        footers: { default: buildBrandedFooter() },
-        children: [...children, priceTable],
+        properties: { page: { margin: BRANDED_PAGE_MARGINS }, titlePage: true },
+        headers: { first: emptyHeader(), default: buildBrandedHeader("Change Order") },
+        footers: { first: emptyFooter(), default: buildBrandedFooter() },
+        children: [
+          ...buildCoverPage("Change Order", { preparedFor: data.project.client, reference: `CO-${co.id.slice(0, 8).toUpperCase()}`, date: new Date(co.createdAt).toLocaleDateString() }),
+          ...children,
+          priceTable,
+        ],
       },
     ],
   });

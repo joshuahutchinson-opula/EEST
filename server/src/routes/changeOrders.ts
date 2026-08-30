@@ -111,6 +111,7 @@ router.get("/:projectId/:id/docx", requireAdmin, async (req: Request, res: Respo
     const buffer = await buildChangeOrderDocx({
       project: projectResult.rows[0],
       changeOrder: {
+        id: row.id,
         title: row.title,
         description: row.description,
         costImpact: Number(row.cost_impact),

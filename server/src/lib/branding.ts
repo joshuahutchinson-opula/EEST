@@ -89,6 +89,61 @@ export function buildBrandedFooter(): Footer {
   });
 }
 
+// A blank header/footer for the cover page — paired with `properties: { titlePage: true }` on
+// a docx section, this suppresses the small repeating buildBrandedHeader/buildBrandedFooter on
+// page 1 only, since the cover page already carries its own full branding treatment via
+// buildCoverPage() and would look cluttered with both stacked together. Page 2 onward still
+// gets the normal small header/footer via the section's `default` header/footer.
+export function emptyHeader(): Header {
+  return new Header({ children: [] });
+}
+export function emptyFooter(): Footer {
+  return new Footer({ children: [] });
+}
+
+// The real template's cover page: gradient banner, a large centered full-color logo, a double
+// rule, the document title, and a centered "Prepared for / Reference / Date" info block. Used
+// as the first page's content (not a header/footer) so it can sit above the normal running
+// header/footer, which only start applying from page 2 on (see emptyHeader/emptyFooter above).
+export function buildCoverPage(title: string, info: { preparedFor?: string; reference?: string; date?: string }): Paragraph[] {
+  const infoRow = (label: string, value: string) =>
+    new Paragraph({
+      alignment: AlignmentType.CENTER,
+      spacing: { after: 60 },
+      children: [
+        new TextRun({ text: `${label}:  `, bold: true, size: 20, color: BRAND_COLORS.navy, font: "Calibri" }),
+        new TextRun({ text: value, size: 20, color: "333333", font: "Calibri" }),
+      ],
+    });
+
+  return [
+    new Paragraph({
+      alignment: AlignmentType.CENTER,
+      spacing: { after: 480 },
+      children: [new ImageRun({ type: "png", data: requireAsset(HEADER_BANNER, "etech-header-gradient-banner.png"), transformation: { width: 520, height: 65 } })],
+    }),
+    new Paragraph({
+      alignment: AlignmentType.CENTER,
+      spacing: { after: 400 },
+      children: [new ImageRun({ type: "png", data: requireAsset(LOGO_FULL_COLOR, "etech-logo-full-color.png"), transformation: { width: 320, height: 122 } })],
+    }),
+    new Paragraph({
+      alignment: AlignmentType.CENTER,
+      border: { bottom: { style: BorderStyle.DOUBLE, size: 8, color: BRAND_COLORS.lightBlue, space: 1 } },
+      spacing: { after: 320 },
+      children: [],
+    }),
+    new Paragraph({
+      alignment: AlignmentType.CENTER,
+      spacing: { after: 320 },
+      children: [new TextRun({ text: title, bold: true, size: 48, color: BRAND_COLORS.navy, font: "Calibri" })],
+    }),
+    ...(info.preparedFor ? [infoRow("Prepared for", info.preparedFor)] : []),
+    ...(info.reference ? [infoRow("Reference", info.reference)] : []),
+    ...(info.date ? [infoRow("Date", info.date)] : []),
+  ];
+}
+
 // Shared Document-level defaults (base font) so every generator's body text matches.
 export const BRANDED_DOCUMENT_STYLES = {
   default: {

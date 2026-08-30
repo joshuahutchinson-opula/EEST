@@ -165,6 +165,7 @@ router.post("/:projectId/proposal", async (req: Request, res: Response) => {
     const gct = grandTotal * 0.15;
     const proposalData = {
       project: projectResult.rows[0],
+      refNumber: quoteResult.rows[0]?.refNumber || undefined,
       exchangeRate,
       categories: Object.values(grouped) as any,
       grandTotal,
