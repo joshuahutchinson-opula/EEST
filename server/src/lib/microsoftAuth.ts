@@ -119,7 +119,6 @@ const TECH_EMAILS = new Set([
   "marvin@e-techsystemsja.com",
   "shanice@e-techsystemsja.com",
   "shavene@e-techsystemsja.com",
-  "joshua@e-techsystemsja.com",
 ]);
 
 export type Role = "admin" | "tech";
