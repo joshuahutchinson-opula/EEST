@@ -3609,27 +3609,13 @@ const SYNTHESIS_STEPS: TutorialStep[] = [
   { target: "wb-synth-reference", title: "Reference Figures", description: "Suggested PM and contingency percentages, shown for reference only — they're never applied to any total automatically." },
 ];
 
-const SYNTHESIS_GROUP_FOR_SYSTEM: Record<SystemType, "video" | "access" | "intercom"> = { VSS: "video", EAC: "access", Intercom: "intercom" };
-
-function SynthesisTab({ quoteCategories, synthesisOverrides, exchangeRate, fmt, onSaveOverride, fieldSaveStatus, systemFilter, onSystemFilterChange }: { quoteCategories: QuoteCategory[]; synthesisOverrides: SynthesisOverride[]; exchangeRate: number; fmt: (n: number, compact?: boolean) => string; onSaveOverride: (sectionNumber: string, value: number | null, isOverridden: boolean) => void; fieldSaveStatus: Record<string, "saved" | "saving" | "">; systemFilter: SystemType; onSystemFilterChange: (s: SystemType) => void; }) {
+function SynthesisTab({ quoteCategories, synthesisOverrides, exchangeRate, fmt, onSaveOverride, fieldSaveStatus }: { quoteCategories: QuoteCategory[]; synthesisOverrides: SynthesisOverride[]; exchangeRate: number; fmt: (n: number, compact?: boolean) => string; onSaveOverride: (sectionNumber: string, value: number | null, isOverridden: boolean) => void; fieldSaveStatus: Record<string, "saved" | "saving" | "">; }) {
   useAutoTutorial("workbook.synthesis", SYNTHESIS_STEPS);
   const [collapsedVideo, setCollapsedVideo] = useState(false);
   const [collapsedAccess, setCollapsedAccess] = useState(false);
   const [collapsedIntercom, setCollapsedIntercom] = useState(false);
   const [editingSection, setEditingSection] = useState<string | null>(null);
   const [editValue, setEditValue] = useState("");
-
-  // The system filter here doesn't hide any group's contribution to the Grand Total below —
-  // that figure is explicitly the true across-all-systems total that drives the client quote,
-  // so filtering it would be misleading, not just a view change. Instead the filter focuses the
-  // section table on the selected system by auto-expanding its group and collapsing the other
-  // two; a user can still manually re-expand a collapsed group afterward.
-  useEffect(() => {
-    const group = SYNTHESIS_GROUP_FOR_SYSTEM[systemFilter];
-    setCollapsedVideo(group !== "video");
-    setCollapsedAccess(group !== "access");
-    setCollapsedIntercom(group !== "intercom");
-  }, [systemFilter]);
 
   const getSectionSubtotal = (sectionNumber: string): number => {
     const cat = quoteCategories.find(c => String(c.sectionNumber) === sectionNumber);
@@ -3681,11 +3667,6 @@ function SynthesisTab({ quoteCategories, synthesisOverrides, exchangeRate, fmt, 
 
   return (
     <div className="space-y-0">
-      <div data-tour="wb-synth-filter" className="flex items-center gap-2 mb-4">
-        {(["VSS","EAC","Intercom"] as SystemType[]).map(s => (
-          <button key={s} onClick={() => onSystemFilterChange(s)} className={clsx("h-9 md:h-7 px-3 rounded-lg text-[12px] font-extrabold cursor-pointer", systemFilter === s ? "text-white" : "text-[#8b949e]")} style={systemFilter === s ? { background: s === "VSS" ? "#3b82f6" : s === "EAC" ? "#8b5cf6" : "#14b8a6" } : G.btn}>{s}</button>
-        ))}
-      </div>
       <div data-tour="wb-synth-table" className="rounded-2xl overflow-hidden" style={G.card}>
         <div className="overflow-x-auto">
           <table className="w-full" style={{ minWidth: "700px" }}>
@@ -4011,7 +3992,7 @@ function Workbook({ navigate }: { navigate: (p: Page) => void }) {
             {activeTab === "asset-list" && <AssetListTab quoteCategories={quoteCategories} exchangeRate={exchangeRate} fmt={fmt} onLineItemUpdate={updateQuoteLineItem} fieldSaveStatus={fieldSaveStatus} systemFilter={systemFilter} onSystemFilterChange={setSystemFilter} />}
             {activeTab === "cost-margin" && <CostMarginTab quoteCategories={quoteCategories} exchangeRate={exchangeRate} fmt={fmt} onLineItemUpdate={updateQuoteLineItem} onAddLineItem={addLineItem} fieldSaveStatus={fieldSaveStatus} systemFilter={systemFilter} onSystemFilterChange={setSystemFilter} />}
             {activeTab === "bom" && <BomTab quoteCategories={quoteCategories} synthesisOverrides={synthesisOverrides} exchangeRate={exchangeRate} fmt={fmt} onLineItemUpdate={updateQuoteLineItem} onAddLineItem={addLineItem} onBomEditWithOverride={handleBomEditWithOverride} fieldSaveStatus={fieldSaveStatus} systemFilter={systemFilter} onSystemFilterChange={setSystemFilter} />}
-            {activeTab === "synthesis" && <SynthesisTab quoteCategories={quoteCategories} synthesisOverrides={synthesisOverrides} exchangeRate={exchangeRate} fmt={fmt} onSaveOverride={handleSaveOverride} fieldSaveStatus={fieldSaveStatus} systemFilter={systemFilter} onSystemFilterChange={setSystemFilter} />}
+            {activeTab === "synthesis" && <SynthesisTab quoteCategories={quoteCategories} synthesisOverrides={synthesisOverrides} exchangeRate={exchangeRate} fmt={fmt} onSaveOverride={handleSaveOverride} fieldSaveStatus={fieldSaveStatus} />}
             <div className="flex items-center justify-between flex-wrap gap-2 pt-2">
               {activeTabIndex > 0 ? (
                 <button onClick={() => setActiveTab(wbTabs[activeTabIndex - 1].id)} className="flex items-center gap-1.5 h-10 md:h-9 px-4 rounded-xl text-[#8b949e] hover:text-white text-[13px] font-bold cursor-pointer" style={G.btn}><ChevronLeft className="w-3.5 h-3.5" /> {wbTabs[activeTabIndex - 1].label}</button>
