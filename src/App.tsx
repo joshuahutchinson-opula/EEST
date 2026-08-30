@@ -3545,10 +3545,14 @@ function BomTab({ quoteCategories, synthesisOverrides, exchangeRate, fmt, onLine
               <tr style={{ background: systemFilter === "VSS" ? "rgba(59,130,246,0.06)" : systemFilter === "EAC" ? "rgba(139,92,246,0.06)" : "rgba(20,184,166,0.06)" }}><td colSpan={5} className="sticky left-0 px-4 py-2.5 text-white text-[14px] font-extrabold uppercase tracking-widest" style={{ background: "rgba(7,12,26,0.9)" }}>{systemFilter === "VSS" ? "Video Surveillance" : systemFilter === "EAC" ? "Access Control" : "Intercom"}</td></tr>
               {bomData.map(section => (
                 <Fragment key={section.id}>
+                  <tr style={{ background: "rgba(255,255,255,0.02)" }}>
+                    <td className="sticky left-0 px-4 py-2 text-[#8b949e] text-[12px] font-mono" style={{ background: "rgba(7,12,26,0.9)" }}>{section.sectionNumber}</td>
+                    <td colSpan={4} className="px-4 py-2 text-white text-[13px] font-extrabold">{section.name}</td>
+                  </tr>
                   {section.children.length === 0 ? (
                     <tr style={{ borderBottom: "1px solid rgba(255,255,255,0.03)" }}>
-                      <td className="sticky left-0 px-4 py-2 text-[#8b949e] text-[12px] font-mono" style={{ background: "rgba(7,12,26,0.9)" }}>{section.sectionNumber}</td>
-                      <td className="px-4 py-2 text-[#8b949e] text-[13px]">{section.name}</td>
+                      <td className="sticky left-0 px-4 py-2" style={{ background: "rgba(7,12,26,0.9)" }}></td>
+                      <td className="px-4 py-2 text-[#8b949e] text-[13px] italic">No items</td>
                       <td className="px-4 py-2 text-right text-white text-[13px]">—</td>
                       <td className="px-4 py-2 text-center text-[#8b949e] text-[13px]">0</td>
                       <td className="px-4 py-2 text-right text-white text-[13px] font-extrabold flex items-center justify-end gap-1">—{section.override && <OverrideIndicator isOverridden={true} />}</td>
