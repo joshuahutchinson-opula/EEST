@@ -280,7 +280,7 @@ interface InventoryTransaction { id: string; itemId: string; itemName: string; u
 interface Subcontractor { id: string; projectId: string; name: string; trade?: string; email?: string; shareToken?: string | null; createdAt: string; documents: { id: string; filename: string; fileUrl: string; uploadedBy?: string; createdAt: string; }[]; }
 interface PublicSubcontractor { id: string; name: string; trade?: string; email?: string; projectName: string; createdAt: string; documents: { id: string; filename: string; fileUrl: string; createdAt: string; }[]; tasks: { id: string; title: string; description?: string; status: TaskStatus; priority: TaskPriority; dueDate?: string; }[]; }
 interface PublicProjectStatus {
-  project: { name: string; client: string; location: string; projectStage: ProjectStage; dueDate: string; cameras: number; devices: number; progress: number; stageHistory: { stage: string; date: string }[] };
+  project: { name: string; client: string; location: string; projectStage: ProjectStage; dueDate: string; cameras: number; devices: number; progress: number; stageHistory: { stage: string; date: string }[]; summary?: string; team: { name: string; initials: string; color: string; roles: string[] }[] };
   changeOrders: { title: string; description: string; costImpact: number; status: ChangeOrder["status"]; createdAt: string }[];
   assets: { category: AssetCategory; quantity: number; location: string; purpose: string; cableSpec?: CableSpec; coveragePhotos?: string[]; manufacturer?: string; model?: string }[];
 }
@@ -4630,6 +4630,25 @@ function ClientStatusPage({ token }: { token: string }) {
                   </div>
                 ))}
               </div>
+              {data.project.summary && (
+                <div className="mb-5">
+                  <p className="text-[#8b949e] text-[11px] font-extrabold uppercase tracking-widest mb-2">Project Scope</p>
+                  <p className="text-[#8b949e] text-[13px] leading-relaxed">{data.project.summary}</p>
+                </div>
+              )}
+              {data.project.team.length > 0 && (
+                <div className="mb-5">
+                  <p className="text-[#8b949e] text-[11px] font-extrabold uppercase tracking-widest mb-3">Team</p>
+                  <div className="space-y-2">
+                    {data.project.team.map((m) => (
+                      <div key={m.name} className="flex items-center gap-2.5">
+                        <div className="w-7 h-7 rounded-lg flex items-center justify-center text-[12px] font-extrabold text-white flex-shrink-0" style={{ background: m.color }}>{m.initials}</div>
+                        <div><p className="text-white text-[13px] font-bold">{m.name}</p><p className="text-[#8b949e] text-[11px]">{m.roles.join(", ")}</p></div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
               {data.project.stageHistory.length > 0 && (
                 <div>
                   <p className="text-[#8b949e] text-[11px] font-extrabold uppercase tracking-widest mb-3">Timeline</p>

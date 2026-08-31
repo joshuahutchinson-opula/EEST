@@ -11,7 +11,9 @@ router.get("/status/:token", async (req: Request, res: Response) => {
     const { token } = req.params;
     const projResult = await pool.query(
       `SELECT id, name, client, location, project_stage AS "projectStage", due_date AS "dueDate",
-              cameras, devices, stage_history AS "stageHistory", pipeline_type AS "pipelineType"
+              cameras, devices, stage_history AS "stageHistory", pipeline_type AS "pipelineType",
+              summary, assignee_name AS "assigneeName", assignee_initials AS "assigneeInitials",
+              assignee_color AS "assigneeColor", collaborators
        FROM projects
        WHERE public_share_token = $1 AND public_share_enabled = TRUE AND deleted_at IS NULL`,
       [token]
@@ -53,6 +55,17 @@ router.get("/status/:token", async (req: Request, res: Response) => {
       project.pipelineType === "project" ? PROJECT_STAGE_VALUES.has(e.stage) : !PROJECT_STAGE_VALUES.has(e.stage)
     );
 
+    // Same dedup rule as the authenticated app's getDeduplicatedTeam: the assignee is always
+    // "Account Owner", a collaborator sharing their name just adds another role rather than
+    // appearing as a second person.
+    const team: { name: string; initials: string; color: string; roles: string[] }[] = [];
+    if (project.assigneeName) team.push({ name: project.assigneeName, initials: project.assigneeInitials || "", color: project.assigneeColor || "#3b82f6", roles: ["Account Owner"] });
+    for (const c of (project.collaborators || []) as { name: string; initials: string; color: string; role: string }[]) {
+      const existing = team.find((m) => m.name === c.name);
+      if (existing) existing.roles.push(c.role);
+      else team.push({ name: c.name, initials: c.initials, color: c.color, roles: [c.role] });
+    }
+
     res.json({
       project: {
         name: project.name,
@@ -64,6 +77,8 @@ router.get("/status/:token", async (req: Request, res: Response) => {
         devices: project.devices,
         progress,
         stageHistory,
+        summary: project.summary || undefined,
+        team,
       },
       changeOrders: coResult.rows,
       assets: assetsResult.rows,
