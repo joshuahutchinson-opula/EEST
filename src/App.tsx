@@ -18,7 +18,7 @@ import {
   ListTodo, PlusCircle, GanttChart, ClipboardCheck,
   Link2, Copy, Filter, CheckCheck, Paperclip, Image,
   BellRing, Layout, BarChart4, Table2, Hash, Info, FileDown,
-  Printer, Wrench, ClipboardList, Truck, PackageCheck,
+  Printer, Wrench, ClipboardList, PackageCheck,
   UserCheck, Send, EyeOff, GanttChartSquare, Boxes, PackageOpen, Sparkles,
 } from "lucide-react";
 import { clsx } from "clsx";
@@ -284,7 +284,6 @@ interface PublicProjectStatus {
   changeOrders: { title: string; description: string; costImpact: number; status: ChangeOrder["status"]; createdAt: string }[];
   assets: { category: AssetCategory; quantity: number; location: string; purpose: string; cableSpec?: CableSpec; coveragePhotos?: string[]; manufacturer?: string; model?: string }[];
 }
-interface ProcurementOrder { id: string; projectId: string; supplierName?: string; status: string; totalCost: number; generatedFrom?: string; createdAt: string; items: { id: string; description: string; quantity: number; unitCost: number; totalCost: number; leadTimeDays?: number; trackingNumber?: string; received: boolean; }[]; }
 interface CommissioningItem { id: string; projectId: string; deviceId?: string; deviceName: string; location?: string; status: "pending" | "pass" | "fail"; notes?: string; photos?: string[]; createdAt?: string; updatedAt?: string; }
 const SYSTEM_CATEGORIES: Record<SystemType, { sectionNumber: number; name: string; defaultMarkup: number; importRatePercent: number; importBasis: "sellTotal" | "costTotal"; }[]> = {
   VSS: [
@@ -590,11 +589,6 @@ const API = {
     updateItem: (id: string, data: Partial<InventoryItem>) => apiFetch<InventoryItem>(`/inventory/items/${id}`, { method: "PATCH", body: JSON.stringify(data) }),
     transactions: () => apiFetch<InventoryTransaction[]>("/inventory/transactions"),
     createTransaction: (data: Partial<InventoryTransaction>) => apiFetch<InventoryTransaction>("/inventory/transactions", { method: "POST", body: JSON.stringify(data) }),
-  },
-  procurement: {
-    list: (projectId: string) => apiFetch<ProcurementOrder[]>(`/procurement/${projectId}`),
-    createPO: (projectId: string, data: any) => apiFetch<ProcurementOrder>(`/procurement/${projectId}`, { method: "POST", body: JSON.stringify(data) }),
-    updateItem: (itemId: string, data: any) => apiFetch<void>(`/procurement/items/${itemId}`, { method: "PATCH", body: JSON.stringify(data) }),
   },
   commissioning: {
     list: (projectId: string) => apiFetch<CommissioningItem[]>(`/commissioning/${projectId}`),
@@ -2530,7 +2524,7 @@ function ProjectsPage({ navigate }: { navigate: (p: Page) => void }) {
 }
 const PD_OVERVIEW_STEPS: TutorialStep[] = [
   { target: "pd-stats", title: "Key Stats", description: "Value, live camera and device counts (pulled straight from the Assets tab), due date, and install progress." },
-  { target: "pd-tabs", title: "Everything About This Project", description: "Overview, Tasks, Files, Assets, Change Orders, Audit Log, Timeline, Subcontractors, Procurement, and Commissioning all live behind these tabs." },
+  { target: "pd-tabs", title: "Everything About This Project", description: "Overview, Tasks, Files, Assets, Change Orders, Audit Log, Timeline, Subcontractors, and Commissioning all live behind these tabs." },
   { target: "pd-scope", title: "Project Scope", description: "A written summary of what this project covers." },
   { target: "pd-team", title: "Team", description: "Everyone assigned to this project and their role." },
   { target: "pd-timeline", title: "Stage Timeline", description: "The full history of stage changes this project has gone through, with dates." },
@@ -2607,8 +2601,8 @@ function ProjectDetail({ navigate }: { navigate: (p: Page) => void }) {
   const badge = isProjPipe ? projectStageBadge(p.projectStage || "planning") : stageBadge(p.stage);
   const ls = p.leadSource ? LEAD_SOURCE_STYLES[p.leadSource] : null;
   const team = getDeduplicatedTeam(p);
-  const tabs = ["overview","tasks","documents","assets","change-orders","audit-log","gantt","subcontractors", ...(tech ? [] : ["procurement"]), "commissioning"];
-  const tabLabels: Record<string, string> = { overview: "Overview", tasks: "Tasks", documents: "Files", assets: "Assets", "change-orders": "Change Orders", "audit-log": "Audit Log", gantt: "Timeline", subcontractors: "Subcontractors", procurement: "Procurement", commissioning: "Commissioning" };
+  const tabs = ["overview","tasks","documents","assets","change-orders","audit-log","gantt","subcontractors","commissioning"];
+  const tabLabels: Record<string, string> = { overview: "Overview", tasks: "Tasks", documents: "Files", assets: "Assets", "change-orders": "Change Orders", "audit-log": "Audit Log", gantt: "Timeline", subcontractors: "Subcontractors", commissioning: "Commissioning" };
   const stageHistory = p.stageHistory || [{ stage: isProjPipe ? (p.projectStage || "planning") : p.stage, date: p.createdAt?.slice(0,10) || new Date().toISOString().slice(0,10) }];
   const PROJECT_STAGE_VALUES = new Set<string>(["support", "planning", "procurement", "installation", "commissioning", "complete"]);
   const currentPipelineHistory = stageHistory.filter((e) => typeof e.stage !== "string" || (isProjPipe ? PROJECT_STAGE_VALUES.has(e.stage) : !PROJECT_STAGE_VALUES.has(e.stage)));
@@ -2742,7 +2736,6 @@ function ProjectDetail({ navigate }: { navigate: (p: Page) => void }) {
       {activeTab === "assets" && <ProjectAssetsTab projectId={p.id} projectName={p.name} clientName={p.client} />}
       {activeTab === "gantt" && <GanttView projectId={p.id} />}
       {activeTab === "subcontractors" && <SubcontractorTab projectId={p.id} />}
-      {activeTab === "procurement" && !tech && <ProcurementTab projectId={p.id} />}
       {activeTab === "commissioning" && <CommissioningTab projectId={p.id} />}
     </div>
   );
@@ -2875,63 +2868,6 @@ function SubcontractorTab({ projectId }: { projectId: string }) {
               {sub.documents.length === 0 ? <p className="text-[#8b949e] text-[12px]">No documents</p> : sub.documents.map(doc => (<div key={doc.id} className="flex items-center gap-2"><Paperclip className="w-3 h-3 text-[#8b949e]" /><a href={doc.fileUrl} target="_blank" rel="noopener noreferrer" className="text-white text-[12px] font-bold hover:text-blue-400">{doc.filename}</a></div>))}
             </div>
           )}
-        </div>
-      ))}
-    </div>
-  );
-}
-
-function ProcurementTab({ projectId }: { projectId: string }) {
-  const tech = isTechRole(useRole());
-  const [pos, setPos] = useState<ProcurementOrder[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [showGenerate, setShowGenerate] = useState(false);
-  const [supplierName, setSupplierName] = useState("");
-
-  useEffect(() => { API.procurement.list(projectId).then(setPos).catch(() => setPos([])).finally(() => setLoading(false)); }, [projectId]);
-
-  const handleGeneratePO = async () => {
-    try {
-      const quotes = await API.quotes.list();
-      const q = quotes.find(q => q.projectId === projectId);
-      const hardwareCategories = ["Video Security Equipment", "Access Control Equipment", "Compute & Storage", "Networking", "Hardware", "Infrastructure", "Intercom System Software"];
-      const items = q?.categories
-        .filter(c => hardwareCategories.includes(c.name))
-        .flatMap(c => c.lineItems.filter(li => li.quantity > 0).map(li => ({ description: li.description, quantity: li.quantity, unitCost: li.unitCost }))) || [];
-      const po = await API.procurement.createPO(projectId, { supplierName: supplierName.trim() || null, generatedFrom: "BOM", items });
-      setPos(prev => [po, ...prev]);
-      setShowGenerate(false);
-      setSupplierName("");
-      toast.success(`PO generated with ${items.length} items`);
-    } catch { toast.error("Failed to generate PO"); }
-  };
-
-  const toggleReceived = async (itemId: string, received: boolean) => {
-    API.procurement.updateItem(itemId, { received }).then(() => setPos(prev => prev.map(po => ({ ...po, items: po.items.map(i => i.id === itemId ? { ...i, received } : i) })))).catch(() => {});
-  };
-
-  if (loading) return <Skeleton className="h-48 rounded-2xl" />;
-
-  return (
-    <div className="space-y-3">
-      <div className="flex items-center justify-between"><p className="text-[#8b949e] text-[13px]">{pos.length} purchase orders</p>{!tech && <button onClick={() => setShowGenerate(!showGenerate)} className="flex items-center gap-1 h-8 px-3 rounded-xl text-white text-[13px] font-extrabold cursor-pointer" style={{ background: "#3b82f6" }}><FileText className="w-3 h-3" /> Generate PO from BOM</button>}</div>
-      {showGenerate && (
-        <div className="rounded-xl p-3 space-y-2" style={G.card}>
-          <input value={supplierName} onChange={e => setSupplierName(e.target.value)} placeholder="Supplier name (optional)" className="w-full h-8 rounded-lg px-2 text-[13px] text-white" style={G.input} />
-          <button onClick={handleGeneratePO} className="w-full h-8 rounded-lg text-white text-[13px] font-extrabold cursor-pointer" style={{ background: "#10b981" }}>Generate</button>
-        </div>
-      )}
-      {pos.length === 0 && !showGenerate ? <EmptyState icon={Truck} title="No purchase orders" description="Generate a PO from the workbook BOM." /> : pos.map((po) => (
-        <div key={po.id} className="rounded-xl p-3" style={G.card}>
-          <div className="flex items-center justify-between mb-2"><p className="text-white text-[14px] font-bold">PO #{po.id.slice(0,8)}</p><span className="text-[12px] font-extrabold px-2 py-0.5 rounded-full bg-amber-500/12 text-amber-400">{po.status}</span></div>
-          {po.supplierName && <p className="text-[#8b949e] text-[12px]">Supplier: {po.supplierName}</p>}
-          {!tech && <p className="text-[#8b949e] text-[12px]">Total: ${toNum(po.totalCost).toFixed(2)}</p>}
-          <div className="mt-2 space-y-1">{po.items.map(item => (
-            <div key={item.id} className="flex items-center gap-2">
-              <button onClick={() => toggleReceived(item.id, !item.received)} className={clsx("w-4 h-4 rounded-full border-2 flex items-center justify-center flex-shrink-0", item.received ? "bg-emerald-500 border-emerald-500" : "border-[#484f58]")}>{item.received && <CheckCircle2 className="w-2.5 h-2.5 text-white" />}</button>
-              <span className={clsx("text-[12px] flex-1", item.received ? "text-[#8b949e] line-through" : "text-white")}>{item.description} × {item.quantity}</span>
-            </div>
-          ))}</div>
         </div>
       ))}
     </div>
