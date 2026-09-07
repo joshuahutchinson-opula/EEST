@@ -81,7 +81,7 @@ router.get("/microsoft/callback", async (req: Request, res: Response) => {
 });
 
 // POST /api/auth/demo/login — hardcoded demo account, entirely separate from Microsoft SSO.
-// Issues the same session JWT format as Microsoft login, always with role "tech".
+// Issues the same session JWT format as Microsoft login, always with role "admin".
 router.post("/demo/login", async (req: Request, res: Response) => {
   if (!isDemoAuthConfigured()) {
     return res.status(500).send("Demo sign-in is not configured. Set DEMO_USERNAME and DEMO_PASSWORD_HASH.");
@@ -98,7 +98,7 @@ router.post("/demo/login", async (req: Request, res: Response) => {
       email: "demo@example.com",
       name: "Demo User",
       oid: "demo-account",
-      role: "tech",
+      role: "admin",
     });
     res.json({ token: sessionToken });
   } catch (err) {
