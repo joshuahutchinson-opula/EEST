@@ -4466,9 +4466,35 @@ const AUTH_ERROR_MESSAGES: Record<string, string> = {
 
 function LoginPage() {
   const [loading, setLoading] = useState(false);
+  const [showDemoForm, setShowDemoForm] = useState(false);
+  const [demoUsername, setDemoUsername] = useState("");
+  const [demoPassword, setDemoPassword] = useState("");
+  const [demoLoading, setDemoLoading] = useState(false);
+  const [demoError, setDemoError] = useState<string | null>(null);
   const authError = useMemo(() => new URLSearchParams(window.location.search).get("auth_error"), []);
   const errorMessage = authError ? (AUTH_ERROR_MESSAGES[authError] || (authError.startsWith("microsoft_") ? "Microsoft sign-in was cancelled or denied." : "Sign-in failed. Please try again.")) : null;
   const signInWithMicrosoft = () => { setLoading(true); window.location.href = `${API_BASE}/auth/microsoft/login`; };
+  const signInWithDemo = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setDemoError(null);
+    setDemoLoading(true);
+    try {
+      const res = await fetch(`${API_BASE}/auth/demo/login`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ username: demoUsername, password: demoPassword }),
+      });
+      if (!res.ok) { setDemoError("Invalid demo username or password."); return; }
+      const { token } = await res.json();
+      localStorage.setItem("auth_token", token);
+      localStorage.setItem("app_logged_in", "true");
+      window.location.href = "/";
+    } catch {
+      setDemoError("Something went wrong signing you in. Please try again.");
+    } finally {
+      setDemoLoading(false);
+    }
+  };
   return (
     <div className="h-screen flex overflow-hidden">
       <div className="hidden lg:flex w-[48%] flex-shrink-0 flex-col relative overflow-hidden" style={{ background: "#070c1a" }}>
@@ -4505,6 +4531,22 @@ function LoginPage() {
               {loading ? "Redirecting to Microsoft…" : "Sign in with Microsoft"}
             </button>
             <p className="text-[#484f58] text-[12px] mt-5 text-center">Restricted to @e-techsystemsja.com accounts.</p>
+            <div className="mt-6 pt-5" style={{ borderTop: "1px solid rgba(255,255,255,0.08)" }}>
+              <button type="button" onClick={() => setShowDemoForm((v) => !v)} className="w-full flex items-center justify-center gap-1 text-[#484f58] hover:text-[#8b949e] text-[11px] transition-colors cursor-pointer">
+                Demo login
+                <ChevronDown className={clsx("w-3 h-3 transition-transform", showDemoForm && "rotate-180")} />
+              </button>
+              {showDemoForm && (
+                <motion.form initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: "auto" }} onSubmit={signInWithDemo} className="mt-3 space-y-2 overflow-hidden">
+                  <input value={demoUsername} onChange={(e) => setDemoUsername(e.target.value)} placeholder="Demo username" autoComplete="username" className="w-full h-9 px-3 rounded-lg text-white text-[13px] outline-none" style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.1)" }} />
+                  <input type="password" value={demoPassword} onChange={(e) => setDemoPassword(e.target.value)} placeholder="Demo password" autoComplete="current-password" className="w-full h-9 px-3 rounded-lg text-white text-[13px] outline-none" style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.1)" }} />
+                  {demoError && <p className="text-rose-400 text-[11px]">{demoError}</p>}
+                  <button type="submit" disabled={demoLoading || !demoUsername || !demoPassword} className="w-full h-8 rounded-lg text-[#8b949e] text-[12px] font-semibold transition-colors hover:text-white cursor-pointer disabled:opacity-50" style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.08)" }}>
+                    {demoLoading ? "Signing in…" : "Sign in with demo account"}
+                  </button>
+                </motion.form>
+              )}
+            </div>
           </div>
         </motion.div>
       </div>

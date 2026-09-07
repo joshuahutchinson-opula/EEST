@@ -11,6 +11,7 @@ import {
   verifySessionToken,
   ALLOWED_EMAIL_DOMAIN,
 } from "../lib/microsoftAuth";
+import { isDemoAuthConfigured, verifyDemoCredentials } from "../lib/demoAuth";
 
 const router = Router();
 
@@ -76,6 +77,33 @@ router.get("/microsoft/callback", async (req: Request, res: Response) => {
     console.error("GET /auth/microsoft/callback error:", err);
     res.setHeader("Set-Cookie", clearCookie);
     res.redirect(`${APP_BASE_URL}/?auth_error=sign_in_failed`);
+  }
+});
+
+// POST /api/auth/demo/login — hardcoded demo account, entirely separate from Microsoft SSO.
+// Issues the same session JWT format as Microsoft login, always with role "tech".
+router.post("/demo/login", async (req: Request, res: Response) => {
+  if (!isDemoAuthConfigured()) {
+    return res.status(500).send("Demo sign-in is not configured. Set DEMO_USERNAME and DEMO_PASSWORD_HASH.");
+  }
+  try {
+    const { username, password } = req.body as { username?: string; password?: string };
+    if (typeof username !== "string" || typeof password !== "string") {
+      return res.status(401).json({ error: "Invalid credentials" });
+    }
+    const valid = await verifyDemoCredentials(username, password);
+    if (!valid) return res.status(401).json({ error: "Invalid credentials" });
+
+    const sessionToken = await signSessionToken({
+      email: "demo@example.com",
+      name: "Demo User",
+      oid: "demo-account",
+      role: "tech",
+    });
+    res.json({ token: sessionToken });
+  } catch (err) {
+    console.error("POST /auth/demo/login error:", err);
+    res.status(401).json({ error: "Invalid credentials" });
   }
 });
 
