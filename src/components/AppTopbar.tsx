@@ -8,6 +8,7 @@ import { isTechRole, useRole } from "../lib/contexts";
 import type { Page } from "../types";
 
 export const NAV_ITEMS: { id: Page; label: string }[] = [
+  { id: "ops-dashboard", label: "Dashboard" },
   { id: "pipeline", label: "Pipeline" },
   { id: "projects", label: "Projects" },
   { id: "workbook", label: "Workbook" },
