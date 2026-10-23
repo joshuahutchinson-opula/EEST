@@ -30,7 +30,7 @@ export async function buildCloseoutReport(projectId: string): Promise<{ buffer: 
       [projectId]
     ),
     pool.query(
-      `SELECT z.name AS zone, d.name, d.type, d.location, d.status FROM install_devices d JOIN install_zones z ON z.id = d.zone_id
+      `SELECT z.name AS zone, d.name, d.type, d.location, d.status, d.serial_number, d.mac_address, d.ip_address, d.firmware, d.warranty_expiry FROM install_devices d JOIN install_zones z ON z.id = d.zone_id
        WHERE z.project_id = $1 ORDER BY z.sort_order, z.name, d.name`,
       [projectId]
     ),
@@ -108,6 +108,14 @@ export async function buildCloseoutReport(projectId: string): Promise<{ buffer: 
       [{ header: "Zone", width: 20 }, { header: "Device", width: 30 }, { header: "Type", width: 15 }, { header: "Location", width: 20 }, { header: "Status", width: 15 }],
       installed.rows.map((d) => [d.zone, d.name, d.type, d.location || "—", d.status])
     ));
+    const recorded = installed.rows.filter((d) => d.serial_number || d.mac_address || d.ip_address || d.firmware || d.warranty_expiry);
+    body.push(sectionHeading(`As-built Register (${recorded.length} of ${installed.rows.length} devices recorded)`));
+    body.push(recorded.length
+      ? dataTable(
+          [{ header: "Device", width: 24 }, { header: "Serial", width: 18 }, { header: "MAC", width: 18 }, { header: "IP", width: 14 }, { header: "Firmware", width: 12 }, { header: "Warranty", width: 14 }],
+          recorded.map((d) => [d.name, d.serial_number || "—", d.mac_address || "—", d.ip_address || "—", d.firmware || "—", fmtDate(d.warranty_expiry)])
+        )
+      : bodyText("No as-built details recorded.", { italics: true, color: "666666" }));
   }
 
   // Commissioning

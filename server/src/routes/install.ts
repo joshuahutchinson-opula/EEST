@@ -2,6 +2,7 @@ import { Router, Request, Response } from "express";
 import pool from "../db";
 import { isTech, requireProjectAccess, techMayAccessProject } from "../lib/roles";
 import { signFileUrls, toStoredFileUrl } from "../lib/uploads";
+import { mapAsBuilt, parseAsBuilt } from "../lib/asBuilt";
 
 const router = Router();
 
@@ -46,6 +47,7 @@ router.get("/zones", async (req: Request, res: Response) => {
           assignee: d.assignee || "",
           notes: d.notes || undefined,
           installedPhotos: signFileUrls(d.installed_photos),
+          asBuilt: mapAsBuilt(d),
         })),
       });
     }
@@ -94,7 +96,15 @@ router.post("/zones/:zoneId/devices", async (req: Request, res: Response) => {
 router.patch("/zones/:zoneId/devices/:deviceId", async (req: Request, res: Response) => {
   try {
     const { zoneId, deviceId } = req.params;
-    const { status, addPhoto } = req.body;
+    const { status, addPhoto, asBuilt } = req.body;
+    if (asBuilt !== undefined) {
+      const parsed = parseAsBuilt(asBuilt);
+      if (typeof parsed === "string") return res.status(400).json({ error: parsed });
+      await pool.query(
+        `UPDATE install_devices SET serial_number = $3, mac_address = $4, ip_address = $5, firmware = $6, warranty_expiry = $7 WHERE id = $1 AND zone_id = $2`,
+        [deviceId, zoneId, parsed.serialNumber, parsed.macAddress, parsed.ipAddress, parsed.firmware, parsed.warrantyExpiry]
+      );
+    }
     if (status) {
       await pool.query("UPDATE install_devices SET status = $1 WHERE id = $2 AND zone_id = $3", [status, deviceId, zoneId]);
     }

@@ -341,6 +341,12 @@ export async function initDB() {
     await client.query(`ALTER TABLE project_assets ADD COLUMN IF NOT EXISTS access_control_type TEXT`);
     await client.query(`ALTER TABLE projects ADD COLUMN IF NOT EXISTS contacts JSONB DEFAULT '[]'`);
     await client.query(`ALTER TABLE install_devices ADD COLUMN IF NOT EXISTS installed_photos JSONB DEFAULT '[]'`);
+    // As-built details for installed devices.
+    await client.query(`ALTER TABLE install_devices ADD COLUMN IF NOT EXISTS serial_number TEXT`);
+    await client.query(`ALTER TABLE install_devices ADD COLUMN IF NOT EXISTS mac_address TEXT`);
+    await client.query(`ALTER TABLE install_devices ADD COLUMN IF NOT EXISTS ip_address TEXT`);
+    await client.query(`ALTER TABLE install_devices ADD COLUMN IF NOT EXISTS firmware TEXT`);
+    await client.query(`ALTER TABLE install_devices ADD COLUMN IF NOT EXISTS warranty_expiry DATE`);
     await client.query(`ALTER TABLE projects ADD COLUMN IF NOT EXISTS public_share_token TEXT UNIQUE`);
     await client.query(`ALTER TABLE projects ADD COLUMN IF NOT EXISTS public_share_enabled BOOLEAN DEFAULT FALSE`);
     // One-time backfill from the old single-contact columns into the new array column — only

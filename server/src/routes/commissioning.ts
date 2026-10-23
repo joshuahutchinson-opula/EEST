@@ -3,6 +3,7 @@ import pool from "../db";
 import { buildCommissioningReportDocx } from "../lib/docxDocuments";
 import { requireProjectAccess } from "../lib/roles";
 import { signFileUrls, toStoredFileUrl, toStoredFileUrls } from "../lib/uploads";
+import { mapAsBuilt, parseAsBuilt } from "../lib/asBuilt";
 
 const withSignedPhotos = (row: any) => ({ ...row, photos: signFileUrls(row.photos) });
 
@@ -13,15 +14,20 @@ router.get("/:projectId", async (req: Request, res: Response) => {
   try {
     const { projectId } = req.params;
     const result = await pool.query(
-      `SELECT id, project_id AS "projectId", device_id AS "deviceId",
-              device_name AS "deviceName", location, status, notes, photos,
-              created_at AS "createdAt", updated_at AS "updatedAt"
-       FROM commissioning_checklists
-       WHERE project_id = $1
-       ORDER BY created_at`,
+      `SELECT cc.id, cc.project_id AS "projectId", cc.device_id AS "deviceId",
+              cc.device_name AS "deviceName", cc.location, cc.status, cc.notes, cc.photos,
+              cc.created_at AS "createdAt", cc.updated_at AS "updatedAt",
+              idv.id AS install_device_id, idv.serial_number, idv.mac_address, idv.ip_address, idv.firmware, idv.warranty_expiry
+       FROM commissioning_checklists cc
+       LEFT JOIN install_devices idv ON idv.id::text = cc.device_id
+       WHERE cc.project_id = $1
+       ORDER BY cc.created_at`,
       [projectId]
     );
-    res.json(result.rows.map(withSignedPhotos));
+    // As-built details live on the install device; items added by hand have none.
+    res.json(result.rows.map(({ install_device_id, serial_number, mac_address, ip_address, firmware, warranty_expiry, ...row }) =>
+      withSignedPhotos({ ...row, asBuilt: install_device_id ? mapAsBuilt({ serial_number, mac_address, ip_address, firmware, warranty_expiry }) : undefined })
+    ));
   } catch (err) {
     console.error("GET /commissioning/:projectId error:", err);
     res.status(500).json({ error: "Failed to fetch commissioning data" });
@@ -84,7 +90,17 @@ router.post("/:projectId", async (req: Request, res: Response) => {
 router.patch("/:projectId/:deviceId", async (req: Request, res: Response) => {
   try {
     const { projectId, deviceId } = req.params;
-    const { status, notes, photos, addPhoto } = req.body;
+    const { status, notes, photos, addPhoto, asBuilt } = req.body;
+    if (asBuilt !== undefined) {
+      const parsed = parseAsBuilt(asBuilt);
+      if (typeof parsed === "string") return res.status(400).json({ error: parsed });
+      const updated = await pool.query(
+        `UPDATE install_devices SET serial_number = $3, mac_address = $4, ip_address = $5, firmware = $6, warranty_expiry = $7
+         WHERE id::text = $2 AND zone_id IN (SELECT id FROM install_zones WHERE project_id = $1)`,
+        [projectId, deviceId, parsed.serialNumber, parsed.macAddress, parsed.ipAddress, parsed.firmware, parsed.warrantyExpiry]
+      );
+      if (updated.rowCount === 0) return res.status(400).json({ error: "As-built details can only be recorded for devices from the install tracker" });
+    }
     // addPhoto appends one photo atomically (used by offline replays, which can't know the current list).
     const appended = typeof addPhoto === "string" && addPhoto ? JSON.stringify([toStoredFileUrl(addPhoto)]) : null;
     const result = await pool.query(

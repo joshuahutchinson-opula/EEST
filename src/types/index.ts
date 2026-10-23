@@ -130,7 +130,7 @@ export interface QuoteCtx {
 
 export type InstallStatus = "pending" | "in-progress" | "complete" | "failed";
 
-export interface InstallDevice { id: string; name: string; type: "camera" | "access" | "nvr" | "door" | "panel" | "power" | "server" | "intercom"; location: string; status: InstallStatus; assignee: string; notes?: string; installedPhotos?: string[]; }
+export interface InstallDevice { id: string; name: string; type: "camera" | "access" | "nvr" | "door" | "panel" | "power" | "server" | "intercom"; location: string; status: InstallStatus; assignee: string; notes?: string; installedPhotos?: string[]; asBuilt?: AsBuilt; }
 
 export interface InstallZone { id: string; name: string; devices: InstallDevice[]; projectId?: string; isQuickSupport?: boolean; }
 
@@ -209,6 +209,8 @@ export type IconType = React.ComponentType<{ className?: string }>;
 
 export interface SynthesisOverride { id: string; projectId: string; sectionNumber: string; overrideValue: number | null; isOverridden: boolean; overriddenBy?: string; overriddenAt?: string; }
 
+// As-built details recorded for an installed device.
+export interface AsBuilt { serialNumber: string | null; macAddress: string | null; ipAddress: string | null; firmware: string | null; warrantyExpiry: string | null }
 export interface TeamMemberInfo { name: string; email: string }
 // An Outlook event; start/end are Jamaica local "YYYY-MM-DDTHH:mm:ss".
 export interface CalendarEvent { id: string; email: string; subject: string; start: string; end: string; isAllDay: boolean; location: string; notes: string; isTaskEvent: boolean; webLink?: string }
@@ -234,7 +236,7 @@ export interface PublicProjectStatus {
   assets: { category: AssetCategory; quantity: number; location: string; purpose: string; cableSpec?: CableSpec; coveragePhotos?: string[]; manufacturer?: string; model?: string }[];
 }
 
-export interface CommissioningItem { id: string; projectId: string; deviceId?: string; deviceName: string; location?: string; status: "pending" | "pass" | "fail"; notes?: string; photos?: string[]; createdAt?: string; updatedAt?: string; }
+export interface CommissioningItem { id: string; projectId: string; deviceId?: string; deviceName: string; location?: string; status: "pending" | "pass" | "fail"; notes?: string; photos?: string[]; createdAt?: string; updatedAt?: string; asBuilt?: AsBuilt; }
 
 export interface TutorialStep { target: string; title: string; description: string }
 

@@ -2,12 +2,13 @@ import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { Camera, CheckCircle2, ClipboardCheck, Clock, Loader2, Plus, X } from "lucide-react";
 import { clsx } from "clsx";
-import { API, downloadBlob, fileHref } from "../../api";
+import { API, downloadBlob, fileHref, ApiError } from "../../api";
 import { EmptyState } from "../../components/EmptyState";
 import { Skeleton } from "../../components/Skeleton";
 import { G } from "../../lib/constants";
-import type { CommissioningItem } from "../../types";
+import type { CommissioningItem, AsBuilt } from "../../types";
 import { cacheData, isNetworkError, readCachedData, submit } from "../../lib/offlineQueue";
+import { AsBuiltModal } from "../../components/AsBuiltModal";
 
 export function CommissioningTab({ projectId }: { projectId: string }) {
   const [checklist, setChecklist] = useState<CommissioningItem[]>([]);
@@ -82,6 +83,15 @@ export function CommissioningTab({ projectId }: { projectId: string }) {
     e.target.value = "";
   };
 
+  const [asBuiltFor, setAsBuiltFor] = useState<CommissioningItem | null>(null);
+  const saveAsBuilt = async (item: CommissioningItem, asBuilt: AsBuilt) => {
+    setAsBuiltFor(null);
+    try {
+      await submit({ kind: "request", label: "as-built details", path: `/commissioning/${projectId}/${item.deviceId}`, method: "PATCH", body: { asBuilt } });
+      setChecklist(prev => prev.map(x => x.id === item.id ? { ...x, asBuilt } : x));
+    } catch (err) { toast.error(((err instanceof ApiError ? (err.body as { error?: string } | null)?.error : null)) || "Failed to save as-built details"); }
+  };
+
   const handleSaveNote = async (deviceId: string) => {
     try { await submit({ kind: "request", label: "commissioning notes", path: `/commissioning/${projectId}/${deviceId}`, method: "PATCH", body: { notes: noteText } }); }
     catch { toast.error("Failed to save notes"); return; }
@@ -111,6 +121,7 @@ export function CommissioningTab({ projectId }: { projectId: string }) {
 
   return (
     <div className="space-y-3">
+      {asBuiltFor && <AsBuiltModal deviceName={asBuiltFor.deviceName} value={asBuiltFor.asBuilt} onClose={() => setAsBuiltFor(null)} onSave={(v) => saveAsBuilt(asBuiltFor, v)} />}
       <div className="flex items-center justify-between">
         <p className="text-[#8b949e] text-[13px]">{checklist.length} devices{selectedDevices.size > 0 && ` · ${selectedDevices.size} selected`}</p>
         <div className="flex gap-2">
@@ -144,6 +155,7 @@ export function CommissioningTab({ projectId }: { projectId: string }) {
               <button onClick={() => handleUpdate(item.deviceId || item.id, "pass")} className="h-7 px-2 rounded-lg text-[12px] font-extrabold text-emerald-400 cursor-pointer" style={{ background: "rgba(16,185,129,0.12)" }}>Pass</button>
               <button onClick={() => handleUpdate(item.deviceId || item.id, "fail")} className="h-7 px-2 rounded-lg text-[12px] font-extrabold text-rose-400 cursor-pointer" style={{ background: "rgba(244,63,94,0.12)" }}>Fail</button>
               <label className="h-7 px-2 rounded-lg text-[12px] font-extrabold text-blue-400 cursor-pointer flex items-center gap-1" style={{ background: "rgba(59,130,246,0.12)" }}>{uploadingPhoto === (item.deviceId || item.id) ? <Loader2 className="w-3 h-3 animate-spin" /> : <Camera className="w-3 h-3" />} Photo<input type="file" accept="image/*" capture="environment" className="hidden" onChange={(e) => handlePhotoUpload(item.deviceId || item.id, e)} disabled={uploadingPhoto === (item.deviceId || item.id)} /></label>
+              {item.asBuilt && <button onClick={() => setAsBuiltFor(item)} className="h-7 px-2 rounded-lg text-[12px] font-extrabold text-violet-400 cursor-pointer" style={{ background: "rgba(139,92,246,0.12)" }} title="Serial, MAC, IP, firmware and warranty">{item.asBuilt.serialNumber ? `S/N ${item.asBuilt.serialNumber}` : "As-built"}</button>}
               <button onClick={() => { setEditingNotes(editingNotes === (item.deviceId || item.id) ? null : (item.deviceId || item.id)); setNoteText(item.notes || ""); }} className="h-7 px-2 rounded-lg text-[12px] font-extrabold text-amber-400 cursor-pointer" style={{ background: "rgba(245,158,11,0.12)" }}>Note</button>
             </div>
           </div>
