@@ -54,8 +54,8 @@ export async function reviseQuote(client: PoolClient, sourceQuoteId: string): Pr
       [newQuoteId, cat.name, cat.type, cat.system, cat.section_number, cat.import_rate_percent, cat.sort_order]
     );
     await client.query(
-      `INSERT INTO quote_line_items (category_id, item_number, description, unit_cost, quantity, markup_percent, is_contingency, project_asset_id, cost_overridden)
-       SELECT $2, item_number, description, unit_cost, quantity, markup_percent, is_contingency, project_asset_id, cost_overridden
+      `INSERT INTO quote_line_items (category_id, item_number, description, unit_cost, quantity, markup_percent, is_contingency, project_asset_id, cost_overridden, labour)
+       SELECT $2, item_number, description, unit_cost, quantity, markup_percent, is_contingency, project_asset_id, cost_overridden, labour
        FROM quote_line_items WHERE category_id = $1`,
       [cat.id, newCat.rows[0].id]
     );

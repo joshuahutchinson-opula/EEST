@@ -59,6 +59,7 @@ function mapLineItem(li: any, exchangeRate: number) {
     projectAssetId: li.project_asset_id || undefined,
     costOverridden: !!li.cost_overridden,
     version: Number(li.version) || 1,
+    labour: li.labour || undefined,
   };
 }
 
@@ -273,6 +274,16 @@ async function loadLineItem(itemId: string) {
   return row ? mapLineItem(row, Number(row.exchange_rate)) : null;
 }
 
+// { role, hours, rate } from the labour calculator, null to clear, undefined when not sent.
+function parseLabour(v: unknown): { role: string; hours: number; rate: number } | null | undefined | false {
+  if (v === undefined) return undefined;
+  if (v === null) return null;
+  const l = v as any;
+  const hours = Number(l?.hours), rate = Number(l?.rate);
+  if (typeof l?.role !== "string" || !Number.isFinite(hours) || hours < 0 || !Number.isFinite(rate) || rate < 0) return false;
+  return { role: l.role.trim(), hours, rate };
+}
+
 function lineItemNumbers(body: any) {
   const n = (v: unknown) => (v === undefined || v === null || v === "" ? undefined : Number(v));
   const unitCost = n(body.unitCost);
@@ -290,14 +301,16 @@ router.post("/:quoteId/line-items", requireAdmin, async (req: Request, res: Resp
     const nums = lineItemNumbers(req.body);
     if (!nums) return res.status(400).json({ error: "unitCost, quantity and markupPercent must be numbers" });
     if (typeof description !== "string" || !description.trim()) return res.status(400).json({ error: "description is required" });
+    const labour = parseLabour(req.body.labour);
+    if (labour === false) return res.status(400).json({ error: "labour must be { role, hours, rate }" });
     const cat = await pool.query(`SELECT id FROM quote_categories WHERE id::text = $1 AND quote_id::text = $2`, [categoryId, quoteId]);
     if (cat.rows.length === 0) return res.status(404).json({ error: "Category not found on this quote" });
     if (await isQuoteFrozen(pool, quoteId)) return res.status(409).json({ error: FROZEN_QUOTE_MESSAGE, frozen: true });
     const inserted = await pool.query(
-      `INSERT INTO quote_line_items (category_id, item_number, description, unit_cost, quantity, markup_percent)
-       VALUES ($1, COALESCE($2, LPAD(((SELECT COUNT(*) FROM quote_line_items WHERE category_id = $1) + 1)::text, 2, '0')), $3, $4, $5, $6)
+      `INSERT INTO quote_line_items (category_id, item_number, description, unit_cost, quantity, markup_percent, labour)
+       VALUES ($1, COALESCE($2, LPAD(((SELECT COUNT(*) FROM quote_line_items WHERE category_id = $1) + 1)::text, 2, '0')), $3, $4, $5, $6, $7)
        RETURNING id`,
-      [categoryId, itemNumber || null, description.trim(), nums.unitCost ?? 0, nums.quantity ?? 1, nums.markupPercent ?? 0]
+      [categoryId, itemNumber || null, description.trim(), nums.unitCost ?? 0, nums.quantity ?? 1, nums.markupPercent ?? 0, labour ? JSON.stringify(labour) : null]
     );
     await pool.query(`UPDATE quotes SET updated_at = NOW() WHERE id::text = $1`, [quoteId]);
     res.status(201).json(await loadLineItem(inserted.rows[0].id));
@@ -316,6 +329,8 @@ router.patch("/line-items/:itemId", requireAdmin, async (req: Request, res: Resp
     if (!nums) return res.status(400).json({ error: "unitCost, quantity and markupPercent must be numbers" });
     if (!Number.isInteger(Number(version))) return res.status(400).json({ error: "version is required" });
     if (description !== undefined && (typeof description !== "string" || !description.trim())) return res.status(400).json({ error: "description can't be empty" });
+    const labour = parseLabour(req.body.labour);
+    if (labour === false) return res.status(400).json({ error: "labour must be { role, hours, rate }" });
     const itemQuoteId = await quoteIdForLineItem(pool, itemId);
     if (itemQuoteId && (await isQuoteFrozen(pool, itemQuoteId))) return res.status(409).json({ error: FROZEN_QUOTE_MESSAGE, frozen: true });
     // Editing the cost of an asset-synced line marks it as a manual override (see lib/assetSync.ts).
@@ -327,10 +342,11 @@ router.patch("/line-items/:itemId", requireAdmin, async (req: Request, res: Resp
          quantity = COALESCE($6, quantity),
          markup_percent = COALESCE($7, markup_percent),
          cost_overridden = cost_overridden OR (project_asset_id IS NOT NULL AND $5::numeric IS NOT NULL),
+         labour = CASE WHEN $8 THEN $9::jsonb ELSE labour END,
          version = version + 1
        WHERE id::text = $1 AND version = $2
        RETURNING category_id`,
-      [itemId, Number(version), description === undefined ? null : description.trim(), itemNumber ?? null, nums.unitCost ?? null, nums.quantity ?? null, nums.markupPercent ?? null]
+      [itemId, Number(version), description === undefined ? null : description.trim(), itemNumber ?? null, nums.unitCost ?? null, nums.quantity ?? null, nums.markupPercent ?? null, labour !== undefined, labour ? JSON.stringify(labour) : null]
     );
     if (result.rows.length === 0) {
       const current = await loadLineItem(itemId);
