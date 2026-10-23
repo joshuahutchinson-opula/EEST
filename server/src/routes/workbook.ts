@@ -25,6 +25,37 @@ const router = Router();
 // depends on and therefore can't be blocked wholesale).
 router.use(requireAdmin);
 
+// Team-wide Workbook settings. minMargin is the percentage under which the pricing badge flags
+// an item; the default applies until an admin saves one.
+const DEFAULT_MIN_MARGIN = 20;
+
+router.get("/settings", async (_req: Request, res: Response) => {
+  try {
+    const row = (await pool.query(`SELECT value, updated_by AS "updatedBy", updated_at AS "updatedAt" FROM app_settings WHERE key = 'workbook.min_margin'`)).rows[0];
+    res.json({ minMargin: row ? Number(row.value) : DEFAULT_MIN_MARGIN, updatedBy: row?.updatedBy ?? null, updatedAt: row?.updatedAt ?? null });
+  } catch (err) {
+    console.error("GET /workbook/settings error:", err);
+    res.status(500).json({ error: "Failed to load Workbook settings" });
+  }
+});
+
+router.put("/settings", async (req: Request, res: Response) => {
+  try {
+    const minMargin = Number(req.body?.minMargin);
+    if (!Number.isFinite(minMargin) || minMargin < 0 || minMargin > 100) return res.status(400).json({ error: "minMargin must be a number from 0 to 100" });
+    const result = await pool.query(
+      `INSERT INTO app_settings (key, value, updated_by, updated_at) VALUES ('workbook.min_margin', $1::jsonb, $2, NOW())
+       ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value, updated_by = EXCLUDED.updated_by, updated_at = NOW()
+       RETURNING updated_by AS "updatedBy", updated_at AS "updatedAt"`,
+      [JSON.stringify(minMargin), sessionUserName(req)]
+    );
+    res.json({ minMargin, ...result.rows[0] });
+  } catch (err) {
+    console.error("PUT /workbook/settings error:", err);
+    res.status(500).json({ error: "Failed to save Workbook settings" });
+  }
+});
+
 router.get("/:projectId/overrides", async (req: Request, res: Response) => {
   try {
     const quoteId = await resolveQuoteId(req);

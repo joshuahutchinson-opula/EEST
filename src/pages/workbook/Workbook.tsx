@@ -76,8 +76,19 @@ export function Workbook({ navigate }: { navigate: (p: Page) => void }) {
   const [showProposalModal, setShowProposalModal] = useState(false);
   const [proposalWarning, setProposalWarning] = useState(false);
   const [showPricingIssues, setShowPricingIssues] = useState(false);
-  const [minMargin, setMinMargin] = useState<number>(() => { try { return toNum(localStorage.getItem("wb_min_margin"), 20); } catch { return 20; } });
-  useEffect(() => { try { localStorage.setItem("wb_min_margin", String(minMargin)); } catch { /* storage unavailable */ } }, [minMargin]);
+  // Team-wide setting stored on the server; the input edits a local draft saved on blur/Enter.
+  const [minMargin, setMinMargin] = useState<number>(20);
+  const [minMarginDraft, setMinMarginDraft] = useState("20");
+  useEffect(() => { API.workbook.getSettings().then(s => { setMinMargin(s.minMargin); setMinMarginDraft(String(s.minMargin)); }).catch(() => {}); }, []);
+  const saveMinMargin = async () => {
+    const value = Math.max(0, Math.min(100, parseFloat(minMarginDraft) || 0));
+    setMinMarginDraft(String(value));
+    if (value === minMargin) return;
+    const previous = minMargin;
+    setMinMargin(value);
+    try { await API.workbook.saveSettings({ minMargin: value }); toast.success(`Minimum margin set to ${value}% for the team`); }
+    catch { setMinMargin(previous); setMinMarginDraft(String(previous)); toast.error("Failed to save the minimum margin"); }
+  };
   const [showAuditModal, setShowAuditModal] = useState(false);
   const [overrideConflict, setOverrideConflict] = useState<{ sectionNumber: string; sectionName: string; pendingCallback: (() => void) | null } | null>(null);
   // Each tab keeps its own system filter (remembered per browser); Synthesis can also show all.
@@ -526,7 +537,7 @@ export function Workbook({ navigate }: { navigate: (p: Page) => void }) {
                   <p className="text-[#8b949e] text-[12px]">{pricingIssues.unpriced} item(s) with $0 cost or 0% markup</p>
                   <p className="text-[#8b949e] text-[12px]">{pricingIssues.lowMargin} item(s) below the minimum margin</p>
                   <label className="flex items-center justify-between gap-2 text-[#8b949e] text-[12px]">Minimum margin
-                    <span className="flex items-center gap-1"><input type="number" min={0} max={100} value={minMargin} onChange={e => setMinMargin(Math.max(0, Math.min(100, parseFloat(e.target.value) || 0)))} className="w-16 h-7 rounded-lg px-2 text-[12px] text-white text-right" style={G.input} />%</span>
+                    <span className="flex items-center gap-1"><input type="number" min={0} max={100} value={minMarginDraft} onChange={e => setMinMarginDraft(e.target.value)} onBlur={saveMinMargin} onKeyDown={e => { if (e.key === "Enter") (e.target as HTMLInputElement).blur(); }} title="Shared by the whole team" className="w-16 h-7 rounded-lg px-2 text-[12px] text-white text-right" style={G.input} />%</span>
                   </label>
                 </div>
               )}

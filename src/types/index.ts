@@ -211,6 +211,7 @@ export interface SynthesisOverride { id: string; projectId: string; sectionNumbe
 
 export interface AuditTarget { entityType: "line-item" | "override"; entityId: string; field: string; quoteId?: string }
 // Entries with entityType/entityId/field can be reverted; older ones are free text only.
+export interface WorkbookSettings { minMargin: number; updatedBy: string | null; updatedAt: string | null; }
 export interface WorkbookAuditEntry extends Partial<AuditTarget> { id: string; projectId: string; fieldPath: string; oldValue: string; newValue: string; changedBy: string; changedAt: string; }
 
 export interface AssetListItem { id: string; item: string; qty: number; cost: number; markupPercent: number; sell: number; costTotal: number; total: number; profit: number; isProjectAsset?: boolean; deviceType?: string; system?: SystemType; sourceCategory?: string; sourceItemId?: string; }

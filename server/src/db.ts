@@ -399,6 +399,16 @@ export async function initDB() {
     // No current/working replacement URL was available to substitute in its place.
     await client.query(`UPDATE devices SET image_url = NULL WHERE image_url ILIKE '%q1700le_lpv_kit%'`);
 
+    // Team-wide settings shared by every user (e.g. the Workbook's minimum margin).
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS app_settings (
+        key TEXT PRIMARY KEY,
+        value JSONB NOT NULL,
+        updated_by TEXT,
+        updated_at TIMESTAMPTZ DEFAULT NOW()
+      )
+    `);
+
     console.log("Database tables initialized");
   } finally {
     client.release();
