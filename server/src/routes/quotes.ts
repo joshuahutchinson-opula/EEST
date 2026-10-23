@@ -1,6 +1,6 @@
 import { Router, Request, Response } from "express";
 import pool from "../db";
-import { isTech, requireAdmin } from "../lib/roles";
+import { isTech, requireAdmin, techMayAccessProject } from "../lib/roles";
 
 const router = Router();
 
@@ -71,7 +71,12 @@ async function loadCategories(quoteId: string, exchangeRate: number) {
 router.get("/", async (req: Request, res: Response) => {
   try {
     const tech = isTech(req);
-    const quotesResult = await pool.query("SELECT * FROM quotes ORDER BY created_at DESC");
+    const quotesResult = tech
+      ? await pool.query(
+          `SELECT q.* FROM quotes q JOIN projects p ON p.id = q.project_id
+           WHERE p.pipeline_type = 'project' AND p.deleted_at IS NULL ORDER BY q.created_at DESC`
+        )
+      : await pool.query("SELECT * FROM quotes ORDER BY created_at DESC");
     const quotes = [];
     for (const q of quotesResult.rows) {
       let categories = await loadCategories(q.id, Number(q.exchange_rate));
@@ -97,6 +102,7 @@ router.get("/:id", async (req: Request, res: Response) => {
     const qResult = await pool.query("SELECT * FROM quotes WHERE id=$1", [id]);
     if (qResult.rows.length === 0) return res.status(404).json({ error: "Quote not found" });
     const q = qResult.rows[0];
+    if (isTech(req) && !(await techMayAccessProject(q.project_id))) return res.status(403).json({ error: "Forbidden for this role" });
     let categories = await loadCategories(id, Number(q.exchange_rate));
     if (isTech(req)) categories = redactCostsForTech(categories);
     res.json({ id: q.id, clientName: q.client_name, refNumber: q.ref_number, date: q.date ? new Date(q.date).toISOString().slice(0, 10) : "", status: q.status, quoteType: q.quote_type, categories, exchangeRate: Number(q.exchange_rate), projectId: q.project_id || undefined });

@@ -1,8 +1,10 @@
 import { Router, Request, Response } from "express";
 import pool from "../db";
 import { buildCommissioningReportDocx } from "../lib/docxDocuments";
+import { requireProjectAccess } from "../lib/roles";
 
 const router = Router();
+router.param("projectId", requireProjectAccess());
 
 router.get("/:projectId", async (req: Request, res: Response) => {
   try {
@@ -107,7 +109,10 @@ router.patch("/:projectId/:deviceId", async (req: Request, res: Response) => {
     if (result.rows.length === 0) return res.status(404).json({ error: "Device not found" });
     if (status) {
       const installStatus = status === "pass" ? "complete" : status === "fail" ? "failed" : "pending";
-      await pool.query(`UPDATE install_devices SET status = $1 WHERE id = $2`, [installStatus, deviceId]);
+      await pool.query(
+        `UPDATE install_devices SET status = $1 WHERE id::text = $2 AND zone_id IN (SELECT id FROM install_zones WHERE project_id = $3)`,
+        [installStatus, deviceId, projectId]
+      );
     }
     res.json(result.rows[0]);
   } catch (err) {
@@ -130,7 +135,10 @@ router.post("/:projectId/bulk", async (req: Request, res: Response) => {
           [status, projectId, deviceId]
         );
         const installStatus = status === "pass" ? "complete" : status === "fail" ? "failed" : "pending";
-        await client.query(`UPDATE install_devices SET status = $1 WHERE id = $2`, [installStatus, deviceId]);
+        await client.query(
+          `UPDATE install_devices SET status = $1 WHERE id::text = $2 AND zone_id IN (SELECT id FROM install_zones WHERE project_id = $3)`,
+          [installStatus, deviceId, projectId]
+        );
       }
       await client.query("COMMIT");
       res.json({ success: true });

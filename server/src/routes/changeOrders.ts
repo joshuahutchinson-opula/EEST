@@ -1,9 +1,10 @@
 import { Router, Request, Response } from "express";
 import pool from "../db";
-import { isTech, requireAdmin } from "../lib/roles";
+import { isTech, requireAdmin, requireProjectAccess } from "../lib/roles";
 import { buildChangeOrderDocx } from "../lib/docxDocuments";
 
 const router = Router();
+router.param("projectId", requireProjectAccess());
 
 // GET /api/change-orders/:projectId
 router.get("/:projectId", async (req: Request, res: Response) => {
@@ -77,8 +78,8 @@ router.patch("/:projectId/:id", async (req: Request, res: Response) => {
          cost_impact = COALESCE($4, cost_impact),
          status = COALESCE($5, status),
          updated_at = NOW()
-       WHERE id = $1 RETURNING *`,
-      [id, title, description, tech ? undefined : costImpact, status]
+       WHERE id = $1 AND project_id = $6 RETURNING *`,
+      [id, title, description, tech ? undefined : costImpact, status, req.params.projectId]
     );
     if (result.rows.length === 0) return res.status(404).json({ error: "Change order not found" });
     const row = result.rows[0];
@@ -136,7 +137,7 @@ router.get("/:projectId/:id/docx", requireAdmin, async (req: Request, res: Respo
 router.delete("/:projectId/:id", requireAdmin, async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
-    await pool.query("DELETE FROM change_orders WHERE id = $1", [id]);
+    await pool.query("DELETE FROM change_orders WHERE id = $1 AND project_id = $2", [id, req.params.projectId]);
     res.json({ success: true });
   } catch (err) {
     console.error("DELETE /change-orders/:projectId/:id error:", err);

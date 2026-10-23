@@ -1,9 +1,14 @@
 import { Router, Request, Response } from "express";
 import crypto from "crypto";
 import pool from "../db";
-import { requireAdmin } from "../lib/roles";
+import { requireAdmin, requireProjectAccess } from "../lib/roles";
 
 const router = Router();
+router.param("projectId", requireProjectAccess());
+router.param("subId", requireProjectAccess(async (req) => {
+  const result = await pool.query(`SELECT project_id FROM subcontractors WHERE id::text = $1`, [req.params.subId]);
+  return result.rows[0]?.project_id;
+}));
 
 // GET /api/subcontractors/public/:token — read-only portal lookup, no auth
 router.get("/public/:token", async (req: Request, res: Response) => {

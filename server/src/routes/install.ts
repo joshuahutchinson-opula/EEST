@@ -1,12 +1,33 @@
 import { Router, Request, Response } from "express";
 import pool from "../db";
+import { isTech, requireProjectAccess, techMayAccessProject } from "../lib/roles";
 
 const router = Router();
 
-// GET /api/install/zones
-router.get("/zones", async (_req: Request, res: Response) => {
+// Zones not tied to any project (quick-support work) stay open to Tech; a project zone follows
+// the usual Projects-pipeline rule.
+router.param("zoneId", async (req, res, next, zoneId) => {
+  if (!isTech(req)) return next();
   try {
-    const zonesResult = await pool.query("SELECT * FROM install_zones ORDER BY sort_order");
+    const zone = await pool.query(`SELECT project_id FROM install_zones WHERE id::text = $1`, [zoneId]);
+    if (zone.rows.length > 0 && !zone.rows[0].project_id) return next();
+    return requireProjectAccess(() => zone.rows[0]?.project_id)(req, res, next);
+  } catch (err) {
+    console.error("install zone access check error:", err);
+    res.status(500).json({ error: "Failed to check project access" });
+  }
+});
+
+// GET /api/install/zones
+router.get("/zones", async (req: Request, res: Response) => {
+  try {
+    const zonesResult = isTech(req)
+      ? await pool.query(
+          `SELECT * FROM install_zones
+           WHERE project_id IS NULL OR project_id IN (SELECT id FROM projects WHERE pipeline_type = 'project' AND deleted_at IS NULL)
+           ORDER BY sort_order`
+        )
+      : await pool.query("SELECT * FROM install_zones ORDER BY sort_order");
     const zones = [];
     for (const z of zonesResult.rows) {
       const devicesResult = await pool.query("SELECT * FROM install_devices WHERE zone_id = $1 ORDER BY id", [z.id]);
@@ -38,6 +59,9 @@ router.get("/zones", async (_req: Request, res: Response) => {
 router.post("/zones", async (req: Request, res: Response) => {
   try {
     const { name, projectId, isQuickSupport } = req.body;
+    if (isTech(req) && projectId && !(await techMayAccessProject(projectId))) {
+      return res.status(403).json({ error: "Forbidden for this role" });
+    }
     const result = await pool.query(
       "INSERT INTO install_zones (name, project_id, is_quick_support) VALUES ($1, $2, $3) RETURNING *",
       [name, projectId || null, isQuickSupport || false]

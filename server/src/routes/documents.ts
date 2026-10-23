@@ -4,8 +4,10 @@ import path from "path";
 import fs from "fs";
 import pool from "../db";
 import { DOCUMENTS_DIR, resolveUploadPath } from "../lib/uploads";
+import { requireProjectAccess } from "../lib/roles";
 
 const router = Router();
+router.param("projectId", requireProjectAccess());
 
 const storage = multer.diskStorage({
   destination: (_req, _file, cb) => cb(null, DOCUMENTS_DIR),
@@ -63,11 +65,10 @@ router.post("/:projectId", upload.single("file"), async (req: Request, res: Resp
 router.delete("/:projectId/:id", async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
-    const result = await pool.query("SELECT file_url FROM documents WHERE id = $1", [id]);
-    if (result.rows.length > 0) {
-      const filePath = resolveUploadPath(result.rows[0].file_url);
-      if (filePath && fs.existsSync(filePath)) fs.unlinkSync(filePath);
-    }
+    const result = await pool.query("SELECT file_url FROM documents WHERE id = $1 AND project_id = $2", [id, req.params.projectId]);
+    if (result.rows.length === 0) return res.status(404).json({ error: "Document not found" });
+    const filePath = resolveUploadPath(result.rows[0].file_url);
+    if (filePath && fs.existsSync(filePath)) fs.unlinkSync(filePath);
     await pool.query("DELETE FROM documents WHERE id = $1", [id]);
     res.json({ success: true });
   } catch (err) {

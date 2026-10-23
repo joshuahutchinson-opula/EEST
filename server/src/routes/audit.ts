@@ -1,8 +1,9 @@
 import { Router, Request, Response } from "express";
 import pool from "../db";
-import { isTech } from "../lib/roles";
+import { isTech, requireProjectAccess } from "../lib/roles";
 
 const router = Router();
+router.param("projectId", requireProjectAccess());
 
 // Field paths that carry a dollar value or client contact info — audit entries logging a change
 // to one of these must never reach a Tech-authenticated request, even though today's frontend

@@ -1,11 +1,12 @@
 import { Router, Request, Response } from "express";
 import type { PoolClient } from "pg";
 import pool from "../db";
-import { isTech } from "../lib/roles";
+import { isTech, requireProjectAccess } from "../lib/roles";
 import { buildEquipmentSummaryDocx } from "../lib/docxDocuments";
 import { syncAssetLineItem, removeAssetLineItem } from "../lib/assetSync";
 
 const router = Router();
+router.param("projectId", requireProjectAccess());
 
 const mapRow = (row: any, tech: boolean) => ({
   id: row.id,

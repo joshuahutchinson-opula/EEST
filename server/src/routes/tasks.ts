@@ -1,7 +1,9 @@
 import { Router, Request, Response } from "express";
 import pool from "../db";
+import { requireProjectAccess } from "../lib/roles";
 
 const router = Router();
+router.param("projectId", requireProjectAccess());
 
 const mapRow = (row: any) => ({
   id: row.id,
@@ -58,8 +60,8 @@ router.patch("/:projectId/:id", async (req: Request, res: Response) => {
       `UPDATE tasks SET title=COALESCE($2,title), description=COALESCE($3,description),
        assignee=COALESCE($4,assignee), subcontractor_id=COALESCE($5,subcontractor_id), status=COALESCE($6,status),
        priority=COALESCE($7,priority), due_date=COALESCE($8,due_date),
-       updated_at=NOW() WHERE id=$1 RETURNING *`,
-      [id, title, description, assignee, subcontractorId, status, priority, dueDate]
+       updated_at=NOW() WHERE id=$1 AND project_id=$9 RETURNING *`,
+      [id, title, description, assignee, subcontractorId, status, priority, dueDate, req.params.projectId]
     );
     if (result.rows.length === 0) return res.status(404).json({ error: "Task not found" });
     res.json(mapRow(result.rows[0]));
@@ -73,7 +75,7 @@ router.patch("/:projectId/:id", async (req: Request, res: Response) => {
 router.delete("/:projectId/:id", async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
-    await pool.query("DELETE FROM tasks WHERE id = $1", [id]);
+    await pool.query("DELETE FROM tasks WHERE id = $1 AND project_id = $2", [id, req.params.projectId]);
     res.json({ success: true });
   } catch (err) {
     console.error("DELETE /tasks/:projectId/:id error:", err);
