@@ -135,7 +135,7 @@ router.post("/:projectId/proposal", async (req: Request, res: Response) => {
     const wb = await loadProjectWorkbook(req.params.projectId);
     if (!wb) return res.status(404).json({ error: "Project not found" });
 
-    const rows = buildSectionRows(wb.totals, wb.categories);
+    const rows = buildSectionRows(wb.totals, wb.categories, { foldAdjustments: true });
     const categories = wb.totals.sections
       .map((s) => ({ system: s.system, sectionNumber: s.section, name: s.name, items: (rows.get(s.section) || []).map((r) => ({ description: r.description, quantity: r.quantity, total: r.extended })) }))
       .filter((c) => c.items.length > 0);
@@ -176,7 +176,7 @@ router.get("/:projectId/export-xlsx", async (req: Request, res: Response) => {
       exchangeRate: wb.quote?.exchangeRate ?? DEFAULT_EXCHANGE_RATE,
       generatedAt: new Date().toISOString(),
       totals: wb.totals,
-      rows: buildSectionRows(wb.totals, wb.categories),
+      rows: buildSectionRows(wb.totals, wb.categories, { foldAdjustments: true }),
     });
     const filename = `${(wb.project.name as string).replace(/\s+/g, "-")}-workbook.xlsx`;
     res.setHeader("Content-Type", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");

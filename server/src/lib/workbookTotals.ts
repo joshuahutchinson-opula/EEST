@@ -138,9 +138,11 @@ export interface SectionRow {
   sourceSection?: string;
 }
 
-// The rows a section is shown as on BOM and in exports. They always add up to section.total:
-// item rows, plus an adjustment row carrying any Synthesis override's difference.
-export function buildSectionRows(totals: WorkbookTotals, categories: TotalsCategory[]): Map<string, SectionRow[]> {
+// The rows a section is shown as on BOM and in exports. They always add up to section.total.
+// Internal views (default) show item rows plus an adjustment row carrying any Synthesis
+// override's difference. Client-facing documents pass foldAdjustments: the difference is spread
+// over the section's rows in proportion to their amounts, so no adjustment line appears.
+export function buildSectionRows(totals: WorkbookTotals, categories: TotalsCategory[], options: { foldAdjustments?: boolean } = {}): Map<string, SectionRow[]> {
   const rows = new Map<string, SectionRow[]>();
   for (const s of totals.sections) {
     const out: SectionRow[] = [];
@@ -158,6 +160,16 @@ export function buildSectionRows(totals: WorkbookTotals, categories: TotalsCateg
     }
     if (s.kind === "contingency") {
       if (s.total !== 0) out.push({ kind: "contingency", description: s.name, quantity: 1, unitPrice: s.total, extended: s.total });
+    } else if (s.adjustment !== 0 && options.foldAdjustments) {
+      const base = out.reduce((sum, r) => sum + r.extended, 0);
+      if (base !== 0) {
+        const factor = s.total / base;
+        for (const r of out) { r.unitPrice *= factor; r.extended *= factor; }
+      } else {
+        // Nothing to spread over: the section is shown as one line at its total.
+        out.length = 0;
+        if (s.total !== 0) out.push({ kind: s.kind === "import" ? "import" : "item", description: s.name, quantity: 1, unitPrice: s.total, extended: s.total });
+      }
     } else if (s.adjustment !== 0) {
       out.push({ kind: "adjustment", description: "Price adjustment", quantity: 1, unitPrice: s.adjustment, extended: s.adjustment });
     }
