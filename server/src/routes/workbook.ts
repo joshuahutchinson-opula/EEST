@@ -3,6 +3,7 @@ import pool from "../db";
 import { requireAdmin, sessionUserName } from "../lib/roles";
 import { buildProposalDocx } from "../lib/docxDocuments";
 import { buildWorkbookXlsx } from "../lib/xlsxExport";
+import { buildFullWorkbookXlsx } from "../lib/workbookXlsxFull";
 import { loadProjectWorkbook } from "../lib/workbookData";
 import { buildSectionRows, totalsForSystems } from "../lib/workbookTotals";
 import { DEFAULT_EXCHANGE_RATE } from "../lib/exchangeRate";
@@ -241,6 +242,25 @@ router.get("/:projectId/export-xlsx", async (req: Request, res: Response) => {
     res.send(buffer);
   } catch (err) {
     console.error("GET /workbook/:projectId/export-xlsx error:", err);
+    res.status(500).json({ error: "Failed to generate workbook export" });
+  }
+});
+
+// GET /api/workbook/:projectId/export-workbook-xlsx — the whole Workbook (Asset List, Cost & Margin,
+// BOM, Synthesis, cover sheet) as an internal spreadsheet. Separate from the MOH template export.
+router.get("/:projectId/export-workbook-xlsx", async (req: Request, res: Response) => {
+  try {
+    const quoteId = await resolveQuoteId(req);
+    const wb = await loadProjectWorkbook(req.params.projectId, quoteId);
+    if (!wb) return res.status(404).json({ error: "Project not found" });
+    const buffer = await buildFullWorkbookXlsx(wb);
+    const rev = wb.quote ? `-rev${wb.quote.revision}` : "";
+    const filename = `${(wb.project.name as string).replace(/\s+/g, "-")}${rev}-full-workbook.xlsx`;
+    res.setHeader("Content-Type", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
+    res.setHeader("Content-Disposition", `attachment; filename="${filename}"`);
+    res.send(buffer);
+  } catch (err) {
+    console.error("GET /workbook/:projectId/export-workbook-xlsx error:", err);
     res.status(500).json({ error: "Failed to generate workbook export" });
   }
 });

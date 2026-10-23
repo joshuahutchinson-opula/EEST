@@ -180,6 +180,7 @@ export const API = {
     getAudit: (projectId: string, fieldPath?: string) => apiFetch<WorkbookAuditEntry[]>(`/workbook/${projectId}/audit${fieldPath ? `?fieldPath=${encodeURIComponent(fieldPath)}` : ""}`),
     logAudit: (projectId: string, fieldPath: string, oldValue: string, newValue: string, target?: AuditTarget) => apiFetch<void>(`/workbook/${projectId}/audit`, { method: "POST", body: JSON.stringify({ fieldPath, oldValue, newValue, ...target }) }),
     getPriceHistory: (deviceId: string) => apiFetch<{ price: number; recordedAt: string }[]>(`/workbook/devices/${deviceId}/price-history`),
+    exportFullXlsx: (projectId: string, quoteId?: string) => apiFetchBlob(`/workbook/${projectId}/export-workbook-xlsx${quoteId ? `?quoteId=${quoteId}` : ""}`),
     exportXlsx: (projectId: string, quoteId?: string) => apiFetchBlob(`/workbook/${projectId}/export-xlsx${quoteId ? `?quoteId=${quoteId}` : ""}`),
   },
   proposals: { generate: (projectId: string, quoteId?: string, options?: { systems?: string[]; validUntil?: string; terms?: string }) => apiFetchBlob(`/workbook/${projectId}/proposal${quoteId ? `?quoteId=${quoteId}` : ""}`, { method: "POST", body: JSON.stringify(options || {}) }) },

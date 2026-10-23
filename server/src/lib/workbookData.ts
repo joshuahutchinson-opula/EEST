@@ -2,6 +2,9 @@ import pool from "../db";
 import { computeWorkbookTotals, TotalsCategory, TotalsOverride, WorkbookTotals } from "./workbookTotals";
 import { DEFAULT_EXCHANGE_RATE } from "./exchangeRate";
 
+// Line items as loaded for exports: the totals fields plus whether the row comes from a project asset.
+export type WorkbookLineItem = TotalsCategory["lineItems"][number] & { projectAssetId?: string };
+
 export interface ProjectWorkbook {
   project: { id: string; name: string; client: string; summary?: string; location?: string };
   quote: { id: string; refNumber: string; date: string | null; status: string; exchangeRate: number; revision: number } | null;
@@ -26,11 +29,11 @@ export async function loadProjectWorkbook(projectId: string, quoteId?: string | 
     q
       ? pool.query(
           `SELECT qc.id AS cat_id, qc.name, qc.system, qc.section_number, qc.import_rate_percent, qc.sort_order,
-                  qli.id AS item_id, qli.description, qli.unit_cost, qli.quantity, qli.markup_percent, qli.item_number
+                  qli.id AS item_id, qli.description, qli.unit_cost, qli.quantity, qli.markup_percent, qli.item_number, qli.project_asset_id
            FROM quote_categories qc
            LEFT JOIN quote_line_items qli ON qli.category_id = qc.id
            WHERE qc.quote_id = $1
-           ORDER BY qc.sort_order, qli.item_number`,
+           ORDER BY qc.sort_order, qli.item_number, qli.id`,
           [q.id]
         )
       : Promise.resolve({ rows: [] as any[] }),
@@ -45,7 +48,7 @@ export async function loadProjectWorkbook(projectId: string, quoteId?: string | 
       categories.set(row.cat_id, cat);
     }
     if (row.item_id) {
-      cat.lineItems.push({ id: row.item_id, description: row.description || "", unitCost: Number(row.unit_cost) || 0, quantity: Number(row.quantity) || 0, markupPercent: Number(row.markup_percent) || 0 });
+      cat.lineItems.push({ id: row.item_id, description: row.description || "", unitCost: Number(row.unit_cost) || 0, quantity: Number(row.quantity) || 0, markupPercent: Number(row.markup_percent) || 0, projectAssetId: row.project_asset_id || undefined } as WorkbookLineItem);
     }
   }
 
