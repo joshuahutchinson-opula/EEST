@@ -1,6 +1,7 @@
 import { Router, Request, Response } from "express";
 import pool from "../db";
-import { requireProjectAccess } from "../lib/roles";
+import { requireProjectAccess, sessionUserName } from "../lib/roles";
+import { notifyTaskAssigned } from "../lib/alerts";
 import { removeTaskFromCalendar, syncTaskToCalendar } from "../lib/calendarSync";
 
 const router = Router();
@@ -47,6 +48,7 @@ router.post("/:projectId", async (req: Request, res: Response) => {
     );
     res.status(201).json(mapRow(result.rows[0]));
     void syncTaskToCalendar(result.rows[0].id);
+    if (result.rows[0].assignee) void notifyTaskAssigned(result.rows[0].id, sessionUserName(req));
   } catch (err) {
     console.error("POST /tasks/:projectId error:", err);
     res.status(500).json({ error: "Failed to create task" });
@@ -58,16 +60,21 @@ router.patch("/:projectId/:id", async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
     const { title, description, assignee, subcontractorId, status, priority, dueDate } = req.body;
+    const before = (await pool.query("SELECT assignee FROM tasks WHERE id = $1 AND project_id = $2", [id, req.params.projectId])).rows[0];
+    // A new due date re-arms the overdue alert.
     const result = await pool.query(
       `UPDATE tasks SET title=COALESCE($2,title), description=COALESCE($3,description),
        assignee=COALESCE($4,assignee), subcontractor_id=COALESCE($5,subcontractor_id), status=COALESCE($6,status),
-       priority=COALESCE($7,priority), due_date=COALESCE($8,due_date),
+       priority=COALESCE($7,priority),
+       overdue_notified_at = CASE WHEN $8::timestamptz IS NOT NULL AND $8::timestamptz IS DISTINCT FROM due_date THEN NULL ELSE overdue_notified_at END,
+       due_date=COALESCE($8,due_date),
        updated_at=NOW() WHERE id=$1 AND project_id=$9 RETURNING *`,
       [id, title, description, assignee, subcontractorId, status, priority, dueDate, req.params.projectId]
     );
     if (result.rows.length === 0) return res.status(404).json({ error: "Task not found" });
     res.json(mapRow(result.rows[0]));
     void syncTaskToCalendar(id);
+    if (result.rows[0].assignee && result.rows[0].assignee !== before?.assignee) void notifyTaskAssigned(id, sessionUserName(req));
   } catch (err) {
     console.error("PATCH /tasks/:projectId/:id error:", err);
     res.status(500).json({ error: "Failed to update task" });

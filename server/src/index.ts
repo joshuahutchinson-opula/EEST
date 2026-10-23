@@ -35,6 +35,7 @@ import calendarRouter from "./routes/calendar";
 import clientsRouter from "./routes/clients";
 import exportsRouter from "./routes/exports";
 import searchRouter from "./routes/search";
+import { startOverdueChecks } from "./lib/alerts";
 
 dotenv.config();
 
@@ -81,6 +82,7 @@ if (sentryEnabled) Sentry.setupExpressErrorHandler(app);
 
 initDB()
   .then(() => {
+    startOverdueChecks();
     app.listen(PORT, () => {
       console.log("Server running on port " + PORT);
     });

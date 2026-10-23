@@ -372,6 +372,8 @@ export async function initDB() {
       WHERE contacts = '[]'::jsonb AND contact_name IS NOT NULL AND contact_name != ''
     `);
     await client.query(`ALTER TABLE tasks ADD COLUMN IF NOT EXISTS subcontractor_id UUID REFERENCES subcontractors(id) ON DELETE SET NULL`);
+    // Set once the daily check has emailed the assignee that this task is overdue.
+    await client.query(`ALTER TABLE tasks ADD COLUMN IF NOT EXISTS overdue_notified_at TIMESTAMPTZ`);
     await client.query(`ALTER TABLE quote_line_items ADD COLUMN IF NOT EXISTS project_asset_id UUID REFERENCES project_assets(id) ON DELETE SET NULL`);
     // Set when someone edits an asset-synced line's cost by hand; the asset sync then leaves the cost alone.
     await client.query(`ALTER TABLE quote_line_items ADD COLUMN IF NOT EXISTS cost_overridden BOOLEAN DEFAULT FALSE`);

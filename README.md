@@ -55,6 +55,7 @@ Server (`server/.env`; see `server/.env.example` for details):
 | `UPLOAD_DIR` | in production | Where uploads are stored; point at a persistent volume |
 | `DEMO_USERNAME`, `DEMO_PASSWORD_HASH` | no | Optional demo account (bcrypt hash) |
 | `TEAM_EMAILS` | no | `Name=email` list for the Calendar tab and task events (defaults to firstname@domain) |
+| `MAIL_SENDER` | no | Mailbox email alerts are sent from (task assigned, client approval, overdue tasks); off when unset |
 | `SENTRY_DSN`, `SENTRY_ENVIRONMENT` | no | Server error monitoring; off when unset |
 | `NODE_ENV` | no | `production` enables SSL for the database connection |
 

@@ -3,6 +3,7 @@ import pool from "../db";
 import { signFileUrls } from "../lib/uploads";
 import { loadProjectWorkbook } from "../lib/workbookData";
 import { buildSectionRows } from "../lib/workbookTotals";
+import { notifyClientApproval } from "../lib/alerts";
 
 const MAX_SIGNATURE_LENGTH = 400_000; // characters of PNG data URL
 const money = (n: number) => Math.round(n * 100) / 100;
@@ -175,6 +176,7 @@ router.post("/status/:token/approve", async (req: Request, res: Response) => {
     );
     await client.query("COMMIT");
     res.json({ success: true });
+    void notifyClientApproval({ projectName: project.name, what, signerName: signerName.trim() });
   } catch (err) {
     await client.query("ROLLBACK").catch(() => {});
     console.error("POST /public/status/:token/approve error:", err);
