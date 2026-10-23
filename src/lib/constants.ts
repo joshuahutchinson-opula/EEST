@@ -16,7 +16,6 @@ export const TEAM = [
   { name: "Akeem", initials: "AK", color: "#f97316" },
 ];
 
-export const CURRENT_USER = TEAM[0];
 
 export const TEAM_ALPHABETICAL = [...TEAM].sort((a, b) => a.name.localeCompare(b.name));
 

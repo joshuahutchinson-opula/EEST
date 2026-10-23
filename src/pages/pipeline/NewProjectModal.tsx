@@ -1,13 +1,15 @@
 import { useState } from "react";
 import { motion } from "motion/react";
 import { ChevronDown, Plus, X } from "lucide-react";
-import { CURRENT_USER, G, PROJECT_COLUMNS, TEAM, TEAM_ALPHABETICAL } from "../../lib/constants";
-import { isTechRole, useRole } from "../../lib/contexts";
+import { G, PROJECT_COLUMNS, TEAM, TEAM_ALPHABETICAL } from "../../lib/constants";
+import { isTechRole, useRole, useSessionUser } from "../../lib/contexts";
+import { teamMemberFor } from "../../lib/utils";
 import { COLUMNS, SUPPORT_TYPES } from "./shared";
 import type { LeadSource, PipelineType, Project, ProjectStage, Stage, SupportType } from "../../types";
 
 export function NewProjectModal({ onClose, onAdd, pipelineType }: { onClose: () => void; onAdd: (p: Project) => void; pipelineType: PipelineType }) {
   const tech = isTechRole(useRole());
+  const me = teamMemberFor(useSessionUser().name);
   const [name, setName] = useState("");
   const [client, setClient] = useState("");
   const [location, setLocation] = useState("");
@@ -60,7 +62,7 @@ export function NewProjectModal({ onClose, onAdd, pipelineType }: { onClose: () 
       devices: 0,
       stage,
       risk,
-      assignee: CURRENT_USER,
+      assignee: me,
       dueDate: dueDate || new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10),
       summary: summary.trim() || undefined,
       notes: notes.trim() || undefined,
@@ -88,7 +90,7 @@ export function NewProjectModal({ onClose, onAdd, pipelineType }: { onClose: () 
       <div className="absolute inset-0" style={{ background: "rgba(0,0,0,0.65)", backdropFilter: "blur(8px)" }} />
       <motion.div initial={{ opacity: 0, scale: 0.94, y: 16 }} animate={{ opacity: 1, scale: 1, y: 0 }} exit={{ opacity: 0, scale: 0.94, y: 16 }} transition={{ type: "spring", damping: 26, stiffness: 360 }} onClick={(e) => e.stopPropagation()} className="relative z-10 w-full max-w-[600px] max-h-[90vh] overflow-y-auto rounded-3xl" style={{ background: "rgba(7,12,26,0.92)", backdropFilter: "blur(52px) saturate(200%)", border: "1px solid rgba(255,255,255,0.13)", boxShadow: "0 32px 80px rgba(0,0,0,0.9)" }}>
         <div className="flex items-center justify-between px-5 md:px-7 pt-5 md:pt-7 pb-5" style={{ borderBottom: "1px solid rgba(255,255,255,0.07)" }}>
-          <div><h2 className="text-white text-[1.2rem] md:text-[1.3rem] font-extrabold">New {pipelineType === "sales" ? "Sales" : "Project"} Project</h2><p className="text-[#8b949e] text-[14px] mt-0.5">Account Owner: {CURRENT_USER.name}</p></div>
+          <div><h2 className="text-white text-[1.2rem] md:text-[1.3rem] font-extrabold">New {pipelineType === "sales" ? "Sales" : "Project"} Project</h2><p className="text-[#8b949e] text-[14px] mt-0.5">Account Owner: {me.name}</p></div>
           <button onClick={onClose} className="w-8 h-8 rounded-xl flex items-center justify-center hover:bg-white/[0.08] cursor-pointer min-w-[44px] min-h-[44px]" style={{ border: "1px solid rgba(255,255,255,0.10)" }}><X className="w-4 h-4 text-[#8b949e]" /></button>
         </div>
         <form onSubmit={handleSubmit}>

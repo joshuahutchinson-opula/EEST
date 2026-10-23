@@ -1,5 +1,5 @@
 import { computeWorkbookTotals } from "../../server/src/lib/workbookTotals";
-import { DEFAULT_EXCHANGE_RATE } from "./constants";
+import { DEFAULT_EXCHANGE_RATE, TEAM } from "./constants";
 import type { Project, ProjectStage, Quote, Stage, SynthesisOverride } from "../types";
 
 export function downloadCSV(filename: string, rows: string[][]) {
@@ -79,4 +79,15 @@ export function computeSynthesisTotal(quote: Quote | undefined | null, overrides
   if (!quote || quote.categories.length === 0) return null;
   const totals = computeWorkbookTotals(quote.categories, overrides);
   return totals.subtotal > 0 ? totals.total : null;
+}
+
+// The signed-in user as a TEAM-style member (name, initials, colour). Matches the TEAM entry by
+// first name so initials and colour stay consistent with assignee badges elsewhere.
+export function teamMemberFor(sessionName: string): { name: string; initials: string; color: string } {
+  const first = sessionName.trim().split(/\s+/)[0]?.toLowerCase() || "";
+  const known = TEAM.find((t) => t.name.toLowerCase() === first);
+  if (known) return known;
+  const words = sessionName.trim().split(/\s+/).filter(Boolean);
+  const initials = words.length > 1 ? words[0][0] + words[words.length - 1][0] : (words[0] || "?").slice(0, 2);
+  return { name: sessionName.trim() || "Me", initials: initials.toUpperCase(), color: "#3b82f6" };
 }

@@ -7,8 +7,8 @@ import { API, ApiError, downloadBlob } from "../../api";
 import { ConfirmDialog } from "../../components/ConfirmDialog";
 import { EmptyState } from "../../components/EmptyState";
 import { Skeleton } from "../../components/Skeleton";
-import { CURRENT_USER, DEFAULT_EXCHANGE_RATE, G } from "../../lib/constants";
-import { useCurrency } from "../../lib/contexts";
+import { DEFAULT_EXCHANGE_RATE, G } from "../../lib/constants";
+import { useCurrency, useSessionUser } from "../../lib/contexts";
 import { makeFmt } from "../../lib/utils";
 import { AssetListTab } from "./AssetListTab";
 import { BomTab } from "./BomTab";
@@ -52,6 +52,7 @@ export const SYSTEM_CATEGORIES: Record<SystemType, { sectionNumber: number; name
 
 export function Workbook({ navigate }: { navigate: (p: Page) => void }) {
   const { currency } = useCurrency();
+  const sessionUser = useSessionUser();
   const [projects, setProjects] = useState<Project[]>([]);
   const [quotes, setQuotes] = useState<Quote[]>([]);
   const [loading, setLoading] = useState(true);
@@ -245,12 +246,12 @@ export function Workbook({ navigate }: { navigate: (p: Page) => void }) {
     const newDisplay = isOverridden ? String(value) : "auto-calculated";
     setFieldSaveStatus(prev => ({ ...prev, [fieldKey]: "saving" }));
     try {
-      await API.workbook.saveOverrides(selectedProjectId, [{ projectId: selectedProjectId, sectionNumber, overrideValue: value, isOverridden, overriddenBy: CURRENT_USER.name }]);
+      await API.workbook.saveOverrides(selectedProjectId, [{ projectId: selectedProjectId, sectionNumber, overrideValue: value, isOverridden, overriddenBy: sessionUser.name }]);
       if (oldDisplay !== newDisplay) API.workbook.logAudit(selectedProjectId, `Synthesis section ${sectionNumber} override`, oldDisplay, newDisplay).catch(() => {});
       setSynthesisOverrides(prev => {
         const existing = prev.findIndex(o => o.sectionNumber === sectionNumber);
-        if (existing >= 0) { const updated = [...prev]; updated[existing] = { ...updated[existing], overrideValue: value, isOverridden, overriddenBy: CURRENT_USER.name }; return updated; }
-        return [...prev, { id: crypto.randomUUID?.() || `ovr${Date.now()}`, projectId: selectedProjectId, sectionNumber, overrideValue: value, isOverridden, overriddenBy: CURRENT_USER.name, overriddenAt: new Date().toISOString() }];
+        if (existing >= 0) { const updated = [...prev]; updated[existing] = { ...updated[existing], overrideValue: value, isOverridden, overriddenBy: sessionUser.name }; return updated; }
+        return [...prev, { id: crypto.randomUUID?.() || `ovr${Date.now()}`, projectId: selectedProjectId, sectionNumber, overrideValue: value, isOverridden, overriddenBy: sessionUser.name, overriddenAt: new Date().toISOString() }];
       });
       setTimeout(() => setFieldSaveStatus(prev => ({ ...prev, [fieldKey]: "saved" })), 600);
     } catch { setFieldSaveStatus(prev => ({ ...prev, [fieldKey]: "" })); }

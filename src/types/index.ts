@@ -11,10 +11,7 @@ export interface CurrencyCtx {
 // security boundary is the backend, not this flag.
 export type Role = "admin" | "tech";
 
-// The real signed-in identity (from /api/auth/me), separate from RoleContext and from the
-// hardcoded CURRENT_USER constant below — needed wherever a view has to filter data down to
-// "assigned to me" (e.g. the Tech dashboard), which the TEAM-name-based CURRENT_USER can't do
-// once someone other than TEAM[0] is actually signed in.
+// The real signed-in identity (from /api/auth/me), separate from RoleContext.
 export interface SessionUserInfo { name: string; email: string }
 
 export type Page = "login" | "ops-dashboard" | "pipeline" | "projects" | "project-detail" | "workbook" | "install-tracker" | "device-library";
