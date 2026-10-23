@@ -16,6 +16,7 @@ import { GanttView } from "./GanttView";
 import { ProjectAssetsTab } from "./ProjectAssetsTab";
 import { SubcontractorTab } from "./SubcontractorTab";
 import type { AuditLogEntry, ChangeOrder, InstallZone, Page, Project, ProjectAsset, Quote, SynthesisOverride, TutorialStep } from "../../types";
+import { SELECTION_CHANGED } from "../../components/GlobalSearch";
 
 export const PD_OVERVIEW_STEPS: TutorialStep[] = [
   { target: "pd-stats", title: "Key Stats", description: "Value, live camera and device counts (pulled straight from the Assets tab), due date, and install progress." },
@@ -58,6 +59,7 @@ export function ProjectDetail({ navigate }: { navigate: (p: Page) => void }) {
     } catch { setProject(null); } finally { setLoading(false); }
   }, []);
   useEffect(() => { fetchProject(); }, [fetchProject]);
+  useEffect(() => { window.addEventListener(SELECTION_CHANGED, fetchProject); return () => window.removeEventListener(SELECTION_CHANGED, fetchProject); }, [fetchProject]);
 
   useEffect(() => {
     if (project) {

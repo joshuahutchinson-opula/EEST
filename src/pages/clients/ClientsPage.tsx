@@ -4,6 +4,7 @@ import { Building2, ChevronRight, Loader2, MapPin, Plus, Search, Trash2, Users }
 import { clsx } from "clsx";
 import { API, ApiError } from "../../api";
 import { EmptyState } from "../../components/EmptyState";
+import { SELECTION_CHANGED } from "../../components/GlobalSearch";
 import { Skeleton } from "../../components/Skeleton";
 import { G } from "../../lib/constants";
 import { isTechRole, useCurrency, useRole } from "../../lib/contexts";
@@ -23,6 +24,11 @@ export function ClientsPage({ navigate }: { navigate: (p: Page) => void }) {
   const [draft, setDraft] = useState<{ name: string; contacts: ClientContact[]; sites: string[] } | null>(null);
   const [saving, setSaving] = useState(false);
 
+  useEffect(() => {
+    const onChange = () => setSelectedId(localStorage.getItem("active_client_id"));
+    window.addEventListener(SELECTION_CHANGED, onChange);
+    return () => window.removeEventListener(SELECTION_CHANGED, onChange);
+  }, []);
   const loadList = useCallback(() => API.clients.list().then(setClients).catch(() => toast.error("Failed to load clients")).finally(() => setLoading(false)), []);
   useEffect(() => { loadList(); }, [loadList]);
   useEffect(() => {

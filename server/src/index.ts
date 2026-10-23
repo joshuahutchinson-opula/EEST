@@ -34,6 +34,7 @@ import filesRouter from "./routes/files";
 import calendarRouter from "./routes/calendar";
 import clientsRouter from "./routes/clients";
 import exportsRouter from "./routes/exports";
+import searchRouter from "./routes/search";
 
 dotenv.config();
 
@@ -70,6 +71,7 @@ app.use("/api/files", filesRouter);
 app.use("/api/calendar", calendarRouter);
 app.use("/api/clients", clientsRouter);
 app.use("/api/exports", exportsRouter);
+app.use("/api/search", searchRouter);
 
 app.get("/api/health", (_req, res) => {
   res.json({ status: "ok", timestamp: new Date().toISOString() });

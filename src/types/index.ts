@@ -215,6 +215,12 @@ export interface AsBuilt { serialNumber: string | null; macAddress: string | nul
 export interface ClientContact { name: string; title?: string; email?: string; phone?: string }
 export interface ClientSummary { id: string; name: string; contacts: ClientContact[]; sites: string[]; projectCount: number }
 export interface ClientDetail extends ClientSummary { projects: { id: string; name: string; value: number; stage: Stage; projectStage?: ProjectStage | null; pipelineType: PipelineType; location: string; dueDate: string; assigneeName: string }[] }
+export interface SearchResults {
+  projects: { id: string; name: string; client: string; pipelineType: PipelineType; stage: string }[];
+  clients: { id: string; name: string; projectCount: number }[];
+  devices: { id: string; name: string; sku?: string; category: string }[];
+  serials: { id: string; deviceName: string; serialNumber?: string; macAddress?: string; projectId: string; projectName: string }[];
+}
 export interface TeamMemberInfo { name: string; email: string }
 // An Outlook event; start/end are Jamaica local "YYYY-MM-DDTHH:mm:ss".
 export interface CalendarEvent { id: string; email: string; subject: string; start: string; end: string; isAllDay: boolean; location: string; notes: string; isTaskEvent: boolean; webLink?: string }

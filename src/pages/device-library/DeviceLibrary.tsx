@@ -9,6 +9,7 @@ import { DeviceImage } from "./DeviceImage";
 import { DeviceSpecModal } from "./DeviceSpecModal";
 import { CAT_COLOR_DS, TAG_STYLES } from "./shared";
 import type { CatalogDevice, DeviceLibraryTab, DeviceTag, InventoryItem, InventoryTransaction, Page, SystemType, TutorialStep } from "../../types";
+import { SELECTION_CHANGED } from "../../components/GlobalSearch";
 
 export const DEVICE_LIBRARY_STEPS: TutorialStep[] = [
   { target: "dl-search", title: "Search & Filter", description: "Search by model, SKU, or tag, or narrow down by category and system (VSS, EAC, Intercom)." },
@@ -20,7 +21,12 @@ export function DeviceLibrary({ navigate: _navigate }: { navigate: (p: Page) => 
   const tech = isTechRole(useRole());
   useAutoTutorial("device-library", DEVICE_LIBRARY_STEPS);
   const [activeTab, setActiveTab] = useState<DeviceLibraryTab>("store");
-  const [search, setSearch] = useState("");
+  const [search, setSearch] = useState(() => { const s = localStorage.getItem("device_library_search") || ""; localStorage.removeItem("device_library_search"); return s; });
+  useEffect(() => {
+    const onChange = () => { const s = localStorage.getItem("device_library_search"); if (s !== null) { setSearch(s); localStorage.removeItem("device_library_search"); } };
+    window.addEventListener(SELECTION_CHANGED, onChange);
+    return () => window.removeEventListener(SELECTION_CHANGED, onChange);
+  }, []);
   const [categoryFilter, setCategoryFilter] = useState<string>("all");
   const [systemFilter, setSystemFilter] = useState<SystemType | "all">("all");
   const [selectedDevice, setSelectedDevice] = useState<CatalogDevice | null>(null);
