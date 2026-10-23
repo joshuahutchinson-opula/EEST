@@ -112,14 +112,12 @@ export function isAllowedDomain(email: string): boolean {
   return email.toLowerCase().endsWith(`@${ALLOWED_EMAIL_DOMAIN}`);
 }
 
-// Two roles, decided by a hardcoded email deny-list rather than a database table.
-// Anyone not explicitly listed as "tech" defaults to "admin".
-const TECH_EMAILS = new Set([
-  "akeem@e-techsystemsja.com",
-  "marvin@e-techsystemsja.com",
-  "shanice@e-techsystemsja.com",
-  "shavene@e-techsystemsja.com",
-]);
+// Two roles, decided by an email list rather than a database table: anyone in TECH_EMAILS
+// (comma-separated env var) is "tech", everyone else "admin".
+const DEFAULT_TECH_EMAILS = "akeem@e-techsystemsja.com,marvin@e-techsystemsja.com,shanice@e-techsystemsja.com,shavene@e-techsystemsja.com";
+const TECH_EMAILS = new Set(
+  (process.env.TECH_EMAILS || DEFAULT_TECH_EMAILS).split(",").map((e) => e.trim().toLowerCase()).filter(Boolean)
+);
 
 export type Role = "admin" | "tech";
 
