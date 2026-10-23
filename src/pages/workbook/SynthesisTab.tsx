@@ -14,7 +14,7 @@ export const CONTINGENCY_REFERENCE_RATE = 0.10;
 export const SYNTHESIS_STEPS: TutorialStep[] = [
   { target: "wb-synth-table", title: "Section Subtotals", description: "Every section across Video, Access, and Intercom, grouped and collapsible. Click a value to override it manually — an override badge appears, with a reset button to go back to the auto-calculated figure." },
   { target: "wb-synth-total", title: "Grand Total", description: "The overall grand total, GCT (15%), and total with tax — this is the number that ultimately drives the client-facing quote." },
-  { target: "wb-synth-reference", title: "Reference Figures", description: "Suggested PM and contingency percentages, shown for reference only — they're never applied to any total automatically." },
+  { target: "wb-synth-reference", title: "Reference Figures", description: "Suggested PM fee and contingency percentages. Apply writes one of them into the contingency lines (700.5 and 1200.5); nothing changes until you click it." },
 ];
 
 export function SynthesisTab({ quoteCategories, synthesisOverrides, fmt, onSaveOverride, fieldSaveStatus }: { quoteCategories: QuoteCategory[]; synthesisOverrides: SynthesisOverride[]; fmt: (n: number, compact?: boolean) => string; onSaveOverride: (sectionNumber: string, value: number | null, isOverridden: boolean) => void; fieldSaveStatus: Record<string, "saved" | "saving" | "">; }) {
@@ -31,6 +31,16 @@ export function SynthesisTab({ quoteCategories, synthesisOverrides, fmt, onSaveO
 
   const suggestedPM = totals.subtotal * PM_REFERENCE_RATE;
   const suggestedContingency = totals.subtotal * CONTINGENCY_REFERENCE_RATE;
+  // Sets each system's contingency line (700.5 Video, 1200.5 Access) to rate x that system's
+  // total without its current contingency. Intercom has no contingency line.
+  const applyToContingencyLines = (rate: number) => {
+    for (const sys of totals.systems) {
+      const line = sys.sections.find(s => s.kind === "contingency");
+      if (!line) continue;
+      const base = sys.total - line.total;
+      if (base > 0) onSaveOverride(line.section, Math.round(base * rate * 100) / 100, true);
+    }
+  };
 
   const renderSection = (section: SectionTotal) => {
     const value = section.total;
@@ -85,9 +95,9 @@ export function SynthesisTab({ quoteCategories, synthesisOverrides, fmt, onSaveO
       </div>
       <div data-tour="wb-synth-reference" className="rounded-2xl p-4 mt-3" style={G.subtle}>
         <p className="text-[#8b949e] text-[12px] font-extrabold uppercase tracking-widest mb-2">Reference</p>
-        <div className="flex justify-between py-1"><span className="text-[#8b949e] text-[13px]">Suggested PM (5%)</span><span className="text-[#8b949e] text-[14px] font-extrabold">{fmt(suggestedPM)}</span></div>
-        <div className="flex justify-between py-1"><span className="text-[#8b949e] text-[13px]">Suggested Contingency (10%)</span><span className="text-[#8b949e] text-[14px] font-extrabold">{fmt(suggestedContingency)}</span></div>
-        <p className="text-[#484f58] text-[11px] italic mt-2">Not applied to any total — informational only.</p>
+        <div className="flex justify-between py-1"><span className="text-[#8b949e] text-[13px]">Suggested PM (5%)</span><span className="flex items-center gap-2"><span className="text-[#8b949e] text-[14px] font-extrabold">{fmt(suggestedPM)}</span><button onClick={() => applyToContingencyLines(PM_REFERENCE_RATE)} className="h-6 px-2 rounded-md text-[11px] font-extrabold text-white cursor-pointer" style={G.btn}>Apply</button></span></div>
+        <div className="flex justify-between py-1"><span className="text-[#8b949e] text-[13px]">Suggested Contingency (10%)</span><span className="flex items-center gap-2"><span className="text-[#8b949e] text-[14px] font-extrabold">{fmt(suggestedContingency)}</span><button onClick={() => applyToContingencyLines(CONTINGENCY_REFERENCE_RATE)} className="h-6 px-2 rounded-md text-[11px] font-extrabold text-white cursor-pointer" style={G.btn}>Apply</button></span></div>
+        <p className="text-[#484f58] text-[11px] italic mt-2">Apply sets the Video (700.5) and Access (1200.5) contingency lines to that percentage of each system's total. Intercom has no contingency line.</p>
       </div>
     </div>
   );
