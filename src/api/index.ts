@@ -96,6 +96,7 @@ export const API = {
     delete: (id: string) => apiFetch<void>(`/projects/${id}`, { method: "DELETE" }),
     generateShareLink: (id: string) => apiFetch<{ token: string }>(`/projects/${id}/share-link`, { method: "POST" }),
     revokeShareLink: (id: string) => apiFetch<void>(`/projects/${id}/share-link`, { method: "DELETE" }),
+    closeoutReport: (id: string) => apiFetchBlob(`/projects/${id}/closeout-report`),
   },
   quotes: {
     list: () => apiFetch<Quote[]>("/quotes"),

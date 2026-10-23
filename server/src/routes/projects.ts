@@ -2,6 +2,7 @@ import { Router, Request, Response } from "express";
 import crypto from "crypto";
 import pool from "../db";
 import { isTech, requireAdmin } from "../lib/roles";
+import { buildCloseoutReport } from "../lib/closeoutReport";
 
 const router = Router();
 
@@ -193,6 +194,21 @@ router.delete("/:id/share-link", requireAdmin, async (req: Request, res: Respons
   } catch (err) {
     console.error("DELETE /projects/:id/share-link error:", err);
     res.status(500).json({ error: "Failed to revoke share link" });
+  }
+});
+
+// GET /api/projects/:id/closeout-report — internal close-out report (Word). Admin only: it shows
+// cost and margin.
+router.get("/:id/closeout-report", requireAdmin, async (req: Request, res: Response) => {
+  try {
+    const report = await buildCloseoutReport(req.params.id);
+    if (!report) return res.status(404).json({ error: "Project not found" });
+    res.setHeader("Content-Type", "application/vnd.openxmlformats-officedocument.wordprocessingml.document");
+    res.setHeader("Content-Disposition", `attachment; filename="${report.filename}"`);
+    res.send(report.buffer);
+  } catch (err) {
+    console.error("GET /projects/:id/closeout-report error:", err);
+    res.status(500).json({ error: "Failed to generate close-out report" });
   }
 });
 

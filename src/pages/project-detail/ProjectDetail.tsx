@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { toast } from "sonner";
 import { motion } from "motion/react";
-import { Activity, AlertTriangle, Building2, Calendar, Camera, CheckCircle2, CheckSquare, ChevronRight, Clock, Copy, DollarSign, FileDown, Fingerprint, History, MapPin, Package, Plus, Share2 } from "lucide-react";
+import { Activity, AlertTriangle, Building2, Calendar, Camera, CheckCircle2, CheckSquare, ChevronRight, Clock, Copy, DollarSign, FileDown, Fingerprint, History, MapPin, Package, Plus, Share2, FileText } from "lucide-react";
 import { clsx } from "clsx";
 import { API, downloadBlob } from "../../api";
 import { DocumentList } from "../../components/DocumentList";
@@ -142,6 +142,7 @@ export function ProjectDetail({ navigate }: { navigate: (p: Page) => void }) {
           {[{ label: "Assets", icon: Package, action: () => setActiveTab("assets") },{ label: "Installation", icon: CheckSquare, action: () => navigate("install-tracker") }].map(({ label, icon: Icon, action }) => (
             <button key={label} onClick={action} className="flex items-center gap-1.5 h-9 px-3 md:px-4 rounded-xl text-white text-[13px] md:text-[14px] font-bold hover:bg-white/[0.10] cursor-pointer min-h-[44px]" style={G.btn}><Icon className="w-3.5 h-3.5" /> {label}</button>
           ))}
+          {!tech && isProjPipe && (p.projectStage === "commissioning" || p.projectStage === "complete") && <button onClick={async () => { try { const { blob, filename } = await API.projects.closeoutReport(p.id); downloadBlob(blob, filename); toast.success("Close-out report generated"); } catch { toast.error("Failed to generate close-out report"); } }} className="flex items-center gap-1.5 h-9 px-3 rounded-xl text-white text-[13px] font-bold cursor-pointer" style={G.btn} title="Internal close-out report (Word)"><FileText className="w-3.5 h-3.5" /> Close-out report</button>}
           {!tech && <button onClick={handleGenerateShareLink} className="flex items-center gap-1.5 h-9 px-3 rounded-xl text-white text-[13px] font-bold cursor-pointer" style={G.btn}><Share2 className="w-3.5 h-3.5" /> Share</button>}
         </div>
       </div>
