@@ -5,6 +5,7 @@ import { computeWorkbookTotals, type SectionTotal } from "../../../server/src/li
 import { G, SYSTEM_DISPLAY } from "../../lib/constants";
 import { useAutoTutorial } from "../../lib/contexts";
 import { OverrideIndicator } from "./OverrideIndicator";
+import { displayMoney } from "./shared";
 import type { QuoteCategory, SynthesisOverride, TutorialStep } from "../../types";
 
 export const PM_REFERENCE_RATE = 0.05;
@@ -17,7 +18,7 @@ export const SYNTHESIS_STEPS: TutorialStep[] = [
   { target: "wb-synth-reference", title: "Reference Figures", description: "Suggested PM fee and contingency percentages. Apply writes one of them into the contingency lines (700.5 and 1200.5); nothing changes until you click it." },
 ];
 
-export function SynthesisTab({ quoteCategories, synthesisOverrides, fmt, onSaveOverride, fieldSaveStatus }: { quoteCategories: QuoteCategory[]; synthesisOverrides: SynthesisOverride[]; fmt: (n: number, compact?: boolean) => string; onSaveOverride: (sectionNumber: string, value: number | null, isOverridden: boolean) => void; fieldSaveStatus: Record<string, "saved" | "saving" | "">; }) {
+export function SynthesisTab({ quoteCategories, synthesisOverrides, currency, exchangeRate, fmt, onSaveOverride, fieldSaveStatus }: { quoteCategories: QuoteCategory[]; synthesisOverrides: SynthesisOverride[]; currency: "USD" | "JMD"; exchangeRate: number; fmt: (n: number, compact?: boolean) => string; onSaveOverride: (sectionNumber: string, value: number | null, isOverridden: boolean) => void; fieldSaveStatus: Record<string, "saved" | "saving" | "">; }) {
   useAutoTutorial("workbook.synthesis", SYNTHESIS_STEPS);
   const [collapsed, setCollapsed] = useState<Record<string, boolean>>({});
   const [editingSection, setEditingSection] = useState<string | null>(null);
@@ -25,8 +26,10 @@ export function SynthesisTab({ quoteCategories, synthesisOverrides, fmt, onSaveO
 
   const totals = useMemo(() => computeWorkbookTotals(quoteCategories, synthesisOverrides), [quoteCategories, synthesisOverrides]);
 
-  const handleStartEdit = (sectionNumber: string, currentValue: number) => { setEditingSection(sectionNumber); setEditValue(String(currentValue)); };
-  const handleSaveEdit = (sectionNumber: string) => { const val = parseFloat(editValue) || 0; onSaveOverride(sectionNumber, val, true); setEditingSection(null); };
+  // The override is typed in the displayed currency and stored in USD.
+  const { toDisplay, fromDisplay } = displayMoney(currency, exchangeRate);
+  const handleStartEdit = (sectionNumber: string, currentValue: number) => { setEditingSection(sectionNumber); setEditValue(String(Number(toDisplay(currentValue).toFixed(2)))); };
+  const handleSaveEdit = (sectionNumber: string) => { const val = fromDisplay(parseFloat(editValue) || 0); onSaveOverride(sectionNumber, Math.round(val * 100) / 100, true); setEditingSection(null); };
   const handleResetOverride = (sectionNumber: string) => { onSaveOverride(sectionNumber, null, false); };
 
   const suggestedPM = totals.subtotal * PM_REFERENCE_RATE;
@@ -68,7 +71,7 @@ export function SynthesisTab({ quoteCategories, synthesisOverrides, fmt, onSaveO
       <div data-tour="wb-synth-table" className="rounded-2xl overflow-hidden" style={G.card}>
         <div className="overflow-x-auto">
           <table className="w-full" style={{ minWidth: "700px" }}>
-            <thead><tr style={{ borderBottom: "1px solid rgba(255,255,255,0.08)", background: "rgba(255,255,255,0.03)" }}><th className="px-3 py-2.5 text-[#8b949e] text-[11px] font-extrabold uppercase tracking-widest text-left">Item No</th><th className="px-3 py-2.5 text-[#8b949e] text-[11px] font-extrabold uppercase tracking-widest text-left">DESIGNATION</th><th className="px-3 py-2.5 text-[#8b949e] text-[11px] font-extrabold uppercase tracking-widest text-right">Unit Price</th></tr></thead>
+            <thead><tr style={{ borderBottom: "1px solid rgba(255,255,255,0.08)", background: "rgba(255,255,255,0.03)" }}><th className="px-3 py-2.5 text-[#8b949e] text-[11px] font-extrabold uppercase tracking-widest text-left">Item No</th><th className="px-3 py-2.5 text-[#8b949e] text-[11px] font-extrabold uppercase tracking-widest text-left">DESIGNATION</th><th className="px-3 py-2.5 text-[#8b949e] text-[11px] font-extrabold uppercase tracking-widest text-right">Section Total</th></tr></thead>
             <tbody>
               {totals.systems.map((sys, i) => {
                 const meta = SYSTEM_DISPLAY[sys.system];
