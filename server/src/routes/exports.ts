@@ -12,7 +12,8 @@ const csvCell = (v: string | number) => {
   const s = String(v ?? "");
   return /[",\n\r]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
 };
-const money = (n: number) => (Math.round(n * 100) / 100).toFixed(2);
+const cents = (n: number) => Math.round(n * 100) / 100;
+const money = (n: number) => cents(n).toFixed(2);
 // QuickBooks reads dates in the company's date format; Jamaica uses day/month/year.
 const qbDate = (d: Date) => `${String(d.getDate()).padStart(2, "0")}/${String(d.getMonth() + 1).padStart(2, "0")}/${d.getFullYear()}`;
 
@@ -42,20 +43,29 @@ router.get("/quickbooks.csv", async (req: Request, res: Response) => {
       const wb = await loadProjectWorkbook(q.project_id, q.id);
       if (!wb?.quote) continue;
       const rate = wb.quote.exchangeRate;
-      const rows = buildSectionRows(wb.totals, wb.categories);
+      // Invoices go to the client, so Synthesis overrides are folded into the rows like the proposal.
+      const rows = buildSectionRows(wb.totals, wb.categories, { foldAdjustments: true });
       const date = new Date(q.approved_at);
       const due = new Date(date);
       due.setDate(due.getDate() + 30);
       const invoiceNo = `${q.ref_number || "Q"}-R${q.revision}`;
+      const invoiceLines: { section: { section: string; name: string }; description: string; quantity: number; rate: number; amount: number }[] = [];
       for (const s of wb.totals.sections) {
         for (const r of rows.get(s.section) || []) {
-          const amount = r.extended * rate;
-          lines.push([
-            invoiceNo, q.client, qbDate(date), qbDate(due), `${q.project_name} (${s.section} ${s.name})`,
-            s.name, r.kind === "adjustment" ? "Price adjustment" : r.description, r.quantity, money(r.unitPrice * rate), money(amount),
-            "GCT", money(amount * GCT_RATE), "JMD", money(wb.totals.subtotal * rate), money(wb.totals.gct * rate), money(wb.totals.total * rate),
-          ].map(csvCell).join(","));
+          invoiceLines.push({ section: s, description: r.description, quantity: r.quantity, rate: cents(r.unitPrice * rate), amount: cents(r.extended * rate) });
         }
+      }
+      // Per-line rounding can leave the lines a cent or two off the subtotal; the difference goes
+      // on the largest quantity-1 line so the invoice adds up exactly.
+      const drift = cents(cents(wb.totals.subtotal * rate) - invoiceLines.reduce((sum, l) => sum + l.amount, 0));
+      const absorb = invoiceLines.filter((l) => l.quantity === 1).sort((a, b) => b.amount - a.amount)[0];
+      if (drift !== 0 && absorb) { absorb.amount = cents(absorb.amount + drift); absorb.rate = absorb.amount; }
+      for (const l of invoiceLines) {
+        lines.push([
+          invoiceNo, q.client, qbDate(date), qbDate(due), `${q.project_name} (${l.section.section} ${l.section.name})`,
+          l.section.name, l.description, l.quantity, money(l.rate), money(l.amount),
+          "GCT", money(l.amount * GCT_RATE), "JMD", money(wb.totals.subtotal * rate), money(wb.totals.gct * rate), money(wb.totals.total * rate),
+        ].map(csvCell).join(","));
       }
     }
     const stamp = new Date().toISOString().slice(0, 10);
