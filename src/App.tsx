@@ -3392,7 +3392,7 @@ function CostMarginTab({ quoteCategories, exchangeRate, fmt, onLineItemUpdate, o
                     return (
                       <tr key={li.id} style={{ borderBottom: "1px solid rgba(255,255,255,0.03)", borderLeft: incomplete ? "3px solid #f59e0b" : "3px solid transparent" }}>
                         <td className="px-3 py-2 text-[#8b949e] text-[12px] font-mono">{itemNumber}</td>
-                        <td className="px-3 py-2 text-white text-[13px] font-bold"><span className="flex items-center gap-1.5">{incomplete && <span title={li.unitCost === 0 ? "Cost is $0 — pricing incomplete" : "Markup is 0% — pricing incomplete"} className="flex-shrink-0"><AlertTriangle className="w-3 h-3 text-amber-400" /></span>}{li.description}</span></td>
+                        <td className="px-3 py-2 text-white text-[13px] font-bold"><span className="flex items-center gap-1.5">{incomplete && <span title={li.unitCost === 0 ? "Cost is $0 — pricing incomplete" : "Markup is 0% — pricing incomplete"} className="flex-shrink-0"><AlertTriangle className="w-3 h-3 text-amber-400" /></span>}{li.projectAssetId ? li.description : <InlineEditCell value={li.description} placeholder="Description" onChange={(val) => onLineItemUpdate(category.id, li.id, { description: val })} />}</span></td>
                         <td className="px-3 py-2 text-center"><InlineEditCell type="number" value={li.quantity} onChange={(val) => onLineItemUpdate(category.id, li.id, { quantity: parseInt(val) || 0 })} /></td>
                         <td className="px-3 py-2 text-right"><InlineEditCell type="number" value={li.unitCost} onChange={(val) => onLineItemUpdate(category.id, li.id, { unitCost: parseFloat(val) || 0 })} /></td>
                         <td className="px-3 py-2 text-right"><InlineEditCell type="number" value={Math.round(li.markupPercent * 100)} onChange={(val) => onLineItemUpdate(category.id, li.id, { markupPercent: (parseFloat(val) || 0) / 100 })} /><span className="text-[#8b949e] text-[12px]">%</span></td>
@@ -3749,7 +3749,13 @@ function Workbook({ navigate }: { navigate: (p: Page) => void }) {
   const exchangeRate = toNum(selectedQuote?.exchangeRate, DEFAULT_EXCHANGE_RATE);
   const quoteCategories = selectedQuote?.categories || [];
 
-  const autoSave = useCallback(async (q: Quote) => { setSaveStatus("saving"); try { await API.quotes.update(q.id, { categories: q.categories }); setTimeout(() => setSaveStatus("saved"), 800); } catch { setSaveStatus("saved"); } }, []);
+  // Rows added here stay local until they get a description, so empty rows never reach the quote.
+  const draftItemIds = useRef<Set<string>>(new Set());
+  const autoSave = useCallback(async (q: Quote) => {
+    setSaveStatus("saving");
+    const categories = q.categories.map(c => ({ ...c, lineItems: c.lineItems.filter(li => !draftItemIds.current.has(li.id)) }));
+    try { await API.quotes.update(q.id, { categories }); setTimeout(() => setSaveStatus("saved"), 800); } catch { setSaveStatus("saved"); }
+  }, []);
 
   const updateQuoteLineItem = (categoryId: string, itemId: string, updates: Partial<QuoteLineItem>) => {
     const fieldKey = `li-${categoryId}-${itemId}`;
@@ -3760,6 +3766,10 @@ function Workbook({ navigate }: { navigate: (p: Page) => void }) {
         if (cat.id !== categoryId) return cat;
         return { ...cat, lineItems: cat.lineItems.map((li) => {
           if (li.id !== itemId) return li;
+          if (draftItemIds.current.has(itemId)) {
+            if (!(updates.description ?? li.description).trim()) return recalcLineItem({ ...li, ...updates }, exchangeRate);
+            draftItemIds.current.delete(itemId);
+          }
           (Object.keys(updates) as (keyof QuoteLineItem)[]).forEach((key) => {
             if (key === "id") return;
             const oldVal = li[key];
@@ -3783,10 +3793,10 @@ function Workbook({ navigate }: { navigate: (p: Page) => void }) {
       const updated = { ...q, categories: q.categories.map((cat) => {
         if (cat.id !== categoryId) return cat;
         const defaultMarkup = SYSTEM_CATEGORIES[cat.system]?.find((s) => s.sectionNumber === cat.sectionNumber)?.defaultMarkup ?? 0.35;
-        const newItem: QuoteLineItem = { id: crypto.randomUUID?.() || `li${Date.now()}`, itemNumber: String(cat.lineItems.length + 1).padStart(2, "0"), description: "", unitCost: 0, quantity: 0, markupPercent: defaultMarkup, sellPrice: 0, costTotal: 0, sellTotal: 0, profit: 0, jmdConversion: 0 };
+        const newItem: QuoteLineItem = { id: crypto.randomUUID?.() || `li${Date.now()}`, itemNumber: String(cat.lineItems.length + 1).padStart(2, "0"), description: "", unitCost: 0, quantity: 1, markupPercent: defaultMarkup, sellPrice: 0, costTotal: 0, sellTotal: 0, profit: 0, jmdConversion: 0 };
+        draftItemIds.current.add(newItem.id);
         return { ...cat, lineItems: [...cat.lineItems, newItem] };
       }) };
-      autoSave(updated);
       return updated;
     }));
   };
