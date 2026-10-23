@@ -1,11 +1,11 @@
 import { Fragment } from "react";
-import { AlertTriangle, CheckCircle2, Loader2, PlusCircle, RotateCcw } from "lucide-react";
+import { AlertTriangle, CheckCircle2, GripVertical, Loader2, PlusCircle, RotateCcw, Trash2 } from "lucide-react";
 import { clsx } from "clsx";
 import { InlineEditCell } from "../../components/InlineEditCell";
 import { G } from "../../lib/constants";
 import { useAutoTutorial } from "../../lib/contexts";
 import { PriceDeviationBadge } from "./PriceDeviationBadge";
-import { displayMoney, recalcLineItem } from "./shared";
+import { displayMoney, recalcLineItem, useLineItemReorder } from "./shared";
 import type { QuoteCategory, QuoteLineItem, SystemType, TutorialStep } from "../../types";
 
 export const COST_MARGIN_STEPS: TutorialStep[] = [
@@ -13,10 +13,11 @@ export const COST_MARGIN_STEPS: TutorialStep[] = [
   { target: "wb-cm-table", title: "Cost & Margin Table", description: "Click any Qty, Cost, or Markup % cell to edit it inline — Sell Price, Total Cost, Total Sell, and Profit recalculate automatically, plus an Import line where a section carries an import rate. This data is internal only and never appears in client exports." },
 ];
 
-export function CostMarginTab({ quoteCategories, exchangeRate, currency, fmt: _fmt, onLineItemUpdate, onAddLineItem, onResetCost, priceDeviation, fieldSaveStatus, systemFilter, onSystemFilterChange }: { quoteCategories: QuoteCategory[]; exchangeRate: number; currency: "USD" | "JMD"; fmt: (n: number, compact?: boolean) => string; onLineItemUpdate: (categoryId: string, itemId: string, updates: Partial<QuoteLineItem>) => void; onAddLineItem: (categoryId: string) => void; onResetCost: (categoryId: string, itemId: string) => void; priceDeviation: (li: QuoteLineItem) => number | null; fieldSaveStatus: Record<string, "saved" | "saving" | "">; systemFilter: SystemType; onSystemFilterChange: (s: SystemType) => void; }) {
+export function CostMarginTab({ quoteCategories, exchangeRate, currency, fmt: _fmt, onLineItemUpdate, onAddLineItem, onDeleteLineItem, onReorderLineItems, onResetCost, priceDeviation, fieldSaveStatus, systemFilter, onSystemFilterChange }: { quoteCategories: QuoteCategory[]; exchangeRate: number; currency: "USD" | "JMD"; fmt: (n: number, compact?: boolean) => string; onLineItemUpdate: (categoryId: string, itemId: string, updates: Partial<QuoteLineItem>) => void; onAddLineItem: (categoryId: string) => void; onDeleteLineItem: (categoryId: string, itemId: string) => void; onReorderLineItems: (categoryId: string, orderedIds: string[]) => void; onResetCost: (categoryId: string, itemId: string) => void; priceDeviation: (li: QuoteLineItem) => number | null; fieldSaveStatus: Record<string, "saved" | "saving" | "">; systemFilter: SystemType; onSystemFilterChange: (s: SystemType) => void; }) {
   useAutoTutorial("workbook.cost-margin", COST_MARGIN_STEPS);
   const { toDisplay, fromDisplay } = displayMoney(currency, exchangeRate);
   const shown = (usd: number) => toDisplay(usd).toFixed(2);
+  const { handleProps, rowProps } = useLineItemReorder(onReorderLineItems);
   const filteredCategories = quoteCategories.filter(c => c.system === systemFilter && c.sectionNumber !== 800 && c.sectionNumber !== 1300 && c.sectionNumber !== 1800);
   const importCategories = quoteCategories.filter(c => c.system === systemFilter && (c.sectionNumber === 800 || c.sectionNumber === 1300 || c.sectionNumber === 1800));
 
@@ -48,9 +49,9 @@ export function CostMarginTab({ quoteCategories, exchangeRate, currency, fmt: _f
                     const itemNumber = category.lineItems.filter(x => x.quantity > 0).length > 1 ? `${category.sectionNumber}.${i + 1}` : String(category.sectionNumber);
                     const incomplete = li.unitCost === 0 || li.markupPercent === 0;
                     return (
-                      <tr key={li.id} style={{ borderBottom: "1px solid rgba(255,255,255,0.03)", borderLeft: incomplete ? "3px solid #f59e0b" : "3px solid transparent" }}>
-                        <td className="px-3 py-2 text-[#8b949e] text-[12px] font-mono">{itemNumber}</td>
-                        <td className="px-3 py-2 text-white text-[13px] font-bold"><span className="flex items-center gap-1.5">{incomplete && <span title={li.unitCost === 0 ? "Cost is $0 — pricing incomplete" : "Markup is 0% — pricing incomplete"} className="flex-shrink-0"><AlertTriangle className="w-3 h-3 text-amber-400" /></span>}{li.projectAssetId ? li.description : <InlineEditCell value={li.description} placeholder="Description" onChange={(val) => onLineItemUpdate(category.id, li.id, { description: val })} />}</span></td>
+                      <tr key={li.id} {...rowProps(category.id, li.id, category.lineItems.filter(x => x.quantity > 0).map(x => x.id))} style={{ borderBottom: "1px solid rgba(255,255,255,0.03)", borderLeft: incomplete ? "3px solid #f59e0b" : "3px solid transparent" }}>
+                        <td className="px-3 py-2 text-[#8b949e] text-[12px] font-mono"><span className="inline-flex items-center gap-1"><span {...handleProps(category.id, li.id)} className="cursor-grab" title="Drag to reorder"><GripVertical className="w-3 h-3 text-[#484f58]" /></span>{itemNumber}</span></td>
+                        <td className="px-3 py-2 text-white text-[13px] font-bold"><span className="flex items-center gap-1.5">{incomplete && <span title={li.unitCost === 0 ? "Cost is $0 — pricing incomplete" : "Markup is 0% — pricing incomplete"} className="flex-shrink-0"><AlertTriangle className="w-3 h-3 text-amber-400" /></span>}{li.projectAssetId ? li.description : <InlineEditCell value={li.description} placeholder="Description" onChange={(val) => onLineItemUpdate(category.id, li.id, { description: val })} />}{!li.projectAssetId && <button onClick={() => onDeleteLineItem(category.id, li.id)} className="ml-auto w-5 h-5 rounded flex items-center justify-center cursor-pointer hover:bg-rose-500/10" title="Delete line item"><Trash2 className="w-3 h-3 text-rose-400" /></button>}</span></td>
                         <td className="px-3 py-2 text-center"><InlineEditCell type="number" value={li.quantity} onChange={(val) => onLineItemUpdate(category.id, li.id, { quantity: parseInt(val) || 0 })} /></td>
                         <td className="px-3 py-2 text-right"><span className="inline-flex items-center justify-end gap-1">{li.projectAssetId && li.costOverridden && <button onClick={() => onResetCost(category.id, li.id)} className="w-5 h-5 rounded flex items-center justify-center cursor-pointer hover:bg-white/[0.08]" title="Cost edited by hand — click to use the asset's cost again"><RotateCcw className="w-3 h-3 text-amber-400" /></button>}<InlineEditCell type="number" value={Number(toDisplay(li.unitCost).toFixed(2))} onChange={(val) => onLineItemUpdate(category.id, li.id, { unitCost: fromDisplay(parseFloat(val) || 0) })} />{(() => { const dev = priceDeviation(li); return dev !== null && <PriceDeviationBadge deviation={dev} />; })()}</span></td>
                         <td className="px-3 py-2 text-right"><InlineEditCell type="number" value={Math.round(li.markupPercent * 100)} onChange={(val) => onLineItemUpdate(category.id, li.id, { markupPercent: (parseFloat(val) || 0) / 100 })} /><span className="text-[#8b949e] text-[12px]">%</span></td>

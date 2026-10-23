@@ -351,6 +351,35 @@ router.delete("/line-items/:itemId", requireAdmin, async (req: Request, res: Res
   }
 });
 
+// PUT /api/quotes/categories/:categoryId/order  { itemIds } — renumbers the category's line items
+// in that order. Ordering isn't content, so it doesn't bump versions.
+router.put("/categories/:categoryId/order", requireAdmin, async (req: Request, res: Response) => {
+  const { categoryId } = req.params;
+  const { itemIds } = req.body;
+  if (!Array.isArray(itemIds) || itemIds.some((id) => typeof id !== "string")) return res.status(400).json({ error: "itemIds must be an array of ids" });
+  const client = await pool.connect();
+  try {
+    const existing = await client.query(`SELECT id FROM quote_line_items WHERE category_id::text = $1`, [categoryId]);
+    const known = new Set(existing.rows.map((r: any) => r.id));
+    if (itemIds.some((id: string) => !known.has(id))) return res.status(400).json({ error: "Every id must belong to this category" });
+    // Items not listed keep their relative order after the listed ones.
+    const rest = existing.rows.map((r: any) => r.id).filter((id: string) => !itemIds.includes(id));
+    await client.query("BEGIN");
+    const ordered = [...itemIds, ...rest];
+    for (let i = 0; i < ordered.length; i++) {
+      await client.query(`UPDATE quote_line_items SET item_number = $2 WHERE id = $1`, [ordered[i], String(i + 1).padStart(2, "0")]);
+    }
+    await client.query("COMMIT");
+    res.json({ success: true });
+  } catch (err) {
+    await client.query("ROLLBACK").catch(() => {});
+    console.error("PUT /quotes/categories/:categoryId/order error:", err);
+    res.status(500).json({ error: "Failed to reorder line items" });
+  } finally {
+    client.release();
+  }
+});
+
 // POST /api/quotes/line-items/:itemId/reset-cost — drop a manual cost override on an asset-synced
 // line and take the cost from its asset again.
 router.post("/line-items/:itemId/reset-cost", requireAdmin, async (req: Request, res: Response) => {

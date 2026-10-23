@@ -107,6 +107,7 @@ export const API = {
     createLineItem: (quoteId: string, data: Partial<QuoteLineItem> & { categoryId: string }) => apiFetch<QuoteLineItem>(`/quotes/${quoteId}/line-items`, { method: "POST", body: JSON.stringify(data) }),
     updateLineItem: (itemId: string, data: Partial<QuoteLineItem> & { version: number }) => apiFetch<QuoteLineItem>(`/quotes/line-items/${itemId}`, { method: "PATCH", body: JSON.stringify(data) }),
     deleteLineItem: (itemId: string, version: number) => apiFetch<void>(`/quotes/line-items/${itemId}?version=${version}`, { method: "DELETE" }),
+    reorderLineItems: (categoryId: string, itemIds: string[]) => apiFetch<void>(`/quotes/categories/${categoryId}/order`, { method: "PUT", body: JSON.stringify({ itemIds }) }),
   },
   devices: {
     list: () => apiFetch<CatalogDevice[]>("/devices"),

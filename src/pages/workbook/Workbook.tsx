@@ -60,6 +60,7 @@ export function Workbook({ navigate }: { navigate: (p: Page) => void }) {
   const [selectedQuoteId, setSelectedQuoteId] = useState<string>("");
   const [showProjectSelect, setShowProjectSelect] = useState(false);
   const [rateUpdate, setRateUpdate] = useState<{ liveRate: number } | null>(null);
+  const [pendingDelete, setPendingDelete] = useState<{ categoryId: string; item: QuoteLineItem } | null>(null);
   const [priceHistoryAvg, setPriceHistoryAvg] = useState<Record<string, number>>({});
   const [activeTab, setActiveTab] = useState<WorkbookTab>(() => (localStorage.getItem("wb_tab") as WorkbookTab) || "asset-list");
   const [saveStatus, setSaveStatus] = useState<"saved" | "saving" | "">("saved");
@@ -225,6 +226,42 @@ export function Workbook({ navigate }: { navigate: (p: Page) => void }) {
     });
   };
 
+  const removeLineItemLocally = (itemId: string) =>
+    setQuotes(prev => prev.map(q => ({ ...q, categories: q.categories.map(c => ({ ...c, lineItems: c.lineItems.filter(li => li.id !== itemId) })) })));
+
+  const requestDeleteLineItem = (categoryId: string, itemId: string) => {
+    const item = selectedQuote?.categories.find(c => c.id === categoryId)?.lineItems.find(li => li.id === itemId);
+    if (!item) return;
+    if (draftItemIds.current.has(itemId)) { draftItemIds.current.delete(itemId); removeLineItemLocally(itemId); return; }
+    setPendingDelete({ categoryId, item });
+  };
+
+  const confirmDeleteLineItem = () => {
+    if (!pendingDelete) return;
+    const { categoryId, item } = pendingDelete;
+    const categoryName = selectedQuote?.categories.find(c => c.id === categoryId)?.name || "";
+    setPendingDelete(null);
+    enqueueSave(item.id, async (currentId) => {
+      try {
+        await API.quotes.deleteLineItem(currentId, itemVersions.current.get(currentId) ?? item.version ?? 1);
+        removeLineItemLocally(currentId);
+        API.workbook.logAudit(selectedProjectId, `${categoryName} — ${item.description} — deleted`, item.description, "").catch(() => {});
+      } catch (err) {
+        if (!handleSaveConflict(currentId, err)) toast.error(((err instanceof ApiError ? (err.body as { error?: string } | null)?.error : null)) || "Failed to delete line item");
+      }
+    });
+  };
+
+  const reorderLineItems = (categoryId: string, orderedIds: string[]) => {
+    setQuotes(prev => prev.map(q => ({ ...q, categories: q.categories.map(c => {
+      if (c.id !== categoryId) return c;
+      const byId = new Map(c.lineItems.map(li => [li.id, li]));
+      const ordered = [...orderedIds.map(id => byId.get(id)!).filter(Boolean), ...c.lineItems.filter(li => !orderedIds.includes(li.id))];
+      return { ...c, lineItems: ordered.map((li, i) => ({ ...li, itemNumber: String(i + 1).padStart(2, "0") })) };
+    }) })));
+    API.quotes.reorderLineItems(categoryId, orderedIds.filter(id => !draftItemIds.current.has(id))).catch(() => toast.error("Failed to save the new order"));
+  };
+
   const addLineItem = (categoryId: string) => {
     setQuotes((prev) => prev.map((q) => {
       if (q.id !== selectedQuoteId) return q;
@@ -305,6 +342,7 @@ export function Workbook({ navigate }: { navigate: (p: Page) => void }) {
       {overrideConflict && <OverrideConflictModal open={true} sectionName={overrideConflict.sectionName} onUpdateOverride={() => { overrideConflict.pendingCallback?.(); handleSaveOverride(overrideConflict.sectionNumber, null, false); setOverrideConflict(null); }} onKeepOverride={() => { overrideConflict.pendingCallback?.(); setOverrideConflict(null); }} onCancel={() => setOverrideConflict(null)} />}
       {showProjectSelect && <SelectProjectModal onClose={() => setShowProjectSelect(false)} onSelect={(id: string) => { setSelectedProjectId(id); setSelectedQuoteId(quotes.find((q) => q.projectId === id)?.id || ""); setShowProjectSelect(false); }} currentId={selectedProjectId} projects={projects} />}
       {showProposalModal && <ProposalGeneratorModal open={true} onClose={() => setShowProposalModal(false)} projectId={selectedProjectId} />}
+      {pendingDelete && <ConfirmDialog open={true} title="Delete line item" message={`Delete "${pendingDelete.item.description || "this line item"}" from the quote?`} onCancel={() => setPendingDelete(null)} onConfirm={confirmDeleteLineItem} />}
       {rateUpdate && selectedQuote && <ConfirmDialog open={true} danger={false} confirmLabel="Update rate" title="Update exchange rate" message={`This quote is locked at J$ ${exchangeRate.toFixed(2)} per US$1. The current live rate is J$ ${rateUpdate.liveRate.toFixed(2)}. Update the quote to the live rate? JMD figures on this quote will change.`} onCancel={() => setRateUpdate(null)} onConfirm={handleUpdateRate} />}
       <div className="px-4 md:px-6 py-3 flex flex-col md:flex-row md:items-center justify-between flex-shrink-0 gap-2" style={{ borderBottom: "1px solid rgba(255,255,255,0.07)" }}>
         <div>
@@ -346,8 +384,8 @@ export function Workbook({ navigate }: { navigate: (p: Page) => void }) {
           <p className="px-4 md:px-6 pt-2.5 pb-1 text-[#8b949e] text-[12px] md:text-[13px] flex-shrink-0">{wbTabs[activeTabIndex]?.description}</p>
           <div className="flex-1 overflow-y-auto px-3 md:px-5 py-4 space-y-4" style={{ scrollbarWidth: "thin", scrollbarColor: "rgba(255,255,255,0.08) transparent" }}>
             {activeTab === "asset-list" && <AssetListTab quoteCategories={quoteCategories} exchangeRate={exchangeRate} fmt={fmt} systemFilter={systemFilter} onSystemFilterChange={setSystemFilter} />}
-            {activeTab === "cost-margin" && <CostMarginTab quoteCategories={quoteCategories} exchangeRate={exchangeRate} currency={currency} fmt={fmt} onLineItemUpdate={updateQuoteLineItem} onAddLineItem={addLineItem} onResetCost={handleResetCost} priceDeviation={priceDeviation} fieldSaveStatus={fieldSaveStatus} systemFilter={systemFilter} onSystemFilterChange={setSystemFilter} />}
-            {activeTab === "bom" && <BomTab quoteCategories={quoteCategories} synthesisOverrides={synthesisOverrides} exchangeRate={exchangeRate} currency={currency} fmt={fmt} onLineItemUpdate={updateQuoteLineItem} onAddLineItem={addLineItem} onBomEditWithOverride={handleBomEditWithOverride} fieldSaveStatus={fieldSaveStatus} systemFilter={systemFilter} onSystemFilterChange={setSystemFilter} />}
+            {activeTab === "cost-margin" && <CostMarginTab quoteCategories={quoteCategories} exchangeRate={exchangeRate} currency={currency} fmt={fmt} onLineItemUpdate={updateQuoteLineItem} onAddLineItem={addLineItem} onDeleteLineItem={requestDeleteLineItem} onReorderLineItems={reorderLineItems} onResetCost={handleResetCost} priceDeviation={priceDeviation} fieldSaveStatus={fieldSaveStatus} systemFilter={systemFilter} onSystemFilterChange={setSystemFilter} />}
+            {activeTab === "bom" && <BomTab quoteCategories={quoteCategories} synthesisOverrides={synthesisOverrides} exchangeRate={exchangeRate} currency={currency} fmt={fmt} onLineItemUpdate={updateQuoteLineItem} onAddLineItem={addLineItem} onDeleteLineItem={requestDeleteLineItem} onReorderLineItems={reorderLineItems} onBomEditWithOverride={handleBomEditWithOverride} fieldSaveStatus={fieldSaveStatus} systemFilter={systemFilter} onSystemFilterChange={setSystemFilter} />}
             {activeTab === "synthesis" && <SynthesisTab quoteCategories={quoteCategories} synthesisOverrides={synthesisOverrides} fmt={fmt} onSaveOverride={handleSaveOverride} fieldSaveStatus={fieldSaveStatus} />}
             <div className="flex items-center justify-between flex-wrap gap-2 pt-2">
               {activeTabIndex > 0 ? (

@@ -1,21 +1,23 @@
 import { Fragment, useEffect, useMemo, useRef, useState } from "react";
-import { AlertTriangle, CheckCircle2, Loader2, Pencil, PlusCircle } from "lucide-react";
+import { AlertTriangle, CheckCircle2, Loader2, Pencil, PlusCircle, GripVertical, Trash2 } from "lucide-react";
 import { clsx } from "clsx";
 import { buildSectionRows, computeWorkbookTotals } from "../../../server/src/lib/workbookTotals";
 import { InlineEditCell } from "../../components/InlineEditCell";
 import { G, SYSTEM_DISPLAY } from "../../lib/constants";
 import { useAutoTutorial } from "../../lib/contexts";
 import { OverrideIndicator } from "./OverrideIndicator";
-import { displayMoney, recalcLineItem } from "./shared";
+import { displayMoney, recalcLineItem, useLineItemReorder } from "./shared";
 import type { QuoteCategory, QuoteLineItem, SynthesisOverride, SystemType, TutorialStep } from "../../types";
 
 export const BOM_STEPS: TutorialStep[] = [
   { target: "wb-bom-table", title: "Bill of Materials", description: "The client-facing BOM, priced in JMD — switch between Video Surveillance, Access Control, and Intercom above the table. Every section's line items show quantity (click to edit), list price, and extended total. A section overridden on the Synthesis tab shows a badge and a price adjustment row, so its rows always add up to its total; contingency and import lines sit under their own sections, followed by the system total and the all-systems Subtotal, GCT, and Total." },
 ];
 
-export function BomTab({ quoteCategories, synthesisOverrides, exchangeRate, currency, fmt, onLineItemUpdate, onAddLineItem, onBomEditWithOverride, fieldSaveStatus, systemFilter, onSystemFilterChange }: { quoteCategories: QuoteCategory[]; synthesisOverrides: SynthesisOverride[]; exchangeRate: number; currency: "USD" | "JMD"; fmt: (n: number, compact?: boolean) => string; onLineItemUpdate: (categoryId: string, itemId: string, updates: Partial<QuoteLineItem>) => void; onAddLineItem: (categoryId: string) => void; onBomEditWithOverride: (sectionNumber: string, sectionName: string, callback: () => void) => void; fieldSaveStatus: Record<string, "saved" | "saving" | "">; systemFilter: SystemType; onSystemFilterChange: (s: SystemType) => void; }) {
+export function BomTab({ quoteCategories, synthesisOverrides, exchangeRate, currency, fmt, onLineItemUpdate, onAddLineItem, onDeleteLineItem, onReorderLineItems, onBomEditWithOverride, fieldSaveStatus, systemFilter, onSystemFilterChange }: { quoteCategories: QuoteCategory[]; synthesisOverrides: SynthesisOverride[]; exchangeRate: number; currency: "USD" | "JMD"; fmt: (n: number, compact?: boolean) => string; onLineItemUpdate: (categoryId: string, itemId: string, updates: Partial<QuoteLineItem>) => void; onAddLineItem: (categoryId: string) => void; onDeleteLineItem: (categoryId: string, itemId: string) => void; onReorderLineItems: (categoryId: string, orderedIds: string[]) => void; onBomEditWithOverride: (sectionNumber: string, sectionName: string, callback: () => void) => void; fieldSaveStatus: Record<string, "saved" | "saving" | "">; systemFilter: SystemType; onSystemFilterChange: (s: SystemType) => void; }) {
   useAutoTutorial("workbook.bom", BOM_STEPS);
   const { toDisplay, fromDisplay } = displayMoney(currency, exchangeRate);
+  const { handleProps, rowProps } = useLineItemReorder(onReorderLineItems);
+  const countedIds = (categoryId: string) => (quoteCategories.find(c => c.id === categoryId)?.lineItems || []).filter(li => li.quantity > 0).map(li => li.id);
   const bodyRef = useRef<HTMLDivElement>(null);
   const [stickyScrollLeft, setStickyScrollLeft] = useState(0);
   // Description/List/Qty are locked by default — a row must be explicitly unlocked before any
@@ -101,13 +103,14 @@ export function BomTab({ quoteCategories, synthesisOverrides, exchangeRate, curr
                       // Price and quantity edits change the section total, which may be overridden in Synthesis.
                       const editValue = (updates: Partial<QuoteLineItem>) => onBomEditWithOverride(section.section, section.name, () => onLineItemUpdate(found.categoryId, item.id, updates));
                       return (
-                        <tr key={item.id} style={{ borderBottom: "1px solid rgba(255,255,255,0.03)", borderLeft: incomplete ? "3px solid #f59e0b" : "3px solid transparent" }}>
-                          <td className="sticky left-0 px-4 py-2 text-[#8b949e] text-[12px] font-mono" style={{ background: "rgba(7,12,26,0.9)", paddingLeft: itemRowCount > 1 ? "28px" : "16px" }}>{subNumber}</td>
+                        <tr key={item.id} {...rowProps(found.categoryId, item.id, countedIds(found.categoryId))} style={{ borderBottom: "1px solid rgba(255,255,255,0.03)", borderLeft: incomplete ? "3px solid #f59e0b" : "3px solid transparent" }}>
+                          <td className="sticky left-0 px-4 py-2 text-[#8b949e] text-[12px] font-mono" style={{ background: "rgba(7,12,26,0.9)", paddingLeft: itemRowCount > 1 ? "28px" : "16px" }}><span className="inline-flex items-center gap-1"><span {...handleProps(found.categoryId, item.id)} className="cursor-grab" title="Drag to reorder"><GripVertical className="w-3 h-3 text-[#484f58]" /></span>{subNumber}</span></td>
                           <td className="px-4 py-2 text-white text-[13px] font-bold max-w-[250px]">
                             <div className="flex items-center gap-1.5">
                               <button onClick={() => toggleUnlock(item.id)} className="flex-shrink-0 w-5 h-5 rounded flex items-center justify-center hover:bg-white/[0.08] cursor-pointer" title={isUnlocked ? "Lock this row" : "Unlock to edit this row"}><Pencil className={clsx("w-3 h-3", isUnlocked ? "text-blue-400" : "text-[#484f58]")} /></button>
                               {incomplete && <span title={item.unitCost === 0 ? "Cost is $0 — pricing incomplete" : "Markup is 0% — pricing incomplete"} className="flex-shrink-0"><AlertTriangle className="w-3 h-3 text-amber-400" /></span>}
                               {isUnlocked ? <InlineEditCell value={item.description} onChange={(val) => onLineItemUpdate(found.categoryId, item.id, { description: val })} /> : <span className="truncate">{item.description}</span>}
+                              {isUnlocked && !item.projectAssetId && <button onClick={() => onDeleteLineItem(found.categoryId, item.id)} className="flex-shrink-0 w-5 h-5 rounded flex items-center justify-center cursor-pointer hover:bg-rose-500/10" title="Delete line item"><Trash2 className="w-3 h-3 text-rose-400" /></button>}
                             </div>
                           </td>
                           <td className="px-4 py-2 text-right text-white text-[13px]">{isUnlocked ? <InlineEditCell type="number" value={Number(toDisplay(item.sellPrice).toFixed(2))} onChange={(val) => { const newSellUSD = fromDisplay(parseFloat(val) || 0); const denom = 1 + item.markupPercent; editValue({ unitCost: denom !== 0 ? newSellUSD / denom : newSellUSD }); }} /> : fmt(item.sellPrice)}</td>
