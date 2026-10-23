@@ -8,6 +8,7 @@ import { Skeleton } from "../../components/Skeleton";
 import { G } from "../../lib/constants";
 import { useAutoTutorial } from "../../lib/contexts";
 import type { IconType, InstallStatus, InstallZone, Page, Project, TaskPriority, TutorialStep } from "../../types";
+import { cacheData, isNetworkError, readCachedData, submit } from "../../lib/offlineQueue";
 
 export const STATUS_META: Record<InstallStatus, { label: string; color: string; bg: string; icon: IconType }> = {
   complete: { label: "Complete", color: "text-emerald-400", bg: "bg-emerald-500/12", icon: CheckCircle2 },
@@ -43,14 +44,20 @@ export function InstallTracker({ navigate: _navigate }: { navigate: (p: Page) =>
       const [projData, zoneData] = await Promise.all([API.projects.list(), API.install.zones()]);
       setProjects(projData.filter((p: Project) => p.projectStage === "installation"));
       setZones(zoneData);
-    } catch { setProjects([]); setZones([]); }
+      cacheData("install", { projects: projData, zones: zoneData });
+    } catch (err) {
+      // Offline: fall back to the last data loaded on this device.
+      const cached = isNetworkError(err) ? readCachedData<{ projects: Project[]; zones: InstallZone[] }>("install") : null;
+      if (cached) { setProjects(cached.projects.filter((p) => p.projectStage === "installation")); setZones(cached.zones); toast.message("Offline — showing the last loaded installation data", { id: "offline-install" }); }
+      else { setProjects([]); setZones([]); }
+    }
     finally { setLoading(false); }
   }, []);
   useEffect(() => { fetchData(); }, [fetchData]);
 
   const updateStatus = async (zoneId: string, deviceId: string, status: InstallStatus) => {
     setZones((prev) => prev.map((z) => z.id !== zoneId ? z : { ...z, devices: z.devices.map((d) => d.id !== deviceId ? d : { ...d, status }) }));
-    try { await API.install.updateStatus(zoneId, deviceId, status); } catch { toast.error("Failed to save device status"); fetchData(); }
+    try { await submit({ kind: "request", label: "install status", path: `/install/zones/${zoneId}/devices/${deviceId}`, method: "PATCH", body: { status } }); } catch { toast.error("Failed to save device status"); fetchData(); }
   };
 
   const handleDevicePhotoUpload = async (projectId: string, zoneId: string, deviceId: string, e: React.ChangeEvent<HTMLInputElement>) => {
@@ -58,10 +65,11 @@ export function InstallTracker({ navigate: _navigate }: { navigate: (p: Page) =>
     if (!file) return;
     setUploadingDevicePhoto(deviceId);
     try {
-      const result = await API.documents.upload(projectId, file);
-      await API.install.addInstalledPhoto(zoneId, deviceId, result.fileUrl);
-      setZones((prev) => prev.map((z) => z.id !== zoneId ? z : { ...z, devices: z.devices.map((d) => d.id !== deviceId ? d : { ...d, installedPhotos: [...(d.installedPhotos || []), result.fileUrl] }) }));
-      toast.success("As-installed photo uploaded");
+      const result = await submit({ kind: "photo", label: "install photo", projectId, file, fileName: file.name, path: `/install/zones/${zoneId}/devices/${deviceId}` });
+      // A queued photo shows from this device until it syncs.
+      const shown = result.fileUrl || URL.createObjectURL(file);
+      setZones((prev) => prev.map((z) => z.id !== zoneId ? z : { ...z, devices: z.devices.map((d) => d.id !== deviceId ? d : { ...d, installedPhotos: [...(d.installedPhotos || []), shown] }) }));
+      if (!result.queued) toast.success("As-installed photo uploaded");
     } catch { toast.error("Upload failed"); }
     setUploadingDevicePhoto(null);
     e.target.value = "";

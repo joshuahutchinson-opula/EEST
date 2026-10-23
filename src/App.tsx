@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { toast, Toaster } from "sonner";
 import { AnimatePresence, motion } from "motion/react";
 import { BarChart3, FileText, Layers, Loader2, Sparkles, Zap } from "lucide-react";
-import { API, getSessionEmail, setUnauthorizedHandler } from "./api";
+import { API, getSessionEmail, setUnauthorizedHandler, ApiError, UnauthorizedError } from "./api";
 import { AppTopbar } from "./components/AppTopbar";
 import { SpotlightTour } from "./components/SpotlightTour";
 import { DEFAULT_EXCHANGE_RATE, G } from "./lib/constants";
@@ -76,9 +76,21 @@ export function AuthenticatedApp() {
     if (!authChecking) return;
     let cancelled = false;
     API.auth.me()
-      .then((u) => { if (!cancelled) { setRole(u.role); setSessionUser({ name: u.name, email: u.email }); setAuthChecking(false); } })
-      .catch(() => {
+      .then((u) => {
         if (cancelled) return;
+        setRole(u.role); setSessionUser({ name: u.name, email: u.email }); setAuthChecking(false);
+        try { localStorage.setItem("session_identity", JSON.stringify({ role: u.role, name: u.name, email: u.email })); } catch { /* storage unavailable */ }
+      })
+      .catch((err) => {
+        if (cancelled) return;
+        // Offline (e.g. a tech in the field): keep the session with the last known identity so
+        // offline-capable screens still work. Only an actual 401 ends the session.
+        if (!(err instanceof UnauthorizedError) && !(err instanceof ApiError && err.status === 401)) {
+          try {
+            const id = JSON.parse(localStorage.getItem("session_identity") || "null");
+            if (id) { setRole(id.role); setSessionUser({ name: id.name, email: id.email }); setAuthChecking(false); return; }
+          } catch { /* fall through to sign-out */ }
+        }
         localStorage.removeItem("auth_token");
         localStorage.removeItem("app_logged_in");
         localStorage.removeItem("app_page");

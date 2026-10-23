@@ -7,6 +7,7 @@ import { EmptyState } from "../../components/EmptyState";
 import { Skeleton } from "../../components/Skeleton";
 import { G } from "../../lib/constants";
 import type { CommissioningItem } from "../../types";
+import { cacheData, isNetworkError, readCachedData, submit } from "../../lib/offlineQueue";
 
 export function CommissioningTab({ projectId }: { projectId: string }) {
   const [checklist, setChecklist] = useState<CommissioningItem[]>([]);
@@ -26,7 +27,13 @@ export function CommissioningTab({ projectId }: { projectId: string }) {
         await API.commissioning.sync(projectId);
         const data = await API.commissioning.list(projectId);
         setChecklist(data);
-      } catch { setChecklist([]); } finally { setLoading(false); }
+        cacheData(`commissioning:${projectId}`, data);
+      } catch (err) {
+        // Offline: fall back to the last checklist loaded on this device.
+        const cached = isNetworkError(err) ? readCachedData<CommissioningItem[]>(`commissioning:${projectId}`) : null;
+        if (cached) { setChecklist(cached); toast.message("Offline — showing the last loaded checklist", { id: "offline-commissioning" }); }
+        else setChecklist([]);
+      } finally { setLoading(false); }
     };
     load();
   }, [projectId]);
@@ -42,9 +49,10 @@ export function CommissioningTab({ projectId }: { projectId: string }) {
   };
 
   const handleUpdate = async (deviceId: string, status: "pass" | "fail") => {
-    API.commissioning.update(projectId, deviceId, { status }).then(() => setChecklist(prev => prev.map(x => x.deviceId === deviceId ? { ...x, status } : x))).catch(() => toast.error("Failed to save commissioning status"));
+    setChecklist(prev => prev.map(x => x.deviceId === deviceId ? { ...x, status } : x));
+    submit({ kind: "request", label: "commissioning status", path: `/commissioning/${projectId}/${deviceId}`, method: "PATCH", body: { status } }).catch(() => toast.error("Failed to save commissioning status"));
     if (status === "fail") {
-      API.tasks.create(projectId, { title: `${checklist.find(x => x.deviceId === deviceId)?.deviceName || "Device"} failed commissioning`, priority: "high", status: "todo" }).catch(() => toast.error("Failed to create the follow-up task"));
+      submit({ kind: "request", label: "follow-up task", path: `/tasks/${projectId}`, method: "POST", body: { title: `${checklist.find(x => x.deviceId === deviceId)?.deviceName || "Device"} failed commissioning`, priority: "high", status: "todo" } }).catch(() => toast.error("Failed to create the follow-up task"));
     }
   };
 
@@ -64,19 +72,19 @@ export function CommissioningTab({ projectId }: { projectId: string }) {
     if (!file) return;
     setUploadingPhoto(deviceId);
     try {
-      const result = await API.documents.upload(projectId, file);
-      const item = checklist.find(x => x.deviceId === deviceId);
-      const photos = [...(item?.photos || []), result.fileUrl];
-      await API.commissioning.update(projectId, deviceId, { photos });
-      setChecklist(prev => prev.map(x => x.deviceId === deviceId ? { ...x, photos } : x));
-      toast.success("Photo uploaded");
+      const result = await submit({ kind: "photo", label: "commissioning photo", projectId, file, fileName: file.name, path: `/commissioning/${projectId}/${deviceId}` });
+      // A queued photo shows from this device until it syncs.
+      const shown = result.fileUrl || URL.createObjectURL(file);
+      setChecklist(prev => prev.map(x => x.deviceId === deviceId ? { ...x, photos: [...(x.photos || []), shown] } : x));
+      if (!result.queued) toast.success("Photo uploaded");
     } catch { toast.error("Upload failed"); }
     setUploadingPhoto(null);
     e.target.value = "";
   };
 
   const handleSaveNote = async (deviceId: string) => {
-    await API.commissioning.update(projectId, deviceId, { notes: noteText });
+    try { await submit({ kind: "request", label: "commissioning notes", path: `/commissioning/${projectId}/${deviceId}`, method: "PATCH", body: { notes: noteText } }); }
+    catch { toast.error("Failed to save notes"); return; }
     setChecklist(prev => prev.map(x => x.deviceId === deviceId ? { ...x, notes: noteText } : x));
     setEditingNotes(null);
     setNoteText("");

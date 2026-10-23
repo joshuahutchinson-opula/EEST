@@ -6,6 +6,7 @@ import { NotificationBell } from "./NotificationBell";
 import { UserMenu } from "./UserMenu";
 import { isTechRole, useRole } from "../lib/contexts";
 import type { Page } from "../types";
+import { SyncIndicator } from "./SyncIndicator";
 
 export const NAV_ITEMS: { id: Page; label: string }[] = [
   { id: "ops-dashboard", label: "Dashboard" },
@@ -42,6 +43,7 @@ export function AppTopbar({ page, navigate, breadcrumb }: { page: Page; navigate
       )}
       <div className="flex-1" />
       <div className="flex items-center gap-1 md:gap-1.5">
+        <SyncIndicator />
         <div className="hidden md:block"><CurrencyToggle /></div>
         <NotificationBell />
         <UserMenu />

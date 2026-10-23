@@ -2,7 +2,7 @@ import { Router, Request, Response } from "express";
 import pool from "../db";
 import { buildCommissioningReportDocx } from "../lib/docxDocuments";
 import { requireProjectAccess } from "../lib/roles";
-import { signFileUrls, toStoredFileUrls } from "../lib/uploads";
+import { signFileUrls, toStoredFileUrl, toStoredFileUrls } from "../lib/uploads";
 
 const withSignedPhotos = (row: any) => ({ ...row, photos: signFileUrls(row.photos) });
 
@@ -84,13 +84,16 @@ router.post("/:projectId", async (req: Request, res: Response) => {
 router.patch("/:projectId/:deviceId", async (req: Request, res: Response) => {
   try {
     const { projectId, deviceId } = req.params;
-    const { status, notes, photos } = req.body;
+    const { status, notes, photos, addPhoto } = req.body;
+    // addPhoto appends one photo atomically (used by offline replays, which can't know the current list).
+    const appended = typeof addPhoto === "string" && addPhoto ? JSON.stringify([toStoredFileUrl(addPhoto)]) : null;
     const result = await pool.query(
       `UPDATE commissioning_checklists
-       SET status = COALESCE($3, status), notes = COALESCE($4, notes), photos = COALESCE($5, photos), updated_at = NOW()
+       SET status = COALESCE($3, status), notes = COALESCE($4, notes),
+           photos = CASE WHEN $6::jsonb IS NOT NULL THEN COALESCE(photos, '[]'::jsonb) || $6::jsonb ELSE COALESCE($5, photos) END, updated_at = NOW()
        WHERE project_id = $1 AND device_id = $2
        RETURNING id, project_id AS "projectId", device_id AS "deviceId", device_name AS "deviceName", location, status, notes, photos`,
-      [projectId, deviceId, status, notes, photos !== undefined ? JSON.stringify(toStoredFileUrls(photos) ?? []) : undefined]
+      [projectId, deviceId, status, notes, photos !== undefined ? JSON.stringify(toStoredFileUrls(photos) ?? []) : undefined, appended]
     );
     if (result.rows.length === 0) return res.status(404).json({ error: "Device not found" });
     if (status) {
