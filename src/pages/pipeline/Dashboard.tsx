@@ -8,7 +8,7 @@ import { EmptyState } from "../../components/EmptyState";
 import { Skeleton } from "../../components/Skeleton";
 import { G, PROJECT_COLUMNS } from "../../lib/constants";
 import { isTechRole, useAutoTutorial, useCurrency, useRole } from "../../lib/contexts";
-import { computeSynthesisTotal } from "../../lib/utils";
+import { computeSynthesisTotal, latestQuoteFor } from "../../lib/utils";
 import { DealModal } from "./DealModal";
 import { KanbanColumn } from "./KanbanColumn";
 import { NewProjectModal } from "./NewProjectModal";
@@ -59,7 +59,7 @@ export function Dashboard({ navigate }: { navigate: (p: Page) => void }) {
   // avoid an extra fetch per card; ProjectDetail's own stat card is override-aware).
   const projectValues = useMemo(() => {
     const map = new Map<string, number | null>();
-    projectProjects.forEach((p) => map.set(p.id, computeSynthesisTotal(quotes.find((q) => q.projectId === p.id))));
+    projectProjects.forEach((p) => map.set(p.id, computeSynthesisTotal(latestQuoteFor(quotes, p.id))));
     return map;
   }, [projectProjects, quotes]);
 

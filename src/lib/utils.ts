@@ -91,3 +91,8 @@ export function teamMemberFor(sessionName: string): { name: string; initials: st
   const initials = words.length > 1 ? words[0][0] + words[words.length - 1][0] : (words[0] || "?").slice(0, 2);
   return { name: sessionName.trim() || "Me", initials: initials.toUpperCase(), color: "#3b82f6" };
 }
+
+// A project's newest quote version.
+export function latestQuoteFor(quotes: Quote[], projectId: string): Quote | undefined {
+  return quotes.filter((q) => q.projectId === projectId).sort((a, b) => (b.revision ?? 1) - (a.revision ?? 1))[0];
+}

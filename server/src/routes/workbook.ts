@@ -6,6 +6,16 @@ import { buildWorkbookXlsx } from "../lib/xlsxExport";
 import { loadProjectWorkbook } from "../lib/workbookData";
 import { buildSectionRows } from "../lib/workbookTotals";
 import { DEFAULT_EXCHANGE_RATE } from "../lib/exchangeRate";
+import { FROZEN_QUOTE_MESSAGE, isQuoteFrozen, latestQuoteId } from "../lib/quoteRevisions";
+
+// Which quote version a request is about: ?quoteId= (or body.quoteId), defaulting to the
+// project's newest version. Returns null if the quote doesn't belong to the project.
+async function resolveQuoteId(req: Request): Promise<string | null> {
+  const requested = (req.query.quoteId as string | undefined) || req.body?.quoteId;
+  if (!requested) return latestQuoteId(pool, req.params.projectId);
+  const found = await pool.query(`SELECT id FROM quotes WHERE id::text = $1 AND project_id::text = $2`, [requested, req.params.projectId]);
+  return found.rows[0]?.id ?? null;
+}
 
 const router = Router();
 
@@ -17,12 +27,14 @@ router.use(requireAdmin);
 
 router.get("/:projectId/overrides", async (req: Request, res: Response) => {
   try {
+    const quoteId = await resolveQuoteId(req);
+    if (!quoteId) return res.json([]);
     const result = await pool.query(
       `SELECT id, project_id AS "projectId", section_number AS "sectionNumber",
               override_value AS "overrideValue", is_overridden AS "isOverridden",
               overridden_by AS "overriddenBy", overridden_at AS "overriddenAt"
-       FROM synthesis_overrides WHERE project_id = $1 ORDER BY section_number`,
-      [req.params.projectId]
+       FROM synthesis_overrides WHERE quote_id = $1 ORDER BY section_number`,
+      [quoteId]
     );
     res.json(result.rows.map(row => ({
       ...row,
@@ -39,17 +51,20 @@ router.put("/:projectId/overrides", async (req: Request, res: Response) => {
     const { projectId } = req.params;
     const { overrides } = req.body;
     if (!Array.isArray(overrides)) return res.status(400).json({ error: "overrides must be an array" });
+    const quoteId = await resolveQuoteId(req);
+    if (!quoteId) return res.status(400).json({ error: "This project has no quote to override" });
+    if (await isQuoteFrozen(pool, quoteId)) return res.status(409).json({ error: FROZEN_QUOTE_MESSAGE, frozen: true });
     const client = await pool.connect();
     try {
       await client.query("BEGIN");
       for (const o of overrides) {
         await client.query(
-          `INSERT INTO synthesis_overrides (project_id, section_number, override_value, is_overridden, overridden_by)
-           VALUES ($1, $2, $3, $4, $5)
-           ON CONFLICT (project_id, section_number)
+          `INSERT INTO synthesis_overrides (project_id, quote_id, section_number, override_value, is_overridden, overridden_by)
+           VALUES ($1, $6, $2, $3, $4, $5)
+           ON CONFLICT (quote_id, section_number)
            DO UPDATE SET override_value = EXCLUDED.override_value, is_overridden = EXCLUDED.is_overridden,
              overridden_by = EXCLUDED.overridden_by, overridden_at = NOW()`,
-          [projectId, o.sectionNumber, o.overrideValue, o.isOverridden ?? false, sessionUserName(req)]
+          [projectId, o.sectionNumber, o.overrideValue, o.isOverridden ?? false, sessionUserName(req), quoteId]
         );
       }
       await client.query("COMMIT");
@@ -132,7 +147,8 @@ router.post("/devices/:deviceId/price-history", async (req: Request, res: Respon
 
 router.post("/:projectId/proposal", async (req: Request, res: Response) => {
   try {
-    const wb = await loadProjectWorkbook(req.params.projectId);
+    const quoteId = await resolveQuoteId(req);
+    const wb = await loadProjectWorkbook(req.params.projectId, quoteId);
     if (!wb) return res.status(404).json({ error: "Project not found" });
 
     const rows = buildSectionRows(wb.totals, wb.categories, { foldAdjustments: true });
@@ -166,7 +182,8 @@ router.post("/:projectId/proposal", async (req: Request, res: Response) => {
 // Proposal — an additional export option, not a replacement.
 router.get("/:projectId/export-xlsx", async (req: Request, res: Response) => {
   try {
-    const wb = await loadProjectWorkbook(req.params.projectId);
+    const quoteId = await resolveQuoteId(req);
+    const wb = await loadProjectWorkbook(req.params.projectId, quoteId);
     if (!wb) return res.status(404).json({ error: "Project not found" });
 
     const buffer = await buildWorkbookXlsx({

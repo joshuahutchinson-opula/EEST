@@ -113,6 +113,9 @@ export interface Quote {
   categories: QuoteCategory[];
   exchangeRate: number;
   projectId?: string;
+  // Quote versions: only a draft can be edited; sending freezes it.
+  revision?: number;
+  sentAt?: string;
   createdAt?: string;
   updatedAt?: string;
 }

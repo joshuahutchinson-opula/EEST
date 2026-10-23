@@ -347,6 +347,24 @@ export async function initDB() {
     await client.query(`ALTER TABLE quote_line_items ADD COLUMN IF NOT EXISTS project_asset_id UUID REFERENCES project_assets(id) ON DELETE SET NULL`);
     // Set when someone edits an asset-synced line's cost by hand; the asset sync then leaves the cost alone.
     await client.query(`ALTER TABLE quote_line_items ADD COLUMN IF NOT EXISTS cost_overridden BOOLEAN DEFAULT FALSE`);
+    // Quote revisions: a project can have several versions; only drafts can be edited.
+    await client.query(`ALTER TABLE quotes ADD COLUMN IF NOT EXISTS revision INTEGER NOT NULL DEFAULT 1`);
+    await client.query(`ALTER TABLE quotes ADD COLUMN IF NOT EXISTS sent_at TIMESTAMPTZ`);
+    // Number pre-existing quotes per project by creation order (only rows still at the default).
+    await client.query(`
+      UPDATE quotes q SET revision = r.rn
+      FROM (SELECT id, ROW_NUMBER() OVER (PARTITION BY project_id ORDER BY created_at, id) AS rn FROM quotes) r
+      WHERE q.id = r.id AND q.revision = 1 AND r.rn > 1
+        AND NOT EXISTS (SELECT 1 FROM quotes q2 WHERE q2.project_id = q.project_id AND q2.revision > 1)
+    `);
+    // Synthesis overrides belong to a quote version, so a sent version's totals can't change.
+    await client.query(`ALTER TABLE synthesis_overrides ADD COLUMN IF NOT EXISTS quote_id UUID REFERENCES quotes(id) ON DELETE CASCADE`);
+    await client.query(`
+      UPDATE synthesis_overrides o SET quote_id = (SELECT id FROM quotes q WHERE q.project_id = o.project_id ORDER BY q.revision DESC, q.created_at DESC LIMIT 1)
+      WHERE o.quote_id IS NULL
+    `);
+    await client.query(`ALTER TABLE synthesis_overrides DROP CONSTRAINT IF EXISTS synthesis_overrides_project_id_section_number_key`);
+    await client.query(`CREATE UNIQUE INDEX IF NOT EXISTS synthesis_overrides_quote_section_uniq ON synthesis_overrides (quote_id, section_number)`);
     // Bumped on every write; per-line-item saves send the version they saw and get 409 if it moved.
     await client.query(`ALTER TABLE quote_line_items ADD COLUMN IF NOT EXISTS version INTEGER NOT NULL DEFAULT 1`);
     await client.query(`ALTER TABLE audit_logs ADD COLUMN IF NOT EXISTS field_path TEXT`);

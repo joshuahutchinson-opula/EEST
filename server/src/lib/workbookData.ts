@@ -4,23 +4,22 @@ import { DEFAULT_EXCHANGE_RATE } from "./exchangeRate";
 
 export interface ProjectWorkbook {
   project: { id: string; name: string; client: string; summary?: string; location?: string };
-  quote: { id: string; refNumber: string; date: string | null; status: string; exchangeRate: number } | null;
+  quote: { id: string; refNumber: string; date: string | null; status: string; exchangeRate: number; revision: number } | null;
   categories: TotalsCategory[];
   overrides: TotalsOverride[];
   totals: WorkbookTotals;
 }
 
-// Everything an export needs for one project: its current quote (the newest, which is the one
-// the Workbook shows), that quote's categories and line items, the Synthesis overrides, and
-// the shared totals computed from them.
-export async function loadProjectWorkbook(projectId: string): Promise<ProjectWorkbook | null> {
+// Everything an export needs for one quote version (the newest unless quoteId is given): the
+// project, the version's categories and line items, its Synthesis overrides, and the shared
+// totals computed from them.
+export async function loadProjectWorkbook(projectId: string, quoteId?: string | null): Promise<ProjectWorkbook | null> {
   const projectResult = await pool.query(`SELECT id, name, client, summary, location FROM projects WHERE id = $1`, [projectId]);
   if (projectResult.rows.length === 0) return null;
 
-  const quoteResult = await pool.query(
-    `SELECT id, ref_number, date, status, exchange_rate FROM quotes WHERE project_id = $1 ORDER BY created_at DESC LIMIT 1`,
-    [projectId]
-  );
+  const quoteResult = quoteId
+    ? await pool.query(`SELECT id, ref_number, date, status, exchange_rate, revision FROM quotes WHERE id = $1 AND project_id = $2`, [quoteId, projectId])
+    : await pool.query(`SELECT id, ref_number, date, status, exchange_rate, revision FROM quotes WHERE project_id = $1 ORDER BY revision DESC, created_at DESC LIMIT 1`, [projectId]);
   const q = quoteResult.rows[0];
 
   const [rowsResult, overridesResult] = await Promise.all([
@@ -35,7 +34,7 @@ export async function loadProjectWorkbook(projectId: string): Promise<ProjectWor
           [q.id]
         )
       : Promise.resolve({ rows: [] as any[] }),
-    pool.query(`SELECT section_number, override_value, is_overridden FROM synthesis_overrides WHERE project_id = $1`, [projectId]),
+    q ? pool.query(`SELECT section_number, override_value, is_overridden FROM synthesis_overrides WHERE quote_id = $1`, [q.id]) : Promise.resolve({ rows: [] as any[] }),
   ]);
 
   const categories = new Map<string, TotalsCategory>();
@@ -60,7 +59,7 @@ export async function loadProjectWorkbook(projectId: string): Promise<ProjectWor
   return {
     project: projectResult.rows[0],
     quote: q
-      ? { id: q.id, refNumber: q.ref_number || "", date: q.date ? new Date(q.date).toISOString().slice(0, 10) : null, status: q.status, exchangeRate: Number(q.exchange_rate) || DEFAULT_EXCHANGE_RATE }
+      ? { id: q.id, refNumber: q.ref_number || "", date: q.date ? new Date(q.date).toISOString().slice(0, 10) : null, status: q.status, exchangeRate: Number(q.exchange_rate) || DEFAULT_EXCHANGE_RATE, revision: Number(q.revision) || 1 }
       : null,
     categories: categoryList,
     overrides,

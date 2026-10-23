@@ -6,6 +6,7 @@ import { Skeleton } from "../../components/Skeleton";
 import { G, SYSTEM_DISPLAY } from "../../lib/constants";
 import { useCurrency } from "../../lib/contexts";
 import type { Quote, SynthesisOverride } from "../../types";
+import { latestQuoteFor } from "../../lib/utils";
 
 export function WorkbookSynthesisPreview({ projectId, onOpenWorkbook }: { projectId: string; onOpenWorkbook: () => void }) {
   const { fmt } = useCurrency();
@@ -17,7 +18,7 @@ export function WorkbookSynthesisPreview({ projectId, onOpenWorkbook }: { projec
     let alive = true;
     setLoading(true);
     Promise.all([API.quotes.list(), API.workbook.getOverrides(projectId)])
-      .then(([quotes, ov]) => { if (!alive) return; setQuote(quotes.find(q => q.projectId === projectId) || null); setOverrides(ov); })
+      .then(([quotes, ov]) => { if (!alive) return; setQuote(latestQuoteFor(quotes, projectId) || null); setOverrides(ov); })
       .catch(() => { if (alive) { setQuote(null); setOverrides([]); } })
       .finally(() => { if (alive) setLoading(false); });
     return () => { alive = false; };

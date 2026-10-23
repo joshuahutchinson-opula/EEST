@@ -107,6 +107,7 @@ export const API = {
     createLineItem: (quoteId: string, data: Partial<QuoteLineItem> & { categoryId: string }) => apiFetch<QuoteLineItem>(`/quotes/${quoteId}/line-items`, { method: "POST", body: JSON.stringify(data) }),
     updateLineItem: (itemId: string, data: Partial<QuoteLineItem> & { version: number }) => apiFetch<QuoteLineItem>(`/quotes/line-items/${itemId}`, { method: "PATCH", body: JSON.stringify(data) }),
     deleteLineItem: (itemId: string, version: number) => apiFetch<void>(`/quotes/line-items/${itemId}?version=${version}`, { method: "DELETE" }),
+    revise: (id: string) => apiFetch<Quote>(`/quotes/${id}/revise`, { method: "POST" }),
     reorderLineItems: (categoryId: string, itemIds: string[]) => apiFetch<void>(`/quotes/categories/${categoryId}/order`, { method: "PUT", body: JSON.stringify({ itemIds }) }),
   },
   devices: {
@@ -172,14 +173,14 @@ export const API = {
     salesWin: (data: { projectId: string; projectName: string; clientName?: string }) => apiFetch<void>("/notifications/sales-win", { method: "POST", body: JSON.stringify(data) }),
   },
   workbook: {
-    getOverrides: (projectId: string) => apiFetch<SynthesisOverride[]>(`/workbook/${projectId}/overrides`),
-    saveOverrides: (projectId: string, overrides: Partial<SynthesisOverride>[]) => apiFetch<void>(`/workbook/${projectId}/overrides`, { method: "PUT", body: JSON.stringify({ overrides }) }),
+    getOverrides: (projectId: string, quoteId?: string) => apiFetch<SynthesisOverride[]>(`/workbook/${projectId}/overrides${quoteId ? `?quoteId=${quoteId}` : ""}`),
+    saveOverrides: (projectId: string, overrides: Partial<SynthesisOverride>[], quoteId?: string) => apiFetch<void>(`/workbook/${projectId}/overrides`, { method: "PUT", body: JSON.stringify({ overrides, quoteId }) }),
     getAudit: (projectId: string, fieldPath?: string) => apiFetch<WorkbookAuditEntry[]>(`/workbook/${projectId}/audit${fieldPath ? `?fieldPath=${encodeURIComponent(fieldPath)}` : ""}`),
     logAudit: (projectId: string, fieldPath: string, oldValue: string, newValue: string) => apiFetch<void>(`/workbook/${projectId}/audit`, { method: "POST", body: JSON.stringify({ fieldPath, oldValue, newValue }) }),
     getPriceHistory: (deviceId: string) => apiFetch<{ price: number; recordedAt: string }[]>(`/workbook/devices/${deviceId}/price-history`),
-    exportXlsx: (projectId: string) => apiFetchBlob(`/workbook/${projectId}/export-xlsx`),
+    exportXlsx: (projectId: string, quoteId?: string) => apiFetchBlob(`/workbook/${projectId}/export-xlsx${quoteId ? `?quoteId=${quoteId}` : ""}`),
   },
-  proposals: { generate: (projectId: string) => apiFetchBlob(`/workbook/${projectId}/proposal`, { method: "POST" }) },
+  proposals: { generate: (projectId: string, quoteId?: string) => apiFetchBlob(`/workbook/${projectId}/proposal${quoteId ? `?quoteId=${quoteId}` : ""}`, { method: "POST" }) },
   publicStatus: { get: (token: string) => apiFetch<PublicProjectStatus>(`/public/status/${token}`) },
   inventory: {
     items: () => apiFetch<InventoryItem[]>("/inventory/items"),

@@ -10,7 +10,7 @@ import { Skeleton } from "../../components/Skeleton";
 import { TaskList } from "../../components/TaskList";
 import { G, LEAD_SOURCE_STYLES, SUPPORT_TYPE_LABELS, TEAM } from "../../lib/constants";
 import { isTechRole, useAutoTutorial, useCurrency, useRole } from "../../lib/contexts";
-import { computeSynthesisTotal, fmtDate, fmtDateFull, getDeduplicatedTeam, projectStageBadge, stageBadge } from "../../lib/utils";
+import { computeSynthesisTotal, fmtDate, fmtDateFull, getDeduplicatedTeam, projectStageBadge, stageBadge, latestQuoteFor } from "../../lib/utils";
 import { CommissioningTab } from "./CommissioningTab";
 import { GanttView } from "./GanttView";
 import { ProjectAssetsTab } from "./ProjectAssetsTab";
@@ -66,7 +66,7 @@ export function ProjectDetail({ navigate }: { navigate: (p: Page) => void }) {
       API.projectAssets.list(project.id).then(setProjectAssets).catch(() => setProjectAssets([]));
       API.install.zones().then(zones => setInstallZones(zones.filter(z => z.projectId === project.id))).catch(() => setInstallZones([]));
       if (project.pipelineType === "project") {
-        API.quotes.list().then(qs => setProjectQuote(qs.find(q => q.projectId === project.id) || null)).catch(() => setProjectQuote(null));
+        API.quotes.list().then(qs => setProjectQuote(latestQuoteFor(qs, project.id) || null)).catch(() => setProjectQuote(null));
         API.workbook.getOverrides(project.id).then(setSynthOverrides).catch(() => setSynthOverrides([]));
       }
     }

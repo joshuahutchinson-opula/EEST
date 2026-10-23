@@ -5,12 +5,12 @@ import { FileDown, Loader2 } from "lucide-react";
 import { API, downloadBlob } from "../../api";
 import { G } from "../../lib/constants";
 
-export function ProposalGeneratorModal({ open, onClose, projectId }: { open: boolean; onClose: () => void; projectId: string; }) {
+export function ProposalGeneratorModal({ open, onClose, projectId, quoteId }: { open: boolean; onClose: () => void; projectId: string; quoteId?: string; }) {
   const [generating, setGenerating] = useState(false);
   const handleGenerate = async () => {
     setGenerating(true);
     try {
-      const { blob, filename } = await API.proposals.generate(projectId);
+      const { blob, filename } = await API.proposals.generate(projectId, quoteId);
       downloadBlob(blob, filename);
       toast.success("Proposal generated");
       onClose();

@@ -1,6 +1,7 @@
 import type { PoolClient } from "pg";
 import { SYSTEM_CATEGORIES, SystemType, normalizeSystem, quoteTypeForSystem } from "./workbookSections";
 import { getLiveExchangeRate } from "./exchangeRate";
+import { reviseQuote } from "./quoteRevisions";
 
 // Each project asset owns exactly one quote line item (matched by project_asset_id), so Cost &
 // Margin, BOM and Synthesis reflect the asset's real category/system/cost/quantity. This runs
@@ -61,9 +62,11 @@ function resolveSection(asset: AssetRow, system: SystemType, device: DeviceRow |
   return { sectionNumber, markup };
 }
 
-async function getOrCreateProjectQuote(client: PoolClient, projectId: string, system: SystemType): Promise<string> {
-  const existing = await client.query(`SELECT id FROM quotes WHERE project_id = $1 ORDER BY created_at DESC LIMIT 1`, [projectId]);
-  if (existing.rows.length > 0) return existing.rows[0].id;
+// The project's newest version if it's a draft; a sent/approved/rejected version is frozen, so it's
+// copied into a new draft first. Creates the first quote if the project has none.
+async function getWorkingDraftQuote(client: PoolClient, projectId: string, system: SystemType): Promise<string> {
+  const existing = await client.query(`SELECT id, status FROM quotes WHERE project_id = $1 ORDER BY revision DESC, created_at DESC LIMIT 1`, [projectId]);
+  if (existing.rows.length > 0) return existing.rows[0].status === "draft" ? existing.rows[0].id : reviseQuote(client, existing.rows[0].id);
 
   const proj = await client.query(`SELECT client FROM projects WHERE id = $1`, [projectId]);
   const exchangeRate = await getLiveExchangeRate();
@@ -111,14 +114,14 @@ export async function syncAssetLineItem(client: PoolClient, assetId: string): Pr
   const system = normalizeSystem(asset.system);
   const { sectionNumber, markup } = resolveSection(asset, system, device);
 
+  const quoteId = await getWorkingDraftQuote(client, asset.project_id, system);
   const existingResult = await client.query(
-    `SELECT li.id, li.markup_percent, li.item_number, li.category_id, li.cost_overridden, c.quote_id
+    `SELECT li.id, li.markup_percent, li.item_number, li.category_id, li.cost_overridden
      FROM quote_line_items li JOIN quote_categories c ON c.id = li.category_id
-     WHERE li.project_asset_id = $1 LIMIT 1`,
-    [assetId]
+     WHERE li.project_asset_id = $1 AND c.quote_id = $2 LIMIT 1`,
+    [assetId, quoteId]
   );
   const existing = existingResult.rows[0];
-  const quoteId = existing?.quote_id || (await getOrCreateProjectQuote(client, asset.project_id, system));
   const categoryId = await getOrCreateCategory(client, quoteId, system, sectionNumber);
   const description = describeAsset(asset, device);
   const unitCost = assetUnitCost(asset, device);
@@ -141,6 +144,25 @@ export async function syncAssetLineItem(client: PoolClient, assetId: string): Pr
   await client.query(`UPDATE quotes SET updated_at = NOW() WHERE id = $1`, [quoteId]);
 }
 
+// Removes the asset's line from the project's working draft. Frozen versions keep it (once the
+// asset row is gone, their copy simply loses its project_asset_id link).
 export async function removeAssetLineItem(client: PoolClient, assetId: string): Promise<void> {
-  await client.query(`DELETE FROM quote_line_items WHERE project_asset_id = $1`, [assetId]);
+  const found = await client.query(
+    `SELECT q.id, q.status FROM project_assets pa
+     JOIN quotes q ON q.project_id = pa.project_id
+     WHERE pa.id = $1 ORDER BY q.revision DESC, q.created_at DESC LIMIT 1`,
+    [assetId]
+  );
+  const latest = found.rows[0];
+  if (!latest) return;
+  const hasLine = await client.query(
+    `SELECT 1 FROM quote_line_items li JOIN quote_categories c ON c.id = li.category_id WHERE li.project_asset_id = $1 AND c.quote_id = $2`,
+    [assetId, latest.id]
+  );
+  if (hasLine.rows.length === 0) return;
+  const quoteId = latest.status === "draft" ? latest.id : await reviseQuote(client, latest.id);
+  await client.query(
+    `DELETE FROM quote_line_items WHERE project_asset_id = $1 AND category_id IN (SELECT id FROM quote_categories WHERE quote_id = $2)`,
+    [assetId, quoteId]
+  );
 }
