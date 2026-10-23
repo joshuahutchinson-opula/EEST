@@ -293,6 +293,17 @@ export async function initDB() {
         created_at TIMESTAMPTZ DEFAULT NOW()
       );
 
+      CREATE TABLE IF NOT EXISTS documents (
+        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+        project_id UUID REFERENCES projects(id) ON DELETE CASCADE,
+        filename TEXT NOT NULL,
+        file_url TEXT NOT NULL,
+        file_type TEXT,
+        file_size INTEGER,
+        uploaded_by TEXT,
+        created_at TIMESTAMPTZ DEFAULT NOW()
+      );
+
       CREATE TABLE IF NOT EXISTS user_tutorial_progress (
         email TEXT NOT NULL,
         tutorial_key TEXT NOT NULL,
