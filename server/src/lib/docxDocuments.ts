@@ -14,8 +14,8 @@ import {
   TABLE_HEADER_SHADING,
   TABLE_HEADER_TEXT_COLOR,
   ZEBRA_ROW_SHADING,
-  resolveUploadPath,
 } from "./branding";
+import { resolveUploadPath } from "./uploads";
 
 type DocxImageType = "jpg" | "png" | "gif" | "bmp";
 function imageTypeFromUrl(url: string): DocxImageType {
@@ -31,7 +31,9 @@ function imageTypeFromUrl(url: string): DocxImageType {
 // missing rather than failing the whole document generation over one bad photo.
 function tryLoadImageRun(fileUrl: string, width: number, height: number): ImageRun | null {
   try {
-    const data = fs.readFileSync(resolveUploadPath(fileUrl));
+    const filePath = resolveUploadPath(fileUrl);
+    if (!filePath) return null;
+    const data = fs.readFileSync(filePath);
     return new ImageRun({ type: imageTypeFromUrl(fileUrl), data, transformation: { width, height } });
   } catch {
     return null;

@@ -42,13 +42,6 @@ function requireAsset(buf: Buffer | null, name: string): Buffer {
 export const LETTERHEAD_FOOTER_TEXT =
   "E-Tech Systems Limited: Kingston 5, St. Andrew, Jamaica. Contact T (876) 633-3648, Ext 2000 E: support@e-techsystemsja.com W: www.e-techsystemsja.com";
 
-// Resolves a stored fileUrl (e.g. "/uploads/documents/xyz.jpg", the shape every upload in this
-// app produces — coverage photos, as-installed photos, generic documents) to the local path
-// multer actually wrote it to, so a docx generator can read it into an ImageRun buffer.
-export function resolveUploadPath(fileUrl: string): string {
-  return path.join(__dirname, "..", fileUrl.replace(/^\//, ""));
-}
-
 // Gradient banner behind the title, used on the first page of every generated document.
 export function buildBrandedHeader(title: string, subtitle?: string): Header {
   return new Header({

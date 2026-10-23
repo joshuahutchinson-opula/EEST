@@ -3,14 +3,12 @@ import multer from "multer";
 import path from "path";
 import fs from "fs";
 import pool from "../db";
+import { DOCUMENTS_DIR, resolveUploadPath } from "../lib/uploads";
 
 const router = Router();
 
-const uploadDir = path.join(__dirname, "..", "uploads", "documents");
-if (!fs.existsSync(uploadDir)) fs.mkdirSync(uploadDir, { recursive: true });
-
 const storage = multer.diskStorage({
-  destination: (_req, _file, cb) => cb(null, uploadDir),
+  destination: (_req, _file, cb) => cb(null, DOCUMENTS_DIR),
   filename: (_req, file, cb) => {
     const uniqueSuffix = Date.now() + "-" + Math.round(Math.random() * 1e9);
     cb(null, uniqueSuffix + path.extname(file.originalname));
@@ -67,8 +65,8 @@ router.delete("/:projectId/:id", async (req: Request, res: Response) => {
     const { id } = req.params;
     const result = await pool.query("SELECT file_url FROM documents WHERE id = $1", [id]);
     if (result.rows.length > 0) {
-      const filePath = path.join(__dirname, "..", result.rows[0].file_url);
-      if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
+      const filePath = resolveUploadPath(result.rows[0].file_url);
+      if (filePath && fs.existsSync(filePath)) fs.unlinkSync(filePath);
     }
     await pool.query("DELETE FROM documents WHERE id = $1", [id]);
     res.json({ success: true });
