@@ -22,13 +22,13 @@ import {
   UserCheck, Send, EyeOff, GanttChartSquare, Boxes, PackageOpen, Sparkles,
 } from "lucide-react";
 import { clsx } from "clsx";
+import { computeWorkbookTotals, lineItemTotals, GCT_RATE, type SectionTotal, type WorkbookSystem } from "../server/src/lib/workbookTotals";
 import logoImg from "./assets/2026-06-14_21.13.34_e-techsystemsja.com_2f51395e09e8-removebg-preview (1).png";
 
 const API_BASE = import.meta.env.VITE_API_URL || "/api";
 // The server hands out uploaded files as signed "/api/files/…" URLs; in production the API is
 // a different host from the frontend, so resolve them against the API origin.
 const fileHref = (url: string) => (url.startsWith("/api/") ? API_BASE.replace(/\/api\/?$/, "") + url : url);
-const GCT_RATE = 0.15;
 const DEFAULT_EXCHANGE_RATE = 163;
 const PM_REFERENCE_RATE = 0.05;
 const CONTINGENCY_REFERENCE_RATE = 0.10;
@@ -316,28 +316,11 @@ const SYSTEM_CATEGORIES: Record<SystemType, { sectionNumber: number; name: strin
   ],
 };
 
-const SYNTHESIS_SECTIONS = [
-  { section: "100", name: "Video Management System Software", group: "video" },
-  { section: "200", name: "Compute and Storage", group: "video" },
-  { section: "300", name: "Control Room", group: "video" },
-  { section: "400", name: "Video Security Equipment", group: "video" },
-  { section: "500", name: "Network", group: "video" },
-  { section: "600", name: "Network Infrastructure", group: "video" },
-  { section: "700", name: "Professional Services", group: "video" },
-  { section: "700.5", name: "Contingency Plan", group: "video" },
-  { section: "800", name: "Importation", group: "video" },
-  { section: "900", name: "Access Control System Software", group: "access" },
-  { section: "1000", name: "Hardware", group: "access" },
-  { section: "1100", name: "Infrastructure", group: "access" },
-  { section: "1200", name: "Professional Services", group: "access" },
-  { section: "1200.5", name: "Contingency Plan", group: "access" },
-  { section: "1300", name: "Importation", group: "access" },
-  { section: "1400", name: "Intercom System Software", group: "intercom" },
-  { section: "1500", name: "Hardware", group: "intercom" },
-  { section: "1600", name: "Infrastructure", group: "intercom" },
-  { section: "1700", name: "Professional Services", group: "intercom" },
-  { section: "1800", name: "Importation", group: "intercom" },
-] as const;
+const SYSTEM_DISPLAY: Record<WorkbookSystem, { label: string; short: string; tint: string }> = {
+  VSS: { label: "Video Surveillance", short: "Video", tint: "rgba(59,130,246,0.06)" },
+  EAC: { label: "Access Control", short: "Access", tint: "rgba(139,92,246,0.06)" },
+  Intercom: { label: "Intercom", short: "Intercom", tint: "rgba(20,184,166,0.06)" },
+};
 
 const COLUMNS: Column[] = [
   { id: "lead", label: "Lead", color: "#f43f5e" },
@@ -618,14 +601,8 @@ function toNum(v: unknown, fallback = 0): number {
 }
 
 function recalcLineItem(item: QuoteLineItem, exchangeRate: number): QuoteLineItem {
-  const unitCost = toNum(item.unitCost);
-  const quantity = toNum(item.quantity);
-  const markupPercent = toNum(item.markupPercent);
-  const sellPrice = unitCost * (1 + markupPercent);
-  const costTotal = unitCost * quantity;
-  const sellTotal = sellPrice * quantity;
-  const profit = sellTotal - costTotal;
-  return { ...item, unitCost, quantity, markupPercent, sellPrice, costTotal, sellTotal, profit, jmdConversion: sellTotal * toNum(exchangeRate) };
+  const t = lineItemTotals(item);
+  return { ...item, ...t, jmdConversion: t.sellTotal * toNum(exchangeRate) };
 }
 
 function Skeleton({ className }: { className?: string }) { return <div className={clsx("animate-pulse rounded-2xl", className)} style={{ background: "rgba(255,255,255,0.04)" }} />; }
@@ -2109,20 +2086,8 @@ function DocumentList({ projectId }: { projectId: string }) {
 // callers can omit the value entirely rather than showing a misleading $0.
 function computeSynthesisTotal(quote: Quote | undefined | null, overrides: SynthesisOverride[] = []): number | null {
   if (!quote || quote.categories.length === 0) return null;
-  const exchangeRate = toNum(quote.exchangeRate, DEFAULT_EXCHANGE_RATE);
-  const getSectionSubtotal = (sectionNumber: string): number => {
-    const cat = quote.categories.find((c) => String(c.sectionNumber) === sectionNumber);
-    if (!cat) return 0;
-    return cat.lineItems.filter((li) => li.quantity > 0).reduce((s, li) => s + recalcLineItem(li, exchangeRate).sellTotal, 0);
-  };
-  const getDisplayValue = (sectionNumber: string): number => {
-    const override = overrides.find((o) => o.sectionNumber === sectionNumber && o.isOverridden);
-    if (override && override.overrideValue !== null) return toNum(override.overrideValue);
-    return getSectionSubtotal(sectionNumber);
-  };
-  const grandTotal = SYNTHESIS_SECTIONS.reduce((s, sec) => s + getDisplayValue(sec.section), 0);
-  if (grandTotal <= 0) return null;
-  return grandTotal + grandTotal * GCT_RATE;
+  const totals = computeWorkbookTotals(quote.categories, overrides);
+  return totals.subtotal > 0 ? totals.total : null;
 }
 
 function WorkbookSynthesisPreview({ projectId, onOpenWorkbook }: { projectId: string; onOpenWorkbook: () => void }) {
@@ -2153,26 +2118,11 @@ function WorkbookSynthesisPreview({ projectId, onOpenWorkbook }: { projectId: st
     );
   }
 
-  const exchangeRate = toNum(quote.exchangeRate, DEFAULT_EXCHANGE_RATE);
-  const getSectionSubtotal = (sectionNumber: string): number => {
-    const cat = quote.categories.find(c => String(c.sectionNumber) === sectionNumber);
-    if (!cat) return 0;
-    return cat.lineItems.filter(li => li.quantity > 0).reduce((s, li) => s + recalcLineItem(li, exchangeRate).sellTotal, 0);
-  };
-  const getDisplayValue = (sectionNumber: string): number => {
-    const override = overrides.find(o => o.sectionNumber === sectionNumber && o.isOverridden);
-    if (override && override.overrideValue !== null) return toNum(override.overrideValue);
-    return getSectionSubtotal(sectionNumber);
-  };
-  const groupTotal = (group: "video" | "access" | "intercom") => SYNTHESIS_SECTIONS.filter(s => s.group === group).reduce((s, sec) => s + getDisplayValue(sec.section), 0);
-  const groupTotals = [
-    { label: "Video Surveillance", value: groupTotal("video") },
-    { label: "Access Control", value: groupTotal("access") },
-    { label: "Intercom", value: groupTotal("intercom") },
-  ].filter(g => g.value > 0);
-  const grandTotal = groupTotals.reduce((s, g) => s + g.value, 0);
-  const tax = grandTotal * GCT_RATE;
-  const totalWithTax = grandTotal + tax;
+  const totals = computeWorkbookTotals(quote.categories, overrides);
+  const groupTotals = totals.systems.map(sys => ({ label: SYSTEM_DISPLAY[sys.system].label, value: sys.total })).filter(g => g.value !== 0);
+  const grandTotal = totals.subtotal;
+  const tax = totals.gct;
+  const totalWithTax = totals.total;
 
   return (
     <div className="space-y-3">
@@ -3618,44 +3568,24 @@ const SYNTHESIS_STEPS: TutorialStep[] = [
   { target: "wb-synth-reference", title: "Reference Figures", description: "Suggested PM and contingency percentages, shown for reference only — they're never applied to any total automatically." },
 ];
 
-function SynthesisTab({ quoteCategories, synthesisOverrides, exchangeRate, fmt, onSaveOverride, fieldSaveStatus }: { quoteCategories: QuoteCategory[]; synthesisOverrides: SynthesisOverride[]; exchangeRate: number; fmt: (n: number, compact?: boolean) => string; onSaveOverride: (sectionNumber: string, value: number | null, isOverridden: boolean) => void; fieldSaveStatus: Record<string, "saved" | "saving" | "">; }) {
+function SynthesisTab({ quoteCategories, synthesisOverrides, fmt, onSaveOverride, fieldSaveStatus }: { quoteCategories: QuoteCategory[]; synthesisOverrides: SynthesisOverride[]; fmt: (n: number, compact?: boolean) => string; onSaveOverride: (sectionNumber: string, value: number | null, isOverridden: boolean) => void; fieldSaveStatus: Record<string, "saved" | "saving" | "">; }) {
   useAutoTutorial("workbook.synthesis", SYNTHESIS_STEPS);
-  const [collapsedVideo, setCollapsedVideo] = useState(false);
-  const [collapsedAccess, setCollapsedAccess] = useState(false);
-  const [collapsedIntercom, setCollapsedIntercom] = useState(false);
+  const [collapsed, setCollapsed] = useState<Record<string, boolean>>({});
   const [editingSection, setEditingSection] = useState<string | null>(null);
   const [editValue, setEditValue] = useState("");
 
-  const getSectionSubtotal = (sectionNumber: string): number => {
-    const cat = quoteCategories.find(c => String(c.sectionNumber) === sectionNumber);
-    if (!cat) return 0;
-    return cat.lineItems.filter(li => li.quantity > 0).reduce((s, li) => s + recalcLineItem(li, exchangeRate).sellTotal, 0);
-  };
-
-  const getDisplayValue = (section: typeof SYNTHESIS_SECTIONS[number]): { value: number; isOverridden: boolean } => {
-    const override = synthesisOverrides.find(o => o.sectionNumber === section.section && o.isOverridden);
-    if (override && override.overrideValue !== null) return { value: toNum(override.overrideValue), isOverridden: true };
-    return { value: getSectionSubtotal(section.section), isOverridden: false };
-  };
+  const totals = useMemo(() => computeWorkbookTotals(quoteCategories, synthesisOverrides), [quoteCategories, synthesisOverrides]);
 
   const handleStartEdit = (sectionNumber: string, currentValue: number) => { setEditingSection(sectionNumber); setEditValue(String(currentValue)); };
   const handleSaveEdit = (sectionNumber: string) => { const val = parseFloat(editValue) || 0; onSaveOverride(sectionNumber, val, true); setEditingSection(null); };
   const handleResetOverride = (sectionNumber: string) => { onSaveOverride(sectionNumber, null, false); };
 
-  const videoSections = SYNTHESIS_SECTIONS.filter(s => s.group === "video");
-  const accessSections = SYNTHESIS_SECTIONS.filter(s => s.group === "access");
-  const intercomSections = SYNTHESIS_SECTIONS.filter(s => s.group === "intercom");
-  const videoTotal = videoSections.reduce((s, sec) => s + getDisplayValue(sec).value, 0);
-  const accessTotal = accessSections.reduce((s, sec) => s + getDisplayValue(sec).value, 0);
-  const intercomTotal = intercomSections.reduce((s, sec) => s + getDisplayValue(sec).value, 0);
-  const grandTotal = videoTotal + accessTotal + intercomTotal;
-  const tax = grandTotal * GCT_RATE;
-  const totalWithTax = grandTotal + tax;
-  const suggestedPM = grandTotal * PM_REFERENCE_RATE;
-  const suggestedContingency = grandTotal * CONTINGENCY_REFERENCE_RATE;
+  const suggestedPM = totals.subtotal * PM_REFERENCE_RATE;
+  const suggestedContingency = totals.subtotal * CONTINGENCY_REFERENCE_RATE;
 
-  const renderSection = (section: typeof SYNTHESIS_SECTIONS[number]) => {
-    const { value, isOverridden } = getDisplayValue(section);
+  const renderSection = (section: SectionTotal) => {
+    const value = section.total;
+    const isOverridden = section.override !== null;
     const fieldKey = `synth-${section.section}`;
     const fs = fieldSaveStatus[fieldKey];
     return (
@@ -3665,7 +3595,7 @@ function SynthesisTab({ quoteCategories, synthesisOverrides, exchangeRate, fmt, 
         <td className={clsx("px-4 py-2 text-[13px] font-extrabold text-right flex items-center justify-end gap-1", isOverridden ? "text-amber-400" : "text-[#8b949e]")}>
           {editingSection === section.section ? (
             <div className="flex items-center gap-1"><input type="number" value={editValue} onChange={e => setEditValue(e.target.value)} className="bg-transparent text-white text-[13px] w-24 text-right focus:outline-none" style={G.input} autoFocus onKeyDown={e => { if (e.key === "Enter") handleSaveEdit(section.section); if (e.key === "Escape") setEditingSection(null); }} /><button onClick={() => handleSaveEdit(section.section)} className="w-5 h-5 rounded flex items-center justify-center cursor-pointer" style={{ background: "rgba(16,185,129,0.15)" }}><CheckCircle2 className="w-3 h-3 text-emerald-400" /></button></div>
-          ) : (<span className="cursor-pointer" onClick={() => handleStartEdit(section.section, value)}>{value > 0 ? fmt(value) : "—"}</span>)}
+          ) : (<span className="cursor-pointer" onClick={() => handleStartEdit(section.section, value)}>{value !== 0 ? fmt(value) : "—"}</span>)}
           {isOverridden && <OverrideIndicator isOverridden={true} onReset={() => handleResetOverride(section.section)} />}
           {fs === "saving" && <Loader2 className="w-2.5 h-2.5 animate-spin text-[#8b949e]" />}
           {fs === "saved" && <CheckCircle2 className="w-2.5 h-2.5 text-emerald-400" />}
@@ -3681,26 +3611,27 @@ function SynthesisTab({ quoteCategories, synthesisOverrides, exchangeRate, fmt, 
           <table className="w-full" style={{ minWidth: "700px" }}>
             <thead><tr style={{ borderBottom: "1px solid rgba(255,255,255,0.08)", background: "rgba(255,255,255,0.03)" }}><th className="px-3 py-2.5 text-[#8b949e] text-[11px] font-extrabold uppercase tracking-widest text-left">Item No</th><th className="px-3 py-2.5 text-[#8b949e] text-[11px] font-extrabold uppercase tracking-widest text-left">DESIGNATION</th><th className="px-3 py-2.5 text-[#8b949e] text-[11px] font-extrabold uppercase tracking-widest text-right">Unit Price</th></tr></thead>
             <tbody>
-              <tr style={{ background: "rgba(59,130,246,0.06)", cursor: "pointer" }} onClick={() => setCollapsedVideo(!collapsedVideo)}><td colSpan={3} className="px-4 py-2.5 text-white text-[14px] font-extrabold uppercase tracking-widest flex items-center gap-2">{collapsedVideo ? <ChevronRight className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />} Video Surveillance</td></tr>
-              {!collapsedVideo && videoSections.map(renderSection)}
-              {!collapsedVideo && <tr style={{ background: "rgba(255,255,255,0.04)" }}><td colSpan={2} className="px-4 py-2 text-[#8b949e] text-[12px] font-extrabold text-right uppercase">Total Video</td><td className="px-4 py-2 text-white text-[14px] font-extrabold text-right">{fmt(videoTotal)}</td></tr>}
-              <tr><td colSpan={3} className="px-4 py-1"></td></tr>
-              <tr style={{ background: "rgba(139,92,246,0.06)", cursor: "pointer" }} onClick={() => setCollapsedAccess(!collapsedAccess)}><td colSpan={3} className="px-4 py-2.5 text-white text-[14px] font-extrabold uppercase tracking-widest flex items-center gap-2">{collapsedAccess ? <ChevronRight className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />} Access Control</td></tr>
-              {!collapsedAccess && accessSections.map(renderSection)}
-              {!collapsedAccess && <tr style={{ background: "rgba(255,255,255,0.04)" }}><td colSpan={2} className="px-4 py-2 text-[#8b949e] text-[12px] font-extrabold text-right uppercase">Total Access</td><td className="px-4 py-2 text-white text-[14px] font-extrabold text-right">{fmt(accessTotal)}</td></tr>}
-              <tr><td colSpan={3} className="px-4 py-1"></td></tr>
-              <tr style={{ background: "rgba(20,184,166,0.06)", cursor: "pointer" }} onClick={() => setCollapsedIntercom(!collapsedIntercom)}><td colSpan={3} className="px-4 py-2.5 text-white text-[14px] font-extrabold uppercase tracking-widest flex items-center gap-2">{collapsedIntercom ? <ChevronRight className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />} Intercom</td></tr>
-              {!collapsedIntercom && intercomSections.map(renderSection)}
-              {!collapsedIntercom && <tr style={{ background: "rgba(255,255,255,0.04)" }}><td colSpan={2} className="px-4 py-2 text-[#8b949e] text-[12px] font-extrabold text-right uppercase">Total Intercom</td><td className="px-4 py-2 text-white text-[14px] font-extrabold text-right">{fmt(intercomTotal)}</td></tr>}
+              {totals.systems.map((sys, i) => {
+                const meta = SYSTEM_DISPLAY[sys.system];
+                const isCollapsed = !!collapsed[sys.system];
+                return (
+                  <Fragment key={sys.system}>
+                    {i > 0 && <tr><td colSpan={3} className="px-4 py-1"></td></tr>}
+                    <tr style={{ background: meta.tint, cursor: "pointer" }} onClick={() => setCollapsed(prev => ({ ...prev, [sys.system]: !isCollapsed }))}><td colSpan={3} className="px-4 py-2.5 text-white text-[14px] font-extrabold uppercase tracking-widest flex items-center gap-2">{isCollapsed ? <ChevronRight className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />} {meta.label}</td></tr>
+                    {!isCollapsed && sys.sections.map(renderSection)}
+                    {!isCollapsed && <tr style={{ background: "rgba(255,255,255,0.04)" }}><td colSpan={2} className="px-4 py-2 text-[#8b949e] text-[12px] font-extrabold text-right uppercase">Total {meta.short}</td><td className="px-4 py-2 text-white text-[14px] font-extrabold text-right">{fmt(sys.total)}</td></tr>}
+                  </Fragment>
+                );
+              })}
             </tbody>
           </table>
         </div>
       </div>
       <div data-tour="wb-synth-total" className="rounded-2xl p-4 mt-4" style={{ ...G.card, background: "rgba(59,130,246,0.06)", border: "1px solid rgba(59,130,246,0.20)" }}>
         <div className="space-y-2">
-          <div className="flex justify-between py-1"><span className="text-[#8b949e] text-[13px]">Grand Total</span><span className="text-white text-[16px] font-extrabold">{fmt(grandTotal)}</span></div>
-          <div className="flex justify-between py-1"><span className="text-[#8b949e] text-[14px]">Tax (GCT 15%)</span><span className="text-[#8b949e] text-[14px] font-extrabold">{fmt(tax)}</span></div>
-          <div className="flex justify-between py-2 border-t-2 border-white/10"><span className="text-white text-[16px] font-extrabold">Grand Total with Tax</span><span className="text-white text-[1.3rem] font-black" style={{ color: "#60a5fa" }}>{fmt(totalWithTax)}</span></div>
+          <div className="flex justify-between py-1"><span className="text-[#8b949e] text-[13px]">Grand Total</span><span className="text-white text-[16px] font-extrabold">{fmt(totals.subtotal)}</span></div>
+          <div className="flex justify-between py-1"><span className="text-[#8b949e] text-[14px]">Tax (GCT 15%)</span><span className="text-[#8b949e] text-[14px] font-extrabold">{fmt(totals.gct)}</span></div>
+          <div className="flex justify-between py-2 border-t-2 border-white/10"><span className="text-white text-[16px] font-extrabold">Grand Total with Tax</span><span className="text-white text-[1.3rem] font-black" style={{ color: "#60a5fa" }}>{fmt(totals.total)}</span></div>
         </div>
       </div>
       <div data-tour="wb-synth-reference" className="rounded-2xl p-4 mt-3" style={G.subtle}>
@@ -3985,7 +3916,7 @@ function Workbook({ navigate }: { navigate: (p: Page) => void }) {
             {activeTab === "asset-list" && <AssetListTab quoteCategories={quoteCategories} exchangeRate={exchangeRate} fmt={fmt} systemFilter={systemFilter} onSystemFilterChange={setSystemFilter} />}
             {activeTab === "cost-margin" && <CostMarginTab quoteCategories={quoteCategories} exchangeRate={exchangeRate} fmt={fmt} onLineItemUpdate={updateQuoteLineItem} onAddLineItem={addLineItem} fieldSaveStatus={fieldSaveStatus} systemFilter={systemFilter} onSystemFilterChange={setSystemFilter} />}
             {activeTab === "bom" && <BomTab quoteCategories={quoteCategories} synthesisOverrides={synthesisOverrides} exchangeRate={exchangeRate} fmt={fmt} onLineItemUpdate={updateQuoteLineItem} onAddLineItem={addLineItem} onBomEditWithOverride={handleBomEditWithOverride} fieldSaveStatus={fieldSaveStatus} systemFilter={systemFilter} onSystemFilterChange={setSystemFilter} />}
-            {activeTab === "synthesis" && <SynthesisTab quoteCategories={quoteCategories} synthesisOverrides={synthesisOverrides} exchangeRate={exchangeRate} fmt={fmt} onSaveOverride={handleSaveOverride} fieldSaveStatus={fieldSaveStatus} />}
+            {activeTab === "synthesis" && <SynthesisTab quoteCategories={quoteCategories} synthesisOverrides={synthesisOverrides} fmt={fmt} onSaveOverride={handleSaveOverride} fieldSaveStatus={fieldSaveStatus} />}
             <div className="flex items-center justify-between flex-wrap gap-2 pt-2">
               {activeTabIndex > 0 ? (
                 <button onClick={() => setActiveTab(wbTabs[activeTabIndex - 1].id)} className="flex items-center gap-1.5 h-10 md:h-9 px-4 rounded-xl text-[#8b949e] hover:text-white text-[13px] font-bold cursor-pointer" style={G.btn}><ChevronLeft className="w-3.5 h-3.5" /> {wbTabs[activeTabIndex - 1].label}</button>
