@@ -43,7 +43,7 @@ router.post("/:projectId/sync", async (req: Request, res: Response) => {
         await client.query(
           `INSERT INTO commissioning_checklists (project_id, device_id, device_name, location, status)
            VALUES ($1, $2, $3, $4, $5)
-           ON CONFLICT (device_id) DO NOTHING`,
+           ON CONFLICT (project_id, device_id) DO NOTHING`,
           [projectId, row.id, row.name, row.location || null, row.status === "complete" ? "pass" : "pending"]
         );
       }
@@ -55,7 +55,7 @@ router.post("/:projectId/sync", async (req: Request, res: Response) => {
           await client.query(
             `INSERT INTO commissioning_checklists (project_id, device_id, device_name, location, status)
              VALUES ($1, $2, $3, $4, 'pending')
-             ON CONFLICT (device_id) DO NOTHING`,
+             ON CONFLICT (project_id, device_id) DO NOTHING`,
             [projectId, dev.id, dev.label, null]
           );
         }
@@ -86,7 +86,8 @@ router.post("/:projectId", async (req: Request, res: Response) => {
       [projectId, deviceId || null, deviceName, location || null]
     );
     res.status(201).json(result.rows[0]);
-  } catch (err) {
+  } catch (err: any) {
+    if (err?.code === "23505") return res.status(409).json({ error: "That device is already on this project's checklist" });
     console.error("POST /commissioning/:projectId error:", err);
     res.status(500).json({ error: "Failed to add commissioning item" });
   }

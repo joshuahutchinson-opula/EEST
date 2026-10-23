@@ -355,6 +355,16 @@ export async function initDB() {
       await client.query(`ALTER TABLE devices ADD CONSTRAINT devices_sku_unique UNIQUE (sku)`);
     } catch {}
 
+    // The commissioning sync upserts on (project_id, device_id). Collapse any duplicates first,
+    // keeping the row that has progressed furthest (non-pending, then most recently updated).
+    await client.query(`
+      DELETE FROM commissioning_checklists a USING commissioning_checklists b
+      WHERE a.project_id = b.project_id AND a.device_id = b.device_id
+        AND ROW(COALESCE(a.status, 'pending') <> 'pending', a.updated_at, a.id)
+          < ROW(COALESCE(b.status, 'pending') <> 'pending', b.updated_at, b.id)
+    `);
+    await client.query(`CREATE UNIQUE INDEX IF NOT EXISTS commissioning_project_device_uniq ON commissioning_checklists (project_id, device_id)`);
+
     // The Axis Q1700-LE LPV Kit catalog entry points at a dead manufacturer image (404s) —
     // clear it so DeviceImage falls back to the placeholder icon instead of a broken image.
     // No current/working replacement URL was available to substitute in its place.
