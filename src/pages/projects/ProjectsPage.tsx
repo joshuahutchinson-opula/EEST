@@ -1,9 +1,9 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import { AnimatePresence, motion } from "motion/react";
-import { Building2, Camera, Grid3x3, Layers, List, Search, Trash2 } from "lucide-react";
+import { Building2, Camera, FileDown, Grid3x3, Layers, List, Search, Trash2 } from "lucide-react";
 import { clsx } from "clsx";
-import { API } from "../../api";
+import { API, downloadBlob } from "../../api";
 import { ConfirmDialog } from "../../components/ConfirmDialog";
 import { EmptyState } from "../../components/EmptyState";
 import { Skeleton } from "../../components/Skeleton";
@@ -70,6 +70,7 @@ export function ProjectsPage({ navigate }: { navigate: (p: Page) => void }) {
       <div className="flex items-center justify-between mb-4 md:mb-6">
         <div><h1 className="text-white font-extrabold text-2xl md:text-3xl tracking-tight">Projects</h1></div>
         <div className="flex items-center gap-2">
+          {!tech && <button onClick={async () => { try { const { blob, filename } = await API.exports.quickbooks(); downloadBlob(blob, filename); toast.success("QuickBooks export downloaded"); } catch { toast.error("Failed to build the QuickBooks export"); } }} className="flex items-center gap-1.5 h-8 px-3 rounded-xl text-[#8b949e] hover:text-white text-[13px] font-bold cursor-pointer" style={G.btn} title="Approved quotes as a QuickBooks invoice-import CSV"><FileDown className="w-3.5 h-3.5" /> QuickBooks CSV</button>}
           <div data-tour="proj-view-toggle" className="flex items-center rounded-xl p-0.5 gap-0.5" style={G.btn}>
             {(["grid","list"] as const).map((m) => (
               <button key={m} onClick={() => setViewMode(m)} className={clsx("w-7 h-7 rounded-lg flex items-center justify-center cursor-pointer", viewMode === m ? "text-white" : "text-[#8b949e]")} style={viewMode === m ? { background: "rgba(255,255,255,0.12)" } : undefined}>{m === "grid" ? <Grid3x3 className="w-3.5 h-3.5" /> : <List className="w-3.5 h-3.5" />}</button>

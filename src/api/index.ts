@@ -132,6 +132,9 @@ export const API = {
     delete: (projectId: string, assetId: string) => apiFetch<void>(`/projects/${projectId}/assets/${assetId}`, { method: "DELETE" }),
     equipmentSummary: (projectId: string) => apiFetchBlob(`/projects/${projectId}/assets/equipment-summary`),
   },
+  exports: {
+    quickbooks: (from?: string, to?: string) => apiFetchBlob(`/exports/quickbooks.csv?${new URLSearchParams({ ...(from ? { from } : {}), ...(to ? { to } : {}) })}`),
+  },
   clients: {
     list: () => apiFetch<ClientSummary[]>("/clients"),
     get: (id: string) => apiFetch<ClientDetail>(`/clients/${id}`),
