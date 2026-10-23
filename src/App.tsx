@@ -3341,7 +3341,7 @@ function FieldAuditModal({ open, entries, onClose }: { open: boolean; entries: W
   );
 }
 
-function SummaryBar({ totalCost, totalSell, blendedMargin, fmt, onGenerateProposal }: { totalCost: number; totalSell: number; blendedMargin: number; fmt: (n: number) => string; onGenerateProposal?: () => void; }) {
+function SummaryBar({ totalCost, totalSell, blendedMargin, fmt }: { totalCost: number; totalSell: number; blendedMargin: number; fmt: (n: number) => string; }) {
   return (
     <div className="sticky top-0 z-20 flex items-center gap-4 px-4 py-2.5 rounded-xl mb-3 flex-wrap" style={{ ...G.liquidGlass, borderColor: "rgba(59,130,246,0.25)" }}>
       <div className="flex items-center gap-2"><span className="text-[#8b949e] text-[12px] font-extrabold uppercase">Total Cost</span><span className="text-white text-[16px] font-extrabold">{fmt(totalCost)}</span></div>
@@ -3349,8 +3349,6 @@ function SummaryBar({ totalCost, totalSell, blendedMargin, fmt, onGeneratePropos
       <div className="flex items-center gap-2"><span className="text-[#8b949e] text-[12px] font-extrabold uppercase">Total Sell</span><span className="text-emerald-400 text-[16px] font-extrabold">{fmt(totalSell)}</span></div>
       <div className="w-px h-5" style={{ background: "rgba(255,255,255,0.10)" }} />
       <div className="flex items-center gap-2"><span className="text-[#8b949e] text-[12px] font-extrabold uppercase">Blended Margin</span><span className={clsx("text-[16px] font-extrabold", blendedMargin >= 30 ? "text-emerald-400" : blendedMargin >= 15 ? "text-amber-400" : "text-rose-400")}>{blendedMargin.toFixed(1)}%</span></div>
-      <div className="flex-1" />
-      {onGenerateProposal && <button onClick={onGenerateProposal} className="flex items-center gap-1.5 h-7 px-3 rounded-lg text-white text-[12px] font-extrabold cursor-pointer" style={{ background: "#3b82f6" }}><FileDown className="w-3 h-3" /> Generate Proposal</button>}
     </div>
   );
 }
@@ -3360,7 +3358,7 @@ const COST_MARGIN_STEPS: TutorialStep[] = [
   { target: "wb-cm-table", title: "Cost & Margin Table", description: "Click any Qty, Cost, or Markup % cell to edit it inline — Sell Price, Total Cost, Total Sell, and Profit recalculate automatically, plus an Import line where a section carries an import rate. This data is internal only and never appears in client exports." },
 ];
 
-function CostMarginTab({ quoteCategories, exchangeRate, fmt, onLineItemUpdate, onAddLineItem, onResetCost, fieldSaveStatus, systemFilter, onSystemFilterChange }: { quoteCategories: QuoteCategory[]; exchangeRate: number; fmt: (n: number, compact?: boolean) => string; onLineItemUpdate: (categoryId: string, itemId: string, updates: Partial<QuoteLineItem>) => void; onAddLineItem: (categoryId: string) => void; onResetCost: (categoryId: string, itemId: string) => void; fieldSaveStatus: Record<string, "saved" | "saving" | "">; systemFilter: SystemType; onSystemFilterChange: (s: SystemType) => void; }) {
+function CostMarginTab({ quoteCategories, exchangeRate, fmt, onLineItemUpdate, onAddLineItem, onResetCost, priceDeviation, fieldSaveStatus, systemFilter, onSystemFilterChange }: { quoteCategories: QuoteCategory[]; exchangeRate: number; fmt: (n: number, compact?: boolean) => string; onLineItemUpdate: (categoryId: string, itemId: string, updates: Partial<QuoteLineItem>) => void; onAddLineItem: (categoryId: string) => void; onResetCost: (categoryId: string, itemId: string) => void; priceDeviation: (li: QuoteLineItem) => number | null; fieldSaveStatus: Record<string, "saved" | "saving" | "">; systemFilter: SystemType; onSystemFilterChange: (s: SystemType) => void; }) {
   useAutoTutorial("workbook.cost-margin", COST_MARGIN_STEPS);
   const filteredCategories = quoteCategories.filter(c => c.system === systemFilter && c.sectionNumber !== 800 && c.sectionNumber !== 1300 && c.sectionNumber !== 1800);
   const importCategories = quoteCategories.filter(c => c.system === systemFilter && (c.sectionNumber === 800 || c.sectionNumber === 1300 || c.sectionNumber === 1800));
@@ -3397,7 +3395,7 @@ function CostMarginTab({ quoteCategories, exchangeRate, fmt, onLineItemUpdate, o
                         <td className="px-3 py-2 text-[#8b949e] text-[12px] font-mono">{itemNumber}</td>
                         <td className="px-3 py-2 text-white text-[13px] font-bold"><span className="flex items-center gap-1.5">{incomplete && <span title={li.unitCost === 0 ? "Cost is $0 — pricing incomplete" : "Markup is 0% — pricing incomplete"} className="flex-shrink-0"><AlertTriangle className="w-3 h-3 text-amber-400" /></span>}{li.projectAssetId ? li.description : <InlineEditCell value={li.description} placeholder="Description" onChange={(val) => onLineItemUpdate(category.id, li.id, { description: val })} />}</span></td>
                         <td className="px-3 py-2 text-center"><InlineEditCell type="number" value={li.quantity} onChange={(val) => onLineItemUpdate(category.id, li.id, { quantity: parseInt(val) || 0 })} /></td>
-                        <td className="px-3 py-2 text-right"><span className="inline-flex items-center justify-end gap-1">{li.projectAssetId && li.costOverridden && <button onClick={() => onResetCost(category.id, li.id)} className="w-5 h-5 rounded flex items-center justify-center cursor-pointer hover:bg-white/[0.08]" title="Cost edited by hand — click to use the asset's cost again"><RotateCcw className="w-3 h-3 text-amber-400" /></button>}<InlineEditCell type="number" value={li.unitCost} onChange={(val) => onLineItemUpdate(category.id, li.id, { unitCost: parseFloat(val) || 0 })} /></span></td>
+                        <td className="px-3 py-2 text-right"><span className="inline-flex items-center justify-end gap-1">{li.projectAssetId && li.costOverridden && <button onClick={() => onResetCost(category.id, li.id)} className="w-5 h-5 rounded flex items-center justify-center cursor-pointer hover:bg-white/[0.08]" title="Cost edited by hand — click to use the asset's cost again"><RotateCcw className="w-3 h-3 text-amber-400" /></button>}<InlineEditCell type="number" value={li.unitCost} onChange={(val) => onLineItemUpdate(category.id, li.id, { unitCost: parseFloat(val) || 0 })} />{(() => { const dev = priceDeviation(li); return dev !== null && <PriceDeviationBadge deviation={dev} />; })()}</span></td>
                         <td className="px-3 py-2 text-right"><InlineEditCell type="number" value={Math.round(li.markupPercent * 100)} onChange={(val) => onLineItemUpdate(category.id, li.id, { markupPercent: (parseFloat(val) || 0) / 100 })} /><span className="text-[#8b949e] text-[12px]">%</span></td>
                         <td className="px-3 py-2 text-right text-white text-[13px] font-extrabold">{r.sellPrice.toFixed(2)}</td>
                         <td className="px-3 py-2 text-right text-[#8b949e] text-[13px]">{r.costTotal.toFixed(2)}</td>
@@ -3714,6 +3712,7 @@ function Workbook({ navigate }: { navigate: (p: Page) => void }) {
   const [selectedQuoteId, setSelectedQuoteId] = useState<string>("");
   const [showProjectSelect, setShowProjectSelect] = useState(false);
   const [rateUpdate, setRateUpdate] = useState<{ liveRate: number } | null>(null);
+  const [priceHistoryAvg, setPriceHistoryAvg] = useState<Record<string, number>>({});
   const [activeTab, setActiveTab] = useState<WorkbookTab>(() => (localStorage.getItem("wb_tab") as WorkbookTab) || "asset-list");
   const [saveStatus, setSaveStatus] = useState<"saved" | "saving" | "">("saved");
   const [projectAssets, setProjectAssets] = useState<ProjectAsset[]>([]);
@@ -3756,6 +3755,30 @@ function Workbook({ navigate }: { navigate: (p: Page) => void }) {
       API.workbook.getAudit(selectedProjectId).then(setWorkbookAudit).catch(() => setWorkbookAudit([]));
     }
   }, [selectedProjectId]);
+
+  useEffect(() => {
+    const deviceIds = [...new Set(projectAssets.map(a => a.deviceStoreRef).filter((id): id is string => !!id))];
+    if (deviceIds.length === 0) { setPriceHistoryAvg({}); return; }
+    let alive = true;
+    Promise.all(deviceIds.map(id => API.workbook.getPriceHistory(id).then(h => [id, h] as const).catch(() => [id, []] as const)))
+      .then(results => {
+        if (!alive) return;
+        const avg: Record<string, number> = {};
+        for (const [id, history] of results) {
+          const prices = history.map(h => toNum(h.price)).filter(p => p > 0);
+          if (prices.length > 0) avg[id] = prices.reduce((a, b) => a + b, 0) / prices.length;
+        }
+        setPriceHistoryAvg(avg);
+      });
+    return () => { alive = false; };
+  }, [projectAssets]);
+  // How far an asset-synced line's cost sits from its catalog device's average historical price, in %.
+  const priceDeviation = useCallback((li: QuoteLineItem): number | null => {
+    if (!li.projectAssetId) return null;
+    const deviceId = projectAssets.find(a => a.id === li.projectAssetId)?.deviceStoreRef;
+    const avg = deviceId ? priceHistoryAvg[deviceId] : undefined;
+    return avg ? ((toNum(li.unitCost) - avg) / avg) * 100 : null;
+  }, [projectAssets, priceHistoryAvg]);
 
   const selectedProject = projects.find((p) => p.id === selectedProjectId);
   // Must stay in lockstep with selectedProjectId — previously only set selectedQuoteId when it
@@ -3927,7 +3950,7 @@ function Workbook({ navigate }: { navigate: (p: Page) => void }) {
           <p className="px-4 md:px-6 pt-2.5 pb-1 text-[#8b949e] text-[12px] md:text-[13px] flex-shrink-0">{wbTabs[activeTabIndex]?.description}</p>
           <div className="flex-1 overflow-y-auto px-3 md:px-5 py-4 space-y-4" style={{ scrollbarWidth: "thin", scrollbarColor: "rgba(255,255,255,0.08) transparent" }}>
             {activeTab === "asset-list" && <AssetListTab quoteCategories={quoteCategories} exchangeRate={exchangeRate} fmt={fmt} systemFilter={systemFilter} onSystemFilterChange={setSystemFilter} />}
-            {activeTab === "cost-margin" && <CostMarginTab quoteCategories={quoteCategories} exchangeRate={exchangeRate} fmt={fmt} onLineItemUpdate={updateQuoteLineItem} onAddLineItem={addLineItem} onResetCost={handleResetCost} fieldSaveStatus={fieldSaveStatus} systemFilter={systemFilter} onSystemFilterChange={setSystemFilter} />}
+            {activeTab === "cost-margin" && <CostMarginTab quoteCategories={quoteCategories} exchangeRate={exchangeRate} fmt={fmt} onLineItemUpdate={updateQuoteLineItem} onAddLineItem={addLineItem} onResetCost={handleResetCost} priceDeviation={priceDeviation} fieldSaveStatus={fieldSaveStatus} systemFilter={systemFilter} onSystemFilterChange={setSystemFilter} />}
             {activeTab === "bom" && <BomTab quoteCategories={quoteCategories} synthesisOverrides={synthesisOverrides} exchangeRate={exchangeRate} fmt={fmt} onLineItemUpdate={updateQuoteLineItem} onAddLineItem={addLineItem} onBomEditWithOverride={handleBomEditWithOverride} fieldSaveStatus={fieldSaveStatus} systemFilter={systemFilter} onSystemFilterChange={setSystemFilter} />}
             {activeTab === "synthesis" && <SynthesisTab quoteCategories={quoteCategories} synthesisOverrides={synthesisOverrides} fmt={fmt} onSaveOverride={handleSaveOverride} fieldSaveStatus={fieldSaveStatus} />}
             <div className="flex items-center justify-between flex-wrap gap-2 pt-2">

@@ -4,6 +4,18 @@ import { isTech, requireAdmin } from "../lib/roles";
 
 const router = Router();
 
+// Keeps device_price_history in step with the catalog: one row per price change, which the
+// Workbook compares quoted costs against.
+async function recordPrice(deviceId: string, price: unknown) {
+  if (price === null || price === undefined || !(Number(price) > 0)) return;
+  await pool.query(
+    `INSERT INTO device_price_history (device_id, price)
+     SELECT $1, $2::numeric
+     WHERE $2::numeric IS DISTINCT FROM (SELECT price FROM device_price_history WHERE device_id = $1 ORDER BY recorded_at DESC LIMIT 1)`,
+    [deviceId, Number(price)]
+  );
+}
+
 // GET /api/devices
 router.get("/", async (req: Request, res: Response) => {
   try {
@@ -72,6 +84,7 @@ router.post("/", requireAdmin, async (req: Request, res: Response) => {
        VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21) RETURNING *`,
       [model, manufacturer, category, resolution, lens, sensor, nightVision, weatherRating, powerInput, storage, channels, readers, authentication, price, sku, imageUrl, frameRate, compression, fov, operatingTemp, tags || []]
     );
+    await recordPrice(result.rows[0].id, result.rows[0].price);
     res.status(201).json(result.rows[0]);
   } catch (err) {
     console.error("POST /devices error:", err);
@@ -99,6 +112,7 @@ router.patch("/:id", requireAdmin, async (req: Request, res: Response) => {
     );
     if (result.rows.length === 0) return res.status(404).json({ error: "Device not found" });
     const row = result.rows[0];
+    await recordPrice(row.id, row.price);
     res.json({
       id: row.id, model: row.model, manufacturer: row.manufacturer, category: row.category,
       resolution: row.resolution, lens: row.lens, sensor: row.sensor,
@@ -121,12 +135,14 @@ router.post("/bulk", requireAdmin, async (req: Request, res: Response) => {
     if (!Array.isArray(devices)) return res.status(400).json({ error: "devices array required" });
     let count = 0;
     for (const d of devices) {
-      await pool.query(
+      const result = await pool.query(
         `INSERT INTO devices (model, manufacturer, category, resolution, lens, sensor, night_vision, weather_rating, power_input, storage, channels, readers, authentication, price, sku, image_url, frame_rate, compression, fov, operating_temp, tags)
          VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21)
-         ON CONFLICT (sku) DO UPDATE SET price=EXCLUDED.price, image_url=EXCLUDED.image_url, tags=EXCLUDED.tags`,
+         ON CONFLICT (sku) DO UPDATE SET price=EXCLUDED.price, image_url=EXCLUDED.image_url, tags=EXCLUDED.tags
+         RETURNING id, price`,
         [d.model, d.manufacturer, d.category, d.resolution, d.lens, d.sensor, d.nightVision, d.weatherRating, d.powerInput, d.storage, d.channels, d.readers, d.authentication, d.price, d.sku, d.imageUrl, d.frameRate, d.compression, d.fov, d.operatingTemp, d.tags || []]
       );
+      await recordPrice(result.rows[0].id, result.rows[0].price);
       count++;
     }
     res.status(201).json({ imported: count });
