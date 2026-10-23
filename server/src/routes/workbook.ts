@@ -4,7 +4,7 @@ import { requireAdmin, sessionUserName } from "../lib/roles";
 import { buildProposalDocx } from "../lib/docxDocuments";
 import { buildWorkbookXlsx } from "../lib/xlsxExport";
 import { loadProjectWorkbook } from "../lib/workbookData";
-import { buildSectionRows } from "../lib/workbookTotals";
+import { buildSectionRows, totalsForSystems } from "../lib/workbookTotals";
 import { DEFAULT_EXCHANGE_RATE } from "../lib/exchangeRate";
 import { FROZEN_QUOTE_MESSAGE, isQuoteFrozen, latestQuoteId } from "../lib/quoteRevisions";
 
@@ -152,7 +152,12 @@ router.post("/:projectId/proposal", async (req: Request, res: Response) => {
     if (!wb) return res.status(404).json({ error: "Project not found" });
 
     const rows = buildSectionRows(wb.totals, wb.categories, { foldAdjustments: true });
+    // Options: which systems to include (default all), a validity date and terms text.
+    const { systems, validUntil, terms } = (req.body || {}) as { systems?: unknown; validUntil?: unknown; terms?: unknown };
+    const included = Array.isArray(systems) && systems.length > 0 ? systems.filter((s): s is string => typeof s === "string") : wb.totals.systems.map((s) => s.system as string);
+    const subset = totalsForSystems(wb.totals, included);
     const categories = wb.totals.sections
+      .filter((s) => included.includes(s.system))
       .map((s) => ({ system: s.system, sectionNumber: s.section, name: s.name, items: (rows.get(s.section) || []).map((r) => ({ description: r.description, quantity: r.quantity, total: r.extended })) }))
       .filter((c) => c.items.length > 0);
 
@@ -161,10 +166,12 @@ router.post("/:projectId/proposal", async (req: Request, res: Response) => {
       refNumber: wb.quote?.refNumber || undefined,
       exchangeRate: wb.quote?.exchangeRate ?? DEFAULT_EXCHANGE_RATE,
       categories,
-      grandTotal: wb.totals.subtotal,
-      gctAmount: wb.totals.gct,
-      grandTotalWithTax: wb.totals.total,
+      grandTotal: subset.subtotal,
+      gctAmount: subset.gct,
+      grandTotalWithTax: subset.total,
       generatedAt: new Date().toISOString(),
+      validUntil: typeof validUntil === "string" && /^\d{4}-\d{2}-\d{2}$/.test(validUntil) ? validUntil : undefined,
+      terms: typeof terms === "string" ? terms.slice(0, 5000) : undefined,
     };
     const buffer = await buildProposalDocx(proposalData);
     const filename = `${(wb.project.name as string).replace(/\s+/g, "-")}-proposal.docx`;

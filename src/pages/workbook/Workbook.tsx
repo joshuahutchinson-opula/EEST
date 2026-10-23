@@ -441,6 +441,7 @@ export function Workbook({ navigate }: { navigate: (p: Page) => void }) {
   ];
   const activeTabIndex = wbTabs.findIndex(t => t.id === activeTab);
 
+  const fullTotals = useMemo(() => computeWorkbookTotals(quoteCategories, synthesisOverrides), [quoteCategories, synthesisOverrides]);
   // Project assets already sync into line items, so the line items alone are the whole picture.
   const workbookTotals = useMemo(() => {
     const t = computeWorkbookTotals(quoteCategories, synthesisOverrides);
@@ -453,7 +454,7 @@ export function Workbook({ navigate }: { navigate: (p: Page) => void }) {
     <div className="flex flex-col h-[calc(100vh-56px)] overflow-hidden">
       {overrideConflict && <OverrideConflictModal open={true} sectionName={overrideConflict.sectionName} onUpdateOverride={() => { overrideConflict.pendingCallback?.(); handleSaveOverride(overrideConflict.sectionNumber, null, false); setOverrideConflict(null); }} onKeepOverride={() => { overrideConflict.pendingCallback?.(); setOverrideConflict(null); }} onCancel={() => setOverrideConflict(null)} />}
       {showProjectSelect && <SelectProjectModal onClose={() => setShowProjectSelect(false)} onSelect={(id: string) => { setSelectedProjectId(id); setSelectedQuoteId(latestQuoteFor(quotes, id)?.id || ""); setShowProjectSelect(false); }} currentId={selectedProjectId} projects={projects} />}
-      {showProposalModal && <ProposalGeneratorModal open={true} onClose={() => setShowProposalModal(false)} projectId={selectedProjectId} quoteId={selectedQuoteId || undefined} />}
+      {showProposalModal && <ProposalGeneratorModal open={true} onClose={() => setShowProposalModal(false)} projectId={selectedProjectId} quoteId={selectedQuoteId || undefined} totals={fullTotals} exchangeRate={exchangeRate} />}
       {labourCategoryId && selectedQuote?.categories.find(c => c.id === labourCategoryId) && <LabourCalculatorModal category={selectedQuote.categories.find(c => c.id === labourCategoryId)!} currency={currency} exchangeRate={exchangeRate} fmt={fmt} onClose={() => setLabourCategoryId(null)} onSave={(rows) => applyLabour(labourCategoryId, rows)} />}
       {pickerCategoryId && <DevicePickerModal devices={storeDevices} fmt={fmt} onClose={() => setPickerCategoryId(null)} onPick={(d) => addLineItemFromDevice(pickerCategoryId, d)} />}
       {frozenPrompt && selectedQuote && <ConfirmDialog open={true} danger={false} confirmLabel="Create new draft" title="This version is frozen" message={`Rev ${selectedQuote.revision ?? 1} is ${selectedQuote.status}, so it can't be edited. Create a new draft (Rev ${Math.max(...projectQuotes.map(q => q.revision ?? 1)) + 1}) from it to make changes?`} onCancel={() => setFrozenPrompt(false)} onConfirm={createDraftFromSelected} />}

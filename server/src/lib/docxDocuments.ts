@@ -75,6 +75,8 @@ export interface ProposalDocxData {
   gctAmount: number;
   grandTotalWithTax: number;
   generatedAt: string;
+  validUntil?: string;
+  terms?: string;
 }
 
 // Client-facing, so amounts are in JMD at the quote's locked exchange rate (data stays USD).
@@ -84,7 +86,8 @@ export async function buildProposalDocx(data: ProposalDocxData): Promise<Buffer>
     new Paragraph({ pageBreakBefore: true, children: [new TextRun({ text: `${data.project.name} — ${data.project.client}`, bold: true, size: 26 })] }),
   ];
   if (data.project.location) children.push(new Paragraph({ children: [new TextRun({ text: data.project.location, size: 18, color: "666666" })] }));
-  children.push(new Paragraph({ spacing: { after: 200 }, children: [new TextRun({ text: `Generated ${new Date(data.generatedAt).toLocaleDateString()}`, size: 16, color: "999999" })] }));
+  children.push(new Paragraph({ spacing: { after: data.validUntil ? 0 : 200 }, children: [new TextRun({ text: `Generated ${new Date(data.generatedAt).toLocaleDateString()}`, size: 16, color: "999999" })] }));
+  if (data.validUntil) children.push(new Paragraph({ spacing: { after: 200 }, children: [new TextRun({ text: `Valid until ${new Date(data.validUntil + "T00:00:00").toLocaleDateString()}`, size: 18, bold: true, color: "555555" })] }));
   if (data.project.summary) {
     children.push(sectionHeading("Scope of Work"));
     children.push(new Paragraph({ spacing: { after: 200 }, children: [new TextRun({ text: data.project.summary, size: 20 })] }));
@@ -142,6 +145,9 @@ export async function buildProposalDocx(data: ProposalDocxData): Promise<Buffer>
           new Paragraph({ spacing: { before: 300 }, children: [] }),
           totalsTable,
           new Paragraph({ alignment: AlignmentType.RIGHT, spacing: { before: 120 }, children: [new TextRun({ text: `All prices in Jamaican dollars at J$${data.exchangeRate.toFixed(2)} per US$1.`, size: 16, color: "666666" })] }),
+          ...(data.terms?.trim()
+            ? [sectionHeading("Terms and Conditions"), ...data.terms.trim().split(/\r?\n/).map((line) => new Paragraph({ spacing: { after: 80 }, children: [new TextRun({ text: line, size: 18 })] }))]
+            : []),
         ],
       },
     ],

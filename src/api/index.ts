@@ -180,7 +180,7 @@ export const API = {
     getPriceHistory: (deviceId: string) => apiFetch<{ price: number; recordedAt: string }[]>(`/workbook/devices/${deviceId}/price-history`),
     exportXlsx: (projectId: string, quoteId?: string) => apiFetchBlob(`/workbook/${projectId}/export-xlsx${quoteId ? `?quoteId=${quoteId}` : ""}`),
   },
-  proposals: { generate: (projectId: string, quoteId?: string) => apiFetchBlob(`/workbook/${projectId}/proposal${quoteId ? `?quoteId=${quoteId}` : ""}`, { method: "POST" }) },
+  proposals: { generate: (projectId: string, quoteId?: string, options?: { systems?: string[]; validUntil?: string; terms?: string }) => apiFetchBlob(`/workbook/${projectId}/proposal${quoteId ? `?quoteId=${quoteId}` : ""}`, { method: "POST", body: JSON.stringify(options || {}) }) },
   publicStatus: { get: (token: string) => apiFetch<PublicProjectStatus>(`/public/status/${token}`) },
   inventory: {
     items: () => apiFetch<InventoryItem[]>("/inventory/items"),

@@ -125,7 +125,14 @@ export interface WorkbookTotals {
   total: number;
 }
 
-export type SectionRowKind = "item" | "adjustment" | "contingency" | "import";
+// Subtotal, GCT and total for just some systems (e.g. a proposal that leaves one out).
+export function totalsForSystems(totals: WorkbookTotals, systems: string[]): { subtotal: number; gct: number; total: number } {
+  const subtotal = totals.systems.filter((s) => systems.includes(s.system)).reduce((sum, s) => sum + s.total, 0);
+  const gct = subtotal * GCT_RATE;
+  return { subtotal, gct, total: subtotal + gct };
+}
+
+export type SectionRowKind ="item" | "adjustment" | "contingency" | "import";
 
 export interface SectionRow {
   kind: SectionRowKind;
