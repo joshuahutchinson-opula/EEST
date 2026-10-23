@@ -2,6 +2,7 @@ import { Router, Request, Response } from "express";
 import pool from "../db";
 import { isTech, requireAdmin, techMayAccessProject } from "../lib/roles";
 import { getLiveExchangeRate } from "../lib/exchangeRate";
+import { syncAssetLineItem } from "../lib/assetSync";
 
 const router = Router();
 
@@ -46,6 +47,7 @@ function mapLineItem(li: any, exchangeRate: number) {
     profit: (sellPrice * li.quantity) - (unitCost * li.quantity),
     jmdConversion: sellPrice * li.quantity * exchangeRate,
     projectAssetId: li.project_asset_id || undefined,
+    costOverridden: !!li.cost_overridden,
   };
 }
 
@@ -193,9 +195,14 @@ router.patch("/:id", requireAdmin, async (req: Request, res: Response) => {
         for (const li of lineItems) {
           const isExistingItem = li.id && existingItemIds.has(li.id);
           if (isExistingItem) {
+            // An asset-synced line's cost belongs to the asset unless the client marks it as a
+            // manual override; otherwise a stale tab re-sending old costs would overwrite synced ones.
             await client.query(
-              `UPDATE quote_line_items SET item_number=$2, description=$3, unit_cost=$4, quantity=$5, markup_percent=$6, project_asset_id=$7 WHERE id=$1`,
-              [li.id, li.itemNumber || "", li.description || "", li.unitCost || 0, li.quantity || 0, li.markupPercent || 0, li.projectAssetId || null]
+              `UPDATE quote_line_items SET item_number=$2, description=$3,
+                 unit_cost = CASE WHEN project_asset_id IS NULL OR $8 THEN $4 ELSE unit_cost END,
+                 cost_overridden = cost_overridden OR (project_asset_id IS NOT NULL AND $8),
+                 quantity=$5, markup_percent=$6, project_asset_id=$7 WHERE id=$1`,
+              [li.id, li.itemNumber || "", li.description || "", li.unitCost || 0, li.quantity || 0, li.markupPercent || 0, li.projectAssetId || null, li.costOverridden === true]
             );
           } else {
             await client.query(
@@ -213,6 +220,33 @@ router.patch("/:id", requireAdmin, async (req: Request, res: Response) => {
     await client.query("ROLLBACK");
     console.error("PATCH /quotes/:id error:", err);
     res.status(500).json({ error: "Failed to update quote" });
+  } finally {
+    client.release();
+  }
+});
+
+// POST /api/quotes/line-items/:itemId/reset-cost — drop a manual cost override on an asset-synced
+// line and take the cost from its asset again.
+router.post("/line-items/:itemId/reset-cost", requireAdmin, async (req: Request, res: Response) => {
+  const client = await pool.connect();
+  try {
+    const found = await client.query(`SELECT project_asset_id FROM quote_line_items WHERE id::text = $1`, [req.params.itemId]);
+    if (found.rows.length === 0) return res.status(404).json({ error: "Line item not found" });
+    if (!found.rows[0].project_asset_id) return res.status(400).json({ error: "Line item is not linked to a project asset" });
+    await client.query("BEGIN");
+    await client.query(`UPDATE quote_line_items SET cost_overridden = FALSE WHERE id = $1`, [req.params.itemId]);
+    await syncAssetLineItem(client, found.rows[0].project_asset_id);
+    await client.query("COMMIT");
+    const result = await client.query(
+      `SELECT li.*, q.exchange_rate FROM quote_line_items li
+       JOIN quote_categories c ON c.id = li.category_id JOIN quotes q ON q.id = c.quote_id WHERE li.id = $1`,
+      [req.params.itemId]
+    );
+    res.json(mapLineItem(result.rows[0], Number(result.rows[0].exchange_rate)));
+  } catch (err) {
+    await client.query("ROLLBACK").catch(() => {});
+    console.error("POST /quotes/line-items/:itemId/reset-cost error:", err);
+    res.status(500).json({ error: "Failed to reset cost" });
   } finally {
     client.release();
   }

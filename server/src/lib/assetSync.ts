@@ -112,7 +112,7 @@ export async function syncAssetLineItem(client: PoolClient, assetId: string): Pr
   const { sectionNumber, markup } = resolveSection(asset, system, device);
 
   const existingResult = await client.query(
-    `SELECT li.id, li.markup_percent, li.item_number, li.category_id, c.quote_id
+    `SELECT li.id, li.markup_percent, li.item_number, li.category_id, li.cost_overridden, c.quote_id
      FROM quote_line_items li JOIN quote_categories c ON c.id = li.category_id
      WHERE li.project_asset_id = $1 LIMIT 1`,
     [assetId]
@@ -125,7 +125,8 @@ export async function syncAssetLineItem(client: PoolClient, assetId: string): Pr
 
   if (existing) {
     await client.query(
-      `UPDATE quote_line_items SET category_id = $2, description = $3, unit_cost = $4, quantity = $5 WHERE id = $1`,
+      // A hand-edited cost (cost_overridden) survives asset edits until it's reset.
+      `UPDATE quote_line_items SET category_id = $2, description = $3, unit_cost = CASE WHEN cost_overridden THEN unit_cost ELSE $4 END, quantity = $5 WHERE id = $1`,
       [existing.id, categoryId, description, unitCost, asset.quantity]
     );
   } else {
