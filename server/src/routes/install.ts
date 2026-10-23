@@ -1,6 +1,7 @@
 import { Router, Request, Response } from "express";
 import pool from "../db";
 import { isTech, requireProjectAccess, techMayAccessProject } from "../lib/roles";
+import { signFileUrls, toStoredFileUrl } from "../lib/uploads";
 
 const router = Router();
 
@@ -44,7 +45,7 @@ router.get("/zones", async (req: Request, res: Response) => {
           status: d.status,
           assignee: d.assignee || "",
           notes: d.notes || undefined,
-          installedPhotos: d.installed_photos || [],
+          installedPhotos: signFileUrls(d.installed_photos),
         })),
       });
     }
@@ -82,7 +83,7 @@ router.post("/zones/:zoneId/devices", async (req: Request, res: Response) => {
       "INSERT INTO install_devices (zone_id, name, type, location, status, assignee, notes) VALUES ($1,$2,$3,$4,$5,$6,$7) RETURNING *",
       [zoneId, name, type || "camera", location || "", status || "pending", assignee || "", notes || null]
     );
-    res.status(201).json(result.rows[0]);
+    res.status(201).json({ ...result.rows[0], installed_photos: signFileUrls(result.rows[0].installed_photos) });
   } catch (err) {
     console.error("POST /install/zones/:zoneId/devices error:", err);
     res.status(500).json({ error: "Failed to add device" });
@@ -97,10 +98,10 @@ router.patch("/zones/:zoneId/devices/:deviceId", async (req: Request, res: Respo
     if (status) {
       await pool.query("UPDATE install_devices SET status = $1 WHERE id = $2 AND zone_id = $3", [status, deviceId, zoneId]);
     }
-    if (addPhoto) {
+    if (typeof addPhoto === "string" && addPhoto) {
       await pool.query(
         "UPDATE install_devices SET installed_photos = installed_photos || $1::jsonb WHERE id = $2 AND zone_id = $3",
-        [JSON.stringify([addPhoto]), deviceId, zoneId]
+        [JSON.stringify([toStoredFileUrl(addPhoto)]), deviceId, zoneId]
       );
     }
     res.json({ success: true });

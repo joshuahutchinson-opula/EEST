@@ -25,6 +25,9 @@ import { clsx } from "clsx";
 import logoImg from "./assets/2026-06-14_21.13.34_e-techsystemsja.com_2f51395e09e8-removebg-preview (1).png";
 
 const API_BASE = import.meta.env.VITE_API_URL || "/api";
+// The server hands out uploaded files as signed "/api/files/…" URLs; in production the API is
+// a different host from the frontend, so resolve them against the API origin.
+const fileHref = (url: string) => (url.startsWith("/api/") ? API_BASE.replace(/\/api\/?$/, "") + url : url);
 const GCT_RATE = 0.15;
 const DEFAULT_EXCHANGE_RATE = 163;
 const PM_REFERENCE_RATE = 0.05;
@@ -2081,13 +2084,13 @@ function DocumentList({ projectId }: { projectId: string }) {
           <div key={doc.id} className="flex items-center justify-between px-3 py-2 rounded-xl group hover:bg-white/[0.02]" style={G.subtle}>
             <div className="relative group/preview flex items-center gap-2 min-w-0">
               <Paperclip className="w-3.5 h-3.5 text-[#484f58] flex-shrink-0" />
-              <a href={doc.fileUrl} target="_blank" rel="noopener noreferrer" className="text-white text-[13px] font-bold truncate hover:text-blue-400">{doc.filename}</a>
+              <a href={fileHref(doc.fileUrl)} target="_blank" rel="noopener noreferrer" className="text-white text-[13px] font-bold truncate hover:text-blue-400">{doc.filename}</a>
               <span className="text-[#8b949e] text-[11px] flex-shrink-0">{doc.fileSize ? `${(doc.fileSize / 1024).toFixed(0)} KB` : ""}</span>
               <div className="hidden group-hover/preview:flex absolute z-50 pointer-events-none items-center justify-center rounded-xl overflow-hidden" style={{ bottom: "calc(100% + 8px)", left: 0, width: "200px", height: "200px", background: "rgba(7,12,26,0.97)", border: "1px solid rgba(255,255,255,0.15)", boxShadow: "0 12px 40px rgba(0,0,0,0.6)" }}>
                 {isImage ? (
-                  <img src={doc.fileUrl} alt="" className="w-full h-full object-cover" />
+                  <img src={fileHref(doc.fileUrl)} alt="" className="w-full h-full object-cover" />
                 ) : isPdf ? (
-                  <iframe src={`${doc.fileUrl}#page=1&view=FitH`} className="w-full h-full" style={{ border: "none" }} title={doc.filename} />
+                  <iframe src={`${fileHref(doc.fileUrl)}#page=1&view=FitH`} className="w-full h-full" style={{ border: "none" }} title={doc.filename} />
                 ) : (
                   <div className="flex flex-col items-center gap-2"><FileText className="w-10 h-10 text-[#8b949e]" /><span className="text-[#8b949e] text-[11px] uppercase font-bold">{ext || "file"}</span></div>
                 )}
@@ -2868,7 +2871,7 @@ function SubcontractorTab({ projectId }: { projectId: string }) {
                 <p className="text-[#8b949e] text-[11px] font-extrabold uppercase">Documents</p>
                 <label className="text-[12px] text-blue-400 cursor-pointer flex items-center gap-1">{uploadingDoc === sub.id ? <Loader2 className="w-3 h-3 animate-spin" /> : <Upload className="w-3 h-3" />}{uploadingDoc === sub.id ? "Uploading..." : "Upload"}<input type="file" className="hidden" onChange={(e) => handleDocUpload(sub.id, e)} disabled={uploadingDoc === sub.id} /></label>
               </div>
-              {sub.documents.length === 0 ? <p className="text-[#8b949e] text-[12px]">No documents</p> : sub.documents.map(doc => (<div key={doc.id} className="flex items-center gap-2"><Paperclip className="w-3 h-3 text-[#8b949e]" /><a href={doc.fileUrl} target="_blank" rel="noopener noreferrer" className="text-white text-[12px] font-bold hover:text-blue-400">{doc.filename}</a></div>))}
+              {sub.documents.length === 0 ? <p className="text-[#8b949e] text-[12px]">No documents</p> : sub.documents.map(doc => (<div key={doc.id} className="flex items-center gap-2"><Paperclip className="w-3 h-3 text-[#8b949e]" /><a href={fileHref(doc.fileUrl)} target="_blank" rel="noopener noreferrer" className="text-white text-[12px] font-bold hover:text-blue-400">{doc.filename}</a></div>))}
             </div>
           )}
         </div>
@@ -3015,7 +3018,7 @@ function CommissioningTab({ projectId }: { projectId: string }) {
               <div className="flex gap-2"><button onClick={() => handleSaveNote(item.deviceId || item.id)} className="h-7 px-3 rounded-lg text-[12px] font-extrabold text-white cursor-pointer" style={{ background: "#10b981" }}>Save</button><button onClick={() => setEditingNotes(null)} className="h-7 px-3 rounded-lg text-[12px] font-bold cursor-pointer" style={G.btn}>Cancel</button></div>
             </div>
           )}
-          {item.photos && item.photos.length > 0 && <div className="flex gap-2 mt-2 flex-wrap">{item.photos.map((p, i) => <img key={i} src={p} alt="" className="w-16 h-16 rounded-lg object-cover" style={{ border: "1px solid rgba(255,255,255,0.10)" }} />)}</div>}
+          {item.photos && item.photos.length > 0 && <div className="flex gap-2 mt-2 flex-wrap">{item.photos.map((p, i) => <img key={i} src={fileHref(p)} alt="" className="w-16 h-16 rounded-lg object-cover" style={{ border: "1px solid rgba(255,255,255,0.10)" }} />)}</div>}
         </div>
       ))}
     </div>
@@ -3299,8 +3302,8 @@ function ProjectAssetsTab({ projectId, projectName, clientName }: { projectId: s
                       <div className="flex gap-2 mt-2 flex-wrap">
                         {asset.coveragePhotos.map((p, i) => (
                           <div key={i} className="relative group/photo">
-                            <img src={p} alt="" className="w-14 h-14 rounded-lg object-cover" style={{ border: "1px solid rgba(255,255,255,0.10)" }} />
-                            <img src={p} alt="" className="hidden group-hover/photo:block absolute z-50 pointer-events-none rounded-xl object-cover" style={{ bottom: "calc(100% + 8px)", left: 0, width: "220px", height: "220px", border: "2px solid rgba(255,255,255,0.20)", boxShadow: "0 12px 40px rgba(0,0,0,0.6)" }} />
+                            <img src={fileHref(p)} alt="" className="w-14 h-14 rounded-lg object-cover" style={{ border: "1px solid rgba(255,255,255,0.10)" }} />
+                            <img src={fileHref(p)} alt="" className="hidden group-hover/photo:block absolute z-50 pointer-events-none rounded-xl object-cover" style={{ bottom: "calc(100% + 8px)", left: 0, width: "220px", height: "220px", border: "2px solid rgba(255,255,255,0.20)", boxShadow: "0 12px 40px rgba(0,0,0,0.6)" }} />
                           </div>
                         ))}
                       </div>
@@ -4363,7 +4366,7 @@ function InstallTracker({ navigate: _navigate }: { navigate: (p: Page) => void }
                           </select>
                         </div>
                         <div className="px-3 pb-3 pl-[52px] flex items-center gap-2 flex-wrap" data-tour="it-device-photo">
-                          {(device.installedPhotos || []).map((p, i) => <img key={i} src={p} alt="" className="w-12 h-12 rounded-lg object-cover" style={{ border: "1px solid rgba(255,255,255,0.10)" }} />)}
+                          {(device.installedPhotos || []).map((p, i) => <img key={i} src={fileHref(p)} alt="" className="w-12 h-12 rounded-lg object-cover" style={{ border: "1px solid rgba(255,255,255,0.10)" }} />)}
                           <label className="inline-flex items-center gap-1 text-[11px] text-blue-400 cursor-pointer">
                             {uploadingDevicePhoto === device.id ? <Loader2 className="w-3 h-3 animate-spin" /> : <Upload className="w-3 h-3" />} {uploadingDevicePhoto === device.id ? "Uploading…" : "Add as-installed photo"}
                             <input type="file" accept="image/*" className="hidden" onChange={(e) => { const z = projectZones.find(z => z.devices.some(d => d.id === device.id)); if (z) handleDevicePhotoUpload(project.id, z.id, device.id, e); }} disabled={uploadingDevicePhoto === device.id} />
@@ -4536,7 +4539,7 @@ function SubcontractorPortal({ token }: { token: string }) {
                 ) : (
                   <div className="space-y-2">
                     {sub.documents.map(doc => (
-                      <a key={doc.id} href={doc.fileUrl} target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 p-2 rounded-xl hover:bg-white/[0.04] transition-colors">
+                      <a key={doc.id} href={fileHref(doc.fileUrl)} target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 p-2 rounded-xl hover:bg-white/[0.04] transition-colors">
                         <Paperclip className="w-3.5 h-3.5 text-[#8b949e] flex-shrink-0" />
                         <span className="text-white text-[13px] font-bold truncate">{doc.filename}</span>
                       </a>
@@ -4658,7 +4661,7 @@ function ClientStatusPage({ token }: { token: string }) {
                     <div key={i} className="rounded-2xl p-3" style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.07)" }}>
                       <p className="text-white text-[13px] font-bold">{publicAssetDescription(a)} <span className="text-[#8b949e] font-semibold">×{a.quantity}</span></p>
                       <p className="text-[#8b949e] text-[12px] mt-0.5">{a.location || "No location set"}{a.purpose ? ` · ${a.purpose}` : ""}</p>
-                      {a.coveragePhotos && a.coveragePhotos.length > 0 && <div className="flex gap-2 mt-2 flex-wrap">{a.coveragePhotos.map((p, pi) => <img key={pi} src={p} alt="" className="w-14 h-14 rounded-lg object-cover" style={{ border: "1px solid rgba(255,255,255,0.10)" }} />)}</div>}
+                      {a.coveragePhotos && a.coveragePhotos.length > 0 && <div className="flex gap-2 mt-2 flex-wrap">{a.coveragePhotos.map((p, pi) => <img key={pi} src={fileHref(p)} alt="" className="w-14 h-14 rounded-lg object-cover" style={{ border: "1px solid rgba(255,255,255,0.10)" }} />)}</div>}
                     </div>
                   ))}
                 </div>

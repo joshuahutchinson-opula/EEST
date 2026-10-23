@@ -2,6 +2,9 @@ import { Router, Request, Response } from "express";
 import pool from "../db";
 import { buildCommissioningReportDocx } from "../lib/docxDocuments";
 import { requireProjectAccess } from "../lib/roles";
+import { signFileUrls, toStoredFileUrls } from "../lib/uploads";
+
+const withSignedPhotos = (row: any) => ({ ...row, photos: signFileUrls(row.photos) });
 
 const router = Router();
 router.param("projectId", requireProjectAccess());
@@ -18,7 +21,7 @@ router.get("/:projectId", async (req: Request, res: Response) => {
        ORDER BY created_at`,
       [projectId]
     );
-    res.json(result.rows);
+    res.json(result.rows.map(withSignedPhotos));
   } catch (err) {
     console.error("GET /commissioning/:projectId error:", err);
     res.status(500).json({ error: "Failed to fetch commissioning data" });
@@ -87,7 +90,7 @@ router.post("/:projectId", async (req: Request, res: Response) => {
        RETURNING id, project_id AS "projectId", device_id AS "deviceId", device_name AS "deviceName", location, status, notes, photos`,
       [projectId, deviceId || null, deviceName, location || null]
     );
-    res.status(201).json(result.rows[0]);
+    res.status(201).json(withSignedPhotos(result.rows[0]));
   } catch (err: any) {
     if (err?.code === "23505") return res.status(409).json({ error: "That device is already on this project's checklist" });
     console.error("POST /commissioning/:projectId error:", err);
@@ -104,7 +107,7 @@ router.patch("/:projectId/:deviceId", async (req: Request, res: Response) => {
        SET status = COALESCE($3, status), notes = COALESCE($4, notes), photos = COALESCE($5, photos), updated_at = NOW()
        WHERE project_id = $1 AND device_id = $2
        RETURNING id, project_id AS "projectId", device_id AS "deviceId", device_name AS "deviceName", location, status, notes, photos`,
-      [projectId, deviceId, status, notes, photos]
+      [projectId, deviceId, status, notes, photos !== undefined ? JSON.stringify(toStoredFileUrls(photos) ?? []) : undefined]
     );
     if (result.rows.length === 0) return res.status(404).json({ error: "Device not found" });
     if (status) {
@@ -114,7 +117,7 @@ router.patch("/:projectId/:deviceId", async (req: Request, res: Response) => {
         [installStatus, deviceId, projectId]
       );
     }
-    res.json(result.rows[0]);
+    res.json(withSignedPhotos(result.rows[0]));
   } catch (err) {
     console.error("PATCH /commissioning/:projectId/:deviceId error:", err);
     res.status(500).json({ error: "Failed to update commissioning status" });

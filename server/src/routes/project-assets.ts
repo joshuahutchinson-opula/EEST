@@ -4,6 +4,7 @@ import pool from "../db";
 import { isTech, requireProjectAccess } from "../lib/roles";
 import { buildEquipmentSummaryDocx } from "../lib/docxDocuments";
 import { syncAssetLineItem, removeAssetLineItem } from "../lib/assetSync";
+import { signFileUrls, toStoredFileUrls } from "../lib/uploads";
 
 const router = Router();
 router.param("projectId", requireProjectAccess());
@@ -21,7 +22,7 @@ const mapRow = (row: any, tech: boolean) => ({
   location: row.location || "",
   zoneId: row.zone_id || undefined,
   purpose: row.purpose || "",
-  coveragePhotos: row.coverage_photos || [],
+  coveragePhotos: signFileUrls(row.coverage_photos),
   notes: row.notes || undefined,
   createdAt: row.created_at,
   updatedAt: row.updated_at,
@@ -144,7 +145,7 @@ router.patch("/:projectId/assets/:assetId", async (req: Request, res: Response) 
           notes = COALESCE($14, notes),
           updated_at = NOW()
          WHERE id = $1 AND project_id = $2 RETURNING *`,
-        [assetId, projectId, category, system, deviceStoreRef, accessControlType, sanitizedCableSpec ? JSON.stringify(sanitizedCableSpec) : undefined, tech ? undefined : unitCost, quantity, location, zoneId, purpose, coveragePhotos ? JSON.stringify(coveragePhotos) : undefined, notes]
+        [assetId, projectId, category, system, deviceStoreRef, accessControlType, sanitizedCableSpec ? JSON.stringify(sanitizedCableSpec) : undefined, tech ? undefined : unitCost, quantity, location, zoneId, purpose, coveragePhotos ? JSON.stringify(toStoredFileUrls(coveragePhotos)) : undefined, notes]
       );
       if (result.rows.length === 0) return null;
       await syncAssetLineItem(client, assetId);

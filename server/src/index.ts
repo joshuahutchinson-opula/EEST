@@ -10,7 +10,6 @@ import express from "express";
 import cors from "cors";
 import dotenv from "dotenv";
 import { initDB } from "./db";
-import { UPLOAD_ROOT } from "./lib/uploads";
 import projectsRouter from "./routes/projects";
 import quotesRouter from "./routes/quotes";
 import devicesRouter from "./routes/devices";
@@ -30,6 +29,7 @@ import subcontractorsRouter from "./routes/subcontractors";
 import projectAssetsRouter from "./routes/project-assets";
 import tutorialsRouter from "./routes/tutorials";
 import publicRouter from "./routes/public";
+import filesRouter from "./routes/files";
 
 dotenv.config();
 
@@ -41,7 +41,6 @@ app.use(cors({
   credentials: true
 }));
 app.use(express.json({ limit: "10mb" }));
-app.use("/uploads", express.static(UPLOAD_ROOT));
 
 app.use("/api", authMiddleware);
 
@@ -63,6 +62,7 @@ app.use("/api/commissioning", commissioningRouter);
 app.use("/api/subcontractors", subcontractorsRouter);
 app.use("/api/users/me/tutorials", tutorialsRouter);
 app.use("/api/public", publicRouter);
+app.use("/api/files", filesRouter);
 
 app.get("/api/health", (_req, res) => {
   res.json({ status: "ok", timestamp: new Date().toISOString() });

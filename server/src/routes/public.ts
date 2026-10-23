@@ -1,5 +1,6 @@
 import { Router, Request, Response } from "express";
 import pool from "../db";
+import { signFileUrls } from "../lib/uploads";
 
 const router = Router();
 
@@ -81,7 +82,7 @@ router.get("/status/:token", async (req: Request, res: Response) => {
         team,
       },
       changeOrders: coResult.rows,
-      assets: assetsResult.rows,
+      assets: assetsResult.rows.map((a) => ({ ...a, coveragePhotos: signFileUrls(a.coveragePhotos) })),
     });
   } catch (err) {
     console.error("GET /public/status/:token error:", err);

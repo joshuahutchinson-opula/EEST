@@ -2,6 +2,9 @@ import { Router, Request, Response } from "express";
 import crypto from "crypto";
 import pool from "../db";
 import { requireAdmin, requireProjectAccess } from "../lib/roles";
+import { signFileUrl, toStoredFileUrl } from "../lib/uploads";
+
+const withSignedDocs = (row: any) => ({ ...row, documents: (row.documents || []).map((d: any) => ({ ...d, fileUrl: signFileUrl(d.fileUrl) })) });
 
 const router = Router();
 router.param("projectId", requireProjectAccess());
@@ -40,7 +43,7 @@ router.get("/public/:token", async (req: Request, res: Response) => {
     if (result.rows.length === 0) {
       return res.status(404).json({ error: "Link not found or has been revoked" });
     }
-    res.json(result.rows[0]);
+    res.json(withSignedDocs(result.rows[0]));
   } catch (err) {
     console.error("GET /subcontractors/public/:token error:", err);
     res.status(500).json({ error: "Failed to fetch subcontractor" });
@@ -68,7 +71,7 @@ router.get("/:projectId", async (req: Request, res: Response) => {
        ORDER BY s.name`,
       [projectId]
     );
-    res.json(result.rows);
+    res.json(result.rows.map(withSignedDocs));
   } catch (err) {
     console.error("GET /subcontractors/:projectId error:", err);
     res.status(500).json({ error: "Failed to fetch subcontractors" });
@@ -151,9 +154,9 @@ router.post("/:subId/documents", async (req: Request, res: Response) => {
       `INSERT INTO subcontractor_documents (subcontractor_id, filename, file_url, uploaded_by)
        VALUES ($1, $2, $3, $4)
        RETURNING id, filename, file_url AS "fileUrl", uploaded_by AS "uploadedBy", created_at AS "createdAt"`,
-      [subId, filename, fileUrl, uploadedBy || null]
+      [subId, filename, toStoredFileUrl(fileUrl), uploadedBy || null]
     );
-    res.status(201).json(result.rows[0]);
+    res.status(201).json({ ...result.rows[0], fileUrl: signFileUrl(result.rows[0].fileUrl) });
   } catch (err) {
     console.error("POST /subcontractors/:subId/documents error:", err);
     res.status(500).json({ error: "Failed to upload document" });

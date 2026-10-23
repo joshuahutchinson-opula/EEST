@@ -3,7 +3,7 @@ import multer from "multer";
 import path from "path";
 import fs from "fs";
 import pool from "../db";
-import { DOCUMENTS_DIR, resolveUploadPath } from "../lib/uploads";
+import { DOCUMENTS_DIR, resolveUploadPath, signFileUrl } from "../lib/uploads";
 import { requireProjectAccess } from "../lib/roles";
 
 const router = Router();
@@ -29,7 +29,7 @@ router.get("/:projectId", async (req: Request, res: Response) => {
     );
     res.json(result.rows.map(row => ({
       id: row.id, projectId: row.project_id, filename: row.filename,
-      fileUrl: row.file_url, fileType: row.file_type, fileSize: row.file_size,
+      fileUrl: signFileUrl(row.file_url), fileType: row.file_type, fileSize: row.file_size,
       uploadedBy: row.uploaded_by, createdAt: row.created_at,
     })));
   } catch (err) {
@@ -52,7 +52,7 @@ router.post("/:projectId", upload.single("file"), async (req: Request, res: Resp
     const row = result.rows[0];
     res.status(201).json({
       id: row.id, projectId: row.project_id, filename: row.filename,
-      fileUrl: row.file_url, fileType: row.file_type, fileSize: row.file_size,
+      fileUrl: signFileUrl(row.file_url), fileType: row.file_type, fileSize: row.file_size,
       uploadedBy: row.uploaded_by, createdAt: row.created_at,
     });
   } catch (err) {
