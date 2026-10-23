@@ -1,70 +1,22 @@
-import { Document, Packer, Paragraph, TextRun, Table, TableRow, TableCell, WidthType, AlignmentType, ImageRun, ShadingType } from "docx";
-import fs from "fs";
+import { Paragraph, TextRun, AlignmentType } from "docx";
 import {
-  buildBrandedHeader,
-  buildBrandedFooter,
-  buildCoverPage,
-  emptyHeader,
-  emptyFooter,
-  BRANDED_DOCUMENT_STYLES,
-  BRANDED_PAGE_MARGINS,
+  Block,
+  buildReport,
+  reportIntro,
+  bodyText,
+  dataTable,
+  totalsTable,
+  photoRow,
   sectionHeading,
   brandRuleParagraph,
   BRAND_COLORS,
-  TABLE_HEADER_SHADING,
-  TABLE_HEADER_TEXT_COLOR,
-  ZEBRA_ROW_SHADING,
-} from "./branding";
-import { resolveUploadPath } from "./uploads";
+  fmtJMD,
+  fmtUSD,
+} from "./reportTemplate";
 
-type DocxImageType = "jpg" | "png" | "gif" | "bmp";
-function imageTypeFromUrl(url: string): DocxImageType {
-  const ext = url.split(".").pop()?.toLowerCase();
-  if (ext === "png") return "png";
-  if (ext === "gif") return "gif";
-  if (ext === "bmp") return "bmp";
-  return "jpg"; // covers jpg/jpeg and is the safest default for camera photos
-}
+// The Word documents the app generates, all built on the shared report template.
 
-// Reads an uploaded photo (coverage photo, as-installed photo, etc. — anything stored via the
-// generic /uploads/documents mechanism) into an ImageRun, skipping silently if the file is
-// missing rather than failing the whole document generation over one bad photo.
-function tryLoadImageRun(fileUrl: string, width: number, height: number): ImageRun | null {
-  try {
-    const filePath = resolveUploadPath(fileUrl);
-    if (!filePath) return null;
-    const data = fs.readFileSync(filePath);
-    return new ImageRun({ type: imageTypeFromUrl(fileUrl), data, transformation: { width, height } });
-  } catch {
-    return null;
-  }
-}
-
-export function fmtJMD(n: number): string {
-  return `J$${(Number.isFinite(n) ? n : 0).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
-}
-
-export function fmtUSD(n: number): string {
-  return `$${(Number.isFinite(n) ? n : 0).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
-}
-
-function headerCell(text: string, width: number): TableCell {
-  return new TableCell({
-    width: { size: width, type: WidthType.PERCENTAGE },
-    shading: { type: ShadingType.CLEAR, ...TABLE_HEADER_SHADING },
-    children: [new Paragraph({ children: [new TextRun({ text, bold: true, color: TABLE_HEADER_TEXT_COLOR, size: 18 })] })],
-  });
-}
-
-function bodyCell(text: string, width: number, opts?: { align?: (typeof AlignmentType)[keyof typeof AlignmentType]; shaded?: boolean; bold?: boolean }): TableCell {
-  return new TableCell({
-    width: { size: width, type: WidthType.PERCENTAGE },
-    shading: opts?.shaded ? { type: ShadingType.CLEAR, ...ZEBRA_ROW_SHADING } : undefined,
-    children: [new Paragraph({ alignment: opts?.align, children: [new TextRun({ text, size: 18, bold: opts?.bold })] })],
-  });
-}
-
-// === 6.2 — Proposal ==========================================================================
+// === Proposal ================================================================================
 
 export interface ProposalDocxData {
   project: { id: string; name: string; client: string; summary?: string; location?: string };
@@ -82,80 +34,45 @@ export interface ProposalDocxData {
 // Client-facing, so amounts are in JMD at the quote's locked exchange rate (data stays USD).
 export async function buildProposalDocx(data: ProposalDocxData): Promise<Buffer> {
   const jmd = (usd: number) => fmtJMD(usd * data.exchangeRate);
-  const children: Paragraph[] = [
-    new Paragraph({ pageBreakBefore: true, children: [new TextRun({ text: `${data.project.name} — ${data.project.client}`, bold: true, size: 26 })] }),
-  ];
-  if (data.project.location) children.push(new Paragraph({ children: [new TextRun({ text: data.project.location, size: 18, color: "666666" })] }));
-  children.push(new Paragraph({ spacing: { after: data.validUntil ? 0 : 200 }, children: [new TextRun({ text: `Generated ${new Date(data.generatedAt).toLocaleDateString()}`, size: 16, color: "999999" })] }));
-  if (data.validUntil) children.push(new Paragraph({ spacing: { after: 200 }, children: [new TextRun({ text: `Valid until ${new Date(data.validUntil + "T00:00:00").toLocaleDateString()}`, size: 18, bold: true, color: "555555" })] }));
+  const body: Block[] = [];
+  if (data.project.location) body.push(...reportIntro(`${data.project.name} — ${data.project.client}`, [{ text: data.project.location, size: 18, color: "666666" }], 0));
+  else body.push(...reportIntro(`${data.project.name} — ${data.project.client}`, [], 0));
+  body.push(new Paragraph({ spacing: { after: data.validUntil ? 0 : 200 }, children: [new TextRun({ text: `Generated ${new Date(data.generatedAt).toLocaleDateString()}`, size: 16, color: "999999" })] }));
+  if (data.validUntil) body.push(new Paragraph({ spacing: { after: 200 }, children: [new TextRun({ text: `Valid until ${new Date(data.validUntil + "T00:00:00").toLocaleDateString()}`, size: 18, bold: true, color: "555555" })] }));
   if (data.project.summary) {
-    children.push(sectionHeading("Scope of Work"));
-    children.push(new Paragraph({ spacing: { after: 200 }, children: [new TextRun({ text: data.project.summary, size: 20 })] }));
+    body.push(sectionHeading("Scope of Work"));
+    body.push(bodyText(data.project.summary, { spaceAfter: 200 }));
   }
 
-  const tables: (Paragraph | Table)[] = [];
   for (const cat of data.categories) {
     if (cat.items.length === 0) continue;
-    tables.push(sectionHeading(`${cat.sectionNumber} — ${cat.name}`));
-    tables.push(
-      new Table({
-        width: { size: 100, type: WidthType.PERCENTAGE },
-        rows: [
-          new TableRow({ children: [headerCell("Description", 60), headerCell("Qty", 15), headerCell("Total", 25)] }),
-          ...cat.items.map((item, i) =>
-            new TableRow({
-              children: [
-                bodyCell(item.description, 60, { shaded: i % 2 === 1 }),
-                bodyCell(String(item.quantity), 15, { align: AlignmentType.CENTER, shaded: i % 2 === 1 }),
-                bodyCell(jmd(item.total), 25, { align: AlignmentType.RIGHT, shaded: i % 2 === 1 }),
-              ],
-            })
-          ),
-        ],
-      })
-    );
+    body.push(sectionHeading(`${cat.sectionNumber} — ${cat.name}`));
+    body.push(dataTable(
+      [{ header: "Description", width: 60 }, { header: "Qty", width: 15, align: AlignmentType.CENTER }, { header: "Total", width: 25, align: AlignmentType.RIGHT }],
+      cat.items.map((item) => [item.description, String(item.quantity), jmd(item.total)])
+    ));
   }
 
-  const totalsTable = new Table({
-    width: { size: 60, type: WidthType.PERCENTAGE },
-    alignment: AlignmentType.RIGHT,
-    rows: [
-      new TableRow({ children: [bodyCell("Grand Total", 60, { align: AlignmentType.RIGHT }), bodyCell(jmd(data.grandTotal), 40, { align: AlignmentType.RIGHT })] }),
-      new TableRow({ children: [bodyCell("GCT (15%)", 60, { align: AlignmentType.RIGHT }), bodyCell(jmd(data.gctAmount), 40, { align: AlignmentType.RIGHT })] }),
-      new TableRow({
-        children: [
-          bodyCell("Total", 60, { align: AlignmentType.RIGHT, bold: true }),
-          new TableCell({ width: { size: 40, type: WidthType.PERCENTAGE }, children: [new Paragraph({ alignment: AlignmentType.RIGHT, children: [new TextRun({ text: jmd(data.grandTotalWithTax), bold: true, size: 22, color: BRAND_COLORS.navy })] })] }),
-        ],
-      }),
-    ],
-  });
+  body.push(new Paragraph({ spacing: { before: 300 }, children: [] }));
+  body.push(totalsTable([
+    { label: "Grand Total", value: jmd(data.grandTotal) },
+    { label: "GCT (15%)", value: jmd(data.gctAmount) },
+    { label: "Total", value: jmd(data.grandTotalWithTax), emphasis: true },
+  ]));
+  body.push(new Paragraph({ alignment: AlignmentType.RIGHT, spacing: { before: 120 }, children: [new TextRun({ text: `All prices in Jamaican dollars at J$${data.exchangeRate.toFixed(2)} per US$1.`, size: 16, color: "666666" })] }));
+  if (data.terms?.trim()) {
+    body.push(sectionHeading("Terms and Conditions"));
+    for (const line of data.terms.trim().split(/\r?\n/)) body.push(new Paragraph({ spacing: { after: 80 }, children: [new TextRun({ text: line, size: 18 })] }));
+  }
 
-  const doc = new Document({
-    styles: BRANDED_DOCUMENT_STYLES,
-    sections: [
-      {
-        properties: { page: { margin: BRANDED_PAGE_MARGINS }, titlePage: true },
-        headers: { first: emptyHeader(), default: buildBrandedHeader("Project Proposal") },
-        footers: { first: emptyFooter(), default: buildBrandedFooter() },
-        children: [
-          ...buildCoverPage("Project Proposal", { preparedFor: data.project.client, reference: data.refNumber, date: new Date(data.generatedAt).toLocaleDateString() }),
-          ...children,
-          ...tables,
-          new Paragraph({ spacing: { before: 300 }, children: [] }),
-          totalsTable,
-          new Paragraph({ alignment: AlignmentType.RIGHT, spacing: { before: 120 }, children: [new TextRun({ text: `All prices in Jamaican dollars at J$${data.exchangeRate.toFixed(2)} per US$1.`, size: 16, color: "666666" })] }),
-          ...(data.terms?.trim()
-            ? [sectionHeading("Terms and Conditions"), ...data.terms.trim().split(/\r?\n/).map((line) => new Paragraph({ spacing: { after: 80 }, children: [new TextRun({ text: line, size: 18 })] }))]
-            : []),
-        ],
-      },
-    ],
+  return buildReport({
+    title: "Project Proposal",
+    cover: { preparedFor: data.project.client, reference: data.refNumber, date: new Date(data.generatedAt).toLocaleDateString() },
+    body,
   });
-  return Packer.toBuffer(doc);
 }
 
-// === 6.3 — Commissioning Report ==============================================================
+// === Commissioning Report ====================================================================
 
 export interface CommissioningReportDocxData {
   project: { name: string; client: string } | null;
@@ -165,61 +82,41 @@ export interface CommissioningReportDocxData {
 }
 
 const STATUS_LABEL: Record<string, string> = { pass: "PASS", fail: "FAIL", pending: "PENDING" };
+export const STATUS_COLOR: Record<string, string> = { pass: "1E8E3E", fail: "D93025", pending: "8A6D00" };
 
-export async function buildCommissioningReportDocx(data: CommissioningReportDocxData): Promise<Buffer> {
-  const children: (Paragraph | Table)[] = [];
-  if (data.project) children.push(new Paragraph({ pageBreakBefore: true, children: [new TextRun({ text: `${data.project.name} — ${data.project.client}`, bold: true, size: 26 })] }));
-  children.push(new Paragraph({ pageBreakBefore: !data.project, spacing: { after: 100 }, children: [new TextRun({ text: `Generated ${new Date(data.generatedAt).toLocaleDateString()}`, size: 16, color: "999999" })] }));
-  children.push(
-    new Paragraph({
-      spacing: { after: 240 },
-      children: [new TextRun({ text: `${data.summary.total} devices — ${data.summary.passed} passed, ${data.summary.failed} failed, ${data.summary.pending} pending`, size: 20, bold: true, color: BRAND_COLORS.navy })],
-    })
-  );
-
-  for (const device of data.devices) {
-    children.push(brandRuleParagraph());
-    children.push(
-      new Paragraph({
-        spacing: { after: 60 },
-        children: [
-          new TextRun({ text: device.deviceName, bold: true, size: 22 }),
-          new TextRun({ text: `   ${STATUS_LABEL[device.status] || device.status.toUpperCase()}`, bold: true, size: 18, color: device.status === "pass" ? "1E8E3E" : device.status === "fail" ? "D93025" : "8A6D00" }),
-        ],
-      })
-    );
-    children.push(new Paragraph({ children: [new TextRun({ text: device.location || "No location recorded", size: 18, color: "555555" })] }));
-    if (device.notes) children.push(new Paragraph({ spacing: { before: 60 }, children: [new TextRun({ text: device.notes, size: 18, italics: true, color: "666666" })] }));
-
-    const photoRuns = (device.installedPhotos || []).slice(0, 4).map((url) => tryLoadImageRun(url, 150, 112)).filter((r): r is ImageRun => r !== null);
-    if (photoRuns.length > 0) {
-      children.push(
-        new Paragraph({
-          spacing: { before: 100, after: 100 },
-          children: photoRuns.flatMap((run, i) => (i > 0 ? [new TextRun({ text: "   " }), run] : [run])),
-        })
-      );
-    }
-  }
-
-  const doc = new Document({
-    styles: BRANDED_DOCUMENT_STYLES,
-    sections: [
-      {
-        properties: { page: { margin: BRANDED_PAGE_MARGINS }, titlePage: true },
-        headers: { first: emptyHeader(), default: buildBrandedHeader("Commissioning Handover Report") },
-        footers: { first: emptyFooter(), default: buildBrandedFooter() },
-        children: [
-          ...buildCoverPage("Commissioning Handover Report", { preparedFor: data.project?.client, date: new Date(data.generatedAt).toLocaleDateString() }),
-          ...children,
-        ],
-      },
+// One device block (name, status, location, notes, up to four as-installed photos).
+export function commissioningDeviceBlocks(device: CommissioningReportDocxData["devices"][number]): Block[] {
+  const out: Block[] = [brandRuleParagraph()];
+  out.push(new Paragraph({
+    spacing: { after: 60 },
+    children: [
+      new TextRun({ text: device.deviceName, bold: true, size: 22 }),
+      new TextRun({ text: `   ${STATUS_LABEL[device.status] || device.status.toUpperCase()}`, bold: true, size: 18, color: STATUS_COLOR[device.status] || "8A6D00" }),
     ],
-  });
-  return Packer.toBuffer(doc);
+  }));
+  out.push(bodyText(device.location || "No location recorded", { size: 18, color: "555555" }));
+  if (device.notes) out.push(bodyText(device.notes, { size: 18, italics: true, color: "666666", spaceBefore: 60 }));
+  const photos = photoRow(device.installedPhotos || []);
+  if (photos) out.push(photos);
+  return out;
 }
 
-// === 6.4 — Client Equipment Summary ==========================================================
+export async function buildCommissioningReportDocx(data: CommissioningReportDocxData): Promise<Buffer> {
+  const body: Block[] = reportIntro(data.project ? `${data.project.name} — ${data.project.client}` : null, [{ text: `Generated ${new Date(data.generatedAt).toLocaleDateString()}` }], 100);
+  body.push(new Paragraph({
+    spacing: { after: 240 },
+    children: [new TextRun({ text: `${data.summary.total} devices — ${data.summary.passed} passed, ${data.summary.failed} failed, ${data.summary.pending} pending`, size: 20, bold: true, color: BRAND_COLORS.navy })],
+  }));
+  for (const device of data.devices) body.push(...commissioningDeviceBlocks(device));
+
+  return buildReport({
+    title: "Commissioning Handover Report",
+    cover: { preparedFor: data.project?.client, date: new Date(data.generatedAt).toLocaleDateString() },
+    body,
+  });
+}
+
+// === Client Equipment Summary ================================================================
 
 const ASSET_CATEGORY_LABELS: Record<string, string> = {
   camera: "Camera",
@@ -237,74 +134,44 @@ export interface EquipmentSummaryDocxData {
   generatedAt: string;
 }
 
-function describeEquipmentAsset(a: EquipmentSummaryDocxData["assets"][number]): string {
+export function describeEquipmentAsset(a: EquipmentSummaryDocxData["assets"][number]): string {
   if (a.manufacturer || a.model) return `${a.manufacturer || ""} ${a.model || ""}`.trim();
   if (a.cableSpec) return `${a.cableSpec.cableType}${a.cableSpec.runDescription ? " — " + a.cableSpec.runDescription : ""}`;
   return a.purpose || ASSET_CATEGORY_LABELS[a.category] || a.category;
 }
 
-export async function buildEquipmentSummaryDocx(data: EquipmentSummaryDocxData): Promise<Buffer> {
+// Assets grouped by category, in a fixed category order so a client-facing document is always
+// laid out the same way.
+export function equipmentSections(assets: EquipmentSummaryDocxData["assets"]): Block[] {
   const grouped = new Map<string, EquipmentSummaryDocxData["assets"]>();
-  for (const a of data.assets) {
-    const list = grouped.get(a.category) || [];
-    list.push(a);
-    grouped.set(a.category, list);
-  }
-
-  const children: (Paragraph | Table)[] = [
-    new Paragraph({ pageBreakBefore: true, children: [new TextRun({ text: `${data.project.name} — ${data.project.client}`, bold: true, size: 26 })] }),
-    new Paragraph({ spacing: { after: 240 }, children: [new TextRun({ text: `Generated ${new Date(data.generatedAt).toLocaleDateString()}`, size: 16, color: "999999" })] }),
-  ];
-
-  // Fixed category order (rather than first-seen-in-filter order, which only made sense when
-  // this export respected the on-screen search/filter) so a client-facing document is always
-  // laid out the same way regardless of what an admin last had filtered on screen.
+  for (const a of assets) grouped.set(a.category, [...(grouped.get(a.category) || []), a]);
+  const out: Block[] = [];
   for (const cat of Object.keys(ASSET_CATEGORY_LABELS)) {
     const items = grouped.get(cat);
     if (!items || items.length === 0) continue;
-    children.push(sectionHeading(`${ASSET_CATEGORY_LABELS[cat]} (${items.length})`));
-    children.push(
-      new Table({
-        width: { size: 100, type: WidthType.PERCENTAGE },
-        rows: [
-          new TableRow({ children: [headerCell("Item", 40), headerCell("Qty", 10), headerCell("Location", 25), headerCell("Purpose", 25)] }),
-          ...items.map((a, i) =>
-            new TableRow({
-              children: [
-                bodyCell(describeEquipmentAsset(a), 40, { shaded: i % 2 === 1 }),
-                bodyCell(String(a.quantity), 10, { align: AlignmentType.CENTER, shaded: i % 2 === 1 }),
-                bodyCell(a.location || "—", 25, { shaded: i % 2 === 1 }),
-                bodyCell(a.purpose || "", 25, { shaded: i % 2 === 1 }),
-              ],
-            })
-          ),
-        ],
-      })
-    );
+    out.push(sectionHeading(`${ASSET_CATEGORY_LABELS[cat]} (${items.length})`));
+    out.push(dataTable(
+      [{ header: "Item", width: 40 }, { header: "Qty", width: 10, align: AlignmentType.CENTER }, { header: "Location", width: 25 }, { header: "Purpose", width: 25 }],
+      items.map((a) => [describeEquipmentAsset(a), String(a.quantity), a.location || "—", a.purpose || ""])
+    ));
   }
-
-  const doc = new Document({
-    styles: BRANDED_DOCUMENT_STYLES,
-    sections: [
-      {
-        properties: { page: { margin: BRANDED_PAGE_MARGINS }, titlePage: true },
-        headers: { first: emptyHeader(), default: buildBrandedHeader("Client Equipment Summary") },
-        footers: { first: emptyFooter(), default: buildBrandedFooter() },
-        children: [
-          ...buildCoverPage("Client Equipment Summary", { preparedFor: data.project.client, date: new Date(data.generatedAt).toLocaleDateString() }),
-          ...children,
-        ],
-      },
-    ],
-  });
-  return Packer.toBuffer(doc);
+  return out;
 }
 
-// === 6.5 — Change Order ======================================================================
-// Always shows pricing — a change order document exists specifically to communicate a price
-// change for approval, so unlike Equipment Summary/Client Status there is no no-pricing
-// variant of this one. Generation is gated to admin server-side (see the route), matching how
-// the rest of the app treats "produce a formal pricing document" as an admin-only action.
+export async function buildEquipmentSummaryDocx(data: EquipmentSummaryDocxData): Promise<Buffer> {
+  return buildReport({
+    title: "Client Equipment Summary",
+    cover: { preparedFor: data.project.client, date: new Date(data.generatedAt).toLocaleDateString() },
+    body: [
+      ...reportIntro(`${data.project.name} — ${data.project.client}`, [{ text: `Generated ${new Date(data.generatedAt).toLocaleDateString()}` }], 240),
+      ...equipmentSections(data.assets),
+    ],
+  });
+}
+
+// === Change Order ============================================================================
+// Always shows pricing — a change order exists to communicate a price change for approval.
+// Generation is admin-only (see the route).
 
 export interface ChangeOrderDocxData {
   project: { name: string; client: string };
@@ -316,46 +183,22 @@ const CO_STATUS_COLOR: Record<string, string> = { draft: "8A6D00", submitted: "1
 
 export async function buildChangeOrderDocx(data: ChangeOrderDocxData): Promise<Buffer> {
   const co = data.changeOrder;
-  const children: (Paragraph | Table)[] = [
-    new Paragraph({ pageBreakBefore: true, children: [new TextRun({ text: `${data.project.name} — ${data.project.client}`, bold: true, size: 26 })] }),
-    new Paragraph({
-      spacing: { before: 100, after: 240 },
-      children: [
-        new TextRun({ text: `${CO_STATUS_LABEL[co.status] || co.status}`, bold: true, size: 20, color: CO_STATUS_COLOR[co.status] || "555555" }),
-        new TextRun({ text: `   Submitted by ${co.createdBy || "—"} on ${new Date(co.createdAt).toLocaleDateString()}`, size: 16, color: "999999" }),
-      ],
-    }),
-    sectionHeading(co.title),
-    sectionHeading("What Changed"),
-    new Paragraph({ spacing: { after: 240 }, children: [new TextRun({ text: co.description || "No description provided.", size: 20 })] }),
-  ];
-
-  const priceTable = new Table({
-    width: { size: 60, type: WidthType.PERCENTAGE },
-    rows: [
-      new TableRow({
+  return buildReport({
+    title: "Change Order",
+    cover: { preparedFor: data.project.client, reference: `CO-${co.id.slice(0, 8).toUpperCase()}`, date: new Date(co.createdAt).toLocaleDateString() },
+    body: [
+      ...reportIntro(`${data.project.name} — ${data.project.client}`, [], 0),
+      new Paragraph({
+        spacing: { before: 100, after: 240 },
         children: [
-          bodyCell("Price Impact", 60, { align: AlignmentType.RIGHT, bold: true }),
-          new TableCell({ width: { size: 40, type: WidthType.PERCENTAGE }, children: [new Paragraph({ alignment: AlignmentType.RIGHT, children: [new TextRun({ text: fmtUSD(co.costImpact), bold: true, size: 24, color: BRAND_COLORS.navy })] })] }),
+          new TextRun({ text: `${CO_STATUS_LABEL[co.status] || co.status}`, bold: true, size: 20, color: CO_STATUS_COLOR[co.status] || "555555" }),
+          new TextRun({ text: `   Submitted by ${co.createdBy || "—"} on ${new Date(co.createdAt).toLocaleDateString()}`, size: 16, color: "999999" }),
         ],
       }),
+      sectionHeading(co.title),
+      sectionHeading("What Changed"),
+      bodyText(co.description || "No description provided.", { spaceAfter: 240 }),
+      totalsTable([{ label: "Price Impact", value: fmtUSD(co.costImpact), emphasis: true }]),
     ],
   });
-
-  const doc = new Document({
-    styles: BRANDED_DOCUMENT_STYLES,
-    sections: [
-      {
-        properties: { page: { margin: BRANDED_PAGE_MARGINS }, titlePage: true },
-        headers: { first: emptyHeader(), default: buildBrandedHeader("Change Order") },
-        footers: { first: emptyFooter(), default: buildBrandedFooter() },
-        children: [
-          ...buildCoverPage("Change Order", { preparedFor: data.project.client, reference: `CO-${co.id.slice(0, 8).toUpperCase()}`, date: new Date(co.createdAt).toLocaleDateString() }),
-          ...children,
-          priceTable,
-        ],
-      },
-    ],
-  });
-  return Packer.toBuffer(doc);
 }
