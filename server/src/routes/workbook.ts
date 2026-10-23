@@ -86,7 +86,8 @@ router.get("/:projectId/audit", async (req: Request, res: Response) => {
     const { projectId } = req.params;
     const { fieldPath } = req.query;
     let query = `SELECT id, project_id AS "projectId", field_path AS "fieldPath", old_value AS "oldValue",
-                        new_value AS "newValue", changed_by AS "changedBy", changed_at AS "changedAt"
+                        new_value AS "newValue", changed_by AS "changedBy", changed_at AS "changedAt",
+                        entity_type AS "entityType", entity_id AS "entityId", field, quote_id AS "quoteId"
                  FROM workbook_audit WHERE project_id = $1`;
     const params: any[] = [projectId];
     if (fieldPath) { query += ` AND field_path = $2`; params.push(fieldPath); }
@@ -101,14 +102,15 @@ router.get("/:projectId/audit", async (req: Request, res: Response) => {
 
 router.post("/:projectId/audit", async (req: Request, res: Response) => {
   try {
-    const { fieldPath, oldValue, newValue } = req.body;
+    const { fieldPath, oldValue, newValue, entityType, entityId, field, quoteId } = req.body;
+    const structured = (entityType === "line-item" || entityType === "override") && typeof entityId === "string" && typeof field === "string";
     // Trust the verified session, not a client-supplied changedBy.
     const sessionUser = (req as any).user as { name?: string } | undefined;
     const changedBy = sessionUser?.name || "Unknown";
     const result = await pool.query(
-      `INSERT INTO workbook_audit (project_id, field_path, old_value, new_value, changed_by)
-       VALUES ($1, $2, $3, $4, $5) RETURNING id`,
-      [req.params.projectId, fieldPath, oldValue || "", newValue || "", changedBy]
+      `INSERT INTO workbook_audit (project_id, field_path, old_value, new_value, changed_by, entity_type, entity_id, field, quote_id)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, (SELECT id FROM quotes WHERE id::text = $9)) RETURNING id`,
+      [req.params.projectId, fieldPath, oldValue || "", newValue || "", changedBy, structured ? entityType : null, structured ? entityId : null, structured ? field : null, structured && typeof quoteId === "string" ? quoteId : null]
     );
     res.status(201).json(result.rows[0]);
   } catch (err) {

@@ -1,5 +1,5 @@
 import { DEFAULT_EXCHANGE_RATE } from "../lib/constants";
-import type { AuditLogEntry, CatalogDevice, ChangeOrder, CommissioningItem, DocumentItem, InstallDevice, InstallStatus, InstallZone, InventoryItem, InventoryTransaction, NotificationItem, Project, ProjectAsset, PublicProjectStatus, PublicSubcontractor, Quote, QuoteLineItem, Subcontractor, SynthesisOverride, Task, WorkbookAuditEntry } from "../types";
+import type { AuditLogEntry, CatalogDevice, ChangeOrder, CommissioningItem, DocumentItem, InstallDevice, InstallStatus, InstallZone, InventoryItem, InventoryTransaction, NotificationItem, Project, ProjectAsset, PublicProjectStatus, PublicSubcontractor, Quote, QuoteLineItem, Subcontractor, SynthesisOverride, Task, WorkbookAuditEntry, AuditTarget } from "../types";
 
 export const API_BASE = import.meta.env.VITE_API_URL || "/api";
 
@@ -176,7 +176,7 @@ export const API = {
     getOverrides: (projectId: string, quoteId?: string) => apiFetch<SynthesisOverride[]>(`/workbook/${projectId}/overrides${quoteId ? `?quoteId=${quoteId}` : ""}`),
     saveOverrides: (projectId: string, overrides: Partial<SynthesisOverride>[], quoteId?: string) => apiFetch<void>(`/workbook/${projectId}/overrides`, { method: "PUT", body: JSON.stringify({ overrides, quoteId }) }),
     getAudit: (projectId: string, fieldPath?: string) => apiFetch<WorkbookAuditEntry[]>(`/workbook/${projectId}/audit${fieldPath ? `?fieldPath=${encodeURIComponent(fieldPath)}` : ""}`),
-    logAudit: (projectId: string, fieldPath: string, oldValue: string, newValue: string) => apiFetch<void>(`/workbook/${projectId}/audit`, { method: "POST", body: JSON.stringify({ fieldPath, oldValue, newValue }) }),
+    logAudit: (projectId: string, fieldPath: string, oldValue: string, newValue: string, target?: AuditTarget) => apiFetch<void>(`/workbook/${projectId}/audit`, { method: "POST", body: JSON.stringify({ fieldPath, oldValue, newValue, ...target }) }),
     getPriceHistory: (deviceId: string) => apiFetch<{ price: number; recordedAt: string }[]>(`/workbook/devices/${deviceId}/price-history`),
     exportXlsx: (projectId: string, quoteId?: string) => apiFetchBlob(`/workbook/${projectId}/export-xlsx${quoteId ? `?quoteId=${quoteId}` : ""}`),
   },

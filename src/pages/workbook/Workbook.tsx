@@ -242,7 +242,7 @@ export function Workbook({ navigate }: { navigate: (p: Page) => void }) {
       const oldVal = li[key];
       const newVal = updates[key];
       if (key !== "id" && oldVal !== newVal && newVal !== undefined) {
-        API.workbook.logAudit(selectedProjectId, `${cat.name} — ${li.description || "line item"} — ${key}`, String(oldVal), String(newVal)).catch(() => {});
+        API.workbook.logAudit(selectedProjectId, `${cat.name} — ${li.description || "line item"} — ${key}`, String(oldVal), String(newVal), { entityType: "line-item", entityId: itemId, field: key, quoteId }).catch(() => {});
       }
     });
     const payload: Partial<QuoteLineItem> = {};
@@ -373,7 +373,7 @@ export function Workbook({ navigate }: { navigate: (p: Page) => void }) {
     setFieldSaveStatus(prev => ({ ...prev, [fieldKey]: "saving" }));
     try {
       await API.workbook.saveOverrides(selectedProjectId, [{ projectId: selectedProjectId, sectionNumber, overrideValue: value, isOverridden, overriddenBy: sessionUser.name }], selectedQuoteId);
-      if (oldDisplay !== newDisplay) API.workbook.logAudit(selectedProjectId, `Synthesis section ${sectionNumber} override`, oldDisplay, newDisplay).catch(() => {});
+      if (oldDisplay !== newDisplay) API.workbook.logAudit(selectedProjectId, `Synthesis section ${sectionNumber} override`, oldDisplay, newDisplay, { entityType: "override", entityId: sectionNumber, field: "overrideValue", quoteId: selectedQuoteId }).catch(() => {});
       setSynthesisOverrides(prev => {
         const existing = prev.findIndex(o => o.sectionNumber === sectionNumber);
         if (existing >= 0) { const updated = [...prev]; updated[existing] = { ...updated[existing], overrideValue: value, isOverridden, overriddenBy: sessionUser.name }; return updated; }
@@ -426,6 +426,30 @@ export function Workbook({ navigate }: { navigate: (p: Page) => void }) {
       setQuotes(prev => prev.map(q => q.id === selectedQuote.id ? { ...q, exchangeRate: liveRate } : q));
       toast.success(`Exchange rate updated to J$ ${liveRate.toFixed(2)}`);
     } catch { toast.error("Failed to update exchange rate"); }
+  };
+
+  // Puts a logged change back to its old value through the normal save path (which logs the revert).
+  const revertAuditEntry = (entry: WorkbookAuditEntry) => {
+    if (entry.quoteId && entry.quoteId !== selectedQuoteId) {
+      const rev = quotes.find(q => q.id === entry.quoteId)?.revision;
+      toast.error(rev ? `That change was made on Rev ${rev} — switch to it to revert` : "That change belongs to another quote version");
+      return;
+    }
+    if (blockIfFrozen()) return;
+    if (entry.entityType === "override" && entry.entityId) {
+      const old = entry.oldValue;
+      if (old === "auto-calculated" || old === "" || old === "null") handleSaveOverride(entry.entityId, null, false);
+      else handleSaveOverride(entry.entityId, toNum(old), true);
+    } else if (entry.entityType === "line-item" && entry.entityId && entry.field) {
+      const cat = selectedQuote?.categories.find(c => c.lineItems.some(li => li.id === entry.entityId));
+      if (!cat) { toast.error("That line item no longer exists"); return; }
+      const field = entry.field as keyof QuoteLineItem;
+      if (!["description", "unitCost", "quantity", "markupPercent"].includes(field)) { toast.error("That change can't be reverted"); return; }
+      const value = field === "description" ? entry.oldValue : field === "quantity" ? Math.trunc(toNum(entry.oldValue)) : toNum(entry.oldValue);
+      updateQuoteLineItem(cat.id, entry.entityId, { [field]: value } as Partial<QuoteLineItem>);
+    } else return;
+    toast.success("Reverted");
+    API.workbook.getAudit(selectedProjectId).then(setWorkbookAudit).catch(() => {});
   };
 
   const handleBomEditWithOverride = (sectionNumber: string, sectionName: string, callback: () => void) => {
@@ -505,7 +529,7 @@ export function Workbook({ navigate }: { navigate: (p: Page) => void }) {
           <button onClick={() => (pricingIssues.total > 0 ? setProposalWarning(true) : setShowProposalModal(true))} className="flex items-center gap-1.5 h-9 md:h-7 px-3 rounded-lg text-white text-[12px] font-extrabold cursor-pointer" style={{ background: "#3b82f6" }}><FileDown className="w-3 h-3" /> Proposal</button>
         </div>
       </div>
-      <FieldAuditModal open={showAuditModal} entries={workbookAudit} onClose={() => setShowAuditModal(false)} />
+      <FieldAuditModal open={showAuditModal} entries={workbookAudit} onClose={() => setShowAuditModal(false)} onRevert={revertAuditEntry} />
       {!selectedQuote && projectAssets.length === 0 ? (
         <div className="flex-1 flex items-center justify-center"><EmptyState icon={DollarSign} title="No workbook" description="Select a project to view its workbook." action={{ label: "Select Project", onClick: () => setShowProjectSelect(true) }} /></div>
       ) : (
