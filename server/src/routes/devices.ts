@@ -1,11 +1,13 @@
 import { Router, Request, Response } from "express";
 import pool from "../db";
+import { isTech, requireAdmin } from "../lib/roles";
 
 const router = Router();
 
 // GET /api/devices
-router.get("/", async (_req: Request, res: Response) => {
+router.get("/", async (req: Request, res: Response) => {
   try {
+    const tech = isTech(req);
     const result = await pool.query("SELECT * FROM devices WHERE discontinued = false ORDER BY manufacturer, model");
     const devices = result.rows.map((row) => ({
       id: row.id,
@@ -22,7 +24,7 @@ router.get("/", async (_req: Request, res: Response) => {
       channels: row.channels || undefined,
       readers: row.readers || undefined,
       authentication: row.authentication || undefined,
-      price: row.price ? Number(row.price) : undefined,
+      price: !tech && row.price ? Number(row.price) : undefined,
       sku: row.sku || undefined,
       imageUrl: row.image_url || undefined,
       frameRate: row.frame_rate || undefined,
@@ -51,7 +53,7 @@ router.get("/:id", async (req: Request, res: Response) => {
       resolution: row.resolution, lens: row.lens, sensor: row.sensor,
       nightVision: row.night_vision, weatherRating: row.weather_rating, powerInput: row.power_input,
       storage: row.storage, channels: row.channels, readers: row.readers, authentication: row.authentication,
-      price: row.price ? Number(row.price) : undefined, sku: row.sku, imageUrl: row.image_url,
+      price: !isTech(req) && row.price ? Number(row.price) : undefined, sku: row.sku, imageUrl: row.image_url,
       frameRate: row.frame_rate, compression: row.compression, fov: row.fov,
       operatingTemp: row.operating_temp, tags: row.tags, discontinued: row.discontinued,
     });
@@ -62,7 +64,7 @@ router.get("/:id", async (req: Request, res: Response) => {
 });
 
 // POST /api/devices
-router.post("/", async (req: Request, res: Response) => {
+router.post("/", requireAdmin, async (req: Request, res: Response) => {
   try {
     const { model, manufacturer, category, resolution, lens, sensor, nightVision, weatherRating, powerInput, storage, channels, readers, authentication, price, sku, imageUrl, frameRate, compression, fov, operatingTemp, tags } = req.body;
     const result = await pool.query(
@@ -78,7 +80,7 @@ router.post("/", async (req: Request, res: Response) => {
 });
 
 // PATCH /api/devices/:id
-router.patch("/:id", async (req: Request, res: Response) => {
+router.patch("/:id", requireAdmin, async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
     const { model, manufacturer, category, resolution, lens, sensor, nightVision, weatherRating, powerInput, storage, channels, readers, authentication, price, sku, imageUrl, frameRate, compression, fov, operatingTemp, tags, discontinued } = req.body;
@@ -113,7 +115,7 @@ router.patch("/:id", async (req: Request, res: Response) => {
 });
 
 // POST /api/devices/bulk — for CSV import
-router.post("/bulk", async (req: Request, res: Response) => {
+router.post("/bulk", requireAdmin, async (req: Request, res: Response) => {
   try {
     const { devices } = req.body;
     if (!Array.isArray(devices)) return res.status(400).json({ error: "devices array required" });

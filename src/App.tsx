@@ -4065,6 +4065,7 @@ const DEVICE_LIBRARY_STEPS: TutorialStep[] = [
 ];
 
 function DeviceLibrary({ navigate: _navigate }: { navigate: (p: Page) => void }) {
+  const tech = isTechRole(useRole());
   useAutoTutorial("device-library", DEVICE_LIBRARY_STEPS);
   const [activeTab, setActiveTab] = useState<DeviceLibraryTab>("store");
   const [search, setSearch] = useState("");
@@ -4157,7 +4158,7 @@ function DeviceLibrary({ navigate: _navigate }: { navigate: (p: Page) => void })
               <option value="EAC" style={{ background: "#0d1117", color: "#e6edf3" }}>EAC</option>
               <option value="Intercom" style={{ background: "#0d1117", color: "#e6edf3" }}>Intercom</option>
             </select>
-            <label data-tour="dl-import" className="flex items-center gap-1.5 h-8 px-3 rounded-xl text-[#8b949e] text-[13px] font-bold hover:text-white cursor-pointer" style={G.btn}><Upload className="w-3.5 h-3.5" /> {csvUploading ? "Importing…" : "Import CSV"}<input type="file" accept=".csv" className="hidden" onChange={handleCSVUpload} disabled={csvUploading} /></label>
+            {!tech && <label data-tour="dl-import" className="flex items-center gap-1.5 h-8 px-3 rounded-xl text-[#8b949e] text-[13px] font-bold hover:text-white cursor-pointer" style={G.btn}><Upload className="w-3.5 h-3.5" /> {csvUploading ? "Importing…" : "Import CSV"}<input type="file" accept=".csv" className="hidden" onChange={handleCSVUpload} disabled={csvUploading} /></label>}
           </div>
           {devices.length === 0 ? <EmptyState icon={Store} title="Device store is empty" description="Import a CSV to populate the catalog." /> : filtered.length === 0 ? <EmptyState icon={Search} title="No devices match" description="Try adjusting filters." /> : (
             <div className="grid gap-3 md:gap-4" style={{ gridTemplateColumns: "repeat(auto-fill, minmax(200px, 1fr))" }}>
