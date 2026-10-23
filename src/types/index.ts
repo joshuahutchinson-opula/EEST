@@ -14,7 +14,7 @@ export type Role = "admin" | "tech";
 // The real signed-in identity (from /api/auth/me), separate from RoleContext.
 export interface SessionUserInfo { name: string; email: string }
 
-export type Page = "login" | "ops-dashboard" | "pipeline" | "projects" | "project-detail" | "workbook" | "install-tracker" | "device-library" | "calendar";
+export type Page = "login" | "ops-dashboard" | "pipeline" | "projects" | "project-detail" | "workbook" | "install-tracker" | "device-library" | "calendar" | "clients";
 
 export type Stage = "lead" | "opportunity" | "assessment-scheduled" | "assessment-completed" | "proposal" | "negotiation" | "win" | "lose";
 
@@ -46,6 +46,7 @@ export interface Project {
   id: string;
   name: string;
   client: string;
+  clientId?: string;
   value: number;
   stage: Stage;
   risk: "low" | "medium" | "high";
@@ -211,6 +212,9 @@ export interface SynthesisOverride { id: string; projectId: string; sectionNumbe
 
 // As-built details recorded for an installed device.
 export interface AsBuilt { serialNumber: string | null; macAddress: string | null; ipAddress: string | null; firmware: string | null; warrantyExpiry: string | null }
+export interface ClientContact { name: string; title?: string; email?: string; phone?: string }
+export interface ClientSummary { id: string; name: string; contacts: ClientContact[]; sites: string[]; projectCount: number }
+export interface ClientDetail extends ClientSummary { projects: { id: string; name: string; value: number; stage: Stage; projectStage?: ProjectStage | null; pipelineType: PipelineType; location: string; dueDate: string; assigneeName: string }[] }
 export interface TeamMemberInfo { name: string; email: string }
 // An Outlook event; start/end are Jamaica local "YYYY-MM-DDTHH:mm:ss".
 export interface CalendarEvent { id: string; email: string; subject: string; start: string; end: string; isAllDay: boolean; location: string; notes: string; isTaskEvent: boolean; webLink?: string }

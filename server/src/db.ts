@@ -400,6 +400,36 @@ export async function initDB() {
     await client.query(`ALTER TABLE workbook_audit ADD COLUMN IF NOT EXISTS entity_id TEXT`);
     await client.query(`ALTER TABLE workbook_audit ADD COLUMN IF NOT EXISTS field TEXT`);
     await client.query(`ALTER TABLE workbook_audit ADD COLUMN IF NOT EXISTS quote_id UUID`);
+    // Clients as records. projects.client stays as the display name; client_id links the record.
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS clients (
+        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+        name TEXT NOT NULL,
+        contacts JSONB DEFAULT '[]',
+        sites JSONB DEFAULT '[]',
+        created_at TIMESTAMPTZ DEFAULT NOW(),
+        updated_at TIMESTAMPTZ DEFAULT NOW()
+      )
+    `);
+    await client.query(`CREATE UNIQUE INDEX IF NOT EXISTS clients_name_uniq ON clients (lower(trim(name)))`);
+    await client.query(`ALTER TABLE projects ADD COLUMN IF NOT EXISTS client_id UUID REFERENCES clients(id) ON DELETE SET NULL`);
+    // Backfill: one client per distinct project client name (case-insensitive), seeded with that
+    // name's project contacts and locations, then link the projects. Safe to re-run.
+    await client.query(`
+      INSERT INTO clients (name, contacts, sites)
+      SELECT names.name,
+             COALESCE((SELECT jsonb_agg(DISTINCT e) FROM projects p2, jsonb_array_elements(COALESCE(p2.contacts, '[]'::jsonb)) e
+                       WHERE lower(trim(p2.client)) = names.key AND p2.deleted_at IS NULL), '[]'::jsonb),
+             COALESCE((SELECT jsonb_agg(DISTINCT trim(p3.location)) FROM projects p3
+                       WHERE lower(trim(p3.client)) = names.key AND p3.deleted_at IS NULL AND trim(COALESCE(p3.location, '')) <> ''), '[]'::jsonb)
+      FROM (SELECT DISTINCT ON (lower(trim(client))) lower(trim(client)) AS key, trim(client) AS name
+            FROM projects WHERE trim(COALESCE(client, '')) <> '' ORDER BY lower(trim(client)), created_at) names
+      WHERE NOT EXISTS (SELECT 1 FROM clients c WHERE lower(trim(c.name)) = names.key)
+    `);
+    await client.query(`
+      UPDATE projects p SET client_id = c.id FROM clients c
+      WHERE p.client_id IS NULL AND lower(trim(p.client)) = lower(trim(c.name))
+    `);
     // Bumped on every write; per-line-item saves send the version they saw and get 409 if it moved.
     await client.query(`ALTER TABLE quote_line_items ADD COLUMN IF NOT EXISTS version INTEGER NOT NULL DEFAULT 1`);
     await client.query(`ALTER TABLE audit_logs ADD COLUMN IF NOT EXISTS field_path TEXT`);

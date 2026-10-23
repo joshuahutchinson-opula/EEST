@@ -1,5 +1,5 @@
 import { DEFAULT_EXCHANGE_RATE } from "../lib/constants";
-import type { AuditLogEntry, CatalogDevice, ChangeOrder, CommissioningItem, DocumentItem, InstallDevice, InstallStatus, InstallZone, InventoryItem, InventoryTransaction, NotificationItem, Project, ProjectAsset, PublicProjectStatus, PublicSubcontractor, Quote, QuoteLineItem, Subcontractor, SynthesisOverride, Task, WorkbookAuditEntry, WorkbookSettings, AuditTarget, CalendarEvent, TeamMemberInfo } from "../types";
+import type { AuditLogEntry, CatalogDevice, ChangeOrder, CommissioningItem, DocumentItem, InstallDevice, InstallStatus, InstallZone, InventoryItem, InventoryTransaction, NotificationItem, Project, ProjectAsset, PublicProjectStatus, PublicSubcontractor, Quote, QuoteLineItem, Subcontractor, SynthesisOverride, Task, WorkbookAuditEntry, WorkbookSettings, AuditTarget, CalendarEvent, TeamMemberInfo, ClientContact, ClientDetail, ClientSummary } from "../types";
 
 export const API_BASE = import.meta.env.VITE_API_URL || "/api";
 
@@ -131,6 +131,12 @@ export const API = {
     update: (projectId: string, assetId: string, data: Partial<ProjectAsset>) => apiFetch<ProjectAsset>(`/projects/${projectId}/assets/${assetId}`, { method: "PATCH", body: JSON.stringify(data) }),
     delete: (projectId: string, assetId: string) => apiFetch<void>(`/projects/${projectId}/assets/${assetId}`, { method: "DELETE" }),
     equipmentSummary: (projectId: string) => apiFetchBlob(`/projects/${projectId}/assets/equipment-summary`),
+  },
+  clients: {
+    list: () => apiFetch<ClientSummary[]>("/clients"),
+    get: (id: string) => apiFetch<ClientDetail>(`/clients/${id}`),
+    create: (data: { name: string; contacts?: ClientContact[]; sites?: string[] }) => apiFetch<ClientSummary>("/clients", { method: "POST", body: JSON.stringify(data) }),
+    update: (id: string, data: Partial<{ name: string; contacts: ClientContact[]; sites: string[] }>) => apiFetch<ClientSummary>(`/clients/${id}`, { method: "PATCH", body: JSON.stringify(data) }),
   },
   calendar: {
     employees: () => apiFetch<{ configured: boolean; employees: TeamMemberInfo[] }>("/calendar/employees"),

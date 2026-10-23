@@ -10,6 +10,7 @@ import { APP_INTRO_STEPS, CurrencyContext, QuoteContext, RoleContext, SessionUse
 import { makeFmt } from "./lib/utils";
 import { LoginPage } from "./pages/auth/LoginPage";
 import { CalendarPage } from "./pages/calendar/CalendarPage";
+import { ClientsPage } from "./pages/clients/ClientsPage";
 import { OpsDashboard } from "./pages/dashboard/OpsDashboard";
 import { TechDashboard } from "./pages/dashboard/TechDashboard";
 import { DeviceLibrary } from "./pages/device-library/DeviceLibrary";
@@ -163,6 +164,7 @@ export function AuthenticatedApp() {
                 {page === "project-detail" && <ProjectDetail navigate={setPage} />}
                 {page === "workbook" && !isTechRole(role) && <Workbook navigate={setPage} />}
                 {page === "calendar" && !isTechRole(role) && <CalendarPage />}
+                {page === "clients" && <ClientsPage navigate={setPage} />}
                 {page === "install-tracker" && <InstallTracker navigate={setPage} />}
                 {page === "device-library" && <DeviceLibrary navigate={setPage} />}
               </motion.div>

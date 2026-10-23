@@ -136,7 +136,7 @@ export function ProjectDetail({ navigate }: { navigate: (p: Page) => void }) {
             {isProjPipe && p.supportType && <span className="text-[12px] font-extrabold px-2 py-0.5 rounded-full" style={{ background: "rgba(139,92,246,0.15)", color: "#a78bfa" }}>{SUPPORT_TYPE_LABELS[p.supportType]}</span>}
           </div>
           <h1 className="text-white font-extrabold text-3xl md:text-4xl tracking-tight mb-1">{p.name}</h1>
-          <p className="text-[#8b949e] text-[14px] md:text-[15px] flex items-center gap-1.5"><Building2 className="w-3.5 h-3.5" /> {p.client} · <MapPin className="w-3.5 h-3.5 ml-1" /> {p.location}</p>
+          <p className="text-[#8b949e] text-[14px] md:text-[15px] flex items-center gap-1.5"><Building2 className="w-3.5 h-3.5" /> {p.clientId ? <button onClick={() => { localStorage.setItem("active_client_id", p.clientId!); navigate("clients"); }} className="hover:text-white underline-offset-2 hover:underline cursor-pointer">{p.client}</button> : p.client} · <MapPin className="w-3.5 h-3.5 ml-1" /> {p.location}</p>
         </div>
         <div data-tour="pd-quick-actions" className="flex items-center gap-2 flex-shrink-0 flex-wrap">
           {[{ label: "Assets", icon: Package, action: () => setActiveTab("assets") },{ label: "Installation", icon: CheckSquare, action: () => navigate("install-tracker") }].map(({ label, icon: Icon, action }) => (

@@ -3,6 +3,7 @@ import crypto from "crypto";
 import pool from "../db";
 import { isTech, requireAdmin } from "../lib/roles";
 import { buildCloseoutReport } from "../lib/closeoutReport";
+import { linkProjectClient } from "../lib/clients";
 
 const router = Router();
 
@@ -11,6 +12,7 @@ function mapRow(row: any) {
     id: row.id,
     name: row.name,
     client: row.client,
+    clientId: row.client_id || undefined,
     value: Number(row.value),
     stage: row.stage,
     risk: row.risk,
@@ -106,7 +108,8 @@ router.post("/", async (req: Request, res: Response) => {
         pipelineType || "sales", projectStage || null,
       ]
     );
-    let project = mapRow(result.rows[0]);
+    await linkProjectClient(result.rows[0].id);
+    let project = mapRow((await pool.query("SELECT * FROM projects WHERE id = $1", [result.rows[0].id])).rows[0]);
     if (isTech(req)) project = redactForTech(project);
     res.status(201).json(project);
   } catch (err) {
@@ -144,7 +147,12 @@ router.patch("/:id", async (req: Request, res: Response) => {
        pipelineType, projectStage]
     );
     if (result.rows.length === 0) return res.status(404).json({ error: "Project not found" });
-    let project = mapRow(result.rows[0]);
+    let row = result.rows[0];
+    if (client !== undefined) {
+      await linkProjectClient(id);
+      row = (await pool.query("SELECT * FROM projects WHERE id = $1", [id])).rows[0];
+    }
+    let project = mapRow(row);
     if (tech) project = redactForTech(project);
     res.json(project);
   } catch (err) {

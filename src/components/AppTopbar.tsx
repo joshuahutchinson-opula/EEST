@@ -12,6 +12,7 @@ export const NAV_ITEMS: { id: Page; label: string }[] = [
   { id: "ops-dashboard", label: "Dashboard" },
   { id: "pipeline", label: "Pipeline" },
   { id: "projects", label: "Projects" },
+  { id: "clients", label: "Clients" },
   { id: "workbook", label: "Workbook" },
   { id: "install-tracker", label: "Installation" },
   { id: "device-library", label: "Device Library" },
