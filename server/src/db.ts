@@ -347,6 +347,8 @@ export async function initDB() {
     await client.query(`ALTER TABLE quote_line_items ADD COLUMN IF NOT EXISTS project_asset_id UUID REFERENCES project_assets(id) ON DELETE SET NULL`);
     // Set when someone edits an asset-synced line's cost by hand; the asset sync then leaves the cost alone.
     await client.query(`ALTER TABLE quote_line_items ADD COLUMN IF NOT EXISTS cost_overridden BOOLEAN DEFAULT FALSE`);
+    // Bumped on every write; per-line-item saves send the version they saw and get 409 if it moved.
+    await client.query(`ALTER TABLE quote_line_items ADD COLUMN IF NOT EXISTS version INTEGER NOT NULL DEFAULT 1`);
     await client.query(`ALTER TABLE audit_logs ADD COLUMN IF NOT EXISTS field_path TEXT`);
     await client.query(`ALTER TABLE audit_logs ADD COLUMN IF NOT EXISTS old_value TEXT`);
     await client.query(`ALTER TABLE audit_logs ADD COLUMN IF NOT EXISTS new_value TEXT`);

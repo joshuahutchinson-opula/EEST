@@ -126,7 +126,7 @@ export async function syncAssetLineItem(client: PoolClient, assetId: string): Pr
   if (existing) {
     await client.query(
       // A hand-edited cost (cost_overridden) survives asset edits until it's reset.
-      `UPDATE quote_line_items SET category_id = $2, description = $3, unit_cost = CASE WHEN cost_overridden THEN unit_cost ELSE $4 END, quantity = $5 WHERE id = $1`,
+      `UPDATE quote_line_items SET category_id = $2, description = $3, unit_cost = CASE WHEN cost_overridden THEN unit_cost ELSE $4 END, quantity = $5, version = version + 1 WHERE id = $1`,
       [existing.id, categoryId, description, unitCost, asset.quantity]
     );
   } else {

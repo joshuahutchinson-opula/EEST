@@ -48,6 +48,7 @@ function mapLineItem(li: any, exchangeRate: number) {
     jmdConversion: sellPrice * li.quantity * exchangeRate,
     projectAssetId: li.project_asset_id || undefined,
     costOverridden: !!li.cost_overridden,
+    version: Number(li.version) || 1,
   };
 }
 
@@ -201,7 +202,7 @@ router.patch("/:id", requireAdmin, async (req: Request, res: Response) => {
               `UPDATE quote_line_items SET item_number=$2, description=$3,
                  unit_cost = CASE WHEN project_asset_id IS NULL OR $8 THEN $4 ELSE unit_cost END,
                  cost_overridden = cost_overridden OR (project_asset_id IS NOT NULL AND $8),
-                 quantity=$5, markup_percent=$6, project_asset_id=$7 WHERE id=$1`,
+                 quantity=$5, markup_percent=$6, project_asset_id=$7, version = version + 1 WHERE id=$1`,
               [li.id, li.itemNumber || "", li.description || "", li.unitCost || 0, li.quantity || 0, li.markupPercent || 0, li.projectAssetId || null, li.costOverridden === true]
             );
           } else {
@@ -225,6 +226,109 @@ router.patch("/:id", requireAdmin, async (req: Request, res: Response) => {
   }
 });
 
+// --- Per-line-item writes ---------------------------------------------------------------------
+// The Workbook saves one line item at a time. Every update and delete carries the version the
+// client last saw; if the row has changed since (another tab, an asset sync), the write is
+// refused with 409 and the current row, so the client can reload it instead of overwriting.
+
+async function loadLineItem(itemId: string) {
+  const result = await pool.query(
+    `SELECT li.*, q.exchange_rate FROM quote_line_items li
+     JOIN quote_categories c ON c.id = li.category_id JOIN quotes q ON q.id = c.quote_id
+     WHERE li.id::text = $1`,
+    [itemId]
+  );
+  const row = result.rows[0];
+  return row ? mapLineItem(row, Number(row.exchange_rate)) : null;
+}
+
+function lineItemNumbers(body: any) {
+  const n = (v: unknown) => (v === undefined || v === null || v === "" ? undefined : Number(v));
+  const unitCost = n(body.unitCost);
+  const quantity = n(body.quantity);
+  const markupPercent = n(body.markupPercent);
+  if ([unitCost, quantity, markupPercent].some((v) => v !== undefined && !Number.isFinite(v))) return null;
+  return { unitCost, quantity: quantity === undefined ? undefined : Math.trunc(quantity), markupPercent };
+}
+
+// POST /api/quotes/:quoteId/line-items
+router.post("/:quoteId/line-items", requireAdmin, async (req: Request, res: Response) => {
+  try {
+    const { quoteId } = req.params;
+    const { categoryId, description, itemNumber } = req.body;
+    const nums = lineItemNumbers(req.body);
+    if (!nums) return res.status(400).json({ error: "unitCost, quantity and markupPercent must be numbers" });
+    if (typeof description !== "string" || !description.trim()) return res.status(400).json({ error: "description is required" });
+    const cat = await pool.query(`SELECT id FROM quote_categories WHERE id::text = $1 AND quote_id::text = $2`, [categoryId, quoteId]);
+    if (cat.rows.length === 0) return res.status(404).json({ error: "Category not found on this quote" });
+    const inserted = await pool.query(
+      `INSERT INTO quote_line_items (category_id, item_number, description, unit_cost, quantity, markup_percent)
+       VALUES ($1, COALESCE($2, LPAD(((SELECT COUNT(*) FROM quote_line_items WHERE category_id = $1) + 1)::text, 2, '0')), $3, $4, $5, $6)
+       RETURNING id`,
+      [categoryId, itemNumber || null, description.trim(), nums.unitCost ?? 0, nums.quantity ?? 1, nums.markupPercent ?? 0]
+    );
+    await pool.query(`UPDATE quotes SET updated_at = NOW() WHERE id::text = $1`, [quoteId]);
+    res.status(201).json(await loadLineItem(inserted.rows[0].id));
+  } catch (err) {
+    console.error("POST /quotes/:quoteId/line-items error:", err);
+    res.status(500).json({ error: "Failed to add line item" });
+  }
+});
+
+// PATCH /api/quotes/line-items/:itemId  { version, description?, unitCost?, quantity?, markupPercent?, itemNumber? }
+router.patch("/line-items/:itemId", requireAdmin, async (req: Request, res: Response) => {
+  try {
+    const { itemId } = req.params;
+    const { version, description, itemNumber } = req.body;
+    const nums = lineItemNumbers(req.body);
+    if (!nums) return res.status(400).json({ error: "unitCost, quantity and markupPercent must be numbers" });
+    if (!Number.isInteger(Number(version))) return res.status(400).json({ error: "version is required" });
+    if (description !== undefined && (typeof description !== "string" || !description.trim())) return res.status(400).json({ error: "description can't be empty" });
+    // Editing the cost of an asset-synced line marks it as a manual override (see lib/assetSync.ts).
+    const result = await pool.query(
+      `UPDATE quote_line_items SET
+         description = COALESCE($3, description),
+         item_number = COALESCE($4, item_number),
+         unit_cost = COALESCE($5, unit_cost),
+         quantity = COALESCE($6, quantity),
+         markup_percent = COALESCE($7, markup_percent),
+         cost_overridden = cost_overridden OR (project_asset_id IS NOT NULL AND $5::numeric IS NOT NULL),
+         version = version + 1
+       WHERE id::text = $1 AND version = $2
+       RETURNING category_id`,
+      [itemId, Number(version), description === undefined ? null : description.trim(), itemNumber ?? null, nums.unitCost ?? null, nums.quantity ?? null, nums.markupPercent ?? null]
+    );
+    if (result.rows.length === 0) {
+      const current = await loadLineItem(itemId);
+      if (!current) return res.status(404).json({ error: "Line item not found" });
+      return res.status(409).json({ error: "This line item was changed by someone else", current });
+    }
+    await pool.query(`UPDATE quotes SET updated_at = NOW() WHERE id = (SELECT quote_id FROM quote_categories WHERE id = $1)`, [result.rows[0].category_id]);
+    res.json(await loadLineItem(itemId));
+  } catch (err) {
+    console.error("PATCH /quotes/line-items/:itemId error:", err);
+    res.status(500).json({ error: "Failed to update line item" });
+  }
+});
+
+// DELETE /api/quotes/line-items/:itemId?version=N
+router.delete("/line-items/:itemId", requireAdmin, async (req: Request, res: Response) => {
+  try {
+    const { itemId } = req.params;
+    const version = Number(req.query.version);
+    if (!Number.isInteger(version)) return res.status(400).json({ error: "version is required" });
+    const current = await loadLineItem(itemId);
+    if (!current) return res.status(404).json({ error: "Line item not found" });
+    if (current.projectAssetId) return res.status(400).json({ error: "This line comes from a project asset — remove the asset instead" });
+    const result = await pool.query(`DELETE FROM quote_line_items WHERE id::text = $1 AND version = $2 RETURNING id`, [itemId, version]);
+    if (result.rows.length === 0) return res.status(409).json({ error: "This line item was changed by someone else", current: await loadLineItem(itemId) });
+    res.json({ success: true });
+  } catch (err) {
+    console.error("DELETE /quotes/line-items/:itemId error:", err);
+    res.status(500).json({ error: "Failed to delete line item" });
+  }
+});
+
 // POST /api/quotes/line-items/:itemId/reset-cost — drop a manual cost override on an asset-synced
 // line and take the cost from its asset again.
 router.post("/line-items/:itemId/reset-cost", requireAdmin, async (req: Request, res: Response) => {
@@ -234,7 +338,7 @@ router.post("/line-items/:itemId/reset-cost", requireAdmin, async (req: Request,
     if (found.rows.length === 0) return res.status(404).json({ error: "Line item not found" });
     if (!found.rows[0].project_asset_id) return res.status(400).json({ error: "Line item is not linked to a project asset" });
     await client.query("BEGIN");
-    await client.query(`UPDATE quote_line_items SET cost_overridden = FALSE WHERE id = $1`, [req.params.itemId]);
+    await client.query(`UPDATE quote_line_items SET cost_overridden = FALSE, version = version + 1 WHERE id = $1`, [req.params.itemId]);
     await syncAssetLineItem(client, found.rows[0].project_asset_id);
     await client.query("COMMIT");
     const result = await client.query(

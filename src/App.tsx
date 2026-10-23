@@ -172,6 +172,8 @@ interface QuoteLineItem {
   projectAssetId?: string;
   // An asset-synced line whose cost was edited by hand; asset edits then leave the cost alone.
   costOverridden?: boolean;
+  // Bumped by the server on every write; sent back with updates for the 409 conflict check.
+  version?: number;
 }
 interface QuoteCategory {
   id: string;
@@ -418,6 +420,11 @@ function getSessionEmail(): string | null {
   } catch { return null; }
 }
 
+class ApiError extends Error {
+  status: number;
+  body: unknown;
+  constructor(status: number, body: unknown) { super(`API error: ${status}`); this.status = status; this.body = body; }
+}
 class UnauthorizedError extends Error {
   constructor() { super("Unauthorized"); this.name = "UnauthorizedError"; }
 }
@@ -442,7 +449,7 @@ async function apiFetch<T>(path: string, options?: RequestInit): Promise<T> {
     onUnauthorized?.();
     throw new UnauthorizedError();
   }
-  if (!res.ok) throw new Error(`API error: ${res.status}`);
+  if (!res.ok) throw new ApiError(res.status, await res.json().catch(() => null));
   return res.json();
 }
 
@@ -499,6 +506,9 @@ const API = {
     update: (id: string, data: Partial<Quote>) => apiFetch<Quote>(`/quotes/${id}`, { method: "PATCH", body: JSON.stringify(data) }),
     delete: (id: string) => apiFetch<void>(`/quotes/${id}`, { method: "DELETE" }),
     resetLineItemCost: (itemId: string) => apiFetch<QuoteLineItem>(`/quotes/line-items/${itemId}/reset-cost`, { method: "POST" }),
+    createLineItem: (quoteId: string, data: Partial<QuoteLineItem> & { categoryId: string }) => apiFetch<QuoteLineItem>(`/quotes/${quoteId}/line-items`, { method: "POST", body: JSON.stringify(data) }),
+    updateLineItem: (itemId: string, data: Partial<QuoteLineItem> & { version: number }) => apiFetch<QuoteLineItem>(`/quotes/line-items/${itemId}`, { method: "PATCH", body: JSON.stringify(data) }),
+    deleteLineItem: (itemId: string, version: number) => apiFetch<void>(`/quotes/line-items/${itemId}?version=${version}`, { method: "DELETE" }),
   },
   devices: {
     list: () => apiFetch<CatalogDevice[]>("/devices"),
@@ -3793,41 +3803,86 @@ function Workbook({ navigate }: { navigate: (p: Page) => void }) {
 
   // Rows added here stay local until they get a description, so empty rows never reach the quote.
   const draftItemIds = useRef<Set<string>>(new Set());
-  const autoSave = useCallback(async (q: Quote) => {
+  // Line items save one at a time. Saves for the same item run in order (so quick successive
+  // edits don't trip each other's version check), keyed by the id the row had when it was first
+  // edited — a draft keeps its temporary id as the key even after the server assigns a real one.
+  const saveQueue = useRef(new Map<string, Promise<void>>());
+  const queueKeyFor = useRef(new Map<string, string>());
+  const savedIdFor = useRef(new Map<string, string>());
+  const itemVersions = useRef(new Map<string, number>());
+  const pendingSaves = useRef(0);
+
+  const replaceLineItem = (itemId: string, fn: (li: QuoteLineItem) => QuoteLineItem) =>
+    setQuotes(prev => prev.map(q => ({ ...q, categories: q.categories.map(c => ({ ...c, lineItems: c.lineItems.map(li => li.id === itemId ? fn(li) : li) })) })));
+
+  const enqueueSave = (itemId: string, task: (currentId: string) => Promise<void>) => {
+    const key = queueKeyFor.current.get(itemId) || itemId;
+    pendingSaves.current += 1;
     setSaveStatus("saving");
-    const categories = q.categories.map(c => ({ ...c, lineItems: c.lineItems.filter(li => !draftItemIds.current.has(li.id)) }));
-    try { await API.quotes.update(q.id, { categories }); setTimeout(() => setSaveStatus("saved"), 800); } catch { setSaveStatus("saved"); }
-  }, []);
+    const next = (saveQueue.current.get(key) || Promise.resolve())
+      .then(() => task(savedIdFor.current.get(key) || itemId))
+      .finally(() => { pendingSaves.current -= 1; if (pendingSaves.current === 0) setSaveStatus("saved"); });
+    saveQueue.current.set(key, next.catch(() => {}));
+  };
+
+  const handleSaveConflict = (itemId: string, err: unknown): boolean => {
+    const current = err instanceof ApiError && err.status === 409 ? (err.body as { current?: QuoteLineItem } | null)?.current : undefined;
+    if (!current) return false;
+    itemVersions.current.set(itemId, current.version ?? 1);
+    replaceLineItem(itemId, () => recalcLineItem(current, exchangeRate));
+    toast.warning(`"${current.description || "Line item"}" was changed elsewhere — reloaded the latest version. Re-apply your edit if it's still needed.`);
+    return true;
+  };
 
   const updateQuoteLineItem = (categoryId: string, itemId: string, updates: Partial<QuoteLineItem>) => {
-    const fieldKey = `li-${categoryId}-${itemId}`;
-    setFieldSaveStatus(prev => ({ ...prev, [fieldKey]: "saving" }));
-    setQuotes((prev) => prev.map((q) => {
-      if (q.id !== selectedQuoteId) return q;
-      const updated = { ...q, categories: q.categories.map((cat) => {
-        if (cat.id !== categoryId) return cat;
-        return { ...cat, lineItems: cat.lineItems.map((li) => {
-          if (li.id !== itemId) return li;
-          if (draftItemIds.current.has(itemId)) {
-            if (!(updates.description ?? li.description).trim()) return recalcLineItem({ ...li, ...updates }, exchangeRate);
-            draftItemIds.current.delete(itemId);
-          }
-          (Object.keys(updates) as (keyof QuoteLineItem)[]).forEach((key) => {
-            if (key === "id") return;
-            const oldVal = li[key];
-            const newVal = updates[key];
-            if (oldVal !== newVal && newVal !== undefined) {
-              API.workbook.logAudit(selectedProjectId, `${cat.name} — ${li.description || "line item"} — ${key}`, String(oldVal), String(newVal)).catch(() => {});
-            }
-          });
-          const costOverride = updates.unitCost !== undefined && li.projectAssetId ? { costOverridden: true } : {};
-          return recalcLineItem({ ...li, ...updates, ...costOverride }, exchangeRate);
-        }) };
-      }) };
-      autoSave(updated);
-      return updated;
-    }));
-    setTimeout(() => setFieldSaveStatus(prev => ({ ...prev, [fieldKey]: "saved" })), 600);
+    const cat = selectedQuote?.categories.find(c => c.id === categoryId);
+    const li = cat?.lineItems.find(x => x.id === itemId);
+    if (!selectedQuote || !cat || !li) return;
+    const quoteId = selectedQuote.id;
+    const costOverride = updates.unitCost !== undefined && li.projectAssetId ? { costOverridden: true } : {};
+    const merged = recalcLineItem({ ...li, ...updates, ...costOverride }, exchangeRate);
+    replaceLineItem(itemId, () => merged);
+
+    if (draftItemIds.current.has(itemId)) {
+      if (!merged.description.trim()) return;
+      draftItemIds.current.delete(itemId);
+      enqueueSave(itemId, async () => {
+        try {
+          const created = await API.quotes.createLineItem(quoteId, { categoryId, description: merged.description, unitCost: merged.unitCost, quantity: merged.quantity, markupPercent: merged.markupPercent, itemNumber: merged.itemNumber });
+          queueKeyFor.current.set(created.id, itemId);
+          savedIdFor.current.set(itemId, created.id);
+          itemVersions.current.set(created.id, created.version ?? 1);
+          replaceLineItem(itemId, (local) => ({ ...local, id: created.id, version: created.version }));
+          API.workbook.logAudit(selectedProjectId, `${cat.name} — ${merged.description} — added`, "", merged.description).catch(() => {});
+        } catch {
+          draftItemIds.current.add(itemId);
+          toast.error("Failed to save the new line item");
+        }
+      });
+      return;
+    }
+
+    (Object.keys(updates) as (keyof QuoteLineItem)[]).forEach((key) => {
+      const oldVal = li[key];
+      const newVal = updates[key];
+      if (key !== "id" && oldVal !== newVal && newVal !== undefined) {
+        API.workbook.logAudit(selectedProjectId, `${cat.name} — ${li.description || "line item"} — ${key}`, String(oldVal), String(newVal)).catch(() => {});
+      }
+    });
+    const payload: Partial<QuoteLineItem> = {};
+    for (const key of ["description", "unitCost", "quantity", "markupPercent", "itemNumber"] as const) {
+      if (updates[key] !== undefined) (payload as Record<string, unknown>)[key] = updates[key];
+    }
+    enqueueSave(itemId, async (currentId) => {
+      const version = itemVersions.current.get(currentId) ?? li.version ?? 1;
+      try {
+        const saved = await API.quotes.updateLineItem(currentId, { ...payload, version });
+        itemVersions.current.set(currentId, saved.version ?? version + 1);
+        replaceLineItem(currentId, (local) => ({ ...local, version: saved.version, costOverridden: saved.costOverridden }));
+      } catch (err) {
+        if (!handleSaveConflict(currentId, err)) toast.error("Failed to save line item");
+      }
+    });
   };
 
   const addLineItem = (categoryId: string) => {
@@ -3865,6 +3920,7 @@ function Workbook({ navigate }: { navigate: (p: Page) => void }) {
   const handleResetCost = async (categoryId: string, itemId: string) => {
     try {
       const fresh = await API.quotes.resetLineItemCost(itemId);
+      itemVersions.current.set(itemId, fresh.version ?? 1);
       setQuotes(prev => prev.map(q => q.id !== selectedQuoteId ? q : { ...q, categories: q.categories.map(c => c.id !== categoryId ? c : { ...c, lineItems: c.lineItems.map(li => li.id === itemId ? recalcLineItem(fresh, exchangeRate) : li) }) }));
       API.workbook.logAudit(selectedProjectId, `${fresh.description} — unitCost override`, "manual", "reset to asset cost").catch(() => {});
       toast.success("Cost reset to the asset's cost");
