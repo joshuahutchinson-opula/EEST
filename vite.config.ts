@@ -1,6 +1,6 @@
 import { readFileSync, writeFileSync } from 'node:fs'
 import { resolve } from 'node:path'
-import { defineConfig, type Plugin } from 'vite'
+import { defineConfig, loadEnv, type Plugin } from 'vite'
 import react from '@vitejs/plugin-react'
 
 function stampServiceWorker(): Plugin {
@@ -16,23 +16,27 @@ function stampServiceWorker(): Plugin {
   }
 }
 
-export default defineConfig({
-  plugins: [react(), stampServiceWorker()],
-  server: {
-    proxy: {
-      '/api': {
-        target: 'https://eest-production.up.railway.app',
-        changeOrigin: true,
-        secure: false,
-      },
-      '/uploads': {
-        target: 'https://eest-production.up.railway.app',
-        changeOrigin: true,
-        secure: false,
+export default defineConfig(({ mode }) => {
+  // Local server by default so `npm run dev` never touches production data.
+  const proxyTarget = loadEnv(mode, process.cwd(), '').VITE_PROXY_TARGET || 'http://localhost:3001'
+  return {
+    plugins: [react(), stampServiceWorker()],
+    server: {
+      proxy: {
+        '/api': {
+          target: proxyTarget,
+          changeOrigin: true,
+          secure: false,
+        },
+        '/uploads': {
+          target: proxyTarget,
+          changeOrigin: true,
+          secure: false,
+        },
       },
     },
-  },
-  preview: {
-    allowedHosts: ['end-to-end-sales-tool-production.up.railway.app']
+    preview: {
+      allowedHosts: ['end-to-end-sales-tool-production.up.railway.app']
+    }
   }
 })
