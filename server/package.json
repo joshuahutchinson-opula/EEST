@@ -8,8 +8,7 @@
   "scripts": {
     "dev": "tsx watch src/index.ts",
     "build": "tsc && shx mkdir -p dist/assets && shx cp -r src/assets/. dist/assets/",
-    "start": "node dist/index.js",
-    "seed": "tsx src/seed.ts"
+    "start": "node dist/index.js"
   },
   "dependencies": {
     "@types/multer": "^2.2.0",

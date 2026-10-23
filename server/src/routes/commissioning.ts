@@ -39,10 +39,6 @@ router.post("/:projectId/sync", async (req: Request, res: Response) => {
         `SELECT id, name, type, location, status FROM install_devices WHERE zone_id IN (SELECT id FROM install_zones WHERE project_id = $1)`,
         [projectId]
       );
-      const canvasResult = await client.query(
-        `SELECT layout_data FROM canvas_layouts WHERE project_id = $1`,
-        [projectId]
-      );
 
       for (const row of installResult.rows) {
         await client.query(
@@ -51,19 +47,6 @@ router.post("/:projectId/sync", async (req: Request, res: Response) => {
            ON CONFLICT (project_id, device_id) DO NOTHING`,
           [projectId, row.id, row.name, row.location || null, row.status === "complete" ? "pass" : "pending"]
         );
-      }
-
-      if (canvasResult.rows.length > 0) {
-        const devices = canvasResult.rows[0].layout_data?.devices || [];
-        for (const dev of devices) {
-          if (dev.type === "cable") continue;
-          await client.query(
-            `INSERT INTO commissioning_checklists (project_id, device_id, device_name, location, status)
-             VALUES ($1, $2, $3, $4, 'pending')
-             ON CONFLICT (project_id, device_id) DO NOTHING`,
-            [projectId, dev.id, dev.label, null]
-          );
-        }
       }
 
       await client.query("COMMIT");
@@ -162,8 +145,8 @@ router.post("/:projectId/report", async (req: Request, res: Response) => {
     const { projectId } = req.params;
     // installed_photos ("as-installed", Phase 7.2) lives on install_devices, a different table
     // from the generic commissioning-item photos field — joined here by device_id, which is
-    // populated from install_devices.id at /sync time (see the sync route below). Items synced
-    // instead from a canvas layout have no install_devices row and so no as-installed photos.
+    // populated from install_devices.id at /sync time (see the sync route above). Items added
+    // by hand have no install_devices row and so no as-installed photos.
     const result = await pool.query(
       `SELECT cc.device_name AS "deviceName", cc.location, cc.status, cc.notes,
               idv.installed_photos AS "installedPhotos"
