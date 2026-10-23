@@ -14,7 +14,7 @@ export type Role = "admin" | "tech";
 // The real signed-in identity (from /api/auth/me), separate from RoleContext.
 export interface SessionUserInfo { name: string; email: string }
 
-export type Page = "login" | "ops-dashboard" | "pipeline" | "projects" | "project-detail" | "workbook" | "install-tracker" | "device-library";
+export type Page = "login" | "ops-dashboard" | "pipeline" | "projects" | "project-detail" | "workbook" | "install-tracker" | "device-library" | "calendar";
 
 export type Stage = "lead" | "opportunity" | "assessment-scheduled" | "assessment-completed" | "proposal" | "negotiation" | "win" | "lose";
 
@@ -208,6 +208,10 @@ export interface ProjectAsset {
 export type IconType = React.ComponentType<{ className?: string }>;
 
 export interface SynthesisOverride { id: string; projectId: string; sectionNumber: string; overrideValue: number | null; isOverridden: boolean; overriddenBy?: string; overriddenAt?: string; }
+
+export interface TeamMemberInfo { name: string; email: string }
+// An Outlook event; start/end are Jamaica local "YYYY-MM-DDTHH:mm:ss".
+export interface CalendarEvent { id: string; email: string; subject: string; start: string; end: string; isAllDay: boolean; location: string; notes: string; isTaskEvent: boolean; webLink?: string }
 
 export interface AuditTarget { entityType: "line-item" | "override"; entityId: string; field: string; quoteId?: string }
 // Entries with entityType/entityId/field can be reverted; older ones are free text only.

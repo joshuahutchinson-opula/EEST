@@ -304,6 +304,14 @@ export async function initDB() {
         created_at TIMESTAMPTZ DEFAULT NOW()
       );
 
+      -- Outlook event created for a task on its assignee's calendar (see lib/calendarSync.ts).
+      CREATE TABLE IF NOT EXISTS task_calendar_events (
+        task_id UUID PRIMARY KEY REFERENCES tasks(id) ON DELETE CASCADE,
+        user_email TEXT NOT NULL,
+        event_id TEXT NOT NULL,
+        synced_at TIMESTAMPTZ DEFAULT NOW()
+      );
+
       CREATE TABLE IF NOT EXISTS user_tutorial_progress (
         email TEXT NOT NULL,
         tutorial_key TEXT NOT NULL,

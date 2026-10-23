@@ -30,6 +30,7 @@ import projectAssetsRouter from "./routes/project-assets";
 import tutorialsRouter from "./routes/tutorials";
 import publicRouter from "./routes/public";
 import filesRouter from "./routes/files";
+import calendarRouter from "./routes/calendar";
 
 dotenv.config();
 
@@ -63,6 +64,7 @@ app.use("/api/subcontractors", subcontractorsRouter);
 app.use("/api/users/me/tutorials", tutorialsRouter);
 app.use("/api/public", publicRouter);
 app.use("/api/files", filesRouter);
+app.use("/api/calendar", calendarRouter);
 
 app.get("/api/health", (_req, res) => {
   res.json({ status: "ok", timestamp: new Date().toISOString() });

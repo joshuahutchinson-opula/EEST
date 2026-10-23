@@ -1,6 +1,7 @@
 import { Router, Request, Response } from "express";
 import pool from "../db";
 import { requireProjectAccess } from "../lib/roles";
+import { removeTaskFromCalendar, syncTaskToCalendar } from "../lib/calendarSync";
 
 const router = Router();
 router.param("projectId", requireProjectAccess());
@@ -45,6 +46,7 @@ router.post("/:projectId", async (req: Request, res: Response) => {
       [projectId, title, description || null, assignee || null, subcontractorId || null, status || "todo", priority || "medium", dueDate || null]
     );
     res.status(201).json(mapRow(result.rows[0]));
+    void syncTaskToCalendar(result.rows[0].id);
   } catch (err) {
     console.error("POST /tasks/:projectId error:", err);
     res.status(500).json({ error: "Failed to create task" });
@@ -65,6 +67,7 @@ router.patch("/:projectId/:id", async (req: Request, res: Response) => {
     );
     if (result.rows.length === 0) return res.status(404).json({ error: "Task not found" });
     res.json(mapRow(result.rows[0]));
+    void syncTaskToCalendar(id);
   } catch (err) {
     console.error("PATCH /tasks/:projectId/:id error:", err);
     res.status(500).json({ error: "Failed to update task" });
@@ -75,6 +78,8 @@ router.patch("/:projectId/:id", async (req: Request, res: Response) => {
 router.delete("/:projectId/:id", async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
+    const owned = await pool.query("SELECT 1 FROM tasks WHERE id = $1 AND project_id = $2", [id, req.params.projectId]);
+    if (owned.rows.length > 0) await removeTaskFromCalendar(id);
     await pool.query("DELETE FROM tasks WHERE id = $1 AND project_id = $2", [id, req.params.projectId]);
     res.json({ success: true });
   } catch (err) {

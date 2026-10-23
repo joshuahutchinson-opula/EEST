@@ -9,6 +9,7 @@ import { DEFAULT_EXCHANGE_RATE, G } from "./lib/constants";
 import { APP_INTRO_STEPS, CurrencyContext, QuoteContext, RoleContext, SessionUserContext, TutorialContext, isTechRole, useTutorialState } from "./lib/contexts";
 import { makeFmt } from "./lib/utils";
 import { LoginPage } from "./pages/auth/LoginPage";
+import { CalendarPage } from "./pages/calendar/CalendarPage";
 import { OpsDashboard } from "./pages/dashboard/OpsDashboard";
 import { TechDashboard } from "./pages/dashboard/TechDashboard";
 import { DeviceLibrary } from "./pages/device-library/DeviceLibrary";
@@ -90,7 +91,7 @@ export function AuthenticatedApp() {
   useEffect(() => { if (page !== "login") localStorage.setItem("app_page", page); }, [page]);
   useEffect(() => { API.fx.getRate(); const interval = setInterval(() => API.fx.getRate(), 24 * 60 * 60 * 1000); return () => clearInterval(interval); }, []);
   useEffect(() => { if (page !== "login" && !authChecking) API.auth.me().then((u) => { setRole(u.role); setSessionUser({ name: u.name, email: u.email }); }).catch(() => {}); }, [page, authChecking]);
-  useEffect(() => { if (isTechRole(role) && page === "workbook") setPage("ops-dashboard"); }, [role, page]);
+  useEffect(() => { if (isTechRole(role) && (page === "workbook" || page === "calendar")) setPage("ops-dashboard"); }, [role, page]);
 
   const currencyCtx: CurrencyCtx = useMemo(() => ({ currency, setCurrency, fmt: makeFmt(currency) }), [currency]);
 
@@ -149,6 +150,7 @@ export function AuthenticatedApp() {
                 {page === "projects" && <ProjectsPage navigate={setPage} />}
                 {page === "project-detail" && <ProjectDetail navigate={setPage} />}
                 {page === "workbook" && !isTechRole(role) && <Workbook navigate={setPage} />}
+                {page === "calendar" && !isTechRole(role) && <CalendarPage />}
                 {page === "install-tracker" && <InstallTracker navigate={setPage} />}
                 {page === "device-library" && <DeviceLibrary navigate={setPage} />}
               </motion.div>

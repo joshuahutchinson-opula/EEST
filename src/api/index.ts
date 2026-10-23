@@ -1,5 +1,5 @@
 import { DEFAULT_EXCHANGE_RATE } from "../lib/constants";
-import type { AuditLogEntry, CatalogDevice, ChangeOrder, CommissioningItem, DocumentItem, InstallDevice, InstallStatus, InstallZone, InventoryItem, InventoryTransaction, NotificationItem, Project, ProjectAsset, PublicProjectStatus, PublicSubcontractor, Quote, QuoteLineItem, Subcontractor, SynthesisOverride, Task, WorkbookAuditEntry, WorkbookSettings, AuditTarget } from "../types";
+import type { AuditLogEntry, CatalogDevice, ChangeOrder, CommissioningItem, DocumentItem, InstallDevice, InstallStatus, InstallZone, InventoryItem, InventoryTransaction, NotificationItem, Project, ProjectAsset, PublicProjectStatus, PublicSubcontractor, Quote, QuoteLineItem, Subcontractor, SynthesisOverride, Task, WorkbookAuditEntry, WorkbookSettings, AuditTarget, CalendarEvent, TeamMemberInfo } from "../types";
 
 export const API_BASE = import.meta.env.VITE_API_URL || "/api";
 
@@ -131,6 +131,13 @@ export const API = {
     update: (projectId: string, assetId: string, data: Partial<ProjectAsset>) => apiFetch<ProjectAsset>(`/projects/${projectId}/assets/${assetId}`, { method: "PATCH", body: JSON.stringify(data) }),
     delete: (projectId: string, assetId: string) => apiFetch<void>(`/projects/${projectId}/assets/${assetId}`, { method: "DELETE" }),
     equipmentSummary: (projectId: string) => apiFetchBlob(`/projects/${projectId}/assets/equipment-summary`),
+  },
+  calendar: {
+    employees: () => apiFetch<{ configured: boolean; employees: TeamMemberInfo[] }>("/calendar/employees"),
+    events: (start: string, end: string, emails: string[]) => apiFetch<{ email: string; events: CalendarEvent[]; error?: string }[]>(`/calendar/events?start=${start}&end=${end}&emails=${encodeURIComponent(emails.join(","))}`),
+    create: (data: { email: string; subject: string; start: string; end: string; isAllDay: boolean; location?: string; notes?: string }) => apiFetch<CalendarEvent>("/calendar/events", { method: "POST", body: JSON.stringify(data) }),
+    update: (email: string, id: string, data: Partial<{ subject: string; start: string; end: string; isAllDay: boolean; location: string; notes: string }>) => apiFetch<CalendarEvent>(`/calendar/events/${encodeURIComponent(email)}/${encodeURIComponent(id)}`, { method: "PATCH", body: JSON.stringify(data) }),
+    remove: (email: string, id: string) => apiFetch<void>(`/calendar/events/${encodeURIComponent(email)}/${encodeURIComponent(id)}`, { method: "DELETE" }),
   },
   fx: {
     getRate: async () => {
