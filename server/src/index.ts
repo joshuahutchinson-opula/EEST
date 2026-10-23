@@ -6,6 +6,7 @@ if (!globalThis.crypto) {
   (globalThis as unknown as { crypto: Crypto }).crypto = webcrypto as unknown as Crypto;
 }
 
+import { Sentry, sentryEnabled } from "./instrument";
 import express from "express";
 import cors from "cors";
 import dotenv from "dotenv";
@@ -69,6 +70,8 @@ app.use("/api/calendar", calendarRouter);
 app.get("/api/health", (_req, res) => {
   res.json({ status: "ok", timestamp: new Date().toISOString() });
 });
+
+if (sentryEnabled) Sentry.setupExpressErrorHandler(app);
 
 initDB()
   .then(() => {

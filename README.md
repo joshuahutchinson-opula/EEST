@@ -54,6 +54,8 @@ Server (`server/.env`; see `server/.env.example` for details):
 | `TECH_EMAILS` | no | Comma-separated emails that get the restricted Tech role |
 | `UPLOAD_DIR` | in production | Where uploads are stored; point at a persistent volume |
 | `DEMO_USERNAME`, `DEMO_PASSWORD_HASH` | no | Optional demo account (bcrypt hash) |
+| `TEAM_EMAILS` | no | `Name=email` list for the Calendar tab and task events (defaults to firstname@domain) |
+| `SENTRY_DSN`, `SENTRY_ENVIRONMENT` | no | Server error monitoring; off when unset |
 | `NODE_ENV` | no | `production` enables SSL for the database connection |
 
 Frontend (build time):
@@ -62,3 +64,4 @@ Frontend (build time):
 |---|---|
 | `VITE_API_URL` | API base URL in production (e.g. `https://<api-host>/api`); defaults to `/api` |
 | `VITE_PROXY_TARGET` | Dev-server proxy target (default `http://localhost:3001`) |
+| `VITE_SENTRY_DSN`, `VITE_SENTRY_ENVIRONMENT` | Frontend error monitoring; off when unset |

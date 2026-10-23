@@ -42,9 +42,9 @@ export function CommissioningTab({ projectId }: { projectId: string }) {
   };
 
   const handleUpdate = async (deviceId: string, status: "pass" | "fail") => {
-    API.commissioning.update(projectId, deviceId, { status }).then(() => setChecklist(prev => prev.map(x => x.deviceId === deviceId ? { ...x, status } : x))).catch(() => {});
+    API.commissioning.update(projectId, deviceId, { status }).then(() => setChecklist(prev => prev.map(x => x.deviceId === deviceId ? { ...x, status } : x))).catch(() => toast.error("Failed to save commissioning status"));
     if (status === "fail") {
-      API.tasks.create(projectId, { title: `${checklist.find(x => x.deviceId === deviceId)?.deviceName || "Device"} failed commissioning`, priority: "high", status: "todo" }).catch(() => {});
+      API.tasks.create(projectId, { title: `${checklist.find(x => x.deviceId === deviceId)?.deviceName || "Device"} failed commissioning`, priority: "high", status: "todo" }).catch(() => toast.error("Failed to create the follow-up task"));
     }
   };
 

@@ -46,14 +46,14 @@ export function TaskList({ projectId }: { projectId: string }) {
     } catch { toast.error("Failed to create task"); }
   };
 
-  const handleStatusChange = async (taskId: string, status: TaskStatus) => { setTasks(prev => prev.map(t => t.id === taskId ? { ...t, status } : t)); try { await API.tasks.update(projectId, taskId, { status }); } catch { fetchTasks(); } };
+  const handleStatusChange = async (taskId: string, status: TaskStatus) => { setTasks(prev => prev.map(t => t.id === taskId ? { ...t, status } : t)); try { await API.tasks.update(projectId, taskId, { status }); } catch { toast.error("Failed to update task status"); fetchTasks(); } };
 
-  const handleDelete = async (taskId: string) => { setTasks(prev => prev.filter(t => t.id !== taskId)); try { await API.tasks.delete(projectId, taskId); toast.success("Task deleted"); } catch { fetchTasks(); } setConfirmDelete(null); };
+  const handleDelete = async (taskId: string) => { setTasks(prev => prev.filter(t => t.id !== taskId)); try { await API.tasks.delete(projectId, taskId); toast.success("Task deleted"); } catch { toast.error("Failed to delete task"); fetchTasks(); } setConfirmDelete(null); };
 
   const handleEditSave = async () => {
     if (!editingTask || !editingTask.title.trim()) return;
     setTasks(prev => prev.map(t => t.id === editingTask.id ? editingTask : t));
-    try { await API.tasks.update(projectId, editingTask.id, editingTask); toast.success("Task updated"); } catch { fetchTasks(); }
+    try { await API.tasks.update(projectId, editingTask.id, editingTask); toast.success("Task updated"); } catch { toast.error("Failed to update task"); fetchTasks(); }
     setEditingTask(null);
   };
 

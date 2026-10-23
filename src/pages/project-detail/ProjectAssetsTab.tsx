@@ -125,7 +125,7 @@ export function ProjectAssetsTab({ projectId, projectName, clientName }: { proje
         setAssets(prev => [...prev, result]);
         const installType = INSTALL_DEVICE_TYPE_FOR_ASSET[category];
         if (zoneId && installType) {
-          API.install.addDevice(zoneId, { name: describeAsset(result, storeDevices), type: installType, location: location.trim(), status: "pending" }).catch(() => {});
+          API.install.addDevice(zoneId, { name: describeAsset(result, storeDevices), type: installType, location: location.trim(), status: "pending" }).catch(() => toast.error("Asset saved, but adding it to the install tracker failed"));
         }
         toast.success("Asset added");
       }

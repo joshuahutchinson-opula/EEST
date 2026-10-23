@@ -95,12 +95,12 @@ export function Dashboard({ navigate }: { navigate: (p: Page) => void }) {
             await API.projects.update(dragging, { stage: newStage, stageHistory });
             await logAudit(dragging, "Stage Change", `Moved from ${oldStage} to ${newStage}`, { field: "stage", oldValue: String(oldStage), newValue: newStage });
             if (newStage === "win") { API.notifications.salesWin({ projectId: dragging, projectName: project.name, clientName: project.client }).catch(() => {}); }
-          } catch {}
+          } catch { toast.error("Failed to move the project"); fetchProjects(); }
         } else {
           const newStage = colId as ProjectStage;
           const stageHistory = [...(project.stageHistory || []), { stage: newStage, date: new Date().toISOString().slice(0, 10) }];
           setProjects((prev) => prev.map((p) => p.id === dragging ? { ...p, projectStage: newStage, stageHistory } : p));
-          try { await API.projects.update(dragging, { projectStage: newStage, stageHistory }); await logAudit(dragging, "Project Stage Change", `Moved from ${oldStage} to ${newStage}`, { field: "projectStage", oldValue: String(oldStage), newValue: newStage }); } catch {}
+          try { await API.projects.update(dragging, { projectStage: newStage, stageHistory }); await logAudit(dragging, "Project Stage Change", `Moved from ${oldStage} to ${newStage}`, { field: "projectStage", oldValue: String(oldStage), newValue: newStage }); } catch { toast.error("Failed to move the project"); fetchProjects(); }
         }
       }
     }
@@ -117,11 +117,11 @@ export function Dashboard({ navigate }: { navigate: (p: Page) => void }) {
       await API.projects.update(projectId, { pipelineType: "project", projectStage: "planning", leadSource: undefined, stageHistory });
       await API.audit.log(projectId, "Moved to Projects", "Moved from Sales Win to Projects Planning", { field: "pipelineType", oldValue: "sales", newValue: "project" });
       toast.success("Moved to Projects Pipeline");
-    } catch { fetchProjects(); }
+    } catch { toast.error("Failed to move to Projects"); fetchProjects(); }
   };
 
-  const handleDelete = async (id: string) => { setProjects((prev) => prev.filter((p) => p.id !== id)); try { await API.projects.delete(id); toast.success("Project deleted"); } catch { fetchProjects(); } };
-  const handleUpdate = async (updated: Project) => { setProjects((prev) => prev.map((p) => p.id === updated.id ? updated : p)); setSelectedDeal(updated); try { await API.projects.update(updated.id, updated); toast.success("Updated"); } catch { fetchProjects(); } };
+  const handleDelete = async (id: string) => { setProjects((prev) => prev.filter((p) => p.id !== id)); try { await API.projects.delete(id); toast.success("Project deleted"); } catch { toast.error("Failed to delete project"); fetchProjects(); } };
+  const handleUpdate = async (updated: Project) => { setProjects((prev) => prev.map((p) => p.id === updated.id ? updated : p)); setSelectedDeal(updated); try { await API.projects.update(updated.id, updated); toast.success("Updated"); } catch { toast.error("Failed to save project"); fetchProjects(); } };
 
   const selectedColumn = selectedDeal ? [...COLUMNS, ...PROJECT_COLUMNS].find((c) => (pipelineType === "sales" ? c.id === selectedDeal.stage : c.id === selectedDeal.projectStage))! : null;
   const STAT_COLORS = ["#3b82f6", "#10b981", "#f97316", "#8b5cf6"];
@@ -193,7 +193,7 @@ export function Dashboard({ navigate }: { navigate: (p: Page) => void }) {
   return (
     <div>
       {selectedDeal && selectedColumn && <DealModal project={selectedDeal} column={selectedColumn} onClose={() => setSelectedDeal(null)} navigate={navigate} onUpdate={handleUpdate} onDelete={handleDelete} pipelineType={pipelineType} liveValue={projectValues.get(selectedDeal.id)} />}
-      {showNewProject && <NewProjectModal onClose={() => setShowNewProject(false)} onAdd={async (p) => { setProjects((prev) => [p, ...prev]); try { await API.projects.create(p); } catch { fetchProjects(); } }} pipelineType={pipelineType} />}
+      {showNewProject && <NewProjectModal onClose={() => setShowNewProject(false)} onAdd={async (p) => { setProjects((prev) => [p, ...prev]); try { await API.projects.create(p); } catch { toast.error("Failed to create project"); fetchProjects(); } }} pipelineType={pipelineType} />}
       {progressAnim && (
         <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -20 }} className="fixed bottom-6 left-1/2 -translate-x-1/2 z-[250] px-5 py-3 rounded-2xl flex items-center gap-3" style={{ background: "rgba(16,185,129,0.95)", backdropFilter: "blur(20px)", boxShadow: "0 8px 32px rgba(16,185,129,0.4)" }}>
           <CheckCircle2 className="w-5 h-5 text-white" />

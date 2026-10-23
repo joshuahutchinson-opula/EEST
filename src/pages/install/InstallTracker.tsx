@@ -50,7 +50,7 @@ export function InstallTracker({ navigate: _navigate }: { navigate: (p: Page) =>
 
   const updateStatus = async (zoneId: string, deviceId: string, status: InstallStatus) => {
     setZones((prev) => prev.map((z) => z.id !== zoneId ? z : { ...z, devices: z.devices.map((d) => d.id !== deviceId ? d : { ...d, status }) }));
-    try { await API.install.updateStatus(zoneId, deviceId, status); } catch {}
+    try { await API.install.updateStatus(zoneId, deviceId, status); } catch { toast.error("Failed to save device status"); fetchData(); }
   };
 
   const handleDevicePhotoUpload = async (projectId: string, zoneId: string, deviceId: string, e: React.ChangeEvent<HTMLInputElement>) => {

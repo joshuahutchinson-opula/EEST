@@ -25,7 +25,7 @@ export function DocumentList({ projectId }: { projectId: string }) {
 
   const handleDelete = async (id: string) => {
     setDocuments(prev => prev.filter(d => d.id !== id));
-    try { await API.documents.delete(projectId, id); toast.success("File deleted"); } catch { fetchDocs(); }
+    try { await API.documents.delete(projectId, id); toast.success("File deleted"); } catch { toast.error("Failed to delete file"); fetchDocs(); }
     setConfirmDelete(null);
   };
 
