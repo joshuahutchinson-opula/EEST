@@ -1,5 +1,5 @@
 import { Fragment } from "react";
-import { AlertTriangle, CheckCircle2, GripVertical, Loader2, PlusCircle, RotateCcw, Trash2 } from "lucide-react";
+import { AlertTriangle, CheckCircle2, GripVertical, Loader2, PlusCircle, RotateCcw, Trash2, Package } from "lucide-react";
 import { clsx } from "clsx";
 import { InlineEditCell } from "../../components/InlineEditCell";
 import { G } from "../../lib/constants";
@@ -13,7 +13,7 @@ export const COST_MARGIN_STEPS: TutorialStep[] = [
   { target: "wb-cm-table", title: "Cost & Margin Table", description: "Click any Qty, Cost, or Markup % cell to edit it inline — Sell Price, Total Cost, Total Sell, and Profit recalculate automatically, plus an Import line where a section carries an import rate. This data is internal only and never appears in client exports." },
 ];
 
-export function CostMarginTab({ quoteCategories, exchangeRate, currency, fmt: _fmt, onLineItemUpdate, onAddLineItem, onDeleteLineItem, onReorderLineItems, onResetCost, priceDeviation, fieldSaveStatus, systemFilter, onSystemFilterChange }: { quoteCategories: QuoteCategory[]; exchangeRate: number; currency: "USD" | "JMD"; fmt: (n: number, compact?: boolean) => string; onLineItemUpdate: (categoryId: string, itemId: string, updates: Partial<QuoteLineItem>) => void; onAddLineItem: (categoryId: string) => void; onDeleteLineItem: (categoryId: string, itemId: string) => void; onReorderLineItems: (categoryId: string, orderedIds: string[]) => void; onResetCost: (categoryId: string, itemId: string) => void; priceDeviation: (li: QuoteLineItem) => number | null; fieldSaveStatus: Record<string, "saved" | "saving" | "">; systemFilter: SystemType; onSystemFilterChange: (s: SystemType) => void; }) {
+export function CostMarginTab({ quoteCategories, exchangeRate, currency, fmt: _fmt, onLineItemUpdate, onAddLineItem, onAddFromLibrary, onDeleteLineItem, onReorderLineItems, onResetCost, priceDeviation, fieldSaveStatus, systemFilter, onSystemFilterChange }: { quoteCategories: QuoteCategory[]; exchangeRate: number; currency: "USD" | "JMD"; fmt: (n: number, compact?: boolean) => string; onLineItemUpdate: (categoryId: string, itemId: string, updates: Partial<QuoteLineItem>) => void; onAddLineItem: (categoryId: string) => void; onAddFromLibrary: (categoryId: string) => void; onDeleteLineItem: (categoryId: string, itemId: string) => void; onReorderLineItems: (categoryId: string, orderedIds: string[]) => void; onResetCost: (categoryId: string, itemId: string) => void; priceDeviation: (li: QuoteLineItem) => number | null; fieldSaveStatus: Record<string, "saved" | "saving" | "">; systemFilter: SystemType; onSystemFilterChange: (s: SystemType) => void; }) {
   useAutoTutorial("workbook.cost-margin", COST_MARGIN_STEPS);
   const { toDisplay, fromDisplay } = displayMoney(currency, exchangeRate);
   const shown = (usd: number) => toDisplay(usd).toFixed(2);
@@ -62,7 +62,7 @@ export function CostMarginTab({ quoteCategories, exchangeRate, currency, fmt: _f
                       </tr>
                     );
                   })}
-                  <tr style={{ borderBottom: "1px solid rgba(255,255,255,0.03)" }}><td colSpan={9} className="px-3 py-1.5"><button onClick={() => onAddLineItem(category.id)} className="flex items-center gap-1 text-[#8b949e] hover:text-white text-[12px] font-bold cursor-pointer"><PlusCircle className="w-3 h-3" /> Add Line Item</button></td></tr>
+                  <tr style={{ borderBottom: "1px solid rgba(255,255,255,0.03)" }}><td colSpan={9} className="px-3 py-1.5"><span className="flex items-center gap-4"><button onClick={() => onAddLineItem(category.id)} className="flex items-center gap-1 text-[#8b949e] hover:text-white text-[12px] font-bold cursor-pointer"><PlusCircle className="w-3 h-3" /> Add Line Item</button><button onClick={() => onAddFromLibrary(category.id)} className="flex items-center gap-1 text-[#8b949e] hover:text-white text-[12px] font-bold cursor-pointer"><Package className="w-3 h-3" /> From Device Library</button></span></td></tr>
                   {category.importRatePercent > 0 && (
                     <tr style={{ borderBottom: "1px solid rgba(255,255,255,0.03)" }}>
                       <td colSpan={6} className="px-3 py-2 text-right text-[#8b949e] text-[12px] font-bold">Import ({Math.round(category.importRatePercent * 100)}% of cost)</td>

@@ -1,5 +1,5 @@
 import { Fragment, useEffect, useMemo, useRef, useState } from "react";
-import { AlertTriangle, CheckCircle2, Loader2, Pencil, PlusCircle, GripVertical, Trash2 } from "lucide-react";
+import { AlertTriangle, CheckCircle2, Loader2, Pencil, PlusCircle, GripVertical, Trash2, Package } from "lucide-react";
 import { clsx } from "clsx";
 import { buildSectionRows, computeWorkbookTotals } from "../../../server/src/lib/workbookTotals";
 import { InlineEditCell } from "../../components/InlineEditCell";
@@ -13,7 +13,7 @@ export const BOM_STEPS: TutorialStep[] = [
   { target: "wb-bom-table", title: "Bill of Materials", description: "The client-facing BOM, priced in JMD — switch between Video Surveillance, Access Control, and Intercom above the table. Every section's line items show quantity (click to edit), list price, and extended total. A section overridden on the Synthesis tab shows a badge and a price adjustment row, so its rows always add up to its total; contingency and import lines sit under their own sections, followed by the system total and the all-systems Subtotal, GCT, and Total." },
 ];
 
-export function BomTab({ quoteCategories, synthesisOverrides, exchangeRate, currency, fmt, onLineItemUpdate, onAddLineItem, onDeleteLineItem, onReorderLineItems, onBomEditWithOverride, fieldSaveStatus, systemFilter, onSystemFilterChange }: { quoteCategories: QuoteCategory[]; synthesisOverrides: SynthesisOverride[]; exchangeRate: number; currency: "USD" | "JMD"; fmt: (n: number, compact?: boolean) => string; onLineItemUpdate: (categoryId: string, itemId: string, updates: Partial<QuoteLineItem>) => void; onAddLineItem: (categoryId: string) => void; onDeleteLineItem: (categoryId: string, itemId: string) => void; onReorderLineItems: (categoryId: string, orderedIds: string[]) => void; onBomEditWithOverride: (sectionNumber: string, sectionName: string, callback: () => void) => void; fieldSaveStatus: Record<string, "saved" | "saving" | "">; systemFilter: SystemType; onSystemFilterChange: (s: SystemType) => void; }) {
+export function BomTab({ quoteCategories, synthesisOverrides, exchangeRate, currency, fmt, onLineItemUpdate, onAddLineItem, onAddFromLibrary, onDeleteLineItem, onReorderLineItems, onBomEditWithOverride, fieldSaveStatus, systemFilter, onSystemFilterChange }: { quoteCategories: QuoteCategory[]; synthesisOverrides: SynthesisOverride[]; exchangeRate: number; currency: "USD" | "JMD"; fmt: (n: number, compact?: boolean) => string; onLineItemUpdate: (categoryId: string, itemId: string, updates: Partial<QuoteLineItem>) => void; onAddLineItem: (categoryId: string) => void; onAddFromLibrary: (categoryId: string) => void; onDeleteLineItem: (categoryId: string, itemId: string) => void; onReorderLineItems: (categoryId: string, orderedIds: string[]) => void; onBomEditWithOverride: (sectionNumber: string, sectionName: string, callback: () => void) => void; fieldSaveStatus: Record<string, "saved" | "saving" | "">; systemFilter: SystemType; onSystemFilterChange: (s: SystemType) => void; }) {
   useAutoTutorial("workbook.bom", BOM_STEPS);
   const { toDisplay, fromDisplay } = displayMoney(currency, exchangeRate);
   const { handleProps, rowProps } = useLineItemReorder(onReorderLineItems);
@@ -119,7 +119,7 @@ export function BomTab({ quoteCategories, synthesisOverrides, exchangeRate, curr
                         </tr>
                       );
                     })}
-                    {section.kind === "items" && category && <tr style={{ borderBottom: "1px solid rgba(255,255,255,0.03)" }}><td colSpan={5} className="px-4 py-1.5"><button onClick={() => onAddLineItem(category.id)} className="flex items-center gap-1 text-[#8b949e] hover:text-white text-[12px] font-bold cursor-pointer"><PlusCircle className="w-3 h-3" /> Add Line Item</button></td></tr>}
+                    {section.kind === "items" && category && <tr style={{ borderBottom: "1px solid rgba(255,255,255,0.03)" }}><td colSpan={5} className="px-4 py-1.5"><span className="flex items-center gap-4"><button onClick={() => onAddLineItem(category.id)} className="flex items-center gap-1 text-[#8b949e] hover:text-white text-[12px] font-bold cursor-pointer"><PlusCircle className="w-3 h-3" /> Add Line Item</button><button onClick={() => onAddFromLibrary(category.id)} className="flex items-center gap-1 text-[#8b949e] hover:text-white text-[12px] font-bold cursor-pointer"><Package className="w-3 h-3" /> From Device Library</button></span></td></tr>}
                     <tr style={{ borderBottom: "1px solid rgba(255,255,255,0.05)" }}><td colSpan={4} className="px-4 py-1.5 text-right text-[#8b949e] text-[12px] font-bold">{section.name} total</td><td className="px-4 py-1.5 text-right text-white text-[13px] font-extrabold">{fmt(section.total)}</td></tr>
                   </Fragment>
                 );

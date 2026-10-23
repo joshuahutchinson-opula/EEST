@@ -12,6 +12,7 @@ import { useCurrency, useSessionUser } from "../../lib/contexts";
 import { makeFmt } from "../../lib/utils";
 import { AssetListTab } from "./AssetListTab";
 import { BomTab } from "./BomTab";
+import { DevicePickerModal } from "./DevicePickerModal";
 import { CostMarginTab } from "./CostMarginTab";
 import { FieldAuditModal } from "./FieldAuditModal";
 import { OverrideConflictModal } from "./OverrideConflictModal";
@@ -61,6 +62,7 @@ export function Workbook({ navigate }: { navigate: (p: Page) => void }) {
   const [showProjectSelect, setShowProjectSelect] = useState(false);
   const [rateUpdate, setRateUpdate] = useState<{ liveRate: number } | null>(null);
   const [pendingDelete, setPendingDelete] = useState<{ categoryId: string; item: QuoteLineItem } | null>(null);
+  const [pickerCategoryId, setPickerCategoryId] = useState<string | null>(null);
   const [priceHistoryAvg, setPriceHistoryAvg] = useState<Record<string, number>>({});
   const [activeTab, setActiveTab] = useState<WorkbookTab>(() => (localStorage.getItem("wb_tab") as WorkbookTab) || "asset-list");
   const [saveStatus, setSaveStatus] = useState<"saved" | "saving" | "">("saved");
@@ -262,6 +264,22 @@ export function Workbook({ navigate }: { navigate: (p: Page) => void }) {
     API.quotes.reorderLineItems(categoryId, orderedIds.filter(id => !draftItemIds.current.has(id))).catch(() => toast.error("Failed to save the new order"));
   };
 
+  // A catalog device becomes a regular (manual) line item: description and cost from the device.
+  const addLineItemFromDevice = async (categoryId: string, device: CatalogDevice) => {
+    setPickerCategoryId(null);
+    const cat = selectedQuote?.categories.find(c => c.id === categoryId);
+    if (!selectedQuote || !cat) return;
+    const markupPercent = SYSTEM_CATEGORIES[cat.system]?.find((s) => s.sectionNumber === cat.sectionNumber)?.defaultMarkup ?? 0.35;
+    const description = `${device.manufacturer} ${device.model}`.trim();
+    try {
+      const created = await API.quotes.createLineItem(selectedQuote.id, { categoryId, description, unitCost: device.price || 0, quantity: 1, markupPercent });
+      itemVersions.current.set(created.id, created.version ?? 1);
+      setQuotes(prev => prev.map(q => q.id !== selectedQuote.id ? q : { ...q, categories: q.categories.map(c => c.id !== categoryId ? c : { ...c, lineItems: [...c.lineItems, recalcLineItem(created, exchangeRate)] }) }));
+      API.workbook.logAudit(selectedProjectId, `${cat.name} — ${description} — added from Device Library`, "", description).catch(() => {});
+      toast.success(`Added ${description}`);
+    } catch { toast.error("Failed to add line item"); }
+  };
+
   const addLineItem = (categoryId: string) => {
     setQuotes((prev) => prev.map((q) => {
       if (q.id !== selectedQuoteId) return q;
@@ -342,6 +360,7 @@ export function Workbook({ navigate }: { navigate: (p: Page) => void }) {
       {overrideConflict && <OverrideConflictModal open={true} sectionName={overrideConflict.sectionName} onUpdateOverride={() => { overrideConflict.pendingCallback?.(); handleSaveOverride(overrideConflict.sectionNumber, null, false); setOverrideConflict(null); }} onKeepOverride={() => { overrideConflict.pendingCallback?.(); setOverrideConflict(null); }} onCancel={() => setOverrideConflict(null)} />}
       {showProjectSelect && <SelectProjectModal onClose={() => setShowProjectSelect(false)} onSelect={(id: string) => { setSelectedProjectId(id); setSelectedQuoteId(quotes.find((q) => q.projectId === id)?.id || ""); setShowProjectSelect(false); }} currentId={selectedProjectId} projects={projects} />}
       {showProposalModal && <ProposalGeneratorModal open={true} onClose={() => setShowProposalModal(false)} projectId={selectedProjectId} />}
+      {pickerCategoryId && <DevicePickerModal devices={storeDevices} fmt={fmt} onClose={() => setPickerCategoryId(null)} onPick={(d) => addLineItemFromDevice(pickerCategoryId, d)} />}
       {pendingDelete && <ConfirmDialog open={true} title="Delete line item" message={`Delete "${pendingDelete.item.description || "this line item"}" from the quote?`} onCancel={() => setPendingDelete(null)} onConfirm={confirmDeleteLineItem} />}
       {rateUpdate && selectedQuote && <ConfirmDialog open={true} danger={false} confirmLabel="Update rate" title="Update exchange rate" message={`This quote is locked at J$ ${exchangeRate.toFixed(2)} per US$1. The current live rate is J$ ${rateUpdate.liveRate.toFixed(2)}. Update the quote to the live rate? JMD figures on this quote will change.`} onCancel={() => setRateUpdate(null)} onConfirm={handleUpdateRate} />}
       <div className="px-4 md:px-6 py-3 flex flex-col md:flex-row md:items-center justify-between flex-shrink-0 gap-2" style={{ borderBottom: "1px solid rgba(255,255,255,0.07)" }}>
@@ -384,8 +403,8 @@ export function Workbook({ navigate }: { navigate: (p: Page) => void }) {
           <p className="px-4 md:px-6 pt-2.5 pb-1 text-[#8b949e] text-[12px] md:text-[13px] flex-shrink-0">{wbTabs[activeTabIndex]?.description}</p>
           <div className="flex-1 overflow-y-auto px-3 md:px-5 py-4 space-y-4" style={{ scrollbarWidth: "thin", scrollbarColor: "rgba(255,255,255,0.08) transparent" }}>
             {activeTab === "asset-list" && <AssetListTab quoteCategories={quoteCategories} exchangeRate={exchangeRate} fmt={fmt} systemFilter={systemFilter} onSystemFilterChange={setSystemFilter} />}
-            {activeTab === "cost-margin" && <CostMarginTab quoteCategories={quoteCategories} exchangeRate={exchangeRate} currency={currency} fmt={fmt} onLineItemUpdate={updateQuoteLineItem} onAddLineItem={addLineItem} onDeleteLineItem={requestDeleteLineItem} onReorderLineItems={reorderLineItems} onResetCost={handleResetCost} priceDeviation={priceDeviation} fieldSaveStatus={fieldSaveStatus} systemFilter={systemFilter} onSystemFilterChange={setSystemFilter} />}
-            {activeTab === "bom" && <BomTab quoteCategories={quoteCategories} synthesisOverrides={synthesisOverrides} exchangeRate={exchangeRate} currency={currency} fmt={fmt} onLineItemUpdate={updateQuoteLineItem} onAddLineItem={addLineItem} onDeleteLineItem={requestDeleteLineItem} onReorderLineItems={reorderLineItems} onBomEditWithOverride={handleBomEditWithOverride} fieldSaveStatus={fieldSaveStatus} systemFilter={systemFilter} onSystemFilterChange={setSystemFilter} />}
+            {activeTab === "cost-margin" && <CostMarginTab quoteCategories={quoteCategories} exchangeRate={exchangeRate} currency={currency} fmt={fmt} onLineItemUpdate={updateQuoteLineItem} onAddLineItem={addLineItem} onAddFromLibrary={setPickerCategoryId} onDeleteLineItem={requestDeleteLineItem} onReorderLineItems={reorderLineItems} onResetCost={handleResetCost} priceDeviation={priceDeviation} fieldSaveStatus={fieldSaveStatus} systemFilter={systemFilter} onSystemFilterChange={setSystemFilter} />}
+            {activeTab === "bom" && <BomTab quoteCategories={quoteCategories} synthesisOverrides={synthesisOverrides} exchangeRate={exchangeRate} currency={currency} fmt={fmt} onLineItemUpdate={updateQuoteLineItem} onAddLineItem={addLineItem} onAddFromLibrary={setPickerCategoryId} onDeleteLineItem={requestDeleteLineItem} onReorderLineItems={reorderLineItems} onBomEditWithOverride={handleBomEditWithOverride} fieldSaveStatus={fieldSaveStatus} systemFilter={systemFilter} onSystemFilterChange={setSystemFilter} />}
             {activeTab === "synthesis" && <SynthesisTab quoteCategories={quoteCategories} synthesisOverrides={synthesisOverrides} fmt={fmt} onSaveOverride={handleSaveOverride} fieldSaveStatus={fieldSaveStatus} />}
             <div className="flex items-center justify-between flex-wrap gap-2 pt-2">
               {activeTabIndex > 0 ? (
