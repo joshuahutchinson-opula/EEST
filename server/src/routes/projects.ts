@@ -88,7 +88,10 @@ router.get("/:id", async (req: Request, res: Response) => {
 // POST /api/projects
 router.post("/", async (req: Request, res: Response) => {
   try {
-    const { name, client, value, stage, risk, assignee, dueDate, cameras, devices, location, contacts, summary, notes, collaborators, leadSource, stageHistory, pipelineType, projectStage } = stripTechWriteFields(req.body, isTech(req));
+    const tech = isTech(req);
+    const { name, client, value, stage, risk, assignee, dueDate, cameras, devices, location, contacts, summary, notes, collaborators, leadSource, stageHistory, projectStage } = stripTechWriteFields(req.body, tech);
+    // Tech can't see the Sales pipeline, so anything they create belongs to Projects.
+    const pipelineType = tech ? "project" : req.body.pipelineType;
     const result = await pool.query(
       `INSERT INTO projects (name, client, value, stage, risk, assignee_name, assignee_initials, assignee_color, due_date, cameras, devices, location, contacts, summary, notes, collaborators, lead_source, stage_history, pipeline_type, project_stage)
        VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20) RETURNING *`,
@@ -115,7 +118,16 @@ router.post("/", async (req: Request, res: Response) => {
 router.patch("/:id", async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
-    const { name, client, value, stage, risk, assignee, dueDate, cameras, devices, location, contacts, summary, notes, collaborators, leadSource, stageHistory, pipelineType, projectStage } = stripTechWriteFields(req.body, isTech(req));
+    const tech = isTech(req);
+    if (tech) {
+      // Check before writing — a Tech user must not be able to modify a Sales project at all.
+      const current = await pool.query("SELECT pipeline_type FROM projects WHERE id = $1 AND deleted_at IS NULL", [id]);
+      if (current.rows.length === 0) return res.status(404).json({ error: "Project not found" });
+      if (current.rows[0].pipeline_type !== "project") return res.status(403).json({ error: "Forbidden for this role" });
+    }
+    const { name, client, value, stage, risk, assignee, dueDate, cameras, devices, location, contacts, summary, notes, collaborators, leadSource, stageHistory, projectStage } = stripTechWriteFields(req.body, tech);
+    // Tech can't move a project into the Sales pipeline.
+    const pipelineType = tech ? undefined : req.body.pipelineType;
     const result = await pool.query(
       `UPDATE projects SET name=COALESCE($2,name), client=COALESCE($3,client), value=COALESCE($4,value), stage=COALESCE($5,stage), risk=COALESCE($6,risk),
        assignee_name=COALESCE($7,assignee_name), assignee_initials=COALESCE($8,assignee_initials), assignee_color=COALESCE($9,assignee_color),
@@ -132,10 +144,7 @@ router.patch("/:id", async (req: Request, res: Response) => {
     );
     if (result.rows.length === 0) return res.status(404).json({ error: "Project not found" });
     let project = mapRow(result.rows[0]);
-    if (isTech(req)) {
-      if (project.pipelineType !== "project") return res.status(403).json({ error: "Forbidden for this role" });
-      project = redactForTech(project);
-    }
+    if (tech) project = redactForTech(project);
     res.json(project);
   } catch (err) {
     console.error("PATCH /projects/:id error:", err);
