@@ -1,7 +1,9 @@
 import { Router, Request, Response } from "express";
+import type { PoolClient } from "pg";
 import pool from "../db";
 import { isTech } from "../lib/roles";
 import { buildEquipmentSummaryDocx } from "../lib/docxDocuments";
+import { syncAssetLineItem, removeAssetLineItem } from "../lib/assetSync";
 
 const router = Router();
 
@@ -70,18 +72,41 @@ router.get("/:projectId/assets", async (req: Request, res: Response) => {
   }
 });
 
+// Runs the asset write and its quote line-item sync in one transaction, so the Workbook never
+// sees an asset without its line item (or vice versa).
+async function withSync<T>(fn: (client: PoolClient) => Promise<T>): Promise<T> {
+  const client = await pool.connect();
+  try {
+    await client.query("BEGIN");
+    const result = await fn(client);
+    await client.query("COMMIT");
+    return result;
+  } catch (err) {
+    await client.query("ROLLBACK");
+    throw err;
+  } finally {
+    client.release();
+  }
+}
+
 // POST /api/projects/:projectId/assets
 router.post("/:projectId/assets", async (req: Request, res: Response) => {
   try {
     const { projectId } = req.params;
     const tech = isTech(req);
     const { category, system, deviceStoreRef, accessControlType, cableSpec, unitCost, quantity, location, zoneId, purpose, notes } = req.body;
-    const result = await pool.query(
-      `INSERT INTO project_assets (project_id, category, system, device_store_ref, access_control_type, cable_spec, unit_cost, quantity, location, zone_id, purpose, notes)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12) RETURNING *`,
-      [projectId, category, system, deviceStoreRef || null, accessControlType || null, cableSpec ? JSON.stringify(cableSpec) : null, tech ? null : (unitCost ?? null), quantity || 1, location || "", zoneId || null, purpose || "", notes || null]
-    );
-    res.status(201).json(mapRow(result.rows[0], tech));
+    // A Tech-authored cable run must not carry a cost either.
+    const sanitizedCableSpec = tech && cableSpec ? { ...cableSpec, costPerFt: undefined } : cableSpec;
+    const row = await withSync(async (client) => {
+      const result = await client.query(
+        `INSERT INTO project_assets (project_id, category, system, device_store_ref, access_control_type, cable_spec, unit_cost, quantity, location, zone_id, purpose, notes)
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12) RETURNING *`,
+        [projectId, category, system, deviceStoreRef || null, accessControlType || null, sanitizedCableSpec ? JSON.stringify(sanitizedCableSpec) : null, tech ? null : (unitCost ?? null), quantity || 1, location || "", zoneId || null, purpose || "", notes || null]
+      );
+      await syncAssetLineItem(client, result.rows[0].id);
+      return result.rows[0];
+    });
+    res.status(201).json(mapRow(row, tech));
   } catch (err) {
     console.error("POST /projects/:projectId/assets error:", err);
     res.status(500).json({ error: "Failed to create project asset" });
@@ -94,27 +119,38 @@ router.patch("/:projectId/assets/:assetId", async (req: Request, res: Response) 
     const { projectId, assetId } = req.params;
     const tech = isTech(req);
     const { category, system, deviceStoreRef, accessControlType, cableSpec, unitCost, quantity, location, zoneId, purpose, coveragePhotos, notes } = req.body;
-    const sanitizedCableSpec = tech && cableSpec ? { ...cableSpec, costPerFt: undefined } : cableSpec;
-    const result = await pool.query(
-      `UPDATE project_assets SET
-        category = COALESCE($3, category),
-        system = COALESCE($4, system),
-        device_store_ref = COALESCE($5, device_store_ref),
-        access_control_type = COALESCE($6, access_control_type),
-        cable_spec = COALESCE($7, cable_spec),
-        unit_cost = COALESCE($8, unit_cost),
-        quantity = COALESCE($9, quantity),
-        location = COALESCE($10, location),
-        zone_id = COALESCE($11, zone_id),
-        purpose = COALESCE($12, purpose),
-        coverage_photos = COALESCE($13, coverage_photos),
-        notes = COALESCE($14, notes),
-        updated_at = NOW()
-       WHERE id = $1 AND project_id = $2 RETURNING *`,
-      [assetId, projectId, category, system, deviceStoreRef, accessControlType, sanitizedCableSpec ? JSON.stringify(sanitizedCableSpec) : undefined, tech ? undefined : unitCost, quantity, location, zoneId, purpose, coveragePhotos ? JSON.stringify(coveragePhotos) : undefined, notes]
-    );
-    if (result.rows.length === 0) return res.status(404).json({ error: "Asset not found" });
-    res.json(mapRow(result.rows[0], tech));
+    // Tech never sees costPerFt (mapRow strips it), so a Tech edit re-sends the cable spec
+    // without it — keep the stored value instead of wiping it.
+    let sanitizedCableSpec = cableSpec;
+    if (tech && cableSpec) {
+      const current = await pool.query(`SELECT cable_spec FROM project_assets WHERE id = $1 AND project_id = $2`, [assetId, projectId]);
+      sanitizedCableSpec = { ...cableSpec, costPerFt: current.rows[0]?.cable_spec?.costPerFt };
+    }
+    const row = await withSync(async (client) => {
+      const result = await client.query(
+        `UPDATE project_assets SET
+          category = COALESCE($3, category),
+          system = COALESCE($4, system),
+          device_store_ref = COALESCE($5, device_store_ref),
+          access_control_type = COALESCE($6, access_control_type),
+          cable_spec = COALESCE($7, cable_spec),
+          unit_cost = COALESCE($8, unit_cost),
+          quantity = COALESCE($9, quantity),
+          location = COALESCE($10, location),
+          zone_id = COALESCE($11, zone_id),
+          purpose = COALESCE($12, purpose),
+          coverage_photos = COALESCE($13, coverage_photos),
+          notes = COALESCE($14, notes),
+          updated_at = NOW()
+         WHERE id = $1 AND project_id = $2 RETURNING *`,
+        [assetId, projectId, category, system, deviceStoreRef, accessControlType, sanitizedCableSpec ? JSON.stringify(sanitizedCableSpec) : undefined, tech ? undefined : unitCost, quantity, location, zoneId, purpose, coveragePhotos ? JSON.stringify(coveragePhotos) : undefined, notes]
+      );
+      if (result.rows.length === 0) return null;
+      await syncAssetLineItem(client, assetId);
+      return result.rows[0];
+    });
+    if (!row) return res.status(404).json({ error: "Asset not found" });
+    res.json(mapRow(row, tech));
   } catch (err) {
     console.error("PATCH /projects/:projectId/assets/:assetId error:", err);
     res.status(500).json({ error: "Failed to update project asset" });
@@ -125,7 +161,12 @@ router.patch("/:projectId/assets/:assetId", async (req: Request, res: Response) 
 router.delete("/:projectId/assets/:assetId", async (req: Request, res: Response) => {
   try {
     const { projectId, assetId } = req.params;
-    await pool.query("DELETE FROM project_assets WHERE id = $1 AND project_id = $2", [assetId, projectId]);
+    await withSync(async (client) => {
+      const owned = await client.query(`SELECT 1 FROM project_assets WHERE id = $1 AND project_id = $2`, [assetId, projectId]);
+      if (owned.rows.length === 0) return;
+      await removeAssetLineItem(client, assetId);
+      await client.query("DELETE FROM project_assets WHERE id = $1 AND project_id = $2", [assetId, projectId]);
+    });
     res.json({ success: true });
   } catch (err) {
     console.error("DELETE /projects/:projectId/assets/:assetId error:", err);

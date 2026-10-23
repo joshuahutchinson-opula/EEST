@@ -1,16 +1,12 @@
 import { Router, Request, Response } from "express";
 import pool from "../db";
-import { isTech } from "../lib/roles";
+import { isTech, requireAdmin } from "../lib/roles";
 
 const router = Router();
 
 // Quotes back the Workbook (Cost & Margin / BOM / Synthesis), which Tech must not see any
-// pricing from — but unlike workbook.ts, this router can't just be blocked wholesale for
-// Tech: Project Assets syncing (add/edit/delete an asset) reads and writes through these
-// same endpoints regardless of who's performing the asset CRUD. So instead of rejecting the
-// request, strip every dollar figure from the response. markupPercent is left alone (it's a
-// rate, not a dollar amount, and upsertAssetLineItem relies on reading it back to preserve a
-// previously-customized markup when re-syncing an edited asset).
+// pricing from. Reads stay open but redacted; every write is admin-only. Asset → line-item
+// syncing happens server-side (lib/assetSync.ts), so Tech never needs to write a quote.
 function redactCostsForTech(categories: any[]): any[] {
   return categories.map((cat) => ({
     ...cat,
@@ -111,7 +107,7 @@ router.get("/:id", async (req: Request, res: Response) => {
 });
 
 // POST /api/quotes
-router.post("/", async (req: Request, res: Response) => {
+router.post("/", requireAdmin, async (req: Request, res: Response) => {
   try {
     const { clientName, refNumber, date, status, quoteType, categories, exchangeRate, projectId } = req.body;
     const qResult = await pool.query(
@@ -136,8 +132,7 @@ router.post("/", async (req: Request, res: Response) => {
         }
       }
     }
-    let savedCategories = await loadCategories(quote.id, Number(quote.exchange_rate));
-    if (isTech(req)) savedCategories = redactCostsForTech(savedCategories);
+    const savedCategories = await loadCategories(quote.id, Number(quote.exchange_rate));
     res.status(201).json({ id: quote.id, clientName: quote.client_name, refNumber: quote.ref_number, date: quote.date ? new Date(quote.date).toISOString().slice(0, 10) : "", status: quote.status, quoteType: quote.quote_type, categories: savedCategories, exchangeRate: Number(quote.exchange_rate), projectId: quote.project_id || undefined });
   } catch (err) {
     console.error("POST /quotes error:", err);
@@ -146,7 +141,7 @@ router.post("/", async (req: Request, res: Response) => {
 });
 
 // PATCH /api/quotes/:id
-router.patch("/:id", async (req: Request, res: Response) => {
+router.patch("/:id", requireAdmin, async (req: Request, res: Response) => {
   const { id } = req.params;
   const { clientName, refNumber, status, exchangeRate, categories } = req.body;
   const client = await pool.connect();

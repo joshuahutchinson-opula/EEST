@@ -3138,7 +3138,6 @@ function ProjectAssetsTab({ projectId, projectName, clientName }: { projectId: s
         }
         toast.success("Asset added");
       }
-      upsertAssetLineItem(projectId, result, storeDevices).catch(() => {});
       closeForm();
     } catch { toast.error(editingAssetId ? "Failed to update asset" : "Failed to add asset"); } finally { setSaving(false); }
   };
@@ -3147,7 +3146,6 @@ function ProjectAssetsTab({ projectId, projectName, clientName }: { projectId: s
     try {
       await API.projectAssets.delete(projectId, asset.id);
       setAssets(prev => prev.filter(a => a.id !== asset.id));
-      removeAssetLineItem(projectId, asset.id).catch(() => {});
       toast.success("Asset removed");
     } catch { toast.error("Failed to remove asset"); }
   };
@@ -3162,7 +3160,6 @@ function ProjectAssetsTab({ projectId, projectName, clientName }: { projectId: s
         updated = await API.projectAssets.update(projectId, asset.id, { unitCost: newPrice });
       }
       setAssets(prev => prev.map(a => a.id === asset.id ? updated : a));
-      upsertAssetLineItem(projectId, updated, storeDevices).catch(() => {});
       toast.success("Price updated");
     } catch { toast.error("Failed to update price"); }
   };
@@ -3344,81 +3341,6 @@ function resolveAssetSection(asset: ProjectAsset, storeDevices: CatalogDevice[])
   }
   const markup = sysCategories.find((s) => s.sectionNumber === sectionNumber)?.defaultMarkup ?? 0.35;
   return { sectionNumber, markup };
-}
-
-async function getOrCreateProjectQuote(projectId: string, system: SystemType): Promise<Quote> {
-  const quotes = await API.quotes.list();
-  const existing = quotes.find((q: Quote) => q.projectId === projectId);
-  if (existing) return existing;
-  const projects = await API.projects.list();
-  const proj = projects.find((p: Project) => p.id === projectId);
-  const sysCategories = SYSTEM_CATEGORIES[system] || SYSTEM_CATEGORIES.VSS;
-  const categories: QuoteCategory[] = sysCategories.map(sc => ({ id: crypto.randomUUID?.() || `cat-${sc.sectionNumber}`, name: sc.name, type: system === "Intercom" ? "Intercom" as QuoteType : system === "EAC" ? "Access Control" as QuoteType : "Video Surveillance" as QuoteType, system, sectionNumber: sc.sectionNumber, importRatePercent: sc.importRatePercent, lineItems: [] }));
-  return API.quotes.create({ clientName: proj?.client || "", refNumber: `Q-${projectId.slice(0, 8).toUpperCase()}`, date: new Date().toISOString().slice(0, 10), status: "draft", quoteType: system === "Intercom" ? "Intercom" as QuoteType : "Multiple" as QuoteType, exchangeRate: parseFloat(localStorage.getItem("fx_rate") || String(DEFAULT_EXCHANGE_RATE)), projectId, categories });
-}
-
-// Creates or updates the one QuoteLineItem tied to this ProjectAsset (matched by id, not
-// description, since descriptions can collide or change) so Cost & Margin, BOM, and Synthesis
-// all reflect the asset's current category/system/price/quantity — the same real data
-// Asset List reads, not a separate in-memory preview.
-async function upsertAssetLineItem(projectId: string, asset: ProjectAsset, storeDevices: CatalogDevice[]) {
-  if (!projectId) return;
-  try {
-    const price = assetUnitCost(asset, storeDevices);
-    const description = describeAsset(asset, storeDevices);
-    const quote = await getOrCreateProjectQuote(projectId, asset.system);
-    const categories: QuoteCategory[] = quote.categories.map(c => ({ ...c, lineItems: [...c.lineItems] }));
-
-    let existingCatIndex = -1;
-    categories.forEach((cat, i) => { if (cat.lineItems.some(li => li.projectAssetId === asset.id)) existingCatIndex = i; });
-    const existingItem = existingCatIndex !== -1 ? categories[existingCatIndex].lineItems.find(li => li.projectAssetId === asset.id) : undefined;
-
-    const sysCategories = SYSTEM_CATEGORIES[asset.system] || SYSTEM_CATEGORIES.VSS;
-    const { sectionNumber: targetSection, markup: sectionDefaultMarkup } = resolveAssetSection(asset, storeDevices);
-    let targetCat = categories.find(c => c.system === asset.system && c.sectionNumber === targetSection);
-    if (!targetCat) {
-      const sc = sysCategories.find(s => s.sectionNumber === targetSection);
-      targetCat = { id: crypto.randomUUID?.() || `cat${Date.now()}`, name: sc?.name || "Hardware", type: asset.system === "Intercom" ? "Intercom" as QuoteType : asset.system === "EAC" ? "Access Control" as QuoteType : "Video Surveillance" as QuoteType, system: asset.system, sectionNumber: targetSection, importRatePercent: sc?.importRatePercent || 0, lineItems: [] };
-      categories.push(targetCat);
-    }
-
-    if (existingCatIndex !== -1 && categories[existingCatIndex] !== targetCat) {
-      categories[existingCatIndex].lineItems = categories[existingCatIndex].lineItems.filter(li => li.projectAssetId !== asset.id);
-    }
-
-    const markupPercent = existingItem?.markupPercent ?? sectionDefaultMarkup;
-    const sellPrice = price * (1 + markupPercent);
-    const updatedItem: QuoteLineItem = {
-      id: existingItem?.id || crypto.randomUUID?.() || `li${Date.now()}`,
-      itemNumber: existingItem?.itemNumber || String(targetCat.lineItems.length + 1).padStart(2, "0"),
-      description,
-      unitCost: price,
-      quantity: asset.quantity,
-      markupPercent,
-      sellPrice,
-      costTotal: price * asset.quantity,
-      sellTotal: sellPrice * asset.quantity,
-      profit: (sellPrice - price) * asset.quantity,
-      jmdConversion: sellPrice * asset.quantity * (parseFloat(localStorage.getItem("fx_rate") || String(DEFAULT_EXCHANGE_RATE))),
-      projectAssetId: asset.id,
-    };
-    targetCat.lineItems = targetCat.lineItems.some(li => li.projectAssetId === asset.id)
-      ? targetCat.lineItems.map(li => li.projectAssetId === asset.id ? updatedItem : li)
-      : [...targetCat.lineItems, updatedItem];
-
-    await API.quotes.update(quote.id, { categories });
-  } catch (err) { console.error("Workbook asset sync failed:", err); }
-}
-
-async function removeAssetLineItem(projectId: string, assetId: string) {
-  if (!projectId) return;
-  try {
-    const quotes = await API.quotes.list();
-    const quote = quotes.find((q: Quote) => q.projectId === projectId);
-    if (!quote) return;
-    const categories = quote.categories.map(cat => ({ ...cat, lineItems: cat.lineItems.filter(li => li.projectAssetId !== assetId) }));
-    await API.quotes.update(quote.id, { categories });
-  } catch (err) { console.error("Workbook asset removal failed:", err); }
 }
 
 function describeAsset(asset: ProjectAsset, storeDevices: CatalogDevice[]): string {
