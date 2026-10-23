@@ -107,7 +107,7 @@ router.post("/transactions", async (req: Request, res: Response) => {
 
       const qtyChange = action === "Sold" || action === "Loaned" || action === "Disposed"
         ? -Math.abs(quantity || 0)
-        : action === "Returned" ? Math.abs(quantity || 0) : 0;
+        : action === "Returned" || action === "Received" ? Math.abs(quantity || 0) : 0;
 
       await client.query(
         `UPDATE inventory_items 
