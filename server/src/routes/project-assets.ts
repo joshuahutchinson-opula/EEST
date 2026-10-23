@@ -36,7 +36,7 @@ router.get("/:projectId/assets/equipment-summary", async (req: Request, res: Res
     const assetsResult = await pool.query(
       `SELECT pa.category, pa.quantity, pa.location, pa.purpose, pa.cable_spec AS "cableSpec", d.manufacturer, d.model
        FROM project_assets pa
-       LEFT JOIN devices d ON d.id = pa.device_store_ref
+       LEFT JOIN devices d ON d.id::text = pa.device_store_ref
        WHERE pa.project_id = $1
        ORDER BY pa.created_at`,
       [projectId]
