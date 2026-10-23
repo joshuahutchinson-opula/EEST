@@ -125,6 +125,47 @@ export interface WorkbookTotals {
   total: number;
 }
 
+export type SectionRowKind = "item" | "adjustment" | "contingency" | "import";
+
+export interface SectionRow {
+  kind: SectionRowKind;
+  description: string;
+  quantity: number;
+  unitPrice: number;
+  extended: number;
+  lineItemId?: string;
+  // Import rows: which items section the charge comes from.
+  sourceSection?: string;
+}
+
+// The rows a section is shown as on BOM and in exports. They always add up to section.total:
+// item rows, plus an adjustment row carrying any Synthesis override's difference.
+export function buildSectionRows(totals: WorkbookTotals, categories: TotalsCategory[]): Map<string, SectionRow[]> {
+  const rows = new Map<string, SectionRow[]>();
+  for (const s of totals.sections) {
+    const out: SectionRow[] = [];
+    if (s.kind === "items") {
+      for (const cat of categories.filter((c) => String(c.sectionNumber) === s.section)) {
+        for (const li of countedLineItems(cat.lineItems)) {
+          const t = lineItemTotals(li);
+          out.push({ kind: "item", description: li.description || "", quantity: t.quantity, unitPrice: t.sellPrice, extended: t.sellTotal, lineItemId: li.id });
+        }
+      }
+    } else if (s.kind === "import") {
+      for (const src of totals.sections.filter((x) => x.system === s.system && x.kind === "items" && x.importAmount !== 0)) {
+        out.push({ kind: "import", description: `Import — ${src.name} (${Math.round(src.importRatePercent * 100)}%)`, quantity: 1, unitPrice: src.importAmount, extended: src.importAmount, sourceSection: src.section });
+      }
+    }
+    if (s.kind === "contingency") {
+      if (s.total !== 0) out.push({ kind: "contingency", description: s.name, quantity: 1, unitPrice: s.total, extended: s.total });
+    } else if (s.adjustment !== 0) {
+      out.push({ kind: "adjustment", description: "Price adjustment", quantity: 1, unitPrice: s.adjustment, extended: s.adjustment });
+    }
+    rows.set(s.section, out);
+  }
+  return rows;
+}
+
 function normalizeSystem(system: string): WorkbookSystem {
   return system === "EAC" || system === "Intercom" ? system : "VSS";
 }

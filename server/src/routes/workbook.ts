@@ -2,7 +2,10 @@ import { Router, Request, Response } from "express";
 import pool from "../db";
 import { requireAdmin, sessionUserName } from "../lib/roles";
 import { buildProposalDocx } from "../lib/docxDocuments";
-import { buildWorkbookXlsx, XlsxCategory } from "../lib/xlsxExport";
+import { buildWorkbookXlsx } from "../lib/xlsxExport";
+import { loadProjectWorkbook } from "../lib/workbookData";
+import { buildSectionRows } from "../lib/workbookTotals";
+import { DEFAULT_EXCHANGE_RATE } from "../lib/exchangeRate";
 
 const router = Router();
 
@@ -129,52 +132,26 @@ router.post("/devices/:deviceId/price-history", async (req: Request, res: Respon
 
 router.post("/:projectId/proposal", async (req: Request, res: Response) => {
   try {
-    const { projectId } = req.params;
-    const projectResult = await pool.query(`SELECT id, name, client, summary, location FROM projects WHERE id = $1`, [projectId]);
-    if (projectResult.rows.length === 0) return res.status(404).json({ error: "Project not found" });
+    const wb = await loadProjectWorkbook(req.params.projectId);
+    if (!wb) return res.status(404).json({ error: "Project not found" });
 
-    const quoteResult = await pool.query(
-      `SELECT q.ref_number AS "refNumber", q.date, q.status, q.exchange_rate AS "exchangeRate",
-              qc.system, qc.section_number AS "sectionNumber", qc.name AS "categoryName",
-              qli.description, qli.unit_cost AS "unitCost", qli.quantity, qli.markup_percent AS "markupPercent"
-       FROM quotes q
-       LEFT JOIN quote_categories qc ON qc.quote_id = q.id
-       LEFT JOIN quote_line_items qli ON qli.category_id = qc.id
-       WHERE q.project_id = $1
-       ORDER BY qc.system, qc.section_number, qli.item_number`,
-      [projectId]
-    );
+    const rows = buildSectionRows(wb.totals, wb.categories);
+    const categories = wb.totals.sections
+      .map((s) => ({ system: s.system, sectionNumber: s.section, name: s.name, items: (rows.get(s.section) || []).map((r) => ({ description: r.description, quantity: r.quantity, total: r.extended })) }))
+      .filter((c) => c.items.length > 0);
 
-    const exchangeRate = quoteResult.rows[0]?.exchangeRate || 163;
-    const grouped: Record<string, any> = {};
-    let grandTotal = 0;
-
-    for (const row of quoteResult.rows) {
-      if (!row.categoryName || !row.description) continue;
-      const key = row.categoryName;
-      if (!grouped[key]) grouped[key] = { system: row.system, sectionNumber: row.sectionNumber, name: row.categoryName, items: [] };
-      const unitCost = parseFloat(row.unitCost) || 0;
-      const qty = parseInt(row.quantity) || 0;
-      const markup = parseFloat(row.markupPercent) || 0;
-      const sellPrice = unitCost * (1 + markup);
-      const total = sellPrice * qty;
-      grandTotal += total;
-      grouped[key].items.push({ description: row.description, unitCost, quantity: qty, markupPercent: markup, sellPrice, total });
-    }
-
-    const gct = grandTotal * 0.15;
     const proposalData = {
-      project: projectResult.rows[0],
-      refNumber: quoteResult.rows[0]?.refNumber || undefined,
-      exchangeRate,
-      categories: Object.values(grouped) as any,
-      grandTotal,
-      gctAmount: gct,
-      grandTotalWithTax: grandTotal + gct,
+      project: wb.project,
+      refNumber: wb.quote?.refNumber || undefined,
+      exchangeRate: wb.quote?.exchangeRate ?? DEFAULT_EXCHANGE_RATE,
+      categories,
+      grandTotal: wb.totals.subtotal,
+      gctAmount: wb.totals.gct,
+      grandTotalWithTax: wb.totals.total,
       generatedAt: new Date().toISOString(),
     };
     const buffer = await buildProposalDocx(proposalData);
-    const filename = `${(proposalData.project.name as string).replace(/\s+/g, "-")}-proposal.docx`;
+    const filename = `${(wb.project.name as string).replace(/\s+/g, "-")}-proposal.docx`;
     res.setHeader("Content-Type", "application/vnd.openxmlformats-officedocument.wordprocessingml.document");
     res.setHeader("Content-Disposition", `attachment; filename="${filename}"`);
     res.send(buffer);
@@ -189,70 +166,19 @@ router.post("/:projectId/proposal", async (req: Request, res: Response) => {
 // Proposal — an additional export option, not a replacement.
 router.get("/:projectId/export-xlsx", async (req: Request, res: Response) => {
   try {
-    const { projectId } = req.params;
-    const projectResult = await pool.query(`SELECT id, name, client FROM projects WHERE id = $1`, [projectId]);
-    if (projectResult.rows.length === 0) return res.status(404).json({ error: "Project not found" });
-
-    const [quoteResult, overridesResult] = await Promise.all([
-      pool.query(
-        `SELECT q.ref_number AS "refNumber", q.exchange_rate AS "exchangeRate",
-                qc.system, qc.section_number AS "sectionNumber", qc.name AS "categoryName", qc.import_rate_percent AS "importRatePercent",
-                qli.description, qli.unit_cost AS "unitCost", qli.quantity, qli.markup_percent AS "markupPercent"
-         FROM quotes q
-         LEFT JOIN quote_categories qc ON qc.quote_id = q.id
-         LEFT JOIN quote_line_items qli ON qli.category_id = qc.id
-         WHERE q.project_id = $1
-         ORDER BY qc.system, qc.section_number, qli.item_number`,
-        [projectId]
-      ),
-      pool.query(
-        `SELECT section_number AS "sectionNumber", override_value AS "overrideValue", is_overridden AS "isOverridden"
-         FROM synthesis_overrides WHERE project_id = $1 AND is_overridden = TRUE`,
-        [projectId]
-      ),
-    ]);
-
-    const exchangeRate = quoteResult.rows[0]?.exchangeRate || 163;
-    const grouped = new Map<string, XlsxCategory>();
-    for (const row of quoteResult.rows) {
-      if (!row.categoryName || !row.description) continue;
-      const key = `${row.system}-${row.sectionNumber}`;
-      if (!grouped.has(key)) {
-        grouped.set(key, { system: row.system, sectionNumber: Number(row.sectionNumber), name: row.categoryName, importRatePercent: Number(row.importRatePercent) || 0, lineItems: [] });
-      }
-      grouped.get(key)!.lineItems.push({
-        description: row.description,
-        unitCost: parseFloat(row.unitCost) || 0,
-        quantity: parseInt(row.quantity, 10) || 0,
-        markupPercent: parseFloat(row.markupPercent) || 0,
-      });
-    }
-
-    // Contingency Plan (700.5 for VSS, 1200.5 for EAC) has no backing quote_categories row at
-    // all in this app — it only ever exists as a manual Synthesis override on that pseudo-
-    // section — so it's represented here as a single synthetic line item carrying that
-    // override amount, the only place its value actually lives.
-    for (const o of overridesResult.rows) {
-      const sectionNumber = parseFloat(o.sectionNumber);
-      if (sectionNumber % 1 === 0 || o.overrideValue === null) continue;
-      const system: XlsxCategory["system"] = sectionNumber < 900 ? "VSS" : sectionNumber < 1400 ? "EAC" : "Intercom";
-      grouped.set(`${system}-${sectionNumber}`, {
-        system,
-        sectionNumber,
-        name: "Contingency Plan",
-        importRatePercent: 0,
-        lineItems: [{ description: "Contingency Plan", unitCost: Number(o.overrideValue), quantity: 1, markupPercent: 0 }],
-      });
-    }
+    const wb = await loadProjectWorkbook(req.params.projectId);
+    if (!wb) return res.status(404).json({ error: "Project not found" });
 
     const buffer = await buildWorkbookXlsx({
-      projectName: projectResult.rows[0].name,
-      clientName: projectResult.rows[0].client,
-      refNumber: quoteResult.rows[0]?.refNumber || "",
-      exchangeRate,
-      categories: [...grouped.values()],
+      projectName: wb.project.name,
+      clientName: wb.project.client,
+      refNumber: wb.quote?.refNumber || "",
+      exchangeRate: wb.quote?.exchangeRate ?? DEFAULT_EXCHANGE_RATE,
+      generatedAt: new Date().toISOString(),
+      totals: wb.totals,
+      rows: buildSectionRows(wb.totals, wb.categories),
     });
-    const filename = `${(projectResult.rows[0].name as string).replace(/\s+/g, "-")}-workbook.xlsx`;
+    const filename = `${(wb.project.name as string).replace(/\s+/g, "-")}-workbook.xlsx`;
     res.setHeader("Content-Type", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
     res.setHeader("Content-Disposition", `attachment; filename="${filename}"`);
     res.send(buffer);

@@ -66,7 +66,7 @@ export interface ProposalDocxData {
   project: { id: string; name: string; client: string; summary?: string; location?: string };
   refNumber?: string;
   exchangeRate: number;
-  categories: { system: string; sectionNumber: number; name: string; items: { description: string; unitCost: number; quantity: number; markupPercent: number; sellPrice: number; total: number }[] }[];
+  categories: { system: string; sectionNumber: string; name: string; items: { description: string; quantity: number; total: number }[] }[];
   grandTotal: number;
   gctAmount: number;
   grandTotalWithTax: number;
