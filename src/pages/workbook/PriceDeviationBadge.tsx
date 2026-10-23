@@ -1,0 +1,3 @@
+import { AlertTriangle } from "lucide-react";
+
+export function PriceDeviationBadge({ deviation }: { deviation: number }) { if (Math.abs(deviation) <= 50) return null; const isHigh = deviation > 50; return (<span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[10px] font-extrabold cursor-help ml-1" style={{ background: isHigh ? "rgba(245,158,11,0.15)" : "rgba(239,68,68,0.15)", color: isHigh ? "#fbbf24" : "#f87171", border: `1px solid ${isHigh ? "rgba(245,158,11,0.30)" : "rgba(239,68,68,0.30)"}` }} title={`Price deviates ${deviation > 0 ? "+" : ""}${deviation.toFixed(0)}% from historical average`}><AlertTriangle className="w-2.5 h-2.5" />{deviation > 0 ? "+" : ""}{deviation.toFixed(0)}%</span>); }
