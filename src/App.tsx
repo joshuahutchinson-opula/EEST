@@ -22,7 +22,7 @@ import {
   UserCheck, Send, EyeOff, GanttChartSquare, Boxes, PackageOpen, Sparkles,
 } from "lucide-react";
 import { clsx } from "clsx";
-import { computeWorkbookTotals, lineItemTotals, GCT_RATE, type SectionTotal, type WorkbookSystem } from "../server/src/lib/workbookTotals";
+import { computeWorkbookTotals, buildSectionRows, lineItemTotals, type SectionTotal, type WorkbookSystem } from "../server/src/lib/workbookTotals";
 import logoImg from "./assets/2026-06-14_21.13.34_e-techsystemsja.com_2f51395e09e8-removebg-preview (1).png";
 
 const API_BASE = import.meta.env.VITE_API_URL || "/api";
@@ -3429,7 +3429,7 @@ function CostMarginTab({ quoteCategories, exchangeRate, fmt, onLineItemUpdate, o
   );
 }
 const BOM_STEPS: TutorialStep[] = [
-  { target: "wb-bom-table", title: "Bill of Materials", description: "The client-facing BOM, priced in JMD — switch between Video Surveillance, Access Control, and Intercom above the table. Every section's line items show quantity (click to edit), list price, and extended total, plus import lines and a running Subtotal, GCT, and Total. A section shows an override badge if its total was manually overridden on the Synthesis tab." },
+  { target: "wb-bom-table", title: "Bill of Materials", description: "The client-facing BOM, priced in JMD — switch between Video Surveillance, Access Control, and Intercom above the table. Every section's line items show quantity (click to edit), list price, and extended total. A section overridden on the Synthesis tab shows a badge and a price adjustment row, so its rows always add up to its total; contingency and import lines sit under their own sections, followed by the system total and the all-systems Subtotal, GCT, and Total." },
 ];
 
 function BomTab({ quoteCategories, synthesisOverrides, exchangeRate, fmt, onLineItemUpdate, onAddLineItem, onBomEditWithOverride, fieldSaveStatus, systemFilter, onSystemFilterChange }: { quoteCategories: QuoteCategory[]; synthesisOverrides: SynthesisOverride[]; exchangeRate: number; fmt: (n: number, compact?: boolean) => string; onLineItemUpdate: (categoryId: string, itemId: string, updates: Partial<QuoteLineItem>) => void; onAddLineItem: (categoryId: string) => void; onBomEditWithOverride: (sectionNumber: string, sectionName: string, callback: () => void) => void; fieldSaveStatus: Record<string, "saved" | "saving" | "">; systemFilter: SystemType; onSystemFilterChange: (s: SystemType) => void; }) {
@@ -3443,21 +3443,17 @@ function BomTab({ quoteCategories, synthesisOverrides, exchangeRate, fmt, onLine
 
   useEffect(() => { const body = bodyRef.current; if (!body) return; const handler = () => setStickyScrollLeft(body.scrollLeft); body.addEventListener("scroll", handler); return () => body.removeEventListener("scroll", handler); }, []);
 
-  const systemCategories = quoteCategories.filter(c => c.system === systemFilter);
-  const activeCategories = systemCategories.filter(c => c.sectionNumber !== 800 && c.sectionNumber !== 1300 && c.sectionNumber !== 1800);
-  const importCategories = systemCategories.filter(c => c.sectionNumber === 800 || c.sectionNumber === 1300 || c.sectionNumber === 1800);
-
-  const bomData = activeCategories.map(cat => {
-    const items = cat.lineItems.filter(li => li.quantity > 0);
-    const children = items.map((item, i) => ({ subNumber: items.length > 1 ? `${cat.sectionNumber}.${i + 1}` : String(cat.sectionNumber), item: recalcLineItem(item, exchangeRate) }));
-    const subtotal = children.reduce((s, c) => s + c.item.sellTotal, 0);
-    const override = synthesisOverrides.find(o => o.sectionNumber === String(cat.sectionNumber) && o.isOverridden);
-    return { ...cat, items, children, subtotal, override, displayPrice: override ? override.overrideValue! : subtotal, importAmount: cat.importRatePercent > 0 ? children.reduce((s, c) => s + c.item.costTotal, 0) * cat.importRatePercent : 0 };
-  });
-
-  const grandTotal = bomData.reduce((s, b) => s + b.displayPrice + b.importAmount, 0);
-  const tax = grandTotal * GCT_RATE;
-  const totalWithTax = grandTotal + tax;
+  const totals = useMemo(() => computeWorkbookTotals(quoteCategories, synthesisOverrides), [quoteCategories, synthesisOverrides]);
+  const sectionRows = useMemo(() => buildSectionRows(totals, quoteCategories), [totals, quoteCategories]);
+  const itemLookup = useMemo(() => {
+    const map = new Map<string, { categoryId: string; item: QuoteLineItem }>();
+    quoteCategories.forEach(c => c.lineItems.forEach(li => map.set(li.id, { categoryId: c.id, item: li })));
+    return map;
+  }, [quoteCategories]);
+  const system = totals.systems.find(s => s.system === systemFilter)!;
+  // Contingency and Importation sections only appear once they carry a value.
+  const visibleSections = system.sections.filter(s => s.kind === "items" || (sectionRows.get(s.section) || []).length > 0);
+  const categoryFor = (section: string) => quoteCategories.find(c => c.system === systemFilter && String(c.sectionNumber) === section);
 
   return (
     <div className="space-y-4">
@@ -3477,58 +3473,78 @@ function BomTab({ quoteCategories, synthesisOverrides, exchangeRate, fmt, onLine
         <div ref={bodyRef} className="overflow-x-auto" style={{ maxHeight: "calc(100vh - 420px)", scrollbarWidth: "thin" }}>
           <table style={{ minWidth: "900px" }}>
             <tbody>
-              <tr style={{ background: systemFilter === "VSS" ? "rgba(59,130,246,0.06)" : systemFilter === "EAC" ? "rgba(139,92,246,0.06)" : "rgba(20,184,166,0.06)" }}><td colSpan={5} className="sticky left-0 px-4 py-2.5 text-white text-[14px] font-extrabold uppercase tracking-widest" style={{ background: "rgba(7,12,26,0.9)" }}>{systemFilter === "VSS" ? "Video Surveillance" : systemFilter === "EAC" ? "Access Control" : "Intercom"}</td></tr>
-              {bomData.map(section => (
-                <Fragment key={section.id}>
-                  <tr style={{ background: "rgba(255,255,255,0.02)" }}>
-                    <td className="sticky left-0 px-4 py-2 text-[#8b949e] text-[12px] font-mono" style={{ background: "rgba(7,12,26,0.9)" }}>{section.sectionNumber}</td>
-                    <td colSpan={4} className="px-4 py-2 text-white text-[13px] font-extrabold">{section.name}</td>
-                  </tr>
-                  {section.children.length === 0 ? (
-                    <tr style={{ borderBottom: "1px solid rgba(255,255,255,0.03)" }}>
-                      <td className="sticky left-0 px-4 py-2" style={{ background: "rgba(7,12,26,0.9)" }}></td>
-                      <td className="px-4 py-2 text-[#8b949e] text-[13px] italic">No items</td>
-                      <td className="px-4 py-2 text-right text-white text-[13px]">—</td>
-                      <td className="px-4 py-2 text-center text-[#8b949e] text-[13px]">0</td>
-                      <td className="px-4 py-2 text-right text-white text-[13px] font-extrabold flex items-center justify-end gap-1">—{section.override && <OverrideIndicator isOverridden={true} />}</td>
+              <tr style={{ background: SYSTEM_DISPLAY[systemFilter].tint }}><td colSpan={5} className="sticky left-0 px-4 py-2.5 text-white text-[14px] font-extrabold uppercase tracking-widest" style={{ background: "rgba(7,12,26,0.9)" }}>{SYSTEM_DISPLAY[systemFilter].label}</td></tr>
+              {visibleSections.map(section => {
+                const rows = sectionRows.get(section.section) || [];
+                const category = categoryFor(section.section);
+                const itemRowCount = rows.filter(r => r.kind === "item").length;
+                let itemIndex = 0;
+                return (
+                  <Fragment key={section.section}>
+                    <tr style={{ background: "rgba(255,255,255,0.02)" }}>
+                      <td className="sticky left-0 px-4 py-2 text-[#8b949e] text-[12px] font-mono" style={{ background: "rgba(7,12,26,0.9)" }}>{section.section}</td>
+                      <td colSpan={4} className="px-4 py-2 text-white text-[13px] font-extrabold"><span className="inline-flex items-center gap-1">{section.name}{section.override !== null && <OverrideIndicator isOverridden={true} />}</span></td>
                     </tr>
-                  ) : section.children.map((child) => {
-                    const listPriceJMD = child.item.sellPrice * exchangeRate;
-                    const fieldKey = `bom-${section.id}-${child.item.id}`;
-                    const fs = fieldSaveStatus[fieldKey];
-                    const isUnlocked = unlockedRows.has(child.item.id);
-                    const incomplete = child.item.unitCost === 0 || child.item.markupPercent === 0;
-                    return (
-                      <tr key={child.item.id} style={{ borderBottom: "1px solid rgba(255,255,255,0.03)", borderLeft: incomplete ? "3px solid #f59e0b" : "3px solid transparent" }}>
-                        <td className="sticky left-0 px-4 py-2 text-[#8b949e] text-[12px] font-mono" style={{ background: "rgba(7,12,26,0.9)", paddingLeft: section.children.length > 1 ? "28px" : "16px" }}>{child.subNumber}</td>
-                        <td className="px-4 py-2 text-white text-[13px] font-bold max-w-[250px]">
-                          <div className="flex items-center gap-1.5">
-                            <button onClick={() => toggleUnlock(child.item.id)} className="flex-shrink-0 w-5 h-5 rounded flex items-center justify-center hover:bg-white/[0.08] cursor-pointer" title={isUnlocked ? "Lock this row" : "Unlock to edit this row"}><Pencil className={clsx("w-3 h-3", isUnlocked ? "text-blue-400" : "text-[#484f58]")} /></button>
-                            {incomplete && <span title={child.item.unitCost === 0 ? "Cost is $0 — pricing incomplete" : "Markup is 0% — pricing incomplete"} className="flex-shrink-0"><AlertTriangle className="w-3 h-3 text-amber-400" /></span>}
-                            {isUnlocked ? <InlineEditCell value={child.item.description} onChange={(val) => onLineItemUpdate(section.id, child.item.id, { description: val })} /> : <span className="truncate">{child.item.description}</span>}
-                          </div>
-                        </td>
-                        <td className="px-4 py-2 text-right text-white text-[13px]">{isUnlocked ? <InlineEditCell type="number" value={Number(listPriceJMD.toFixed(2))} onChange={(val) => { const newSellUSD = (parseFloat(val) || 0) / exchangeRate; const denom = 1 + child.item.markupPercent; onLineItemUpdate(section.id, child.item.id, { unitCost: denom !== 0 ? newSellUSD / denom : newSellUSD }); }} /> : fmt(child.item.sellPrice)}</td>
-                        <td className="px-4 py-2 text-center">{isUnlocked ? <InlineEditCell type="number" value={child.item.quantity} onChange={(val) => onLineItemUpdate(section.id, child.item.id, { quantity: parseInt(val) || 0 })} /> : <span className="text-[#8b949e] text-[13px]">{child.item.quantity}</span>}</td>
-                        <td className="px-4 py-2 text-right text-white text-[13px] font-extrabold flex items-center justify-end gap-1">{fmt(child.item.sellTotal)}{fs === "saving" && <Loader2 className="w-2.5 h-2.5 animate-spin text-[#8b949e]" />}{fs === "saved" && <CheckCircle2 className="w-2.5 h-2.5 text-emerald-400" />}</td>
+                    {rows.length === 0 && (
+                      <tr style={{ borderBottom: "1px solid rgba(255,255,255,0.03)" }}>
+                        <td className="sticky left-0 px-4 py-2" style={{ background: "rgba(7,12,26,0.9)" }}></td>
+                        <td className="px-4 py-2 text-[#8b949e] text-[13px] italic">No items</td>
+                        <td className="px-4 py-2 text-right text-white text-[13px]">—</td>
+                        <td className="px-4 py-2 text-center text-[#8b949e] text-[13px]">0</td>
+                        <td className="px-4 py-2 text-right text-white text-[13px] font-extrabold">—</td>
                       </tr>
-                    );
-                  })}
-                  <tr style={{ borderBottom: "1px solid rgba(255,255,255,0.03)" }}><td colSpan={5} className="px-4 py-1.5"><button onClick={() => onAddLineItem(section.id)} className="flex items-center gap-1 text-[#8b949e] hover:text-white text-[12px] font-bold cursor-pointer"><PlusCircle className="w-3 h-3" /> Add Line Item</button></td></tr>
-                </Fragment>
-              ))}
-              {bomData.filter(b => b.importAmount > 0).map(section => (
-                <tr key={`import-${section.id}`} style={{ borderBottom: "1px solid rgba(255,255,255,0.03)" }}>
-                  <td className="sticky left-0 px-4 py-2 text-[#8b949e] text-[12px] font-mono" style={{ background: "rgba(7,12,26,0.9)" }}>{section.sectionNumber}.9</td>
-                  <td className="px-4 py-2 text-amber-400 text-[13px] font-bold">Import ({Math.round(section.importRatePercent * 100)}%)</td>
-                  <td className="px-4 py-2 text-right text-amber-400 text-[13px]">{fmt(section.importAmount)}</td>
-                  <td className="px-4 py-2 text-center text-[#8b949e] text-[13px]">1</td>
-                  <td className="px-4 py-2 text-right text-amber-400 text-[13px] font-extrabold">{fmt(section.importAmount)}</td>
-                </tr>
-              ))}
-              <tr style={{ background: "rgba(255,255,255,0.04)" }}><td colSpan={4} className="px-4 py-2.5 text-right text-white text-[13px] font-extrabold uppercase">Subtotal</td><td className="px-4 py-2.5 text-right text-white text-[15px] font-extrabold">{fmt(grandTotal)}</td></tr>
-              <tr><td colSpan={4} className="px-4 py-2 text-right text-[#8b949e] text-[13px]">GCT (15%)</td><td className="px-4 py-2 text-right text-white text-[14px] font-extrabold">{fmt(tax)}</td></tr>
-              <tr style={{ background: "rgba(255,255,255,0.04)" }}><td colSpan={4} className="px-4 py-2.5 text-right text-white text-[15px] font-extrabold uppercase">Total</td><td className="px-4 py-2.5 text-right text-white text-[16px] font-black" style={{ color: "#60a5fa" }}>{fmt(totalWithTax)}</td></tr>
+                    )}
+                    {rows.map((row, rowIndex) => {
+                      if (row.kind !== "item") {
+                        const tone = row.kind === "import" ? "text-amber-400" : row.kind === "adjustment" ? "text-amber-300 italic" : "text-white";
+                        const label = row.kind === "adjustment" ? "Price adjustment (Synthesis override)" : row.description;
+                        return (
+                          <tr key={`${row.kind}-${rowIndex}`} style={{ borderBottom: "1px solid rgba(255,255,255,0.03)" }}>
+                            <td className="sticky left-0 px-4 py-2 text-[#8b949e] text-[12px] font-mono" style={{ background: "rgba(7,12,26,0.9)" }}>{row.kind === "adjustment" ? "" : row.kind === "import" ? `${section.section}.${rowIndex + 1}` : section.section}</td>
+                            <td className={clsx("px-4 py-2 text-[13px] font-bold", tone)}>{label}</td>
+                            <td className={clsx("px-4 py-2 text-right text-[13px]", tone)}>{fmt(row.unitPrice)}</td>
+                            <td className="px-4 py-2 text-center text-[#8b949e] text-[13px]">{row.quantity}</td>
+                            <td className={clsx("px-4 py-2 text-right text-[13px] font-extrabold", tone)}>{fmt(row.extended)}</td>
+                          </tr>
+                        );
+                      }
+                      const found = row.lineItemId ? itemLookup.get(row.lineItemId) : undefined;
+                      if (!found) return null;
+                      const item = recalcLineItem(found.item, exchangeRate);
+                      itemIndex += 1;
+                      const subNumber = itemRowCount > 1 ? `${section.section}.${itemIndex}` : section.section;
+                      const listPriceJMD = item.sellPrice * exchangeRate;
+                      const fs = fieldSaveStatus[`bom-${found.categoryId}-${item.id}`];
+                      const isUnlocked = unlockedRows.has(item.id);
+                      const incomplete = item.unitCost === 0 || item.markupPercent === 0;
+                      // Price and quantity edits change the section total, which may be overridden in Synthesis.
+                      const editValue = (updates: Partial<QuoteLineItem>) => onBomEditWithOverride(section.section, section.name, () => onLineItemUpdate(found.categoryId, item.id, updates));
+                      return (
+                        <tr key={item.id} style={{ borderBottom: "1px solid rgba(255,255,255,0.03)", borderLeft: incomplete ? "3px solid #f59e0b" : "3px solid transparent" }}>
+                          <td className="sticky left-0 px-4 py-2 text-[#8b949e] text-[12px] font-mono" style={{ background: "rgba(7,12,26,0.9)", paddingLeft: itemRowCount > 1 ? "28px" : "16px" }}>{subNumber}</td>
+                          <td className="px-4 py-2 text-white text-[13px] font-bold max-w-[250px]">
+                            <div className="flex items-center gap-1.5">
+                              <button onClick={() => toggleUnlock(item.id)} className="flex-shrink-0 w-5 h-5 rounded flex items-center justify-center hover:bg-white/[0.08] cursor-pointer" title={isUnlocked ? "Lock this row" : "Unlock to edit this row"}><Pencil className={clsx("w-3 h-3", isUnlocked ? "text-blue-400" : "text-[#484f58]")} /></button>
+                              {incomplete && <span title={item.unitCost === 0 ? "Cost is $0 — pricing incomplete" : "Markup is 0% — pricing incomplete"} className="flex-shrink-0"><AlertTriangle className="w-3 h-3 text-amber-400" /></span>}
+                              {isUnlocked ? <InlineEditCell value={item.description} onChange={(val) => onLineItemUpdate(found.categoryId, item.id, { description: val })} /> : <span className="truncate">{item.description}</span>}
+                            </div>
+                          </td>
+                          <td className="px-4 py-2 text-right text-white text-[13px]">{isUnlocked ? <InlineEditCell type="number" value={Number(listPriceJMD.toFixed(2))} onChange={(val) => { const newSellUSD = (parseFloat(val) || 0) / exchangeRate; const denom = 1 + item.markupPercent; editValue({ unitCost: denom !== 0 ? newSellUSD / denom : newSellUSD }); }} /> : fmt(item.sellPrice)}</td>
+                          <td className="px-4 py-2 text-center">{isUnlocked ? <InlineEditCell type="number" value={item.quantity} onChange={(val) => editValue({ quantity: parseInt(val) || 0 })} /> : <span className="text-[#8b949e] text-[13px]">{item.quantity}</span>}</td>
+                          <td className="px-4 py-2 text-right text-white text-[13px] font-extrabold flex items-center justify-end gap-1">{fmt(item.sellTotal)}{fs === "saving" && <Loader2 className="w-2.5 h-2.5 animate-spin text-[#8b949e]" />}{fs === "saved" && <CheckCircle2 className="w-2.5 h-2.5 text-emerald-400" />}</td>
+                        </tr>
+                      );
+                    })}
+                    {section.kind === "items" && category && <tr style={{ borderBottom: "1px solid rgba(255,255,255,0.03)" }}><td colSpan={5} className="px-4 py-1.5"><button onClick={() => onAddLineItem(category.id)} className="flex items-center gap-1 text-[#8b949e] hover:text-white text-[12px] font-bold cursor-pointer"><PlusCircle className="w-3 h-3" /> Add Line Item</button></td></tr>}
+                    <tr style={{ borderBottom: "1px solid rgba(255,255,255,0.05)" }}><td colSpan={4} className="px-4 py-1.5 text-right text-[#8b949e] text-[12px] font-bold">{section.name} total</td><td className="px-4 py-1.5 text-right text-white text-[13px] font-extrabold">{fmt(section.total)}</td></tr>
+                  </Fragment>
+                );
+              })}
+              <tr style={{ background: "rgba(255,255,255,0.04)" }}><td colSpan={4} className="px-4 py-2.5 text-right text-white text-[13px] font-extrabold uppercase">{SYSTEM_DISPLAY[systemFilter].label} Total</td><td className="px-4 py-2.5 text-right text-white text-[15px] font-extrabold">{fmt(system.total)}</td></tr>
+              <tr><td colSpan={5} className="px-4 pt-3 pb-1 text-[#8b949e] text-[11px] font-extrabold uppercase tracking-widest">All systems</td></tr>
+              <tr style={{ background: "rgba(255,255,255,0.04)" }}><td colSpan={4} className="px-4 py-2.5 text-right text-white text-[13px] font-extrabold uppercase">Subtotal</td><td className="px-4 py-2.5 text-right text-white text-[15px] font-extrabold">{fmt(totals.subtotal)}</td></tr>
+              <tr><td colSpan={4} className="px-4 py-2 text-right text-[#8b949e] text-[13px]">GCT (15%)</td><td className="px-4 py-2 text-right text-white text-[14px] font-extrabold">{fmt(totals.gct)}</td></tr>
+              <tr style={{ background: "rgba(255,255,255,0.04)" }}><td colSpan={4} className="px-4 py-2.5 text-right text-white text-[15px] font-extrabold uppercase">Total</td><td className="px-4 py-2.5 text-right text-white text-[16px] font-black" style={{ color: "#60a5fa" }}>{fmt(totals.total)}</td></tr>
             </tbody>
           </table>
         </div>
