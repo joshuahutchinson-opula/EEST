@@ -101,9 +101,9 @@ interface SessionUserInfo { name: string; email: string }
 const SessionUserContext = createContext<SessionUserInfo>({ name: "", email: "" });
 const useSessionUser = () => useContext(SessionUserContext);
 
-function makeFmt(currency: "USD" | "JMD") {
+function makeFmt(currency: "USD" | "JMD", rate?: number) {
   return (usdAmt: number, compact = false): string => {
-    const amt = currency === "JMD" ? usdAmt * (parseFloat(localStorage.getItem("fx_rate") || String(DEFAULT_EXCHANGE_RATE))) : usdAmt;
+    const amt = currency === "JMD" ? usdAmt * (rate ?? parseFloat(localStorage.getItem("fx_rate") || String(DEFAULT_EXCHANGE_RATE))) : usdAmt;
     const sym = currency === "JMD" ? "J$" : "$";
     if (compact) {
       if (amt >= 1_000_000_000) return `${sym}${(amt / 1_000_000_000).toFixed(2)}B`;
@@ -607,6 +607,14 @@ const API = {
     getPublic: (token: string) => apiFetch<PublicSubcontractor>(`/subcontractors/public/${token}`),
   },
 };
+
+// Converts between stored USD and whatever the USD/JMD toggle is showing, for edit fields.
+function displayMoney(currency: "USD" | "JMD", rate: number) {
+  return {
+    toDisplay: (usd: number) => (currency === "JMD" ? usd * rate : usd),
+    fromDisplay: (shown: number) => (currency === "JMD" ? shown / rate : shown),
+  };
+}
 
 function toNum(v: unknown, fallback = 0): number {
   const n = Number(v);
@@ -3368,8 +3376,10 @@ const COST_MARGIN_STEPS: TutorialStep[] = [
   { target: "wb-cm-table", title: "Cost & Margin Table", description: "Click any Qty, Cost, or Markup % cell to edit it inline — Sell Price, Total Cost, Total Sell, and Profit recalculate automatically, plus an Import line where a section carries an import rate. This data is internal only and never appears in client exports." },
 ];
 
-function CostMarginTab({ quoteCategories, exchangeRate, fmt, onLineItemUpdate, onAddLineItem, onResetCost, priceDeviation, fieldSaveStatus, systemFilter, onSystemFilterChange }: { quoteCategories: QuoteCategory[]; exchangeRate: number; fmt: (n: number, compact?: boolean) => string; onLineItemUpdate: (categoryId: string, itemId: string, updates: Partial<QuoteLineItem>) => void; onAddLineItem: (categoryId: string) => void; onResetCost: (categoryId: string, itemId: string) => void; priceDeviation: (li: QuoteLineItem) => number | null; fieldSaveStatus: Record<string, "saved" | "saving" | "">; systemFilter: SystemType; onSystemFilterChange: (s: SystemType) => void; }) {
+function CostMarginTab({ quoteCategories, exchangeRate, currency, fmt: _fmt, onLineItemUpdate, onAddLineItem, onResetCost, priceDeviation, fieldSaveStatus, systemFilter, onSystemFilterChange }: { quoteCategories: QuoteCategory[]; exchangeRate: number; currency: "USD" | "JMD"; fmt: (n: number, compact?: boolean) => string; onLineItemUpdate: (categoryId: string, itemId: string, updates: Partial<QuoteLineItem>) => void; onAddLineItem: (categoryId: string) => void; onResetCost: (categoryId: string, itemId: string) => void; priceDeviation: (li: QuoteLineItem) => number | null; fieldSaveStatus: Record<string, "saved" | "saving" | "">; systemFilter: SystemType; onSystemFilterChange: (s: SystemType) => void; }) {
   useAutoTutorial("workbook.cost-margin", COST_MARGIN_STEPS);
+  const { toDisplay, fromDisplay } = displayMoney(currency, exchangeRate);
+  const shown = (usd: number) => toDisplay(usd).toFixed(2);
   const filteredCategories = quoteCategories.filter(c => c.system === systemFilter && c.sectionNumber !== 800 && c.sectionNumber !== 1300 && c.sectionNumber !== 1800);
   const importCategories = quoteCategories.filter(c => c.system === systemFilter && (c.sectionNumber === 800 || c.sectionNumber === 1300 || c.sectionNumber === 1800));
 
@@ -3405,12 +3415,12 @@ function CostMarginTab({ quoteCategories, exchangeRate, fmt, onLineItemUpdate, o
                         <td className="px-3 py-2 text-[#8b949e] text-[12px] font-mono">{itemNumber}</td>
                         <td className="px-3 py-2 text-white text-[13px] font-bold"><span className="flex items-center gap-1.5">{incomplete && <span title={li.unitCost === 0 ? "Cost is $0 — pricing incomplete" : "Markup is 0% — pricing incomplete"} className="flex-shrink-0"><AlertTriangle className="w-3 h-3 text-amber-400" /></span>}{li.projectAssetId ? li.description : <InlineEditCell value={li.description} placeholder="Description" onChange={(val) => onLineItemUpdate(category.id, li.id, { description: val })} />}</span></td>
                         <td className="px-3 py-2 text-center"><InlineEditCell type="number" value={li.quantity} onChange={(val) => onLineItemUpdate(category.id, li.id, { quantity: parseInt(val) || 0 })} /></td>
-                        <td className="px-3 py-2 text-right"><span className="inline-flex items-center justify-end gap-1">{li.projectAssetId && li.costOverridden && <button onClick={() => onResetCost(category.id, li.id)} className="w-5 h-5 rounded flex items-center justify-center cursor-pointer hover:bg-white/[0.08]" title="Cost edited by hand — click to use the asset's cost again"><RotateCcw className="w-3 h-3 text-amber-400" /></button>}<InlineEditCell type="number" value={li.unitCost} onChange={(val) => onLineItemUpdate(category.id, li.id, { unitCost: parseFloat(val) || 0 })} />{(() => { const dev = priceDeviation(li); return dev !== null && <PriceDeviationBadge deviation={dev} />; })()}</span></td>
+                        <td className="px-3 py-2 text-right"><span className="inline-flex items-center justify-end gap-1">{li.projectAssetId && li.costOverridden && <button onClick={() => onResetCost(category.id, li.id)} className="w-5 h-5 rounded flex items-center justify-center cursor-pointer hover:bg-white/[0.08]" title="Cost edited by hand — click to use the asset's cost again"><RotateCcw className="w-3 h-3 text-amber-400" /></button>}<InlineEditCell type="number" value={Number(toDisplay(li.unitCost).toFixed(2))} onChange={(val) => onLineItemUpdate(category.id, li.id, { unitCost: fromDisplay(parseFloat(val) || 0) })} />{(() => { const dev = priceDeviation(li); return dev !== null && <PriceDeviationBadge deviation={dev} />; })()}</span></td>
                         <td className="px-3 py-2 text-right"><InlineEditCell type="number" value={Math.round(li.markupPercent * 100)} onChange={(val) => onLineItemUpdate(category.id, li.id, { markupPercent: (parseFloat(val) || 0) / 100 })} /><span className="text-[#8b949e] text-[12px]">%</span></td>
-                        <td className="px-3 py-2 text-right text-white text-[13px] font-extrabold">{r.sellPrice.toFixed(2)}</td>
-                        <td className="px-3 py-2 text-right text-[#8b949e] text-[13px]">{r.costTotal.toFixed(2)}</td>
-                        <td className="px-3 py-2 text-right text-white text-[13px] font-extrabold">{r.sellTotal.toFixed(2)}</td>
-                        <td className="px-3 py-2 text-right text-[13px] font-extrabold" style={{ color: r.profit >= 0 ? "#34d399" : "#f87171" }}>{r.profit.toFixed(2)}{fs === "saving" && <Loader2 className="w-2.5 h-2.5 animate-spin text-[#8b949e] ml-1 inline" />}{fs === "saved" && <CheckCircle2 className="w-2.5 h-2.5 text-emerald-400 ml-1 inline" />}</td>
+                        <td className="px-3 py-2 text-right text-white text-[13px] font-extrabold">{shown(r.sellPrice)}</td>
+                        <td className="px-3 py-2 text-right text-[#8b949e] text-[13px]">{shown(r.costTotal)}</td>
+                        <td className="px-3 py-2 text-right text-white text-[13px] font-extrabold">{shown(r.sellTotal)}</td>
+                        <td className="px-3 py-2 text-right text-[13px] font-extrabold" style={{ color: r.profit >= 0 ? "#34d399" : "#f87171" }}>{shown(r.profit)}{fs === "saving" && <Loader2 className="w-2.5 h-2.5 animate-spin text-[#8b949e] ml-1 inline" />}{fs === "saved" && <CheckCircle2 className="w-2.5 h-2.5 text-emerald-400 ml-1 inline" />}</td>
                       </tr>
                     );
                   })}
@@ -3418,16 +3428,16 @@ function CostMarginTab({ quoteCategories, exchangeRate, fmt, onLineItemUpdate, o
                   {category.importRatePercent > 0 && (
                     <tr style={{ borderBottom: "1px solid rgba(255,255,255,0.03)" }}>
                       <td colSpan={6} className="px-3 py-2 text-right text-[#8b949e] text-[12px] font-bold">Import ({Math.round(category.importRatePercent * 100)}% of cost)</td>
-                      <td className="px-3 py-2 text-right text-amber-400 text-[13px] font-extrabold">{(category.lineItems.reduce((s, li) => s + recalcLineItem(li, exchangeRate).costTotal, 0) * category.importRatePercent).toFixed(2)}</td>
+                      <td className="px-3 py-2 text-right text-amber-400 text-[13px] font-extrabold">{shown(category.lineItems.reduce((s, li) => s + recalcLineItem(li, exchangeRate).costTotal, 0) * category.importRatePercent)}</td>
                       <td colSpan={2}></td>
                     </tr>
                   )}
                 </Fragment>
               ))}
-              <tr style={{ background: "rgba(255,255,255,0.04)" }}><td colSpan={6} className="px-3 py-2.5 text-right text-white text-[13px] font-extrabold uppercase">System Subtotal</td><td className="px-3 py-2.5 text-right text-white text-[14px] font-extrabold">{systemSubtotal.toFixed(2)}</td><td className="px-3 py-2.5 text-right text-white text-[14px] font-extrabold">{systemSellTotal.toFixed(2)}</td><td className="px-3 py-2.5 text-right text-emerald-400 text-[14px] font-extrabold">{systemProfit.toFixed(2)}</td></tr>
-              <tr style={{ background: "rgba(255,255,255,0.02)" }}><td colSpan={6} className="px-3 py-2 text-right text-[#8b949e] text-[12px]">Cost Total</td><td className="px-3 py-2 text-right text-white text-[13px] font-extrabold">{systemCostTotal.toFixed(2)}</td><td colSpan={2}></td></tr>
-              <tr style={{ background: "rgba(255,255,255,0.02)" }}><td colSpan={6} className="px-3 py-2 text-right text-[#8b949e] text-[12px]">Import Total</td><td className="px-3 py-2 text-right text-white text-[13px] font-extrabold">{systemImportTotal.toFixed(2)}</td><td colSpan={2}></td></tr>
-              <tr style={{ background: "rgba(255,255,255,0.02)" }}><td colSpan={6} className="px-3 py-2 text-right text-[#8b949e] text-[12px]">Profit</td><td colSpan={2}></td><td className="px-3 py-2 text-right text-emerald-400 text-[13px] font-extrabold">{systemProfit.toFixed(2)}</td></tr>
+              <tr style={{ background: "rgba(255,255,255,0.04)" }}><td colSpan={6} className="px-3 py-2.5 text-right text-white text-[13px] font-extrabold uppercase">System Subtotal</td><td className="px-3 py-2.5 text-right text-white text-[14px] font-extrabold">{shown(systemSubtotal)}</td><td className="px-3 py-2.5 text-right text-white text-[14px] font-extrabold">{shown(systemSellTotal)}</td><td className="px-3 py-2.5 text-right text-emerald-400 text-[14px] font-extrabold">{shown(systemProfit)}</td></tr>
+              <tr style={{ background: "rgba(255,255,255,0.02)" }}><td colSpan={6} className="px-3 py-2 text-right text-[#8b949e] text-[12px]">Cost Total</td><td className="px-3 py-2 text-right text-white text-[13px] font-extrabold">{shown(systemCostTotal)}</td><td colSpan={2}></td></tr>
+              <tr style={{ background: "rgba(255,255,255,0.02)" }}><td colSpan={6} className="px-3 py-2 text-right text-[#8b949e] text-[12px]">Import Total</td><td className="px-3 py-2 text-right text-white text-[13px] font-extrabold">{shown(systemImportTotal)}</td><td colSpan={2}></td></tr>
+              <tr style={{ background: "rgba(255,255,255,0.02)" }}><td colSpan={6} className="px-3 py-2 text-right text-[#8b949e] text-[12px]">Profit</td><td colSpan={2}></td><td className="px-3 py-2 text-right text-emerald-400 text-[13px] font-extrabold">{shown(systemProfit)}</td></tr>
             </tbody>
           </table>
         </div>
@@ -3440,8 +3450,9 @@ const BOM_STEPS: TutorialStep[] = [
   { target: "wb-bom-table", title: "Bill of Materials", description: "The client-facing BOM, priced in JMD — switch between Video Surveillance, Access Control, and Intercom above the table. Every section's line items show quantity (click to edit), list price, and extended total. A section overridden on the Synthesis tab shows a badge and a price adjustment row, so its rows always add up to its total; contingency and import lines sit under their own sections, followed by the system total and the all-systems Subtotal, GCT, and Total." },
 ];
 
-function BomTab({ quoteCategories, synthesisOverrides, exchangeRate, fmt, onLineItemUpdate, onAddLineItem, onBomEditWithOverride, fieldSaveStatus, systemFilter, onSystemFilterChange }: { quoteCategories: QuoteCategory[]; synthesisOverrides: SynthesisOverride[]; exchangeRate: number; fmt: (n: number, compact?: boolean) => string; onLineItemUpdate: (categoryId: string, itemId: string, updates: Partial<QuoteLineItem>) => void; onAddLineItem: (categoryId: string) => void; onBomEditWithOverride: (sectionNumber: string, sectionName: string, callback: () => void) => void; fieldSaveStatus: Record<string, "saved" | "saving" | "">; systemFilter: SystemType; onSystemFilterChange: (s: SystemType) => void; }) {
+function BomTab({ quoteCategories, synthesisOverrides, exchangeRate, currency, fmt, onLineItemUpdate, onAddLineItem, onBomEditWithOverride, fieldSaveStatus, systemFilter, onSystemFilterChange }: { quoteCategories: QuoteCategory[]; synthesisOverrides: SynthesisOverride[]; exchangeRate: number; currency: "USD" | "JMD"; fmt: (n: number, compact?: boolean) => string; onLineItemUpdate: (categoryId: string, itemId: string, updates: Partial<QuoteLineItem>) => void; onAddLineItem: (categoryId: string) => void; onBomEditWithOverride: (sectionNumber: string, sectionName: string, callback: () => void) => void; fieldSaveStatus: Record<string, "saved" | "saving" | "">; systemFilter: SystemType; onSystemFilterChange: (s: SystemType) => void; }) {
   useAutoTutorial("workbook.bom", BOM_STEPS);
+  const { toDisplay, fromDisplay } = displayMoney(currency, exchangeRate);
   const bodyRef = useRef<HTMLDivElement>(null);
   const [stickyScrollLeft, setStickyScrollLeft] = useState(0);
   // Description/List/Qty are locked by default — a row must be explicitly unlocked before any
@@ -3521,7 +3532,6 @@ function BomTab({ quoteCategories, synthesisOverrides, exchangeRate, fmt, onLine
                       const item = recalcLineItem(found.item, exchangeRate);
                       itemIndex += 1;
                       const subNumber = itemRowCount > 1 ? `${section.section}.${itemIndex}` : section.section;
-                      const listPriceJMD = item.sellPrice * exchangeRate;
                       const fs = fieldSaveStatus[`bom-${found.categoryId}-${item.id}`];
                       const isUnlocked = unlockedRows.has(item.id);
                       const incomplete = item.unitCost === 0 || item.markupPercent === 0;
@@ -3537,7 +3547,7 @@ function BomTab({ quoteCategories, synthesisOverrides, exchangeRate, fmt, onLine
                               {isUnlocked ? <InlineEditCell value={item.description} onChange={(val) => onLineItemUpdate(found.categoryId, item.id, { description: val })} /> : <span className="truncate">{item.description}</span>}
                             </div>
                           </td>
-                          <td className="px-4 py-2 text-right text-white text-[13px]">{isUnlocked ? <InlineEditCell type="number" value={Number(listPriceJMD.toFixed(2))} onChange={(val) => { const newSellUSD = (parseFloat(val) || 0) / exchangeRate; const denom = 1 + item.markupPercent; editValue({ unitCost: denom !== 0 ? newSellUSD / denom : newSellUSD }); }} /> : fmt(item.sellPrice)}</td>
+                          <td className="px-4 py-2 text-right text-white text-[13px]">{isUnlocked ? <InlineEditCell type="number" value={Number(toDisplay(item.sellPrice).toFixed(2))} onChange={(val) => { const newSellUSD = fromDisplay(parseFloat(val) || 0); const denom = 1 + item.markupPercent; editValue({ unitCost: denom !== 0 ? newSellUSD / denom : newSellUSD }); }} /> : fmt(item.sellPrice)}</td>
                           <td className="px-4 py-2 text-center">{isUnlocked ? <InlineEditCell type="number" value={item.quantity} onChange={(val) => editValue({ quantity: parseInt(val) || 0 })} /> : <span className="text-[#8b949e] text-[13px]">{item.quantity}</span>}</td>
                           <td className="px-4 py-2 text-right text-white text-[13px] font-extrabold flex items-center justify-end gap-1">{fmt(item.sellTotal)}{fs === "saving" && <Loader2 className="w-2.5 h-2.5 animate-spin text-[#8b949e]" />}{fs === "saved" && <CheckCircle2 className="w-2.5 h-2.5 text-emerald-400" />}</td>
                         </tr>
@@ -3714,7 +3724,7 @@ function ProposalGeneratorModal({ open, onClose, projectId }: { open: boolean; o
 }
 
 function Workbook({ navigate }: { navigate: (p: Page) => void }) {
-  const { fmt } = useCurrency();
+  const { currency } = useCurrency();
   const [projects, setProjects] = useState<Project[]>([]);
   const [quotes, setQuotes] = useState<Quote[]>([]);
   const [loading, setLoading] = useState(true);
@@ -3799,6 +3809,8 @@ function Workbook({ navigate }: { navigate: (p: Page) => void }) {
   const selectedQuote = quotes.find((q) => q.id === selectedQuoteId);
   // Locked on the quote when it's created; only the explicit "Update rate" action changes it.
   const exchangeRate = toNum(selectedQuote?.exchangeRate, DEFAULT_EXCHANGE_RATE);
+  // Every Workbook tab follows the USD/JMD toggle, converting at this quote's locked rate.
+  const fmt = useMemo(() => makeFmt(currency, exchangeRate), [currency, exchangeRate]);
   const quoteCategories = selectedQuote?.categories || [];
 
   // Rows added here stay local until they get a description, so empty rows never reach the quote.
@@ -4006,8 +4018,8 @@ function Workbook({ navigate }: { navigate: (p: Page) => void }) {
           <p className="px-4 md:px-6 pt-2.5 pb-1 text-[#8b949e] text-[12px] md:text-[13px] flex-shrink-0">{wbTabs[activeTabIndex]?.description}</p>
           <div className="flex-1 overflow-y-auto px-3 md:px-5 py-4 space-y-4" style={{ scrollbarWidth: "thin", scrollbarColor: "rgba(255,255,255,0.08) transparent" }}>
             {activeTab === "asset-list" && <AssetListTab quoteCategories={quoteCategories} exchangeRate={exchangeRate} fmt={fmt} systemFilter={systemFilter} onSystemFilterChange={setSystemFilter} />}
-            {activeTab === "cost-margin" && <CostMarginTab quoteCategories={quoteCategories} exchangeRate={exchangeRate} fmt={fmt} onLineItemUpdate={updateQuoteLineItem} onAddLineItem={addLineItem} onResetCost={handleResetCost} priceDeviation={priceDeviation} fieldSaveStatus={fieldSaveStatus} systemFilter={systemFilter} onSystemFilterChange={setSystemFilter} />}
-            {activeTab === "bom" && <BomTab quoteCategories={quoteCategories} synthesisOverrides={synthesisOverrides} exchangeRate={exchangeRate} fmt={fmt} onLineItemUpdate={updateQuoteLineItem} onAddLineItem={addLineItem} onBomEditWithOverride={handleBomEditWithOverride} fieldSaveStatus={fieldSaveStatus} systemFilter={systemFilter} onSystemFilterChange={setSystemFilter} />}
+            {activeTab === "cost-margin" && <CostMarginTab quoteCategories={quoteCategories} exchangeRate={exchangeRate} currency={currency} fmt={fmt} onLineItemUpdate={updateQuoteLineItem} onAddLineItem={addLineItem} onResetCost={handleResetCost} priceDeviation={priceDeviation} fieldSaveStatus={fieldSaveStatus} systemFilter={systemFilter} onSystemFilterChange={setSystemFilter} />}
+            {activeTab === "bom" && <BomTab quoteCategories={quoteCategories} synthesisOverrides={synthesisOverrides} exchangeRate={exchangeRate} currency={currency} fmt={fmt} onLineItemUpdate={updateQuoteLineItem} onAddLineItem={addLineItem} onBomEditWithOverride={handleBomEditWithOverride} fieldSaveStatus={fieldSaveStatus} systemFilter={systemFilter} onSystemFilterChange={setSystemFilter} />}
             {activeTab === "synthesis" && <SynthesisTab quoteCategories={quoteCategories} synthesisOverrides={synthesisOverrides} fmt={fmt} onSaveOverride={handleSaveOverride} fieldSaveStatus={fieldSaveStatus} />}
             <div className="flex items-center justify-between flex-wrap gap-2 pt-2">
               {activeTabIndex > 0 ? (

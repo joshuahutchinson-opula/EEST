@@ -40,6 +40,10 @@ function tryLoadImageRun(fileUrl: string, width: number, height: number): ImageR
   }
 }
 
+export function fmtJMD(n: number): string {
+  return `J$${(Number.isFinite(n) ? n : 0).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+}
+
 export function fmtUSD(n: number): string {
   return `$${(Number.isFinite(n) ? n : 0).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 }
@@ -73,7 +77,9 @@ export interface ProposalDocxData {
   generatedAt: string;
 }
 
+// Client-facing, so amounts are in JMD at the quote's locked exchange rate (data stays USD).
 export async function buildProposalDocx(data: ProposalDocxData): Promise<Buffer> {
+  const jmd = (usd: number) => fmtJMD(usd * data.exchangeRate);
   const children: Paragraph[] = [
     new Paragraph({ pageBreakBefore: true, children: [new TextRun({ text: `${data.project.name} — ${data.project.client}`, bold: true, size: 26 })] }),
   ];
@@ -98,7 +104,7 @@ export async function buildProposalDocx(data: ProposalDocxData): Promise<Buffer>
               children: [
                 bodyCell(item.description, 60, { shaded: i % 2 === 1 }),
                 bodyCell(String(item.quantity), 15, { align: AlignmentType.CENTER, shaded: i % 2 === 1 }),
-                bodyCell(fmtUSD(item.total), 25, { align: AlignmentType.RIGHT, shaded: i % 2 === 1 }),
+                bodyCell(jmd(item.total), 25, { align: AlignmentType.RIGHT, shaded: i % 2 === 1 }),
               ],
             })
           ),
@@ -111,12 +117,12 @@ export async function buildProposalDocx(data: ProposalDocxData): Promise<Buffer>
     width: { size: 60, type: WidthType.PERCENTAGE },
     alignment: AlignmentType.RIGHT,
     rows: [
-      new TableRow({ children: [bodyCell("Grand Total", 60, { align: AlignmentType.RIGHT }), bodyCell(fmtUSD(data.grandTotal), 40, { align: AlignmentType.RIGHT })] }),
-      new TableRow({ children: [bodyCell("GCT (15%)", 60, { align: AlignmentType.RIGHT }), bodyCell(fmtUSD(data.gctAmount), 40, { align: AlignmentType.RIGHT })] }),
+      new TableRow({ children: [bodyCell("Grand Total", 60, { align: AlignmentType.RIGHT }), bodyCell(jmd(data.grandTotal), 40, { align: AlignmentType.RIGHT })] }),
+      new TableRow({ children: [bodyCell("GCT (15%)", 60, { align: AlignmentType.RIGHT }), bodyCell(jmd(data.gctAmount), 40, { align: AlignmentType.RIGHT })] }),
       new TableRow({
         children: [
           bodyCell("Total", 60, { align: AlignmentType.RIGHT, bold: true }),
-          new TableCell({ width: { size: 40, type: WidthType.PERCENTAGE }, children: [new Paragraph({ alignment: AlignmentType.RIGHT, children: [new TextRun({ text: fmtUSD(data.grandTotalWithTax), bold: true, size: 22, color: BRAND_COLORS.navy })] })] }),
+          new TableCell({ width: { size: 40, type: WidthType.PERCENTAGE }, children: [new Paragraph({ alignment: AlignmentType.RIGHT, children: [new TextRun({ text: jmd(data.grandTotalWithTax), bold: true, size: 22, color: BRAND_COLORS.navy })] })] }),
         ],
       }),
     ],
@@ -135,6 +141,7 @@ export async function buildProposalDocx(data: ProposalDocxData): Promise<Buffer>
           ...tables,
           new Paragraph({ spacing: { before: 300 }, children: [] }),
           totalsTable,
+          new Paragraph({ alignment: AlignmentType.RIGHT, spacing: { before: 120 }, children: [new TextRun({ text: `All prices in Jamaican dollars at J$${data.exchangeRate.toFixed(2)} per US$1.`, size: 16, color: "666666" })] }),
         ],
       },
     ],
