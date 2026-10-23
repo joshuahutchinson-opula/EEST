@@ -537,15 +537,11 @@ export function Workbook({ navigate }: { navigate: (p: Page) => void }) {
           <div className="px-4 md:px-6 pt-3 flex-shrink-0">
             <SummaryBar totalCost={workbookTotals.totalCost} totalSell={workbookTotals.totalSell} blendedMargin={workbookTotals.blendedMargin} fmt={fmt} />
           </div>
-          <div className="flex items-center gap-0.5 px-4 py-2 overflow-x-auto flex-shrink-0" style={{ borderBottom: "1px solid rgba(255,255,255,0.06)", scrollbarWidth: "none" }}>
-            {wbTabs.map((tab, i) => (
-              <Fragment key={tab.id}>
-                {i > 0 && <ChevronRight className="w-3.5 h-3.5 text-[#484f58] flex-shrink-0 mx-0.5" />}
-                <button onClick={() => setActiveTab(tab.id)} className={clsx("flex items-center gap-1.5 h-8 px-3 rounded-lg text-[13px] font-bold whitespace-nowrap cursor-pointer", activeTab === tab.id ? "text-white" : "text-[#8b949e] hover:text-white")} style={activeTab === tab.id ? { background: "rgba(59,130,246,0.20)", border: "1px solid rgba(59,130,246,0.30)" } : undefined}>
-                  <span className="w-4 h-4 rounded-full flex items-center justify-center text-[10px] font-extrabold flex-shrink-0" style={{ background: activeTab === tab.id ? "#3b82f6" : i < activeTabIndex ? "rgba(16,185,129,0.35)" : "rgba(255,255,255,0.08)", color: activeTab === tab.id ? "#fff" : i < activeTabIndex ? "#34d399" : "#8b949e" }}>{i < activeTabIndex ? <CheckCircle2 className="w-2.5 h-2.5" /> : i + 1}</span>
-                  {tab.label}
-                </button>
-              </Fragment>
+          <div role="tablist" className="flex items-center gap-1 px-4 py-2 overflow-x-auto flex-shrink-0" style={{ borderBottom: "1px solid rgba(255,255,255,0.06)", scrollbarWidth: "none" }}>
+            {wbTabs.map((tab) => (
+              <button key={tab.id} role="tab" aria-selected={activeTab === tab.id} onClick={() => setActiveTab(tab.id)} className={clsx("h-8 px-3 rounded-lg text-[13px] font-bold whitespace-nowrap cursor-pointer", activeTab === tab.id ? "text-white" : "text-[#8b949e] hover:text-white")} style={activeTab === tab.id ? { background: "rgba(59,130,246,0.20)", border: "1px solid rgba(59,130,246,0.30)" } : undefined}>
+                {tab.label}
+              </button>
             ))}
           </div>
           <p className="px-4 md:px-6 pt-2.5 pb-1 text-[#8b949e] text-[12px] md:text-[13px] flex-shrink-0">{wbTabs[activeTabIndex]?.description}</p>
@@ -554,14 +550,6 @@ export function Workbook({ navigate }: { navigate: (p: Page) => void }) {
             {activeTab === "cost-margin" && <CostMarginTab quoteCategories={quoteCategories} exchangeRate={exchangeRate} currency={currency} fmt={fmt} onLineItemUpdate={updateQuoteLineItem} onAddLineItem={addLineItem} onAddFromLibrary={setPickerCategoryId} onOpenLabour={setLabourCategoryId} onDeleteLineItem={requestDeleteLineItem} onReorderLineItems={reorderLineItems} onResetCost={handleResetCost} priceDeviation={priceDeviation} fieldSaveStatus={fieldSaveStatus} systemFilter={systemFilter} onSystemFilterChange={setSystemFilter} />}
             {activeTab === "bom" && <BomTab quoteCategories={quoteCategories} synthesisOverrides={synthesisOverrides} exchangeRate={exchangeRate} currency={currency} fmt={fmt} onLineItemUpdate={updateQuoteLineItem} onAddLineItem={addLineItem} onAddFromLibrary={setPickerCategoryId} onOpenLabour={setLabourCategoryId} onDeleteLineItem={requestDeleteLineItem} onReorderLineItems={reorderLineItems} onBomEditWithOverride={handleBomEditWithOverride} fieldSaveStatus={fieldSaveStatus} systemFilter={systemFilter} onSystemFilterChange={setSystemFilter} />}
             {activeTab === "synthesis" && <SynthesisTab quoteCategories={quoteCategories} synthesisOverrides={synthesisOverrides} fmt={fmt} onSaveOverride={handleSaveOverride} fieldSaveStatus={fieldSaveStatus} />}
-            <div className="flex items-center justify-between flex-wrap gap-2 pt-2">
-              {activeTabIndex > 0 ? (
-                <button onClick={() => setActiveTab(wbTabs[activeTabIndex - 1].id)} className="flex items-center gap-1.5 h-10 md:h-9 px-4 rounded-xl text-[#8b949e] hover:text-white text-[13px] font-bold cursor-pointer" style={G.btn}><ChevronLeft className="w-3.5 h-3.5" /> {wbTabs[activeTabIndex - 1].label}</button>
-              ) : <span />}
-              {activeTabIndex < wbTabs.length - 1 && (
-                <button onClick={() => setActiveTab(wbTabs[activeTabIndex + 1].id)} className="flex items-center gap-1.5 h-10 md:h-9 px-4 rounded-xl text-white text-[13px] font-extrabold cursor-pointer" style={{ background: "#3b82f6" }}>Next: {wbTabs[activeTabIndex + 1].label} <ChevronRight className="w-3.5 h-3.5" /></button>
-              )}
-            </div>
           </div>
         </div>
       )}
