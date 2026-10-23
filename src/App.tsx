@@ -636,15 +636,15 @@ function EmptyState({ icon: Icon, title, description, action }: { icon: IconType
   );
 }
 
-function ConfirmDialog({ open, title, message, onConfirm, onCancel }: { open: boolean; title: string; message: string; onConfirm: () => void; onCancel: () => void }) {
+function ConfirmDialog({ open, title, message, onConfirm, onCancel, confirmLabel = "Delete", danger = true }: { open: boolean; title: string; message: string; onConfirm: () => void; onCancel: () => void; confirmLabel?: string; danger?: boolean }) {
   if (!open) return null;
   return (
     <div className="fixed inset-0 z-[400] flex items-center justify-center p-4" onClick={onCancel}>
       <div className="absolute inset-0" style={{ background: "rgba(0,0,0,0.65)", backdropFilter: "blur(8px)" }} />
       <motion.div initial={{ opacity: 0, scale: 0.93 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.93 }} transition={{ type: "spring", damping: 26, stiffness: 360 }} onClick={(e) => e.stopPropagation()} className="relative z-10 w-full max-w-[380px] rounded-2xl p-6" style={G.liquidGlass}>
-        <div className="flex items-center gap-3 mb-4"><div className="w-10 h-10 rounded-xl flex items-center justify-center" style={{ background: "rgba(244,63,94,0.15)" }}><AlertTriangle className="w-5 h-5 text-rose-400" /></div><h3 className="text-white text-[16px] font-extrabold">{title}</h3></div>
+        <div className="flex items-center gap-3 mb-4"><div className="w-10 h-10 rounded-xl flex items-center justify-center" style={{ background: danger ? "rgba(244,63,94,0.15)" : "rgba(59,130,246,0.15)" }}><AlertTriangle className={clsx("w-5 h-5", danger ? "text-rose-400" : "text-blue-400")} /></div><h3 className="text-white text-[16px] font-extrabold">{title}</h3></div>
         <p className="text-[#8b949e] text-[14px] mb-5">{message}</p>
-        <div className="flex gap-2"><button onClick={onCancel} className="flex-1 h-9 rounded-xl text-[#8b949e] text-[14px] font-bold cursor-pointer" style={G.btn}>Cancel</button><button onClick={onConfirm} className="flex-1 h-9 rounded-xl text-white text-[14px] font-extrabold cursor-pointer" style={{ background: "#f43f5e" }}>Delete</button></div>
+        <div className="flex gap-2"><button onClick={onCancel} className="flex-1 h-9 rounded-xl text-[#8b949e] text-[14px] font-bold cursor-pointer" style={G.btn}>Cancel</button><button onClick={onConfirm} className="flex-1 h-9 rounded-xl text-white text-[14px] font-extrabold cursor-pointer" style={{ background: danger ? "#f43f5e" : "#3b82f6" }}>{confirmLabel}</button></div>
       </motion.div>
     </div>
   );
@@ -3694,7 +3694,7 @@ function Workbook({ navigate }: { navigate: (p: Page) => void }) {
   const [selectedProjectId, setSelectedProjectId] = useState<string>(() => localStorage.getItem("wb_last_project") || "");
   const [selectedQuoteId, setSelectedQuoteId] = useState<string>("");
   const [showProjectSelect, setShowProjectSelect] = useState(false);
-  const [exchangeRate, setExchangeRate] = useState(parseFloat(localStorage.getItem("fx_rate") || String(DEFAULT_EXCHANGE_RATE)));
+  const [rateUpdate, setRateUpdate] = useState<{ liveRate: number } | null>(null);
   const [activeTab, setActiveTab] = useState<WorkbookTab>(() => (localStorage.getItem("wb_tab") as WorkbookTab) || "asset-list");
   const [saveStatus, setSaveStatus] = useState<"saved" | "saving" | "">("saved");
   const [projectAssets, setProjectAssets] = useState<ProjectAsset[]>([]);
@@ -3708,7 +3708,6 @@ function Workbook({ navigate }: { navigate: (p: Page) => void }) {
   const [systemFilter, setSystemFilter] = useState<SystemType>("VSS");
 
   useEffect(() => { localStorage.setItem("wb_tab", activeTab); }, [activeTab]);
-  useEffect(() => { API.fx.getRate().then(r => setExchangeRate(r)); }, []);
   useEffect(() => { API.devices.list().then(setStoreDevices).catch(() => setStoreDevices([])); }, []);
 
   const fetchData = useCallback(async () => {
@@ -3746,9 +3745,11 @@ function Workbook({ navigate }: { navigate: (p: Page) => void }) {
   // project's name until the user happened to land on a project with no quote at all.
   useEffect(() => { setSelectedQuoteId(quotes.find((q) => q.projectId === selectedProjectId)?.id || ""); }, [selectedProjectId, quotes]);
   const selectedQuote = quotes.find((q) => q.id === selectedQuoteId);
+  // Locked on the quote when it's created; only the explicit "Update rate" action changes it.
+  const exchangeRate = toNum(selectedQuote?.exchangeRate, DEFAULT_EXCHANGE_RATE);
   const quoteCategories = selectedQuote?.categories || [];
 
-  const autoSave = useCallback(async (q: Quote) => { setSaveStatus("saving"); try { await API.quotes.update(q.id, { categories: q.categories, exchangeRate }); setTimeout(() => setSaveStatus("saved"), 800); } catch { setSaveStatus("saved"); } }, [exchangeRate]);
+  const autoSave = useCallback(async (q: Quote) => { setSaveStatus("saving"); try { await API.quotes.update(q.id, { categories: q.categories }); setTimeout(() => setSaveStatus("saved"), 800); } catch { setSaveStatus("saved"); } }, []);
 
   const updateQuoteLineItem = (categoryId: string, itemId: string, updates: Partial<QuoteLineItem>) => {
     const fieldKey = `li-${categoryId}-${itemId}`;
@@ -3808,6 +3809,18 @@ function Workbook({ navigate }: { navigate: (p: Page) => void }) {
     } catch { setFieldSaveStatus(prev => ({ ...prev, [fieldKey]: "" })); }
   };
 
+  const handleUpdateRate = async () => {
+    if (!selectedQuote || !rateUpdate) return;
+    const { liveRate } = rateUpdate;
+    setRateUpdate(null);
+    try {
+      await API.quotes.update(selectedQuote.id, { exchangeRate: liveRate });
+      API.workbook.logAudit(selectedProjectId, "Quote exchange rate", exchangeRate.toFixed(2), liveRate.toFixed(2)).catch(() => {});
+      setQuotes(prev => prev.map(q => q.id === selectedQuote.id ? { ...q, exchangeRate: liveRate } : q));
+      toast.success(`Exchange rate updated to J$ ${liveRate.toFixed(2)}`);
+    } catch { toast.error("Failed to update exchange rate"); }
+  };
+
   const handleBomEditWithOverride = (sectionNumber: string, sectionName: string, callback: () => void) => {
     const override = synthesisOverrides.find(o => o.sectionNumber === sectionNumber && o.isOverridden);
     if (override) { setOverrideConflict({ sectionNumber, sectionName, pendingCallback: callback }); } else { callback(); }
@@ -3834,6 +3847,7 @@ function Workbook({ navigate }: { navigate: (p: Page) => void }) {
       {overrideConflict && <OverrideConflictModal open={true} sectionName={overrideConflict.sectionName} onUpdateOverride={() => { overrideConflict.pendingCallback?.(); handleSaveOverride(overrideConflict.sectionNumber, null, false); setOverrideConflict(null); }} onKeepOverride={() => { overrideConflict.pendingCallback?.(); setOverrideConflict(null); }} onCancel={() => setOverrideConflict(null)} />}
       {showProjectSelect && <SelectProjectModal onClose={() => setShowProjectSelect(false)} onSelect={(id: string) => { setSelectedProjectId(id); setSelectedQuoteId(quotes.find((q) => q.projectId === id)?.id || ""); setShowProjectSelect(false); }} currentId={selectedProjectId} projects={projects} />}
       {showProposalModal && <ProposalGeneratorModal open={true} onClose={() => setShowProposalModal(false)} projectId={selectedProjectId} />}
+      {rateUpdate && selectedQuote && <ConfirmDialog open={true} danger={false} confirmLabel="Update rate" title="Update exchange rate" message={`This quote is locked at J$ ${exchangeRate.toFixed(2)} per US$1. The current live rate is J$ ${rateUpdate.liveRate.toFixed(2)}. Update the quote to the live rate? JMD figures on this quote will change.`} onCancel={() => setRateUpdate(null)} onConfirm={handleUpdateRate} />}
       <div className="px-4 md:px-6 py-3 flex flex-col md:flex-row md:items-center justify-between flex-shrink-0 gap-2" style={{ borderBottom: "1px solid rgba(255,255,255,0.07)" }}>
         <div>
           <h1 className="text-white font-extrabold text-2xl md:text-3xl tracking-tight">Workbook</h1>
@@ -3845,7 +3859,8 @@ function Workbook({ navigate }: { navigate: (p: Page) => void }) {
           </div>
         </div>
         <div className="flex items-center gap-2 flex-wrap">
-          <div className="flex items-center gap-2 px-3 py-1 rounded-xl" style={G.subtle}><span className="text-[#8b949e] text-[12px] font-extrabold uppercase">FX Rate</span><span className="text-white text-[14px] font-extrabold">J$ {exchangeRate.toFixed(2)}</span></div>
+          <div className="flex items-center gap-2 px-3 py-1 rounded-xl" style={G.subtle} title="Exchange rate locked on this quote"><span className="text-[#8b949e] text-[12px] font-extrabold uppercase">FX Rate</span><span className="text-white text-[14px] font-extrabold">J$ {exchangeRate.toFixed(2)}</span></div>
+          {selectedQuote && <button onClick={async () => { const liveRate = await API.fx.getRate(); setRateUpdate({ liveRate: toNum(liveRate, DEFAULT_EXCHANGE_RATE) }); }} className="flex items-center gap-1.5 h-9 md:h-7 px-3 rounded-lg text-[#8b949e] hover:text-white text-[12px] font-extrabold cursor-pointer" style={G.btn}><RotateCw className="w-3 h-3" /> Update rate</button>}
           <button onClick={() => { API.workbook.getAudit(selectedProjectId).then(setWorkbookAudit).catch(() => {}); setShowAuditModal(true); }} className="flex items-center gap-1.5 h-9 md:h-7 px-3 rounded-lg text-[#8b949e] hover:text-white text-[12px] font-extrabold cursor-pointer" style={G.btn}><History className="w-3 h-3" /> History</button>
           <button onClick={async () => { try { const { blob, filename } = await API.workbook.exportXlsx(selectedProjectId); downloadBlob(blob, filename); } catch { toast.error("Failed to generate Excel export"); } }} className="flex items-center gap-1.5 h-9 md:h-7 px-3 rounded-lg text-[#8b949e] hover:text-white text-[12px] font-extrabold cursor-pointer" style={G.btn}><FileDown className="w-3 h-3" /> Excel</button>
           <button onClick={() => setShowProposalModal(true)} className="flex items-center gap-1.5 h-9 md:h-7 px-3 rounded-lg text-white text-[12px] font-extrabold cursor-pointer" style={{ background: "#3b82f6" }}><FileDown className="w-3 h-3" /> Proposal</button>

@@ -1,6 +1,7 @@
 import { Router, Request, Response } from "express";
 import pool from "../db";
 import { isTech, requireAdmin, techMayAccessProject } from "../lib/roles";
+import { getLiveExchangeRate } from "../lib/exchangeRate";
 
 const router = Router();
 
@@ -118,7 +119,7 @@ router.post("/", requireAdmin, async (req: Request, res: Response) => {
     const { clientName, refNumber, date, status, quoteType, categories, exchangeRate, projectId } = req.body;
     const qResult = await pool.query(
       "INSERT INTO quotes (client_name, ref_number, date, status, quote_type, exchange_rate, project_id) VALUES ($1,$2,$3,$4,$5,$6,$7) RETURNING *",
-      [clientName, refNumber, date, status || "draft", quoteType || "Multiple", exchangeRate || 163, projectId || null]
+      [clientName, refNumber, date, status || "draft", quoteType || "Multiple", Number(exchangeRate) > 0 ? Number(exchangeRate) : await getLiveExchangeRate(), projectId || null]
     );
     const quote = qResult.rows[0];
     if (categories && Array.isArray(categories)) {
