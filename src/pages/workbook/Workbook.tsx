@@ -1,8 +1,8 @@
 import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
-import { Building2, CheckCircle2, ChevronDown, ChevronLeft, ChevronRight, DollarSign, FileDown, History, Loader2, RotateCw } from "lucide-react";
+import { Building2, CheckCircle2, ChevronDown, ChevronLeft, ChevronRight, DollarSign, FileDown, History, Loader2, RotateCw, AlertTriangle } from "lucide-react";
 import { clsx } from "clsx";
-import { computeWorkbookTotals } from "../../../server/src/lib/workbookTotals";
+import { computeWorkbookTotals, isImportSection } from "../../../server/src/lib/workbookTotals";
 import { API, ApiError, downloadBlob } from "../../api";
 import { ConfirmDialog } from "../../components/ConfirmDialog";
 import { EmptyState } from "../../components/EmptyState";
@@ -74,6 +74,10 @@ export function Workbook({ navigate }: { navigate: (p: Page) => void }) {
   const [synthesisOverrides, setSynthesisOverrides] = useState<SynthesisOverride[]>([]);
   const [workbookAudit, setWorkbookAudit] = useState<WorkbookAuditEntry[]>([]);
   const [showProposalModal, setShowProposalModal] = useState(false);
+  const [proposalWarning, setProposalWarning] = useState(false);
+  const [showPricingIssues, setShowPricingIssues] = useState(false);
+  const [minMargin, setMinMargin] = useState<number>(() => { try { return toNum(localStorage.getItem("wb_min_margin"), 20); } catch { return 20; } });
+  useEffect(() => { try { localStorage.setItem("wb_min_margin", String(minMargin)); } catch { /* storage unavailable */ } }, [minMargin]);
   const [showAuditModal, setShowAuditModal] = useState(false);
   const [overrideConflict, setOverrideConflict] = useState<{ sectionNumber: string; sectionName: string; pendingCallback: (() => void) | null } | null>(null);
   const [systemFilter, setSystemFilter] = useState<SystemType>("VSS");
@@ -151,6 +155,20 @@ export function Workbook({ navigate }: { navigate: (p: Page) => void }) {
   // Sent, approved and rejected versions are frozen; editing one offers a new draft instead.
   const frozen = !!selectedQuote && selectedQuote.status !== "draft";
   const [frozenPrompt, setFrozenPrompt] = useState(false);
+  // Counted items with no price ($0 cost or 0% markup), and priced items under the minimum margin.
+  const pricingIssues = useMemo(() => {
+    let unpriced = 0, lowMargin = 0;
+    for (const cat of selectedQuote?.categories || []) {
+      if (isImportSection(cat.sectionNumber)) continue;
+      for (const li of cat.lineItems) {
+        if (li.quantity <= 0) continue;
+        if (toNum(li.unitCost) === 0 || toNum(li.markupPercent) === 0) { unpriced++; continue; }
+        const r = recalcLineItem(li, 1);
+        if (r.sellTotal > 0 && (r.profit / r.sellTotal) * 100 < minMargin) lowMargin++;
+      }
+    }
+    return { unpriced, lowMargin, total: unpriced + lowMargin };
+  }, [selectedQuote, minMargin]);
   const blockIfFrozen = () => { if (frozen) { setFrozenPrompt(true); return true; } return false; };
   // Locked on the quote when it's created; only the explicit "Update rate" action changes it.
   const exchangeRate = toNum(selectedQuote?.exchangeRate, DEFAULT_EXCHANGE_RATE);
@@ -439,6 +457,7 @@ export function Workbook({ navigate }: { navigate: (p: Page) => void }) {
       {labourCategoryId && selectedQuote?.categories.find(c => c.id === labourCategoryId) && <LabourCalculatorModal category={selectedQuote.categories.find(c => c.id === labourCategoryId)!} currency={currency} exchangeRate={exchangeRate} fmt={fmt} onClose={() => setLabourCategoryId(null)} onSave={(rows) => applyLabour(labourCategoryId, rows)} />}
       {pickerCategoryId && <DevicePickerModal devices={storeDevices} fmt={fmt} onClose={() => setPickerCategoryId(null)} onPick={(d) => addLineItemFromDevice(pickerCategoryId, d)} />}
       {frozenPrompt && selectedQuote && <ConfirmDialog open={true} danger={false} confirmLabel="Create new draft" title="This version is frozen" message={`Rev ${selectedQuote.revision ?? 1} is ${selectedQuote.status}, so it can't be edited. Create a new draft (Rev ${Math.max(...projectQuotes.map(q => q.revision ?? 1)) + 1}) from it to make changes?`} onCancel={() => setFrozenPrompt(false)} onConfirm={createDraftFromSelected} />}
+      {proposalWarning && <ConfirmDialog open={true} danger={false} confirmLabel="Generate anyway" title="Pricing isn't complete" message={`${pricingIssues.unpriced} item(s) have no price ($0 cost or 0% markup) and ${pricingIssues.lowMargin} are below the ${minMargin}% minimum margin. Generate the proposal anyway?`} onCancel={() => setProposalWarning(false)} onConfirm={() => { setProposalWarning(false); setShowProposalModal(true); }} />}
       {pendingDelete && <ConfirmDialog open={true} title="Delete line item" message={`Delete "${pendingDelete.item.description || "this line item"}" from the quote?`} onCancel={() => setPendingDelete(null)} onConfirm={confirmDeleteLineItem} />}
       {rateUpdate && selectedQuote && <ConfirmDialog open={true} danger={false} confirmLabel="Update rate" title="Update exchange rate" message={`This quote is locked at J$ ${exchangeRate.toFixed(2)} per US$1. The current live rate is J$ ${rateUpdate.liveRate.toFixed(2)}. Update the quote to the live rate? JMD figures on this quote will change.`} onCancel={() => setRateUpdate(null)} onConfirm={handleUpdateRate} />}
       <div className="px-4 md:px-6 py-3 flex flex-col md:flex-row md:items-center justify-between flex-shrink-0 gap-2" style={{ borderBottom: "1px solid rgba(255,255,255,0.07)" }}>
@@ -464,7 +483,25 @@ export function Workbook({ navigate }: { navigate: (p: Page) => void }) {
           {selectedQuote && <button onClick={async () => { if (blockIfFrozen()) return; const liveRate = await API.fx.getRate(); setRateUpdate({ liveRate: toNum(liveRate, DEFAULT_EXCHANGE_RATE) }); }} className="flex items-center gap-1.5 h-9 md:h-7 px-3 rounded-lg text-[#8b949e] hover:text-white text-[12px] font-extrabold cursor-pointer" style={G.btn}><RotateCw className="w-3 h-3" /> Update rate</button>}
           <button onClick={() => { API.workbook.getAudit(selectedProjectId).then(setWorkbookAudit).catch(() => {}); setShowAuditModal(true); }} className="flex items-center gap-1.5 h-9 md:h-7 px-3 rounded-lg text-[#8b949e] hover:text-white text-[12px] font-extrabold cursor-pointer" style={G.btn}><History className="w-3 h-3" /> History</button>
           <button onClick={async () => { try { const { blob, filename } = await API.workbook.exportXlsx(selectedProjectId, selectedQuoteId || undefined); downloadBlob(blob, filename); } catch { toast.error("Failed to generate Excel export"); } }} className="flex items-center gap-1.5 h-9 md:h-7 px-3 rounded-lg text-[#8b949e] hover:text-white text-[12px] font-extrabold cursor-pointer" style={G.btn}><FileDown className="w-3 h-3" /> Excel</button>
-          <button onClick={() => setShowProposalModal(true)} className="flex items-center gap-1.5 h-9 md:h-7 px-3 rounded-lg text-white text-[12px] font-extrabold cursor-pointer" style={{ background: "#3b82f6" }}><FileDown className="w-3 h-3" /> Proposal</button>
+          {selectedQuote && (
+            <div className="relative">
+              <button onClick={() => setShowPricingIssues(v => !v)} className={clsx("flex items-center gap-1.5 h-9 md:h-7 px-3 rounded-lg text-[12px] font-extrabold cursor-pointer", pricingIssues.total > 0 ? "text-amber-400" : "text-emerald-400")} style={G.btn} title="Unpriced items and items below the minimum margin">
+                {pricingIssues.total > 0 ? <AlertTriangle className="w-3 h-3" /> : <CheckCircle2 className="w-3 h-3" />}
+                {pricingIssues.total > 0 ? `${pricingIssues.unpriced} unpriced · ${pricingIssues.lowMargin} below ${minMargin}%` : "Pricing OK"}
+              </button>
+              {showPricingIssues && (
+                <div className="absolute right-0 top-full mt-2 z-50 w-64 rounded-xl p-3 space-y-2" style={G.liquidGlass}>
+                  <p className="text-white text-[13px] font-extrabold">Pricing check</p>
+                  <p className="text-[#8b949e] text-[12px]">{pricingIssues.unpriced} item(s) with $0 cost or 0% markup</p>
+                  <p className="text-[#8b949e] text-[12px]">{pricingIssues.lowMargin} item(s) below the minimum margin</p>
+                  <label className="flex items-center justify-between gap-2 text-[#8b949e] text-[12px]">Minimum margin
+                    <span className="flex items-center gap-1"><input type="number" min={0} max={100} value={minMargin} onChange={e => setMinMargin(Math.max(0, Math.min(100, parseFloat(e.target.value) || 0)))} className="w-16 h-7 rounded-lg px-2 text-[12px] text-white text-right" style={G.input} />%</span>
+                  </label>
+                </div>
+              )}
+            </div>
+          )}
+          <button onClick={() => (pricingIssues.total > 0 ? setProposalWarning(true) : setShowProposalModal(true))} className="flex items-center gap-1.5 h-9 md:h-7 px-3 rounded-lg text-white text-[12px] font-extrabold cursor-pointer" style={{ background: "#3b82f6" }}><FileDown className="w-3 h-3" /> Proposal</button>
         </div>
       </div>
       <FieldAuditModal open={showAuditModal} entries={workbookAudit} onClose={() => setShowAuditModal(false)} />
