@@ -52,23 +52,44 @@ function mapLineItem(li: any, exchangeRate: number) {
   };
 }
 
-async function loadCategories(quoteId: string, exchangeRate: number) {
-  const catsResult = await pool.query("SELECT * FROM quote_categories WHERE quote_id=$1 ORDER BY sort_order", [quoteId]);
-  const categories = [];
-  for (const cat of catsResult.rows) {
-    const itemsResult = await pool.query("SELECT * FROM quote_line_items WHERE category_id=$1 ORDER BY item_number", [cat.id]);
-    categories.push({
-      id: cat.id,
-      name: cat.name,
-      type: cat.type,
-      system: cat.system,
-      sectionNumber: cat.section_number,
-      importRatePercent: Number(cat.import_rate_percent),
-      lineItems: itemsResult.rows.map((li) => mapLineItem(li, exchangeRate)),
-      contingency: undefined,
-    });
+// Categories and line items for any number of quotes in one joined query.
+async function loadCategoriesFor(quotes: { id: string; exchangeRate: number }[]) {
+  const byQuote = new Map<string, any[]>(quotes.map((q) => [q.id, []]));
+  if (quotes.length === 0) return byQuote;
+  const rate = new Map(quotes.map((q) => [q.id, q.exchangeRate]));
+  const result = await pool.query(
+    `SELECT qc.id AS cat_id, qc.quote_id, qc.name AS cat_name, qc.type AS cat_type, qc.system AS cat_system,
+            qc.section_number AS cat_section_number, qc.import_rate_percent AS cat_import_rate_percent, li.*
+     FROM quote_categories qc
+     LEFT JOIN quote_line_items li ON li.category_id = qc.id
+     WHERE qc.quote_id = ANY($1::uuid[])
+     ORDER BY qc.quote_id, qc.sort_order, qc.id, li.item_number, li.id`,
+    [quotes.map((q) => q.id)]
+  );
+  const cats = new Map<string, any>();
+  for (const row of result.rows) {
+    let cat = cats.get(row.cat_id);
+    if (!cat) {
+      cat = {
+        id: row.cat_id,
+        name: row.cat_name,
+        type: row.cat_type,
+        system: row.cat_system,
+        sectionNumber: row.cat_section_number,
+        importRatePercent: Number(row.cat_import_rate_percent),
+        lineItems: [],
+        contingency: undefined,
+      };
+      cats.set(row.cat_id, cat);
+      byQuote.get(row.quote_id)!.push(cat);
+    }
+    if (row.id) cat.lineItems.push(mapLineItem(row, rate.get(row.quote_id) ?? 0));
   }
-  return categories;
+  return byQuote;
+}
+
+async function loadCategories(quoteId: string, exchangeRate: number) {
+  return (await loadCategoriesFor([{ id: quoteId, exchangeRate }])).get(quoteId)!;
 }
 
 // GET /api/quotes
@@ -81,9 +102,10 @@ router.get("/", async (req: Request, res: Response) => {
            WHERE p.pipeline_type = 'project' AND p.deleted_at IS NULL ORDER BY q.created_at DESC`
         )
       : await pool.query("SELECT * FROM quotes ORDER BY created_at DESC");
+    const categoriesByQuote = await loadCategoriesFor(quotesResult.rows.map((q) => ({ id: q.id, exchangeRate: Number(q.exchange_rate) })));
     const quotes = [];
     for (const q of quotesResult.rows) {
-      let categories = await loadCategories(q.id, Number(q.exchange_rate));
+      let categories = categoriesByQuote.get(q.id)!;
       if (tech) categories = redactCostsForTech(categories);
       quotes.push({
         id: q.id, clientName: q.client_name, refNumber: q.ref_number, date: q.date ? new Date(q.date).toISOString().slice(0, 10) : "",
