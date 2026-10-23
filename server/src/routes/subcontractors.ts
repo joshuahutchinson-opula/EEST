@@ -1,6 +1,7 @@
 import { Router, Request, Response } from "express";
 import crypto from "crypto";
 import pool from "../db";
+import { requireAdmin } from "../lib/roles";
 
 const router = Router();
 
@@ -91,7 +92,7 @@ router.post("/:projectId", async (req: Request, res: Response) => {
 });
 
 // POST /api/subcontractors/:subId/share — generate (or regenerate) a shareable read-only link
-router.post("/:subId/share", async (req: Request, res: Response) => {
+router.post("/:subId/share", requireAdmin, async (req: Request, res: Response) => {
   try {
     const { subId } = req.params;
     const shareToken = crypto.randomBytes(24).toString("hex");
@@ -110,7 +111,7 @@ router.post("/:subId/share", async (req: Request, res: Response) => {
 });
 
 // DELETE /api/subcontractors/:subId/share — revoke the shareable link
-router.delete("/:subId/share", async (req: Request, res: Response) => {
+router.delete("/:subId/share", requireAdmin, async (req: Request, res: Response) => {
   try {
     const { subId } = req.params;
     await pool.query(`UPDATE subcontractors SET share_token = NULL WHERE id = $1`, [subId]);

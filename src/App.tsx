@@ -1011,6 +1011,7 @@ function AppTopbar({ page, navigate, breadcrumb }: { page: Page; navigate: (p: P
 
 function KanbanCard({ project, column, dragging, onDragStart, onDragEnd, onClick, onDelete, onMoveToProjects, liveValue }: { project: Project; column: Column | ProjectColumn; dragging: string | null; onDragStart: (e: React.DragEvent<HTMLDivElement>, id: string) => void; onDragEnd: () => void; onClick: () => void; onDelete: (id: string) => void; onMoveToProjects?: (id: string) => void; liveValue?: number | null; }) {
   const { fmt } = useCurrency();
+  const tech = isTechRole(useRole());
   const isDragging = dragging === project.id;
   const [menuOpen, setMenuOpen] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
@@ -1039,7 +1040,7 @@ function KanbanCard({ project, column, dragging, onDragStart, onDragEnd, onClick
                 <>
                   <div className="fixed inset-0 z-10" onClick={(e) => { e.stopPropagation(); setMenuOpen(false); }} />
                   <div className="absolute right-0 top-7 z-20 w-40 rounded-xl overflow-hidden py-1" style={{ background: "rgba(7,12,26,0.97)", border: "1px solid rgba(255,255,255,0.12)", boxShadow: "0 8px 32px rgba(0,0,0,0.8)", backdropFilter: "blur(20px)" }}>
-                    <button onClick={(e) => { e.stopPropagation(); setConfirmDelete(true); setMenuOpen(false); }} className="w-full flex items-center gap-2.5 px-3 py-2.5 text-rose-400 text-[14px] font-bold hover:bg-rose-500/10 transition-colors text-left cursor-pointer min-h-[44px]"><Trash2 className="w-3.5 h-3.5" /> Delete</button>
+                    {!tech && <button onClick={(e) => { e.stopPropagation(); setConfirmDelete(true); setMenuOpen(false); }} className="w-full flex items-center gap-2.5 px-3 py-2.5 text-rose-400 text-[14px] font-bold hover:bg-rose-500/10 transition-colors text-left cursor-pointer min-h-[44px]"><Trash2 className="w-3.5 h-3.5" /> Delete</button>}
                   </div>
                 </>
               )}
@@ -2334,7 +2335,7 @@ function DealModal({ project, column, onClose, navigate, onUpdate, onDelete, pip
         <div className="px-5 md:px-7 pb-7 flex gap-2.5">
           <button onClick={() => { navigate("project-detail"); onClose(); }} className="flex-1 h-10 rounded-xl flex items-center justify-center gap-2 text-white text-[15px] font-extrabold cursor-pointer min-h-[44px]" style={{ background: "#3b82f6", boxShadow: "0 4px 20px rgba(59,130,246,0.4)" }}><ExternalLink className="w-3.5 h-3.5" />Open</button>
           <button onClick={() => { localStorage.setItem("pd_tab", "assets"); navigate("project-detail"); onClose(); }} className="flex-1 h-10 rounded-xl flex items-center justify-center gap-2 text-[#e6edf3] text-[15px] font-extrabold cursor-pointer min-h-[44px]" style={G.btn}><Package className="w-3.5 h-3.5 text-violet-400" />Assets</button>
-          <button onClick={() => { onDelete(project.id); onClose(); }} className="h-10 px-3 rounded-xl text-rose-400 text-[15px] font-extrabold cursor-pointer min-h-[44px]" style={{ background: "rgba(244,63,94,0.10)", border: "1px solid rgba(244,63,94,0.20)" }}><Trash2 className="w-3.5 h-3.5" /></button>
+          {!tech && <button onClick={() => { onDelete(project.id); onClose(); }} className="h-10 px-3 rounded-xl text-rose-400 text-[15px] font-extrabold cursor-pointer min-h-[44px]" style={{ background: "rgba(244,63,94,0.10)", border: "1px solid rgba(244,63,94,0.20)" }}><Trash2 className="w-3.5 h-3.5" /></button>}
         </div>
       </motion.div>
     </div>
@@ -2420,6 +2421,7 @@ const PROJECTS_STEPS: TutorialStep[] = [
 ];
 
 function ProjectsPage({ navigate }: { navigate: (p: Page) => void }) {
+  const tech = isTechRole(useRole());
   useAutoTutorial("projects", PROJECTS_STEPS);
   const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
   const [filter, setFilter] = useState<"all" | Stage | ProjectStage>("all");
@@ -2491,7 +2493,7 @@ function ProjectsPage({ navigate }: { navigate: (p: Page) => void }) {
                   const badge = isProjPipe ? projectStageBadge(project.projectStage || "planning") : stageBadge(project.stage);
                   return (
                     <motion.div data-tour="proj-card" key={project.id} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, scale: 0.95 }} className="group rounded-2xl overflow-hidden cursor-pointer transition-all md:hover:-translate-y-1" style={{ ...G.card }} onClick={() => openProject(project.id)}>
-                      <div className="relative h-[100px] md:h-[112px] bg-[#070c1a]"><ProjectAssetSummary projectId={project.id} /><div className={clsx("absolute top-2 right-2 text-[12px] font-extrabold px-2 py-0.5 rounded-full", badge.cls)}>{badge.label}</div><button onClick={(e) => { e.stopPropagation(); setConfirmDeleteId(project.id); }} className="absolute top-2 left-2 w-7 h-7 rounded-lg flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer" style={{ background: "rgba(0,0,0,0.55)", backdropFilter: "blur(8px)" }} title="Delete project"><Trash2 className="w-3.5 h-3.5 text-rose-400" /></button></div>
+                      <div className="relative h-[100px] md:h-[112px] bg-[#070c1a]"><ProjectAssetSummary projectId={project.id} /><div className={clsx("absolute top-2 right-2 text-[12px] font-extrabold px-2 py-0.5 rounded-full", badge.cls)}>{badge.label}</div>{!tech && <button onClick={(e) => { e.stopPropagation(); setConfirmDeleteId(project.id); }} className="absolute top-2 left-2 w-7 h-7 rounded-lg flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer" style={{ background: "rgba(0,0,0,0.55)", backdropFilter: "blur(8px)" }} title="Delete project"><Trash2 className="w-3.5 h-3.5 text-rose-400" /></button>}</div>
                       <div className="p-3 md:p-4"><h3 className="text-white text-[14px] md:text-[15px] font-bold leading-snug mb-1 line-clamp-1">{project.name}</h3><p className="text-[#8b949e] text-[12px] md:text-[13px] font-semibold mb-2 flex items-center gap-1"><Building2 className="w-3 h-3" /> {project.client}</p><div className="flex items-center justify-between"><div className="flex items-center gap-2"><span className="flex items-center gap-1 text-[#8b949e] text-[12px]"><Camera className="w-3 h-3" />{project.cameras}</span></div><div className="w-5 h-5 rounded-full flex items-center justify-center text-[11px] font-extrabold text-white" style={{ background: project.assignee.color }}>{project.assignee.initials}</div></div></div>
                     </motion.div>
                   );
@@ -2512,7 +2514,7 @@ function ProjectsPage({ navigate }: { navigate: (p: Page) => void }) {
                       <p className="text-[#8b949e] text-[13px]">{project.cameras}</p>
                       <p className="text-[#8b949e] text-[13px]">{project.devices}</p>
                       <span className={clsx("text-[12px] font-extrabold px-2 py-0.5 rounded-full w-fit", badge.cls)}>{badge.label}</span>
-                      <button onClick={(e) => { e.stopPropagation(); setConfirmDeleteId(project.id); }} className="opacity-0 group-hover:opacity-100 w-7 h-7 rounded-lg hover:bg-rose-500/10 flex items-center justify-center cursor-pointer transition-opacity" title="Delete project"><Trash2 className="w-3.5 h-3.5 text-rose-400" /></button>
+                      {!tech && <button onClick={(e) => { e.stopPropagation(); setConfirmDeleteId(project.id); }} className="opacity-0 group-hover:opacity-100 w-7 h-7 rounded-lg hover:bg-rose-500/10 flex items-center justify-center cursor-pointer transition-opacity" title="Delete project"><Trash2 className="w-3.5 h-3.5 text-rose-400" /></button>}
                     </div>
                   );
                 })}
@@ -2647,7 +2649,7 @@ function ProjectDetail({ navigate }: { navigate: (p: Page) => void }) {
           {[{ label: "Assets", icon: Package, action: () => setActiveTab("assets") },{ label: "Installation", icon: CheckSquare, action: () => navigate("install-tracker") }].map(({ label, icon: Icon, action }) => (
             <button key={label} onClick={action} className="flex items-center gap-1.5 h-9 px-3 md:px-4 rounded-xl text-white text-[13px] md:text-[14px] font-bold hover:bg-white/[0.10] cursor-pointer min-h-[44px]" style={G.btn}><Icon className="w-3.5 h-3.5" /> {label}</button>
           ))}
-          <button onClick={handleGenerateShareLink} className="flex items-center gap-1.5 h-9 px-3 rounded-xl text-white text-[13px] font-bold cursor-pointer" style={G.btn}><Share2 className="w-3.5 h-3.5" /> Share</button>
+          {!tech && <button onClick={handleGenerateShareLink} className="flex items-center gap-1.5 h-9 px-3 rounded-xl text-white text-[13px] font-bold cursor-pointer" style={G.btn}><Share2 className="w-3.5 h-3.5" /> Share</button>}
         </div>
       </div>
       <div data-tour="pd-stats" className="grid grid-cols-2 md:grid-cols-5 gap-2 md:gap-3 mb-4 md:mb-6">
@@ -2764,6 +2766,7 @@ function GanttView({ projectId }: { projectId: string }) {
   );
 }
 function SubcontractorTab({ projectId }: { projectId: string }) {
+  const tech = isTechRole(useRole());
   const [subs, setSubs] = useState<Subcontractor[]>([]);
   const [loading, setLoading] = useState(true);
   const [showAdd, setShowAdd] = useState(false);
@@ -2854,7 +2857,7 @@ function SubcontractorTab({ projectId }: { projectId: string }) {
           <div className="flex items-center justify-between">
             <div className="flex-1 min-w-0"><p className="text-white text-[14px] font-bold">{sub.name}</p><p className="text-[#8b949e] text-[12px]">{sub.trade}{sub.email ? ` · ${sub.email}` : ""}</p></div>
             <div className="flex items-center gap-2 flex-shrink-0">
-              <button onClick={() => handleShare(sub)} disabled={sharingSub === sub.id} className={clsx("flex items-center gap-1.5 h-7 px-2.5 rounded-lg text-[12px] font-extrabold cursor-pointer", sub.shareToken ? "text-blue-400" : "text-[#8b949e] hover:text-white")} style={G.btn}>{sharingSub === sub.id ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Share2 className="w-3.5 h-3.5" />}{sub.shareToken ? "Link" : "Share"}</button>
+              {!tech && <button onClick={() => handleShare(sub)} disabled={sharingSub === sub.id} className={clsx("flex items-center gap-1.5 h-7 px-2.5 rounded-lg text-[12px] font-extrabold cursor-pointer", sub.shareToken ? "text-blue-400" : "text-[#8b949e] hover:text-white")} style={G.btn}>{sharingSub === sub.id ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Share2 className="w-3.5 h-3.5" />}{sub.shareToken ? "Link" : "Share"}</button>}
               <button onClick={() => setShowDocs(showDocs === sub.id ? null : sub.id)} className="w-7 h-7 rounded-lg flex items-center justify-center cursor-pointer hover:bg-white/10" style={G.btn}><Paperclip className="w-3.5 h-3.5 text-[#8b949e]" /></button>
               <button onClick={() => handleDelete(sub.id)} className="w-7 h-7 rounded-lg flex items-center justify-center cursor-pointer hover:bg-rose-500/10"><Trash2 className="w-3 h-3 text-rose-400" /></button>
             </div>

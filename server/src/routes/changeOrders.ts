@@ -42,7 +42,7 @@ router.post("/:projectId", async (req: Request, res: Response) => {
     const result = await pool.query(
       `INSERT INTO change_orders (project_id, title, description, cost_impact, status, created_by)
        VALUES ($1, $2, $3, $4, $5, $6) RETURNING *`,
-      [projectId, title, description || null, tech ? 0 : (costImpact || 0), status || "draft", createdBy || ""]
+      [projectId, title, description || null, tech ? 0 : (costImpact || 0), tech ? "draft" : (status || "draft"), createdBy || ""]
     );
     const row = result.rows[0];
     res.status(201).json({
@@ -68,6 +68,8 @@ router.patch("/:projectId/:id", async (req: Request, res: Response) => {
     const { id } = req.params;
     const tech = isTech(req);
     const { title, description, costImpact, status } = req.body;
+    // Approving/rejecting/submitting a change order is an admin decision.
+    if (tech && status !== undefined) return res.status(403).json({ error: "Forbidden for this role" });
     const result = await pool.query(
       `UPDATE change_orders SET
          title = COALESCE($2, title),
@@ -131,7 +133,7 @@ router.get("/:projectId/:id/docx", requireAdmin, async (req: Request, res: Respo
 });
 
 // DELETE /api/change-orders/:projectId/:id
-router.delete("/:projectId/:id", async (req: Request, res: Response) => {
+router.delete("/:projectId/:id", requireAdmin, async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
     await pool.query("DELETE FROM change_orders WHERE id = $1", [id]);

@@ -212,7 +212,7 @@ router.patch("/:id", requireAdmin, async (req: Request, res: Response) => {
 });
 
 // DELETE /api/quotes/:id
-router.delete("/:id", async (req: Request, res: Response) => {
+router.delete("/:id", requireAdmin, async (req: Request, res: Response) => {
   try {
     await pool.query("DELETE FROM quotes WHERE id=$1", [req.params.id]);
     res.json({ success: true });
