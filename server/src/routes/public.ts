@@ -16,7 +16,8 @@ async function clientQuote(projectId: string) {
   const wb = await loadProjectWorkbook(projectId, q.id);
   if (!wb?.quote) return null;
   const rate = wb.quote.exchangeRate;
-  const rows = buildSectionRows(wb.totals, wb.categories);
+  // Client-facing: Synthesis overrides are folded into the section's rows, no adjustment line.
+  const rows = buildSectionRows(wb.totals, wb.categories, { foldAdjustments: true });
   return {
     id: wb.quote.id,
     refNumber: wb.quote.refNumber,
