@@ -230,9 +230,12 @@ export interface Subcontractor { id: string; projectId: string; name: string; tr
 
 export interface PublicSubcontractor { id: string; name: string; trade?: string; email?: string; projectName: string; createdAt: string; documents: { id: string; filename: string; fileUrl: string; createdAt: string; }[]; tasks: { id: string; title: string; description?: string; status: TaskStatus; priority: TaskPriority; dueDate?: string; }[]; }
 
+export interface PublicApproval { signerName: string; approvedAt: string }
 export interface PublicProjectStatus {
   project: { name: string; client: string; location: string; projectStage: ProjectStage; dueDate: string; cameras: number; devices: number; progress: number; stageHistory: { stage: string; date: string }[]; summary?: string; team: { name: string; initials: string; color: string; roles: string[] }[] };
-  changeOrders: { title: string; description: string; costImpact: number; status: ChangeOrder["status"]; createdAt: string }[];
+  changeOrders: { id: string; title: string; description: string; costImpact: number; status: ChangeOrder["status"]; createdAt: string; approval?: PublicApproval }[];
+  // The newest sent or approved quote version, priced in JMD; null when nothing has been sent.
+  quote: { id: string; refNumber: string; revision: number; status: Quote["status"]; exchangeRate: number; sections: { section: string; name: string; totalJmd: number; rows: { description: string; quantity: number; unitPriceJmd: number; extendedJmd: number }[] }[]; subtotalJmd: number; gctJmd: number; totalJmd: number; approval?: PublicApproval } | null;
   assets: { category: AssetCategory; quantity: number; location: string; purpose: string; cableSpec?: CableSpec; coveragePhotos?: string[]; manufacturer?: string; model?: string }[];
 }
 

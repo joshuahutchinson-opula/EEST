@@ -312,6 +312,20 @@ export async function initDB() {
         synced_at TIMESTAMPTZ DEFAULT NOW()
       );
 
+      -- Client sign-offs from the public share link: typed name + drawn signature (PNG data URL).
+      CREATE TABLE IF NOT EXISTS approvals (
+        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+        project_id UUID NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+        target_type TEXT NOT NULL CHECK (target_type IN ('quote', 'change_order')),
+        target_id UUID NOT NULL,
+        signer_name TEXT NOT NULL,
+        signature TEXT NOT NULL,
+        ip_address TEXT,
+        user_agent TEXT,
+        approved_at TIMESTAMPTZ DEFAULT NOW(),
+        UNIQUE (target_type, target_id)
+      );
+
       CREATE TABLE IF NOT EXISTS user_tutorial_progress (
         email TEXT NOT NULL,
         tutorial_key TEXT NOT NULL,

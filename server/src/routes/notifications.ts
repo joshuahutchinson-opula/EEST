@@ -6,7 +6,7 @@ const router = Router();
 
 // Company-wide "System" broadcasts that are inherently sales/financial in nature and must
 // never reach Tech, who sees only their own activity — Admin still sees every System row.
-const ADMIN_ONLY_NOTIFICATION_TYPES = ["sales-win"];
+const ADMIN_ONLY_NOTIFICATION_TYPES = ["sales-win", "client-approval"];
 
 router.get("/", async (req: Request, res: Response) => {
   try {

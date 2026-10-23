@@ -192,7 +192,10 @@ export const API = {
     exportXlsx: (projectId: string, quoteId?: string) => apiFetchBlob(`/workbook/${projectId}/export-xlsx${quoteId ? `?quoteId=${quoteId}` : ""}`),
   },
   proposals: { generate: (projectId: string, quoteId?: string, options?: { systems?: string[]; validUntil?: string; terms?: string }) => apiFetchBlob(`/workbook/${projectId}/proposal${quoteId ? `?quoteId=${quoteId}` : ""}`, { method: "POST", body: JSON.stringify(options || {}) }) },
-  publicStatus: { get: (token: string) => apiFetch<PublicProjectStatus>(`/public/status/${token}`) },
+  publicStatus: {
+    get: (token: string) => apiFetch<PublicProjectStatus>(`/public/status/${token}`),
+    approve: (token: string, data: { targetType: "quote" | "change_order"; targetId: string; signerName: string; signature: string }) => apiFetch<void>(`/public/status/${token}/approve`, { method: "POST", body: JSON.stringify(data) }),
+  },
   inventory: {
     items: () => apiFetch<InventoryItem[]>("/inventory/items"),
     createItem: (data: Partial<InventoryItem>) => apiFetch<InventoryItem>("/inventory/items", { method: "POST", body: JSON.stringify(data) }),
