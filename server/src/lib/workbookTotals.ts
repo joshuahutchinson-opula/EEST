@@ -49,6 +49,7 @@ export const SYNTHESIS_SECTIONS: SynthesisSectionDef[] = [
   { section: "800", name: "Importation", system: "VSS", kind: "import" },
   { section: "900", name: "Access Control System Software", system: "EAC", kind: "items" },
   { section: "1000", name: "Hardware", system: "EAC", kind: "items" },
+  { section: "1050", name: "Computers", system: "EAC", kind: "items" },
   { section: "1100", name: "Infrastructure", system: "EAC", kind: "items" },
   { section: "1200", name: "Professional Services", system: "EAC", kind: "items" },
   { section: "1200.5", name: "Contingency Plan", system: "EAC", kind: "contingency" },
