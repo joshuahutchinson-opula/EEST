@@ -580,7 +580,7 @@ const API = {
     getOverrides: (projectId: string) => apiFetch<SynthesisOverride[]>(`/workbook/${projectId}/overrides`),
     saveOverrides: (projectId: string, overrides: Partial<SynthesisOverride>[]) => apiFetch<void>(`/workbook/${projectId}/overrides`, { method: "PUT", body: JSON.stringify({ overrides }) }),
     getAudit: (projectId: string, fieldPath?: string) => apiFetch<WorkbookAuditEntry[]>(`/workbook/${projectId}/audit${fieldPath ? `?fieldPath=${encodeURIComponent(fieldPath)}` : ""}`),
-    logAudit: (projectId: string, fieldPath: string, oldValue: string, newValue: string) => apiFetch<void>(`/workbook/${projectId}/audit`, { method: "POST", body: JSON.stringify({ fieldPath, oldValue, newValue, changedBy: CURRENT_USER.name }) }),
+    logAudit: (projectId: string, fieldPath: string, oldValue: string, newValue: string) => apiFetch<void>(`/workbook/${projectId}/audit`, { method: "POST", body: JSON.stringify({ fieldPath, oldValue, newValue }) }),
     getPriceHistory: (deviceId: string) => apiFetch<{ price: number; recordedAt: string }[]>(`/workbook/devices/${deviceId}/price-history`),
     exportXlsx: (projectId: string) => apiFetchBlob(`/workbook/${projectId}/export-xlsx`),
   },
@@ -2584,7 +2584,7 @@ function ProjectDetail({ navigate }: { navigate: (p: Page) => void }) {
 
   const handleCreateCO = async () => {
     if (!project || !newCOTitle.trim()) return;
-    const co: Partial<ChangeOrder> = { projectId: project.id, title: newCOTitle.trim(), description: newCODesc.trim(), costImpact: parseFloat(newCOCost) || 0, status: "draft", createdBy: CURRENT_USER.name };
+    const co: Partial<ChangeOrder> = { projectId: project.id, title: newCOTitle.trim(), description: newCODesc.trim(), costImpact: parseFloat(newCOCost) || 0, status: "draft" };
     try { const created = await API.changeOrders.create(project.id, co); setChangeOrders((prev) => [...prev, created]); setShowNewCO(false); setNewCOTitle(""); setNewCODesc(""); setNewCOCost(""); toast.success("Change order created"); } catch { toast.error("Failed to create change order"); }
   };
 
@@ -2819,7 +2819,7 @@ function SubcontractorTab({ projectId }: { projectId: string }) {
     setUploadingDoc(subId);
     try {
       const result = await API.documents.upload(projectId, file);
-      await API.subcontractors.addDoc(subId, { filename: file.name, fileUrl: result.fileUrl, uploadedBy: CURRENT_USER.name });
+      await API.subcontractors.addDoc(subId, { filename: file.name, fileUrl: result.fileUrl });
       const updated = await API.subcontractors.list(projectId);
       setSubs(updated);
       toast.success("Document uploaded");
@@ -4086,7 +4086,6 @@ function DeviceLibrary({ navigate: _navigate }: { navigate: (p: Page) => void })
   const [invQty, setInvQty] = useState("");
   const [invLocation, setInvLocation] = useState("");
   const [showTransaction, setShowTransaction] = useState<string | null>(null);
-  const [txUserName, setTxUserName] = useState("");
   const [txAction, setTxAction] = useState("Sold");
   const [txQty, setTxQty] = useState("");
   const [txPurpose, setTxPurpose] = useState("");
@@ -4127,8 +4126,8 @@ function DeviceLibrary({ navigate: _navigate }: { navigate: (p: Page) => void })
   };
 
   const handleAddTransaction = async (itemId: string) => {
-    if (!txUserName.trim() || !txQty) return;
-    try { await API.inventory.createTransaction({ itemId, userName: txUserName.trim(), action: txAction, quantity: parseInt(txQty), purpose: txPurpose.trim() || undefined, notes: txNotes.trim() || undefined }); fetchInventory(); setShowTransaction(null); setTxUserName(""); setTxQty(""); setTxPurpose(""); setTxNotes(""); toast.success("Transaction logged"); } catch { toast.error("Failed to log transaction"); }
+    if (!txQty) return;
+    try { await API.inventory.createTransaction({ itemId, action: txAction, quantity: parseInt(txQty), purpose: txPurpose.trim() || undefined, notes: txNotes.trim() || undefined }); fetchInventory(); setShowTransaction(null); setTxQty(""); setTxPurpose(""); setTxNotes(""); toast.success("Transaction logged"); } catch { toast.error("Failed to log transaction"); }
   };
 
   const categories: { id: string; label: string }[] = [{ id: "all", label: "All" },{ id: "camera", label: "Cameras" },{ id: "access-control", label: "Access" },{ id: "nvr", label: "NVR" },{ id: "server", label: "Server" },{ id: "analytics", label: "VMS" },{ id: "intercom", label: "Intercom" }];
@@ -4207,7 +4206,7 @@ function DeviceLibrary({ navigate: _navigate }: { navigate: (p: Page) => void })
           )}
           {showTransaction && (
             <div className="rounded-xl p-3 space-y-2" style={G.card}>
-              <div className="flex gap-2"><input value={txUserName} onChange={e => setTxUserName(e.target.value)} placeholder="Who took it" className="flex-1 h-8 rounded-lg px-2 text-[13px] text-white" style={G.input} /><select value={txAction} onChange={e => setTxAction(e.target.value)} className="h-8 rounded-lg px-2 text-[13px] cursor-pointer" style={{ ...G.input, background: "#0d1117", color: "#e6edf3" }}>{["Sold","Loaned","Disposed","Returned"].map(a => <option key={a} value={a} style={{ background: "#0d1117", color: "#e6edf3" }}>{a}</option>)}</select></div>
+              <div className="flex gap-2"><select value={txAction} onChange={e => setTxAction(e.target.value)} className="flex-1 h-8 rounded-lg px-2 text-[13px] cursor-pointer" style={{ ...G.input, background: "#0d1117", color: "#e6edf3" }}>{["Sold","Loaned","Disposed","Returned"].map(a => <option key={a} value={a} style={{ background: "#0d1117", color: "#e6edf3" }}>{a}</option>)}</select></div>
               <div className="flex gap-2"><input type="number" value={txQty} onChange={e => setTxQty(e.target.value)} placeholder="Qty" className="w-24 h-8 rounded-lg px-2 text-[13px] text-white" style={G.input} /><input value={txPurpose} onChange={e => setTxPurpose(e.target.value)} placeholder="Purpose" className="flex-1 h-8 rounded-lg px-2 text-[13px] text-white" style={G.input} /></div>
               <input value={txNotes} onChange={e => setTxNotes(e.target.value)} placeholder="Notes" className="w-full h-8 rounded-lg px-2 text-[13px] text-white" style={G.input} />
               <button onClick={() => handleAddTransaction(showTransaction)} className="w-full h-8 rounded-lg text-white text-[13px] font-extrabold cursor-pointer" style={{ background: "#10b981" }}>Save Transaction</button>

@@ -1,6 +1,6 @@
 import { Router, Request, Response } from "express";
 import pool from "../db";
-import { isTech, requireAdmin, requireProjectAccess } from "../lib/roles";
+import { isTech, requireAdmin, requireProjectAccess, sessionUserName } from "../lib/roles";
 import { buildChangeOrderDocx } from "../lib/docxDocuments";
 
 const router = Router();
@@ -39,11 +39,11 @@ router.post("/:projectId", async (req: Request, res: Response) => {
   try {
     const { projectId } = req.params;
     const tech = isTech(req);
-    const { title, description, costImpact, status, createdBy } = req.body;
+    const { title, description, costImpact, status } = req.body;
     const result = await pool.query(
       `INSERT INTO change_orders (project_id, title, description, cost_impact, status, created_by)
        VALUES ($1, $2, $3, $4, $5, $6) RETURNING *`,
-      [projectId, title, description || null, tech ? 0 : (costImpact || 0), tech ? "draft" : (status || "draft"), createdBy || ""]
+      [projectId, title, description || null, tech ? 0 : (costImpact || 0), tech ? "draft" : (status || "draft"), sessionUserName(req)]
     );
     const row = result.rows[0];
     res.status(201).json({

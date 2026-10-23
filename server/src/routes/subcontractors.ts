@@ -1,7 +1,7 @@
 import { Router, Request, Response } from "express";
 import crypto from "crypto";
 import pool from "../db";
-import { requireAdmin, requireProjectAccess } from "../lib/roles";
+import { requireAdmin, requireProjectAccess, sessionUserName } from "../lib/roles";
 import { signFileUrl, toStoredFileUrl } from "../lib/uploads";
 
 const withSignedDocs = (row: any) => ({ ...row, documents: (row.documents || []).map((d: any) => ({ ...d, fileUrl: signFileUrl(d.fileUrl) })) });
@@ -146,7 +146,7 @@ router.delete("/:subId", async (req: Request, res: Response) => {
 router.post("/:subId/documents", async (req: Request, res: Response) => {
   try {
     const { subId } = req.params;
-    const { filename, fileUrl, uploadedBy } = req.body;
+    const { filename, fileUrl } = req.body;
     if (!filename || !fileUrl) {
       return res.status(400).json({ error: "filename and fileUrl are required" });
     }
@@ -154,7 +154,7 @@ router.post("/:subId/documents", async (req: Request, res: Response) => {
       `INSERT INTO subcontractor_documents (subcontractor_id, filename, file_url, uploaded_by)
        VALUES ($1, $2, $3, $4)
        RETURNING id, filename, file_url AS "fileUrl", uploaded_by AS "uploadedBy", created_at AS "createdAt"`,
-      [subId, filename, toStoredFileUrl(fileUrl), uploadedBy || null]
+      [subId, filename, toStoredFileUrl(fileUrl), sessionUserName(req)]
     );
     res.status(201).json({ ...result.rows[0], fileUrl: signFileUrl(result.rows[0].fileUrl) });
   } catch (err) {

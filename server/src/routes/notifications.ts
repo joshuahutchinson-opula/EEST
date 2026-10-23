@@ -1,6 +1,6 @@
 import { Router, Request, Response } from "express";
 import pool from "../db";
-import { isTech } from "../lib/roles";
+import { isTech, sessionUserName } from "../lib/roles";
 
 const router = Router();
 
@@ -32,14 +32,14 @@ router.get("/", async (req: Request, res: Response) => {
 
 router.post("/", async (req: Request, res: Response) => {
   try {
-    const { projectId, event, details, user, notificationType, actionUrl } = req.body;
+    const { projectId, event, details, notificationType, actionUrl } = req.body;
     const result = await pool.query(
       `INSERT INTO audit_logs (project_id, event, details, user_name, notification_type, action_url)
        VALUES ($1, $2, $3, $4, $5, $6)
        RETURNING id, project_id AS "projectId", event, details, user_name AS "user",
                  notification_type AS "notificationType", action_url AS "actionUrl",
                  is_read AS "isRead", created_at AS "timestamp"`,
-      [projectId || null, event || "Notification", details || null, user || "System", notificationType || null, actionUrl || null]
+      [projectId || null, event || "Notification", details || null, sessionUserName(req), notificationType || null, actionUrl || null]
     );
     res.status(201).json(result.rows[0]);
   } catch (err) {

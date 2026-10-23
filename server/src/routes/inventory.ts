@@ -1,5 +1,6 @@
 import { Router, Request, Response } from "express";
 import pool from "../db";
+import { sessionUserName } from "../lib/roles";
 
 const router = Router();
 
@@ -88,7 +89,7 @@ router.get("/transactions", async (_req: Request, res: Response) => {
 // POST /api/inventory/transactions
 router.post("/transactions", async (req: Request, res: Response) => {
   try {
-    const { itemId, userName, action, quantity, purpose, notes } = req.body;
+    const { itemId, action, quantity, purpose, notes } = req.body;
     if (!itemId || !action) {
       return res.status(400).json({ error: "itemId and action are required" });
     }
@@ -101,7 +102,7 @@ router.post("/transactions", async (req: Request, res: Response) => {
         `INSERT INTO inventory_transactions (item_id, user_name, action, quantity, purpose, notes)
          VALUES ($1, $2, $3, $4, $5, $6)
          RETURNING id, item_id AS "itemId", user_name AS "userName", action, quantity, purpose, notes, created_at AS "createdAt"`,
-        [itemId, userName || "Unknown", action, quantity || 0, purpose || null, notes || null]
+        [itemId, sessionUserName(req), action, quantity || 0, purpose || null, notes || null]
       );
 
       const qtyChange = action === "Sold" || action === "Loaned" || action === "Disposed"

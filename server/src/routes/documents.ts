@@ -4,7 +4,7 @@ import path from "path";
 import fs from "fs";
 import pool from "../db";
 import { DOCUMENTS_DIR, resolveUploadPath, signFileUrl } from "../lib/uploads";
-import { requireProjectAccess } from "../lib/roles";
+import { requireProjectAccess, sessionUserName } from "../lib/roles";
 
 const router = Router();
 router.param("projectId", requireProjectAccess());
@@ -47,7 +47,7 @@ router.post("/:projectId", upload.single("file"), async (req: Request, res: Resp
     const result = await pool.query(
       `INSERT INTO documents (project_id, filename, file_url, file_type, file_size, uploaded_by)
        VALUES ($1, $2, $3, $4, $5, $6) RETURNING *`,
-      [projectId, req.file.originalname, fileUrl, req.file.mimetype, req.file.size, "Joshua"]
+      [projectId, req.file.originalname, fileUrl, req.file.mimetype, req.file.size, sessionUserName(req)]
     );
     const row = result.rows[0];
     res.status(201).json({

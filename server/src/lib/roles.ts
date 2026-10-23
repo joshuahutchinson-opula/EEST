@@ -11,6 +11,11 @@ export function getRequestRole(req: Request): Role {
   return role === "tech" ? "tech" : "admin";
 }
 
+// Who performed the request, from the verified session token — never from the request body.
+export function sessionUserName(req: Request): string {
+  return (req as any).user?.name || "Unknown";
+}
+
 export function isTech(req: Request): boolean {
   return getRequestRole(req) === "tech";
 }

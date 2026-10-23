@@ -1,6 +1,6 @@
 import { Router, Request, Response } from "express";
 import pool from "../db";
-import { requireAdmin } from "../lib/roles";
+import { requireAdmin, sessionUserName } from "../lib/roles";
 import { buildProposalDocx } from "../lib/docxDocuments";
 import { buildWorkbookXlsx, XlsxCategory } from "../lib/xlsxExport";
 
@@ -46,7 +46,7 @@ router.put("/:projectId/overrides", async (req: Request, res: Response) => {
            ON CONFLICT (project_id, section_number)
            DO UPDATE SET override_value = EXCLUDED.override_value, is_overridden = EXCLUDED.is_overridden,
              overridden_by = EXCLUDED.overridden_by, overridden_at = NOW()`,
-          [projectId, o.sectionNumber, o.overrideValue, o.isOverridden ?? false, o.overriddenBy || null]
+          [projectId, o.sectionNumber, o.overrideValue, o.isOverridden ?? false, sessionUserName(req)]
         );
       }
       await client.query("COMMIT");
