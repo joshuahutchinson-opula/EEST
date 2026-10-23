@@ -10,15 +10,20 @@ import type { QuoteCategory, SynthesisOverride, TutorialStep, SystemType } from 
 
 export const PM_REFERENCE_RATE = 0.05;
 
+// The suggested PM fee is its own line item under each system's Professional Services section.
+export const PRO_SERVICES_SECTIONS = [700, 1200, 1700];
+export const PM_LINE_DESCRIPTION = "Project Management (5%)";
+export const isPmLine = (li: { description?: string }) => (li.description || "").trim() === PM_LINE_DESCRIPTION;
+
 export const CONTINGENCY_REFERENCE_RATE = 0.10;
 
 export const SYNTHESIS_STEPS: TutorialStep[] = [
   { target: "wb-synth-table", title: "Section Subtotals", description: "Every section across Video, Access, and Intercom, grouped and collapsible. Click a value to override it manually — an override badge appears, with a reset button to go back to the auto-calculated figure." },
   { target: "wb-synth-total", title: "Grand Total", description: "The overall grand total, GCT (15%), and total with tax — this is the number that ultimately drives the client-facing quote." },
-  { target: "wb-synth-reference", title: "Reference Figures", description: "Suggested PM fee and contingency percentages. Apply writes one of them into the contingency lines (700.5 and 1200.5); nothing changes until you click it." },
+  { target: "wb-synth-reference", title: "Reference Figures", description: "Suggested PM fee and contingency percentages. Apply PM adds a Project Management line under each system's Professional Services; Apply contingency sets the contingency lines (700.5, 1200.5, 1700.5). Nothing changes until you click." },
 ];
 
-export function SynthesisTab({ quoteCategories, synthesisOverrides, systemFilter, onSystemFilterChange, currency, exchangeRate, fmt, onSaveOverride, fieldSaveStatus }: { quoteCategories: QuoteCategory[]; synthesisOverrides: SynthesisOverride[]; systemFilter: SystemType | "All"; onSystemFilterChange: (s: SystemType | "All") => void; currency: "USD" | "JMD"; exchangeRate: number; fmt: (n: number, compact?: boolean) => string; onSaveOverride: (sectionNumber: string, value: number | null, isOverridden: boolean) => void; fieldSaveStatus: Record<string, "saved" | "saving" | "">; }) {
+export function SynthesisTab({ quoteCategories, synthesisOverrides, systemFilter, onSystemFilterChange, currency, exchangeRate, fmt, onSaveOverride, onApplyPmFee, fieldSaveStatus }: { quoteCategories: QuoteCategory[]; synthesisOverrides: SynthesisOverride[]; systemFilter: SystemType | "All"; onSystemFilterChange: (s: SystemType | "All") => void; currency: "USD" | "JMD"; exchangeRate: number; fmt: (n: number, compact?: boolean) => string; onSaveOverride: (sectionNumber: string, value: number | null, isOverridden: boolean) => void; onApplyPmFee: (rate: number) => void; fieldSaveStatus: Record<string, "saved" | "saving" | "">; }) {
   useAutoTutorial("workbook.synthesis", SYNTHESIS_STEPS);
   const [collapsed, setCollapsed] = useState<Record<string, boolean>>({});
   const [editingSection, setEditingSection] = useState<string | null>(null);
@@ -36,8 +41,8 @@ export function SynthesisTab({ quoteCategories, synthesisOverrides, systemFilter
   const shownTotals = systemFilter === "All" ? totals : totalsForSystems(totals, [systemFilter]);
   const suggestedPM = totals.subtotal * PM_REFERENCE_RATE;
   const suggestedContingency = totals.subtotal * CONTINGENCY_REFERENCE_RATE;
-  // Sets each system's contingency line (700.5 Video, 1200.5 Access) to rate x that system's
-  // total without its current contingency. Intercom has no contingency line.
+  // Sets each system's contingency line (700.5 Video, 1200.5 Access, 1700.5 Intercom) to rate x
+  // that system's total without its current contingency.
   const applyToContingencyLines = (rate: number) => {
     for (const sys of totals.systems) {
       const line = sys.sections.find(s => s.kind === "contingency");
@@ -105,9 +110,9 @@ export function SynthesisTab({ quoteCategories, synthesisOverrides, systemFilter
       </div>
       <div data-tour="wb-synth-reference" className="rounded-2xl p-4 mt-3" style={G.subtle}>
         <p className="text-[#8b949e] text-[12px] font-extrabold uppercase tracking-widest mb-2">Reference</p>
-        <div className="flex justify-between py-1"><span className="text-[#8b949e] text-[13px]">Suggested PM (5%)</span><span className="flex items-center gap-2"><span className="text-[#8b949e] text-[14px] font-extrabold">{fmt(suggestedPM)}</span><button onClick={() => applyToContingencyLines(PM_REFERENCE_RATE)} className="h-6 px-2 rounded-md text-[11px] font-extrabold text-white cursor-pointer" style={G.btn}>Apply</button></span></div>
+        <div className="flex justify-between py-1"><span className="text-[#8b949e] text-[13px]">Suggested PM (5%)</span><span className="flex items-center gap-2"><span className="text-[#8b949e] text-[14px] font-extrabold">{fmt(suggestedPM)}</span><button onClick={() => onApplyPmFee(PM_REFERENCE_RATE)} className="h-6 px-2 rounded-md text-[11px] font-extrabold text-white cursor-pointer" style={G.btn}>Apply</button></span></div>
         <div className="flex justify-between py-1"><span className="text-[#8b949e] text-[13px]">Suggested Contingency (10%)</span><span className="flex items-center gap-2"><span className="text-[#8b949e] text-[14px] font-extrabold">{fmt(suggestedContingency)}</span><button onClick={() => applyToContingencyLines(CONTINGENCY_REFERENCE_RATE)} className="h-6 px-2 rounded-md text-[11px] font-extrabold text-white cursor-pointer" style={G.btn}>Apply</button></span></div>
-        <p className="text-[#484f58] text-[11px] italic mt-2">Apply sets the Video (700.5) and Access (1200.5) contingency lines to that percentage of each system's total. Intercom has no contingency line.</p>
+        <p className="text-[#484f58] text-[11px] italic mt-2">PM Apply adds or updates a "{PM_LINE_DESCRIPTION}" line under each system's Professional Services (700, 1200, 1700). Contingency Apply sets the 700.5, 1200.5 and 1700.5 contingency lines. Each is that percentage of the system's total before contingency.</p>
       </div>
     </div>
   );

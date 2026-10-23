@@ -58,6 +58,7 @@ export const SYNTHESIS_SECTIONS: SynthesisSectionDef[] = [
   { section: "1500", name: "Hardware", system: "Intercom", kind: "items" },
   { section: "1600", name: "Infrastructure", system: "Intercom", kind: "items" },
   { section: "1700", name: "Professional Services", system: "Intercom", kind: "items" },
+  { section: "1700.5", name: "Contingency Plan", system: "Intercom", kind: "contingency" },
   { section: "1800", name: "Importation", system: "Intercom", kind: "import" },
 ];
 

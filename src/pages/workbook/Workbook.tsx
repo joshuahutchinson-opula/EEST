@@ -20,7 +20,7 @@ import { OverrideConflictModal } from "./OverrideConflictModal";
 import { ProposalGeneratorModal } from "./ProposalGeneratorModal";
 import { SelectProjectModal } from "./SelectProjectModal";
 import { SummaryBar } from "./SummaryBar";
-import { SynthesisTab } from "./SynthesisTab";
+import { isPmLine, PM_LINE_DESCRIPTION, PRO_SERVICES_SECTIONS, SynthesisTab } from "./SynthesisTab";
 import { recalcLineItem, toNum } from "./shared";
 import type { CatalogDevice, Page, Project, ProjectAsset, Quote, QuoteLineItem, SynthesisOverride, SystemType, WorkbookAuditEntry, WorkbookTab } from "../../types";
 
@@ -178,7 +178,7 @@ export function Workbook({ navigate }: { navigate: (p: Page) => void }) {
     for (const cat of selectedQuote?.categories || []) {
       if (isImportSection(cat.sectionNumber)) continue;
       for (const li of cat.lineItems) {
-        if (li.quantity <= 0) continue;
+        if (li.quantity <= 0 || isPmLine(li)) continue;
         if (toNum(li.unitCost) === 0 || toNum(li.markupPercent) === 0) { unpriced++; continue; }
         const r = recalcLineItem(li, 1);
         if (r.sellTotal > 0 && (r.profit / r.sellTotal) * 100 < minMargin) lowMargin++;
@@ -364,6 +364,41 @@ export function Workbook({ navigate }: { navigate: (p: Page) => void }) {
     API.workbook.logAudit(selectedProjectId, `${cat.name} — labour`, `${existing.length} role(s)`, `${rows.length} role(s)`).catch(() => {});
     if (failed) toast.error("Some labour lines couldn't be saved — the section has been reloaded");
     else toast.success("Labour saved to the section");
+  };
+
+  // The suggested PM fee as its own line under each system's Professional Services section: rate x
+  // the system's total without contingency and without the PM line itself. Updates the line if
+  // it's already there (sold at cost, so it isn't counted as unpriced), then reloads the quote.
+  const applyPmFee = async (rate: number) => {
+    if (blockIfFrozen() || !selectedQuote) return;
+    const totals = computeWorkbookTotals(selectedQuote.categories, synthesisOverrides);
+    let failed = false, applied = 0;
+    const hidden: string[] = [];
+    for (const sys of totals.systems) {
+      const cat = selectedQuote.categories.find(c => c.system === sys.system && PRO_SERVICES_SECTIONS.includes(c.sectionNumber));
+      if (!cat) continue;
+      const overridden = sys.sections.find(s => s.section === String(cat.sectionNumber))?.override != null;
+      const contingency = sys.sections.find(s => s.kind === "contingency")?.total ?? 0;
+      const existing = cat.lineItems.find(isPmLine);
+      const counted = existing && !overridden && toNum(existing.quantity) > 0 ? recalcLineItem(existing, 1).sellTotal : 0;
+      const base = sys.total - contingency - counted;
+      if (base <= 0) continue;
+      const amount = Math.round(base * rate * 100) / 100;
+      const op = existing
+        ? API.quotes.updateLineItem(existing.id, { unitCost: amount, quantity: 1, markupPercent: 0, version: itemVersions.current.get(existing.id) ?? existing.version ?? 1 })
+        : API.quotes.createLineItem(selectedQuote.id, { categoryId: cat.id, description: PM_LINE_DESCRIPTION, unitCost: amount, quantity: 1, markupPercent: 0 });
+      await op.then(() => { applied++; if (overridden) hidden.push(String(cat.sectionNumber)); }).catch(() => { failed = true; });
+      API.workbook.logAudit(selectedProjectId, `${cat.name} (${cat.sectionNumber}) — ${PM_LINE_DESCRIPTION}`, existing ? String(toNum(existing.unitCost)) : "", String(amount)).catch(() => {});
+    }
+    try {
+      const fresh = await API.quotes.get(selectedQuote.id);
+      fresh.categories.forEach(c => c.lineItems.forEach(li => itemVersions.current.set(li.id, li.version ?? 1)));
+      setQuotes(prev => prev.map(q => q.id === fresh.id ? { ...q, ...fresh } : q));
+    } catch { failed = true; }
+    if (failed) toast.error("Some PM lines couldn't be saved — the quote has been reloaded");
+    else if (applied === 0) toast.error("No Professional Services section to add the PM line to");
+    else toast.success(`PM fee added under Professional Services (${applied} system${applied === 1 ? "" : "s"})`);
+    if (hidden.length > 0) toast.warning(`Section ${hidden.join(", ")} has a Synthesis override, so the PM line doesn't change its total until the override is reset`);
   };
 
   const addLineItem = (categoryId: string) => {
@@ -566,7 +601,7 @@ export function Workbook({ navigate }: { navigate: (p: Page) => void }) {
             {activeTab === "asset-list" && <AssetListTab quoteCategories={quoteCategories} exchangeRate={exchangeRate} fmt={fmt} systemFilter={systemFilters["asset-list"]} onSystemFilterChange={setTabFilter("asset-list")} exportName={selectedProject?.name || "workbook"} />}
             {activeTab === "cost-margin" && <CostMarginTab quoteCategories={quoteCategories} exchangeRate={exchangeRate} currency={currency} fmt={fmt} onLineItemUpdate={updateQuoteLineItem} onAddLineItem={addLineItem} onAddFromLibrary={setPickerCategoryId} onOpenLabour={setLabourCategoryId} onDeleteLineItem={requestDeleteLineItem} onReorderLineItems={reorderLineItems} onResetCost={handleResetCost} priceDeviation={priceDeviation} fieldSaveStatus={fieldSaveStatus} systemFilter={systemFilters["cost-margin"]} onSystemFilterChange={setTabFilter("cost-margin")} />}
             {activeTab === "bom" && <BomTab quoteCategories={quoteCategories} synthesisOverrides={synthesisOverrides} exchangeRate={exchangeRate} currency={currency} fmt={fmt} onLineItemUpdate={updateQuoteLineItem} onAddLineItem={addLineItem} onAddFromLibrary={setPickerCategoryId} onOpenLabour={setLabourCategoryId} onDeleteLineItem={requestDeleteLineItem} onReorderLineItems={reorderLineItems} onBomEditWithOverride={handleBomEditWithOverride} fieldSaveStatus={fieldSaveStatus} systemFilter={systemFilters["bom"]} onSystemFilterChange={setTabFilter("bom")} />}
-            {activeTab === "synthesis" && <SynthesisTab quoteCategories={quoteCategories} synthesisOverrides={synthesisOverrides} systemFilter={systemFilters.synthesis} onSystemFilterChange={setTabFilter("synthesis")} currency={currency} exchangeRate={exchangeRate} fmt={fmt} onSaveOverride={handleSaveOverride} fieldSaveStatus={fieldSaveStatus} />}
+            {activeTab === "synthesis" && <SynthesisTab quoteCategories={quoteCategories} synthesisOverrides={synthesisOverrides} systemFilter={systemFilters.synthesis} onSystemFilterChange={setTabFilter("synthesis")} currency={currency} exchangeRate={exchangeRate} fmt={fmt} onSaveOverride={handleSaveOverride} onApplyPmFee={applyPmFee} fieldSaveStatus={fieldSaveStatus} />}
           </div>
         </div>
       )}
