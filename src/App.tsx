@@ -3569,7 +3569,6 @@ function BomTab({ quoteCategories, synthesisOverrides, exchangeRate, fmt, onLine
                     </tr>
                   ) : section.children.map((child) => {
                     const listPriceJMD = child.item.sellPrice * exchangeRate;
-                    const extendedJMD = listPriceJMD * child.item.quantity;
                     const fieldKey = `bom-${section.id}-${child.item.id}`;
                     const fs = fieldSaveStatus[fieldKey];
                     const isUnlocked = unlockedRows.has(child.item.id);
@@ -3584,9 +3583,9 @@ function BomTab({ quoteCategories, synthesisOverrides, exchangeRate, fmt, onLine
                             {isUnlocked ? <InlineEditCell value={child.item.description} onChange={(val) => onLineItemUpdate(section.id, child.item.id, { description: val })} /> : <span className="truncate">{child.item.description}</span>}
                           </div>
                         </td>
-                        <td className="px-4 py-2 text-right text-white text-[13px]">{isUnlocked ? <InlineEditCell type="number" value={Number(listPriceJMD.toFixed(2))} onChange={(val) => { const newSellUSD = (parseFloat(val) || 0) / exchangeRate; const denom = 1 + child.item.markupPercent; onLineItemUpdate(section.id, child.item.id, { unitCost: denom !== 0 ? newSellUSD / denom : newSellUSD }); }} /> : fmt(listPriceJMD)}</td>
+                        <td className="px-4 py-2 text-right text-white text-[13px]">{isUnlocked ? <InlineEditCell type="number" value={Number(listPriceJMD.toFixed(2))} onChange={(val) => { const newSellUSD = (parseFloat(val) || 0) / exchangeRate; const denom = 1 + child.item.markupPercent; onLineItemUpdate(section.id, child.item.id, { unitCost: denom !== 0 ? newSellUSD / denom : newSellUSD }); }} /> : fmt(child.item.sellPrice)}</td>
                         <td className="px-4 py-2 text-center">{isUnlocked ? <InlineEditCell type="number" value={child.item.quantity} onChange={(val) => onLineItemUpdate(section.id, child.item.id, { quantity: parseInt(val) || 0 })} /> : <span className="text-[#8b949e] text-[13px]">{child.item.quantity}</span>}</td>
-                        <td className="px-4 py-2 text-right text-white text-[13px] font-extrabold flex items-center justify-end gap-1">{fmt(extendedJMD)}{fs === "saving" && <Loader2 className="w-2.5 h-2.5 animate-spin text-[#8b949e]" />}{fs === "saved" && <CheckCircle2 className="w-2.5 h-2.5 text-emerald-400" />}</td>
+                        <td className="px-4 py-2 text-right text-white text-[13px] font-extrabold flex items-center justify-end gap-1">{fmt(child.item.sellTotal)}{fs === "saving" && <Loader2 className="w-2.5 h-2.5 animate-spin text-[#8b949e]" />}{fs === "saved" && <CheckCircle2 className="w-2.5 h-2.5 text-emerald-400" />}</td>
                       </tr>
                     );
                   })}
@@ -3597,9 +3596,9 @@ function BomTab({ quoteCategories, synthesisOverrides, exchangeRate, fmt, onLine
                 <tr key={`import-${section.id}`} style={{ borderBottom: "1px solid rgba(255,255,255,0.03)" }}>
                   <td className="sticky left-0 px-4 py-2 text-[#8b949e] text-[12px] font-mono" style={{ background: "rgba(7,12,26,0.9)" }}>{section.sectionNumber}.9</td>
                   <td className="px-4 py-2 text-amber-400 text-[13px] font-bold">Import ({Math.round(section.importRatePercent * 100)}%)</td>
-                  <td className="px-4 py-2 text-right text-amber-400 text-[13px]">{fmt(section.importAmount * exchangeRate)}</td>
+                  <td className="px-4 py-2 text-right text-amber-400 text-[13px]">{fmt(section.importAmount)}</td>
                   <td className="px-4 py-2 text-center text-[#8b949e] text-[13px]">1</td>
-                  <td className="px-4 py-2 text-right text-amber-400 text-[13px] font-extrabold">{fmt(section.importAmount * exchangeRate)}</td>
+                  <td className="px-4 py-2 text-right text-amber-400 text-[13px] font-extrabold">{fmt(section.importAmount)}</td>
                 </tr>
               ))}
               <tr style={{ background: "rgba(255,255,255,0.04)" }}><td colSpan={4} className="px-4 py-2.5 text-right text-white text-[13px] font-extrabold uppercase">Subtotal</td><td className="px-4 py-2.5 text-right text-white text-[15px] font-extrabold">{fmt(grandTotal)}</td></tr>
