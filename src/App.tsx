@@ -3271,34 +3271,6 @@ function ProjectAssetsTab({ projectId, projectName, clientName }: { projectId: s
   );
 }
 
-const CATEGORY_SECTION: Record<AssetCategory, Partial<Record<SystemType, number>>> = {
-  camera: { VSS: 400, EAC: 1000, Intercom: 1500 },
-  "access-control": { VSS: 400, EAC: 1000, Intercom: 1500 },
-  "network-hardware": { VSS: 500, EAC: 1000, Intercom: 1500 },
-  "cable-wire": { VSS: 600, EAC: 1100, Intercom: 1600 },
-  intercom: { VSS: 400, EAC: 1000, Intercom: 1500 },
-  software: { VSS: 100, EAC: 900, Intercom: 1400 },
-  other: { VSS: 400, EAC: 1000, Intercom: 1500 },
-};
-
-// network-hardware is a catch-all AssetCategory covering both servers and network gear
-// (switches/NVRs/PoE/etc), which the real Workbook template splits into separate sections —
-// only distinguishable once a specific catalog device is picked (deviceStoreRef), since a
-// generic/unspecified network-hardware asset can't otherwise say which one it is.
-function resolveAssetSection(asset: ProjectAsset, storeDevices: CatalogDevice[]): { sectionNumber: number; markup: number } {
-  const sysCategories = SYSTEM_CATEGORIES[asset.system] || SYSTEM_CATEGORIES.VSS;
-  let sectionNumber = CATEGORY_SECTION[asset.category]?.[asset.system] ?? sysCategories[3]?.sectionNumber ?? sysCategories[0].sectionNumber;
-  if (asset.category === "network-hardware") {
-    const device = asset.deviceStoreRef ? storeDevices.find((d) => d.id === asset.deviceStoreRef) : undefined;
-    if (device?.category === "server") {
-      if (asset.system === "VSS") sectionNumber = 200;
-      else if (asset.system === "EAC") sectionNumber = 1050;
-    }
-  }
-  const markup = sysCategories.find((s) => s.sectionNumber === sectionNumber)?.defaultMarkup ?? 0.35;
-  return { sectionNumber, markup };
-}
-
 function describeAsset(asset: ProjectAsset, storeDevices: CatalogDevice[]): string {
   const sd = asset.deviceStoreRef ? storeDevices.find(d => d.id === asset.deviceStoreRef) : null;
   if (sd) return `${sd.manufacturer} ${sd.model}`;
@@ -3849,24 +3821,11 @@ function Workbook({ navigate }: { navigate: (p: Page) => void }) {
   ];
   const activeTabIndex = wbTabs.findIndex(t => t.id === activeTab);
 
+  // Project assets already sync into line items, so the line items alone are the whole picture.
   const workbookTotals = useMemo(() => {
-    let totalCost = 0, totalSell = 0;
-    projectAssets.forEach(asset => {
-      const unitCost = assetUnitCost(asset, storeDevices);
-      const { markup } = resolveAssetSection(asset, storeDevices);
-      totalCost += unitCost * asset.quantity;
-      totalSell += unitCost * (1 + markup) * asset.quantity;
-    });
-    quoteCategories.forEach(cat => {
-      cat.lineItems.filter(li => li.quantity > 0).forEach(li => {
-        const r = recalcLineItem(li, exchangeRate);
-        totalCost += r.costTotal;
-        totalSell += r.sellTotal;
-      });
-    });
-    const totalProfit = totalSell - totalCost;
-    return { totalCost, totalSell, blendedMargin: totalSell > 0 ? (totalProfit / totalSell) * 100 : 0 };
-  }, [projectAssets, storeDevices, quoteCategories, exchangeRate]);
+    const t = computeWorkbookTotals(quoteCategories, synthesisOverrides);
+    return { totalCost: t.itemsCost, totalSell: t.itemsSell, blendedMargin: t.itemsSell > 0 ? ((t.itemsSell - t.itemsCost) / t.itemsSell) * 100 : 0 };
+  }, [quoteCategories, synthesisOverrides]);
 
   if (loading) return (<div className="px-3 md:px-5 py-4 md:py-6 space-y-4"><Skeleton className="h-10 w-48" /><div className="flex gap-2"><Skeleton className="h-8 w-24 rounded-lg" /><Skeleton className="h-8 w-24 rounded-lg" /><Skeleton className="h-8 w-24 rounded-lg" /><Skeleton className="h-8 w-24 rounded-lg" /></div><Skeleton className="h-64 rounded-2xl" /></div>);
 
