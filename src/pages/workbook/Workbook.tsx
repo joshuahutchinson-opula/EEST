@@ -80,7 +80,13 @@ export function Workbook({ navigate }: { navigate: (p: Page) => void }) {
   useEffect(() => { try { localStorage.setItem("wb_min_margin", String(minMargin)); } catch { /* storage unavailable */ } }, [minMargin]);
   const [showAuditModal, setShowAuditModal] = useState(false);
   const [overrideConflict, setOverrideConflict] = useState<{ sectionNumber: string; sectionName: string; pendingCallback: (() => void) | null } | null>(null);
-  const [systemFilter, setSystemFilter] = useState<SystemType>("VSS");
+  // Each tab keeps its own system filter (remembered per browser); Synthesis can also show all.
+  const [systemFilters, setSystemFilters] = useState<{ "asset-list": SystemType; "cost-margin": SystemType; bom: SystemType; synthesis: SystemType | "All" }>(() => {
+    const defaults = { "asset-list": "VSS" as SystemType, "cost-margin": "VSS" as SystemType, bom: "VSS" as SystemType, synthesis: "All" as SystemType | "All" };
+    try { return { ...defaults, ...JSON.parse(localStorage.getItem("wb_system_filters") || "{}") }; } catch { return defaults; }
+  });
+  useEffect(() => { try { localStorage.setItem("wb_system_filters", JSON.stringify(systemFilters)); } catch { /* storage unavailable */ } }, [systemFilters]);
+  const setTabFilter = <K extends keyof typeof systemFilters>(tab: K) => (value: (typeof systemFilters)[K]) => setSystemFilters(prev => ({ ...prev, [tab]: value }));
 
   useEffect(() => { localStorage.setItem("wb_tab", activeTab); }, [activeTab]);
   useEffect(() => { API.devices.list().then(setStoreDevices).catch(() => setStoreDevices([])); }, []);
@@ -546,10 +552,10 @@ export function Workbook({ navigate }: { navigate: (p: Page) => void }) {
           </div>
           <p className="px-4 md:px-6 pt-2.5 pb-1 text-[#8b949e] text-[12px] md:text-[13px] flex-shrink-0">{wbTabs[activeTabIndex]?.description}</p>
           <div className="flex-1 overflow-y-auto px-3 md:px-5 py-4 space-y-4" style={{ scrollbarWidth: "thin", scrollbarColor: "rgba(255,255,255,0.08) transparent" }}>
-            {activeTab === "asset-list" && <AssetListTab quoteCategories={quoteCategories} exchangeRate={exchangeRate} fmt={fmt} systemFilter={systemFilter} onSystemFilterChange={setSystemFilter} exportName={selectedProject?.name || "workbook"} />}
-            {activeTab === "cost-margin" && <CostMarginTab quoteCategories={quoteCategories} exchangeRate={exchangeRate} currency={currency} fmt={fmt} onLineItemUpdate={updateQuoteLineItem} onAddLineItem={addLineItem} onAddFromLibrary={setPickerCategoryId} onOpenLabour={setLabourCategoryId} onDeleteLineItem={requestDeleteLineItem} onReorderLineItems={reorderLineItems} onResetCost={handleResetCost} priceDeviation={priceDeviation} fieldSaveStatus={fieldSaveStatus} systemFilter={systemFilter} onSystemFilterChange={setSystemFilter} />}
-            {activeTab === "bom" && <BomTab quoteCategories={quoteCategories} synthesisOverrides={synthesisOverrides} exchangeRate={exchangeRate} currency={currency} fmt={fmt} onLineItemUpdate={updateQuoteLineItem} onAddLineItem={addLineItem} onAddFromLibrary={setPickerCategoryId} onOpenLabour={setLabourCategoryId} onDeleteLineItem={requestDeleteLineItem} onReorderLineItems={reorderLineItems} onBomEditWithOverride={handleBomEditWithOverride} fieldSaveStatus={fieldSaveStatus} systemFilter={systemFilter} onSystemFilterChange={setSystemFilter} />}
-            {activeTab === "synthesis" && <SynthesisTab quoteCategories={quoteCategories} synthesisOverrides={synthesisOverrides} currency={currency} exchangeRate={exchangeRate} fmt={fmt} onSaveOverride={handleSaveOverride} fieldSaveStatus={fieldSaveStatus} />}
+            {activeTab === "asset-list" && <AssetListTab quoteCategories={quoteCategories} exchangeRate={exchangeRate} fmt={fmt} systemFilter={systemFilters["asset-list"]} onSystemFilterChange={setTabFilter("asset-list")} exportName={selectedProject?.name || "workbook"} />}
+            {activeTab === "cost-margin" && <CostMarginTab quoteCategories={quoteCategories} exchangeRate={exchangeRate} currency={currency} fmt={fmt} onLineItemUpdate={updateQuoteLineItem} onAddLineItem={addLineItem} onAddFromLibrary={setPickerCategoryId} onOpenLabour={setLabourCategoryId} onDeleteLineItem={requestDeleteLineItem} onReorderLineItems={reorderLineItems} onResetCost={handleResetCost} priceDeviation={priceDeviation} fieldSaveStatus={fieldSaveStatus} systemFilter={systemFilters["cost-margin"]} onSystemFilterChange={setTabFilter("cost-margin")} />}
+            {activeTab === "bom" && <BomTab quoteCategories={quoteCategories} synthesisOverrides={synthesisOverrides} exchangeRate={exchangeRate} currency={currency} fmt={fmt} onLineItemUpdate={updateQuoteLineItem} onAddLineItem={addLineItem} onAddFromLibrary={setPickerCategoryId} onOpenLabour={setLabourCategoryId} onDeleteLineItem={requestDeleteLineItem} onReorderLineItems={reorderLineItems} onBomEditWithOverride={handleBomEditWithOverride} fieldSaveStatus={fieldSaveStatus} systemFilter={systemFilters["bom"]} onSystemFilterChange={setTabFilter("bom")} />}
+            {activeTab === "synthesis" && <SynthesisTab quoteCategories={quoteCategories} synthesisOverrides={synthesisOverrides} systemFilter={systemFilters.synthesis} onSystemFilterChange={setTabFilter("synthesis")} currency={currency} exchangeRate={exchangeRate} fmt={fmt} onSaveOverride={handleSaveOverride} fieldSaveStatus={fieldSaveStatus} />}
           </div>
         </div>
       )}

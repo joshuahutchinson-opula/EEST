@@ -1,12 +1,12 @@
 import { Fragment, useMemo, useState } from "react";
 import { CheckCircle2, ChevronDown, ChevronRight, Loader2 } from "lucide-react";
 import { clsx } from "clsx";
-import { computeWorkbookTotals, type SectionTotal } from "../../../server/src/lib/workbookTotals";
+import { computeWorkbookTotals, type SectionTotal, totalsForSystems } from "../../../server/src/lib/workbookTotals";
 import { G, SYSTEM_DISPLAY } from "../../lib/constants";
 import { useAutoTutorial } from "../../lib/contexts";
 import { OverrideIndicator } from "./OverrideIndicator";
 import { displayMoney } from "./shared";
-import type { QuoteCategory, SynthesisOverride, TutorialStep } from "../../types";
+import type { QuoteCategory, SynthesisOverride, TutorialStep, SystemType } from "../../types";
 
 export const PM_REFERENCE_RATE = 0.05;
 
@@ -18,7 +18,7 @@ export const SYNTHESIS_STEPS: TutorialStep[] = [
   { target: "wb-synth-reference", title: "Reference Figures", description: "Suggested PM fee and contingency percentages. Apply writes one of them into the contingency lines (700.5 and 1200.5); nothing changes until you click it." },
 ];
 
-export function SynthesisTab({ quoteCategories, synthesisOverrides, currency, exchangeRate, fmt, onSaveOverride, fieldSaveStatus }: { quoteCategories: QuoteCategory[]; synthesisOverrides: SynthesisOverride[]; currency: "USD" | "JMD"; exchangeRate: number; fmt: (n: number, compact?: boolean) => string; onSaveOverride: (sectionNumber: string, value: number | null, isOverridden: boolean) => void; fieldSaveStatus: Record<string, "saved" | "saving" | "">; }) {
+export function SynthesisTab({ quoteCategories, synthesisOverrides, systemFilter, onSystemFilterChange, currency, exchangeRate, fmt, onSaveOverride, fieldSaveStatus }: { quoteCategories: QuoteCategory[]; synthesisOverrides: SynthesisOverride[]; systemFilter: SystemType | "All"; onSystemFilterChange: (s: SystemType | "All") => void; currency: "USD" | "JMD"; exchangeRate: number; fmt: (n: number, compact?: boolean) => string; onSaveOverride: (sectionNumber: string, value: number | null, isOverridden: boolean) => void; fieldSaveStatus: Record<string, "saved" | "saving" | "">; }) {
   useAutoTutorial("workbook.synthesis", SYNTHESIS_STEPS);
   const [collapsed, setCollapsed] = useState<Record<string, boolean>>({});
   const [editingSection, setEditingSection] = useState<string | null>(null);
@@ -32,6 +32,8 @@ export function SynthesisTab({ quoteCategories, synthesisOverrides, currency, ex
   const handleSaveEdit = (sectionNumber: string) => { const val = fromDisplay(parseFloat(editValue) || 0); onSaveOverride(sectionNumber, Math.round(val * 100) / 100, true); setEditingSection(null); };
   const handleResetOverride = (sectionNumber: string) => { onSaveOverride(sectionNumber, null, false); };
 
+  const visibleSystems = systemFilter === "All" ? totals.systems : totals.systems.filter(s => s.system === systemFilter);
+  const shownTotals = systemFilter === "All" ? totals : totalsForSystems(totals, [systemFilter]);
   const suggestedPM = totals.subtotal * PM_REFERENCE_RATE;
   const suggestedContingency = totals.subtotal * CONTINGENCY_REFERENCE_RATE;
   // Sets each system's contingency line (700.5 Video, 1200.5 Access) to rate x that system's
@@ -68,12 +70,17 @@ export function SynthesisTab({ quoteCategories, synthesisOverrides, currency, ex
 
   return (
     <div className="space-y-0">
+      <div className="flex items-center gap-2 mb-4">
+        {(["All", "VSS", "EAC", "Intercom"] as const).map(s => (
+          <button key={s} onClick={() => onSystemFilterChange(s)} className={clsx("h-9 md:h-7 px-3 rounded-lg text-[12px] font-extrabold cursor-pointer", systemFilter === s ? "text-white" : "text-[#8b949e]")} style={systemFilter === s ? { background: s === "All" ? "#475569" : s === "VSS" ? "#3b82f6" : s === "EAC" ? "#8b5cf6" : "#14b8a6" } : G.btn}>{s}</button>
+        ))}
+      </div>
       <div data-tour="wb-synth-table" className="rounded-2xl overflow-hidden" style={G.card}>
         <div className="overflow-x-auto">
           <table className="w-full" style={{ minWidth: "700px" }}>
             <thead><tr style={{ borderBottom: "1px solid rgba(255,255,255,0.08)", background: "rgba(255,255,255,0.03)" }}><th className="px-3 py-2.5 text-[#8b949e] text-[11px] font-extrabold uppercase tracking-widest text-left">Item No</th><th className="px-3 py-2.5 text-[#8b949e] text-[11px] font-extrabold uppercase tracking-widest text-left">DESIGNATION</th><th className="px-3 py-2.5 text-[#8b949e] text-[11px] font-extrabold uppercase tracking-widest text-right">Section Total</th></tr></thead>
             <tbody>
-              {totals.systems.map((sys, i) => {
+              {visibleSystems.map((sys, i) => {
                 const meta = SYSTEM_DISPLAY[sys.system];
                 const isCollapsed = !!collapsed[sys.system];
                 return (
@@ -91,9 +98,9 @@ export function SynthesisTab({ quoteCategories, synthesisOverrides, currency, ex
       </div>
       <div data-tour="wb-synth-total" className="rounded-2xl p-4 mt-4" style={{ ...G.card, background: "rgba(59,130,246,0.06)", border: "1px solid rgba(59,130,246,0.20)" }}>
         <div className="space-y-2">
-          <div className="flex justify-between py-1"><span className="text-[#8b949e] text-[13px]">Grand Total</span><span className="text-white text-[16px] font-extrabold">{fmt(totals.subtotal)}</span></div>
-          <div className="flex justify-between py-1"><span className="text-[#8b949e] text-[14px]">Tax (GCT 15%)</span><span className="text-[#8b949e] text-[14px] font-extrabold">{fmt(totals.gct)}</span></div>
-          <div className="flex justify-between py-2 border-t-2 border-white/10"><span className="text-white text-[16px] font-extrabold">Grand Total with Tax</span><span className="text-white text-[1.3rem] font-black" style={{ color: "#60a5fa" }}>{fmt(totals.total)}</span></div>
+          <div className="flex justify-between py-1"><span className="text-[#8b949e] text-[13px]">Grand Total{systemFilter === "All" ? "" : ` (${systemFilter} only)`}</span><span className="text-white text-[16px] font-extrabold">{fmt(shownTotals.subtotal)}</span></div>
+          <div className="flex justify-between py-1"><span className="text-[#8b949e] text-[14px]">Tax (GCT 15%)</span><span className="text-[#8b949e] text-[14px] font-extrabold">{fmt(shownTotals.gct)}</span></div>
+          <div className="flex justify-between py-2 border-t-2 border-white/10"><span className="text-white text-[16px] font-extrabold">Grand Total with Tax</span><span className="text-white text-[1.3rem] font-black" style={{ color: "#60a5fa" }}>{fmt(shownTotals.total)}</span></div>
         </div>
       </div>
       <div data-tour="wb-synth-reference" className="rounded-2xl p-4 mt-3" style={G.subtle}>
