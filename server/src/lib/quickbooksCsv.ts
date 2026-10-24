@@ -7,13 +7,16 @@ const csvCell = (v: string | number) => {
 };
 const cents = (n: number) => Math.round(n * 100) / 100;
 const money = (n: number) => cents(n).toFixed(2);
-// QuickBooks reads dates in the company's date format; Jamaica uses day/month/year.
-const qbDate = (d: Date) => `${String(d.getDate()).padStart(2, "0")}/${String(d.getMonth() + 1).padStart(2, "0")}/${d.getFullYear()}`;
+// QuickBooks reads dates in the company's date format; Jamaica uses day/month/year. Dates are
+// calendar days held at UTC midnight, so the server's own time zone never shifts them.
+const qbDate = (d: Date) => `${String(d.getUTCDate()).padStart(2, "0")}/${String(d.getUTCMonth() + 1).padStart(2, "0")}/${d.getUTCFullYear()}`;
+// Today's date in Jamaica (en-CA formats as YYYY-MM-DD).
+const jamaicaToday = () => new Date(`${new Date().toLocaleDateString("en-CA", { timeZone: "America/Jamaica" })}T00:00:00Z`);
 
 // A quote version as a QuickBooks invoice-import CSV: one row per line item (the same rows the
 // client sees, so overrides, contingency and imports are included), in JMD at the quote's rate,
 // with the invoice's subtotal, GCT and total repeated on every row. Dated the day it's exported,
-// due 30 days later. Returns null if the project or quote isn't found.
+// due 30 days later (Jamaica dates). Returns null if the project or quote isn't found.
 export async function buildQuickbooksCsv(projectId: string, quoteId: string): Promise<{ csv: string; filename: string } | null> {
   const wb = await loadProjectWorkbook(projectId, quoteId);
   if (!wb?.quote) return null;
@@ -22,9 +25,9 @@ export async function buildQuickbooksCsv(projectId: string, quoteId: string): Pr
   const rate = wb.quote.exchangeRate;
   // Invoices go to the client, so Synthesis overrides are folded into the rows as on the client share link.
   const rows = buildSectionRows(wb.totals, wb.categories, { foldAdjustments: true });
-  const date = new Date();
+  const date = jamaicaToday();
   const due = new Date(date);
-  due.setDate(due.getDate() + 30);
+  due.setUTCDate(due.getUTCDate() + 30);
   const invoiceNo = `${wb.quote.refNumber || "Q"}-R${wb.quote.revision}`;
   const invoiceLines: { section: { section: string; name: string }; description: string; quantity: number; rate: number; amount: number }[] = [];
   for (const s of wb.totals.sections) {
