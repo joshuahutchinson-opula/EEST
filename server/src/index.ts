@@ -36,6 +36,7 @@ import clientsRouter from "./routes/clients";
 import exportsRouter from "./routes/exports";
 import searchRouter from "./routes/search";
 import camsRouter from "./routes/cams";
+import integrationsRouter from "./routes/integrations";
 import { startOverdueChecks } from "./lib/alerts";
 
 dotenv.config();
@@ -75,6 +76,7 @@ app.use("/api/clients", clientsRouter);
 app.use("/api/exports", exportsRouter);
 app.use("/api/search", searchRouter);
 app.use("/api/cams", camsRouter);
+app.use("/api/integrations/cams", integrationsRouter);
 
 app.get("/api/health", (_req, res) => {
   res.json({ status: "ok", timestamp: new Date().toISOString() });

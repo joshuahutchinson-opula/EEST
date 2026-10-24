@@ -17,7 +17,8 @@ const storage = multer.diskStorage({
   },
 });
 
-const upload = multer({ storage, limits: { fileSize: 50 * 1024 * 1024 } });
+// Also used by the CAMS integration for as-installed photos, so they are stored the same way.
+export const documentUpload = multer({ storage, limits: { fileSize: 50 * 1024 * 1024 } });
 
 // GET /api/documents/:projectId
 router.get("/:projectId", async (req: Request, res: Response) => {
@@ -39,7 +40,7 @@ router.get("/:projectId", async (req: Request, res: Response) => {
 });
 
 // POST /api/documents/:projectId
-router.post("/:projectId", upload.single("file"), async (req: Request, res: Response) => {
+router.post("/:projectId", documentUpload.single("file"), async (req: Request, res: Response) => {
   try {
     const { projectId } = req.params;
     if (!req.file) return res.status(400).json({ error: "No file provided" });

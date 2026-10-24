@@ -4,14 +4,15 @@ import { verifySessionToken } from "../lib/microsoftAuth";
 // Paths (relative to the mount point, e.g. mounted at app.use("/api", authMiddleware))
 // that must remain reachable without a session: the entire OAuth login/callback/me flow
 // (each of its routes enforces whatever it individually needs), the health check, the
-// read-only portals (their share tokens secure them), and signed file URLs (the signature
-// secures them).
+// read-only portals (their share tokens secure them), signed file URLs (the signature
+// secures them), and the CAMS server-to-server API (its integration key secures it).
 const PUBLIC_PATH_PATTERNS = [
   /^\/auth\//,
   /^\/health$/,
   /^\/subcontractors\/public\//,
   /^\/public\/status\//,
   /^\/files\//,
+  /^\/integrations\/cams\//,
 ];
 
 export async function authMiddleware(req: Request, res: Response, next: NextFunction) {
