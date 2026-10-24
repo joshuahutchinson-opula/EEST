@@ -4,7 +4,7 @@ import { motion } from "motion/react";
 import { CalendarDays, ChevronLeft, ChevronRight, Loader2, Plus, Trash2, X } from "lucide-react";
 import { clsx } from "clsx";
 import { API, ApiError } from "../../api";
-import { G, TEAM } from "../../lib/constants";
+import { CALENDAR_TEAMS, G, TEAM, type CalendarTeam } from "../../lib/constants";
 import type { CalendarEvent, TeamMemberInfo } from "../../types";
 
 const DAY_NAMES = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
@@ -26,31 +26,35 @@ export function CalendarSection() {
   const [weekStart, setWeekStart] = useState(() => mondayOf(new Date()));
   const [employees, setEmployees] = useState<TeamMemberInfo[]>([]);
   const [configured, setConfigured] = useState(true);
-  const [selected, setSelected] = useState<string[] | null>(null);
+  const [team, setTeam] = useState<CalendarTeam | null>(null);
   const [byEmail, setByEmail] = useState<Record<string, { events: CalendarEvent[]; error?: string }>>({});
   const [loading, setLoading] = useState(true);
   const [draft, setDraft] = useState<Draft | null>(null);
   const [saving, setSaving] = useState(false);
 
   const days = useMemo(() => Array.from({ length: 7 }, (_, i) => addDays(weekStart, i)), [weekStart]);
-  const visible = employees.filter((e) => !selected || selected.includes(e.email));
+  const visible = useMemo(() => {
+    if (!team) return employees;
+    const names: readonly string[] = CALENDAR_TEAMS[team];
+    return employees.filter((e) => names.some((n) => n.toLowerCase() === e.name.toLowerCase()));
+  }, [employees, team]);
 
   useEffect(() => {
     API.calendar.employees().then((r) => { setEmployees(r.employees); setConfigured(r.configured); }).catch(() => setConfigured(false));
   }, []);
 
   const load = useCallback(async () => {
-    if (!configured || employees.length === 0) { setLoading(false); return; }
+    if (!configured || visible.length === 0) { setLoading(false); return; }
     setLoading(true);
     try {
-      const emails = (selected ?? employees.map((e) => e.email));
+      const emails = visible.map((e) => e.email);
       const res = await API.calendar.events(`${isoDate(weekStart)}T00:00`, `${isoDate(addDays(weekStart, 7))}T00:00`, emails);
       setByEmail(Object.fromEntries(res.map((r) => [r.email, { events: r.events, error: r.error }])));
     } catch (err) {
       if (err instanceof ApiError && err.status === 503) setConfigured(false);
       else toast.error("Failed to load calendars");
     } finally { setLoading(false); }
-  }, [configured, employees, selected, weekStart]);
+  }, [configured, visible, weekStart]);
   useEffect(() => { load(); }, [load]);
 
   // Events touching a given day; all-day events end at midnight of the day after.
@@ -121,10 +125,9 @@ export function CalendarSection() {
       ) : (
         <>
           <div className="flex items-center gap-1.5 flex-wrap">
-            <button onClick={() => setSelected(null)} className={clsx("h-7 px-3 rounded-lg text-[12px] font-extrabold cursor-pointer", !selected ? "text-white" : "text-[#8b949e]")} style={!selected ? { background: "#475569" } : G.btn}>Everyone</button>
-            {employees.map((e) => {
-              const on = !!selected?.includes(e.email);
-              return <button key={e.email} onClick={() => setSelected((prev) => { const cur = prev ?? []; const next = on ? cur.filter((x) => x !== e.email) : [...cur, e.email]; return next.length ? next : null; })} className={clsx("h-7 px-3 rounded-lg text-[12px] font-extrabold cursor-pointer", on ? "text-white" : "text-[#8b949e]")} style={on ? { background: colorFor(e.email) } : G.btn}>{e.name}</button>;
+            {([null, ...Object.keys(CALENDAR_TEAMS)] as (CalendarTeam | null)[]).map((t) => {
+              const on = team === t;
+              return <button key={t ?? "all"} onClick={() => setTeam(t)} className={clsx("h-7 px-3 rounded-lg text-[12px] font-extrabold cursor-pointer", on ? "text-white" : "text-[#8b949e]")} style={on ? { background: "#3b82f6" } : G.btn}>{t ?? "All"}</button>;
             })}
           </div>
           <div className="rounded-2xl overflow-x-auto" style={G.card}>

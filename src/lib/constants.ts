@@ -19,6 +19,13 @@ export const TEAM = [
 
 export const TEAM_ALPHABETICAL = [...TEAM].sort((a, b) => a.name.localeCompare(b.name));
 
+// The Dashboard calendar's team filter. A person can sit on more than one team (Rochelle does).
+export const CALENDAR_TEAMS = {
+  Sales: ["Roger", "Donovan", "Michael", "Denise", "Rochelle"],
+  Tech: ["Joshua", "Shanice", "Shavene", "Marvin", "Akeem", "Rochelle"],
+} as const;
+export type CalendarTeam = keyof typeof CALENDAR_TEAMS;
+
 export const G = {
   card: { background: "rgba(255,255,255,0.055)", backdropFilter: "blur(24px) saturate(160%)", WebkitBackdropFilter: "blur(24px) saturate(160%)", border: "1px solid rgba(255,255,255,0.11)", boxShadow: "0 4px 24px rgba(0,0,0,0.45), inset 0 1px 0 rgba(255,255,255,0.09)" } as React.CSSProperties,
   panel: { background: "rgba(7,12,26,0.72)", backdropFilter: "blur(40px) saturate(180%)", WebkitBackdropFilter: "blur(40px) saturate(180%)", border: "1px solid rgba(255,255,255,0.10)", boxShadow: "0 8px 40px rgba(0,0,0,0.6), inset 0 1px 0 rgba(255,255,255,0.08)" } as React.CSSProperties,
