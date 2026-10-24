@@ -20,8 +20,9 @@ const addDays = (d: Date, n: number) => { const x = new Date(d); x.setDate(x.get
 interface Draft { id?: string; email: string; subject: string; date: string; endDate: string; startTime: string; endTime: string; isAllDay: boolean; location: string; notes: string; readOnly: boolean }
 
 // Admin-only master week view of every employee's Outlook calendar (via Microsoft Graph), with
-// create/edit/delete written straight back to Outlook. Times are Jamaica local time.
-export function CalendarPage() {
+// create/edit/delete written straight back to Outlook. Times are Jamaica local time. Shown as a
+// section of the admin Dashboard.
+export function CalendarSection() {
   const [weekStart, setWeekStart] = useState(() => mondayOf(new Date()));
   const [employees, setEmployees] = useState<TeamMemberInfo[]>([]);
   const [configured, setConfigured] = useState(true);
@@ -97,10 +98,10 @@ export function CalendarPage() {
   const today = isoDate(new Date());
 
   return (
-    <div className="px-3 md:px-5 py-4 md:py-6 space-y-4">
+    <section data-tour="ops-calendar" className="space-y-4">
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
         <div>
-          <h1 className="text-white font-extrabold text-2xl md:text-3xl tracking-tight">Calendar</h1>
+          <h2 className="text-white font-extrabold text-xl md:text-2xl tracking-tight">Calendar</h2>
           <p className="text-[#8b949e] text-[13px] mt-1">Everyone's Outlook calendar for the week. Changes here are saved to Outlook, and Outlook changes show here.</p>
         </div>
         <div className="flex items-center gap-2">
@@ -194,6 +195,6 @@ export function CalendarPage() {
           </motion.div>
         </div>
       )}
-    </div>
+    </section>
   );
 }

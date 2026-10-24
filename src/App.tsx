@@ -9,7 +9,6 @@ import { DEFAULT_EXCHANGE_RATE, G } from "./lib/constants";
 import { APP_INTRO_STEPS, CurrencyContext, QuoteContext, RoleContext, SessionUserContext, TutorialContext, isTechRole, useTutorialState } from "./lib/contexts";
 import { makeFmt } from "./lib/utils";
 import { LoginPage } from "./pages/auth/LoginPage";
-import { CalendarPage } from "./pages/calendar/CalendarPage";
 import { ClientsPage } from "./pages/clients/ClientsPage";
 import { OpsDashboard } from "./pages/dashboard/OpsDashboard";
 import { TechDashboard } from "./pages/dashboard/TechDashboard";
@@ -48,7 +47,8 @@ export default function App() {
 
 export function AuthenticatedApp() {
   const [page, setPage] = useState<Page>(() => {
-    const saved = localStorage.getItem("app_page");
+    // The Calendar now lives on the Dashboard.
+    const saved = localStorage.getItem("app_page") === "calendar" ? "ops-dashboard" : localStorage.getItem("app_page");
     const loggedIn = localStorage.getItem("auth_token") || localStorage.getItem("app_logged_in");
     return loggedIn ? ((saved as Page) || "ops-dashboard") : "login";
   });
@@ -104,7 +104,7 @@ export function AuthenticatedApp() {
   useEffect(() => { if (page !== "login") localStorage.setItem("app_page", page); }, [page]);
   useEffect(() => { API.fx.getRate(); const interval = setInterval(() => API.fx.getRate(), 24 * 60 * 60 * 1000); return () => clearInterval(interval); }, []);
   useEffect(() => { if (page !== "login" && !authChecking) API.auth.me().then((u) => { setRole(u.role); setSessionUser({ name: u.name, email: u.email }); }).catch(() => {}); }, [page, authChecking]);
-  useEffect(() => { if (isTechRole(role) && (page === "workbook" || page === "calendar")) setPage("ops-dashboard"); }, [role, page]);
+  useEffect(() => { if (isTechRole(role) && page === "workbook") setPage("ops-dashboard"); }, [role, page]);
 
   const currencyCtx: CurrencyCtx = useMemo(() => ({ currency, setCurrency, fmt: makeFmt(currency) }), [currency]);
 
@@ -163,7 +163,6 @@ export function AuthenticatedApp() {
                 {page === "projects" && <ProjectsPage navigate={setPage} />}
                 {page === "project-detail" && <ProjectDetail navigate={setPage} />}
                 {page === "workbook" && !isTechRole(role) && <Workbook navigate={setPage} />}
-                {page === "calendar" && !isTechRole(role) && <CalendarPage />}
                 {page === "clients" && <ClientsPage navigate={setPage} />}
                 {page === "install-tracker" && <InstallTracker navigate={setPage} />}
                 {page === "device-library" && <DeviceLibrary navigate={setPage} />}

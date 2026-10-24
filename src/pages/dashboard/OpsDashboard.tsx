@@ -6,6 +6,7 @@ import { Skeleton } from "../../components/Skeleton";
 import { G, PROJECT_COLUMNS } from "../../lib/constants";
 import { isTechRole, useAutoTutorial, useRole } from "../../lib/contexts";
 import { fmtDateFull } from "../../lib/utils";
+import { CalendarSection } from "./CalendarSection";
 import { daysUntil } from "./shared";
 import type { CommissioningItem, Page, Project, Quote, Task, TutorialStep } from "../../types";
 
@@ -13,6 +14,7 @@ export const OPS_DASHBOARD_STEPS: TutorialStep[] = [
   { target: "ops-now", title: "Now", description: "Everything that needs a human today — overdue tasks and overdue subcontractor work, projects with no activity in a week, and commissioning items or proposals that have been sitting too long." },
   { target: "ops-pulse", title: "Pulse", description: "A health check on the Project pipeline — how projects are distributed across stages, average time spent per stage, and new vs. closed this week." },
   { target: "ops-next", title: "Next", description: "What's coming in the next 14 days — project due dates and upcoming task deadlines, across every active project." },
+  { target: "ops-calendar", title: "Calendar", description: "Everyone's Outlook calendar for the week, with project tasks added automatically. Filter by person, and add, edit or delete events — changes save to Outlook." },
 ];
 
 export const OPS_STALLED_DAYS = 7;
@@ -158,6 +160,8 @@ export function OpsDashboard({ navigate }: { navigate: (p: Page) => void }) {
           ))}</div>
         )}
       </div>
+
+      {!tech && <CalendarSection />}
 
       <button onClick={() => navigate("pipeline")} className="text-[#8b949e] hover:text-white text-[13px] font-bold cursor-pointer flex items-center gap-1.5">View full Pipeline <ChevronRight className="w-3.5 h-3.5" /></button>
     </div>

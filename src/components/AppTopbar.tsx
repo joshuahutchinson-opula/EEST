@@ -17,12 +17,11 @@ export const NAV_ITEMS: { id: Page; label: string }[] = [
   { id: "workbook", label: "Workbook" },
   { id: "install-tracker", label: "Installation" },
   { id: "device-library", label: "Device Library" },
-  { id: "calendar", label: "Calendar" },
 ];
 
 export function AppTopbar({ page, navigate, breadcrumb }: { page: Page; navigate: (p: Page) => void; breadcrumb?: { label: string; parent: Page } }) {
   const role = useRole();
-  const navItems = isTechRole(role) ? NAV_ITEMS.filter((n) => n.id !== "workbook" && n.id !== "calendar") : NAV_ITEMS;
+  const navItems = isTechRole(role) ? NAV_ITEMS.filter((n) => n.id !== "workbook") : NAV_ITEMS;
   const activeTab = navItems.find((n) => n.id === page)?.id ?? null;
   return (
     <header className="fixed top-0 inset-x-0 z-50 h-14 flex items-center gap-3 md:gap-5 px-3 md:px-5" style={{ background: "rgba(7,12,26,0.65)", backdropFilter: "blur(40px) saturate(180%)", borderBottom: "1px solid rgba(255,255,255,0.08)", boxShadow: "0 1px 0 rgba(255,255,255,0.04), 0 8px 32px rgba(0,0,0,0.5)" }}>
