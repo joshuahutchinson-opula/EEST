@@ -3,6 +3,7 @@ import pool from "../db";
 import { isTech, requireProjectAccess, techMayAccessProject } from "../lib/roles";
 import { signFileUrls, toStoredFileUrl } from "../lib/uploads";
 import { mapAsBuilt, parseAsBuilt } from "../lib/asBuilt";
+import { SET_INSTALL_STATUS } from "../lib/installStatus";
 
 const router = Router();
 
@@ -48,6 +49,7 @@ router.get("/zones", async (req: Request, res: Response) => {
           notes: d.notes || undefined,
           installedPhotos: signFileUrls(d.installed_photos),
           asBuilt: mapAsBuilt(d),
+          camsSentAt: d.cams_sent_at || undefined,
         })),
       });
     }
@@ -80,10 +82,14 @@ router.post("/zones", async (req: Request, res: Response) => {
 router.post("/zones/:zoneId/devices", async (req: Request, res: Response) => {
   try {
     const { zoneId } = req.params;
-    const { name, type, location, status, assignee, notes } = req.body;
+    const { name, type, location, status, assignee, notes, projectAssetId } = req.body;
+    // projectAssetId links a device created from a Project Asset back to it (and its catalog device).
     const result = await pool.query(
-      "INSERT INTO install_devices (zone_id, name, type, location, status, assignee, notes) VALUES ($1,$2,$3,$4,$5,$6,$7) RETURNING *",
-      [zoneId, name, type || "camera", location || "", status || "pending", assignee || "", notes || null]
+      `INSERT INTO install_devices (zone_id, name, type, location, status, assignee, notes, project_asset_id, completed_at)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,
+               (SELECT id FROM project_assets WHERE id::text = $8 AND project_id = (SELECT project_id FROM install_zones WHERE id = $1)),
+               CASE WHEN $5 = 'complete' THEN NOW() END) RETURNING *`,
+      [zoneId, name, type || "camera", location || "", status || "pending", assignee || "", notes || null, typeof projectAssetId === "string" ? projectAssetId : null]
     );
     res.status(201).json({ ...result.rows[0], installed_photos: signFileUrls(result.rows[0].installed_photos) });
   } catch (err) {
@@ -106,7 +112,7 @@ router.patch("/zones/:zoneId/devices/:deviceId", async (req: Request, res: Respo
       );
     }
     if (status) {
-      await pool.query("UPDATE install_devices SET status = $1 WHERE id = $2 AND zone_id = $3", [status, deviceId, zoneId]);
+      await pool.query(`UPDATE install_devices SET ${SET_INSTALL_STATUS} WHERE id = $2 AND zone_id = $3`, [status, deviceId, zoneId]);
     }
     if (typeof addPhoto === "string" && addPhoto) {
       await pool.query(

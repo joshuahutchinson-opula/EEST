@@ -1,5 +1,6 @@
 import { Router, Request, Response } from "express";
 import pool from "../db";
+import { SET_INSTALL_STATUS } from "../lib/installStatus";
 import { buildCommissioningReportDocx } from "../lib/docxDocuments";
 import { requireProjectAccess } from "../lib/roles";
 import { signFileUrls, toStoredFileUrl, toStoredFileUrls } from "../lib/uploads";
@@ -115,7 +116,7 @@ router.patch("/:projectId/:deviceId", async (req: Request, res: Response) => {
     if (status) {
       const installStatus = status === "pass" ? "complete" : status === "fail" ? "failed" : "pending";
       await pool.query(
-        `UPDATE install_devices SET status = $1 WHERE id::text = $2 AND zone_id IN (SELECT id FROM install_zones WHERE project_id = $3)`,
+        `UPDATE install_devices SET ${SET_INSTALL_STATUS} WHERE id::text = $2 AND zone_id IN (SELECT id FROM install_zones WHERE project_id = $3)`,
         [installStatus, deviceId, projectId]
       );
     }
@@ -141,7 +142,7 @@ router.post("/:projectId/bulk", async (req: Request, res: Response) => {
         );
         const installStatus = status === "pass" ? "complete" : status === "fail" ? "failed" : "pending";
         await client.query(
-          `UPDATE install_devices SET status = $1 WHERE id::text = $2 AND zone_id IN (SELECT id FROM install_zones WHERE project_id = $3)`,
+          `UPDATE install_devices SET ${SET_INSTALL_STATUS} WHERE id::text = $2 AND zone_id IN (SELECT id FROM install_zones WHERE project_id = $3)`,
           [installStatus, deviceId, projectId]
         );
       }

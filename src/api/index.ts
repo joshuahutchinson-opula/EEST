@@ -1,5 +1,5 @@
 import { DEFAULT_EXCHANGE_RATE } from "../lib/constants";
-import type { AuditLogEntry, CatalogDevice, ChangeOrder, CommissioningItem, DocumentItem, InstallDevice, InstallStatus, InstallZone, InventoryItem, InventoryTransaction, NotificationItem, Project, ProjectAsset, PublicProjectStatus, PublicSubcontractor, Quote, QuoteLineItem, Subcontractor, SynthesisOverride, Task, WorkbookAuditEntry, WorkbookSettings, AuditTarget, CalendarEvent, TeamMemberInfo, ClientContact, ClientDetail, ClientSummary, SearchResults } from "../types";
+import type { AuditLogEntry, CatalogDevice, ChangeOrder, CommissioningItem, DocumentItem, InstallDevice, InstallStatus, InstallZone, InventoryItem, InventoryTransaction, NotificationItem, Project, ProjectAsset, PublicProjectStatus, PublicSubcontractor, Quote, QuoteLineItem, Subcontractor, SynthesisOverride, Task, WorkbookAuditEntry, WorkbookSettings, AuditTarget, CalendarEvent, TeamMemberInfo, ClientContact, ClientDetail, ClientSummary, SearchResults, CamsPlan, CamsSendResult } from "../types";
 
 export const API_BASE = import.meta.env.VITE_API_URL || "/api";
 
@@ -124,6 +124,13 @@ export const API = {
     addDevice: (zoneId: string, data: Partial<InstallDevice>) => apiFetch<InstallDevice>(`/install/zones/${zoneId}/devices`, { method: "POST", body: JSON.stringify(data) }),
     updateStatus: (zoneId: string, deviceId: string, status: InstallStatus) => apiFetch<void>(`/install/zones/${zoneId}/devices/${deviceId}`, { method: "PATCH", body: JSON.stringify({ status }) }),
     addInstalledPhoto: (zoneId: string, deviceId: string, photoUrl: string) => apiFetch<void>(`/install/zones/${zoneId}/devices/${deviceId}`, { method: "PATCH", body: JSON.stringify({ addPhoto: photoUrl }) }),
+  },
+  cams: {
+    status: () => apiFetch<{ configured: boolean }>("/cams/status"),
+    clients: () => apiFetch<{ id: number; name: string }[]>("/cams/clients"),
+    zones: (clientId: number) => apiFetch<string[]>(`/cams/zones?clientId=${clientId}`),
+    plan: (projectId: string, clientId?: number) => apiFetch<CamsPlan>(`/cams/projects/${projectId}/plan${clientId ? `?clientId=${clientId}` : ""}`),
+    send: (projectId: string, body: { clientId: number; zoneByZoneId: Record<string, string>; zoneByDeviceId: Record<string, string>; resendAll: boolean }) => apiFetch<CamsSendResult>(`/cams/projects/${projectId}/send`, { method: "POST", body: JSON.stringify(body) }),
   },
   projectAssets: {
     list: (projectId: string) => apiFetch<ProjectAsset[]>(`/projects/${projectId}/assets`),

@@ -361,6 +361,15 @@ export async function initDB() {
     await client.query(`ALTER TABLE install_devices ADD COLUMN IF NOT EXISTS ip_address TEXT`);
     await client.query(`ALTER TABLE install_devices ADD COLUMN IF NOT EXISTS firmware TEXT`);
     await client.query(`ALTER TABLE install_devices ADD COLUMN IF NOT EXISTS warranty_expiry DATE`);
+    // Send to CAMS: the Project Asset an install device was created from (for its category and
+    // catalog device), when it was completed, and when it was last sent to CAMS.
+    await client.query(`ALTER TABLE install_devices ADD COLUMN IF NOT EXISTS project_asset_id UUID REFERENCES project_assets(id) ON DELETE SET NULL`);
+    await client.query(`ALTER TABLE install_devices ADD COLUMN IF NOT EXISTS completed_at TIMESTAMPTZ`);
+    await client.query(`ALTER TABLE install_devices ADD COLUMN IF NOT EXISTS cams_sent_at TIMESTAMPTZ`);
+    // The CAMS client last chosen for each project, and the CAMS zone chosen for each EEST zone name
+    // per CAMS client, so the next send (or the next project for that client) comes pre-filled.
+    await client.query(`CREATE TABLE IF NOT EXISTS cams_project_clients (project_id UUID PRIMARY KEY REFERENCES projects(id) ON DELETE CASCADE, cams_client_id INTEGER NOT NULL, updated_at TIMESTAMPTZ DEFAULT NOW())`);
+    await client.query(`CREATE TABLE IF NOT EXISTS cams_zone_choices (cams_client_id INTEGER NOT NULL, eest_zone_name TEXT NOT NULL, cams_zone TEXT NOT NULL, updated_at TIMESTAMPTZ DEFAULT NOW(), PRIMARY KEY (cams_client_id, eest_zone_name))`);
     await client.query(`ALTER TABLE projects ADD COLUMN IF NOT EXISTS public_share_token TEXT UNIQUE`);
     await client.query(`ALTER TABLE projects ADD COLUMN IF NOT EXISTS public_share_enabled BOOLEAN DEFAULT FALSE`);
     // One-time backfill from the old single-contact columns into the new array column — only

@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { toast } from "sonner";
-import { AlertCircle, AlertTriangle, Camera, CheckCircle2, CheckSquare, ChevronDown, ChevronUp, Clock, Cpu, DoorOpen, Key, Loader2, PanelRight, Phone, Plus, Server, Upload, Zap, ClipboardList } from "lucide-react";
+import { AlertCircle, AlertTriangle, AppWindow, Camera, CloudUpload, CheckCircle2, CheckSquare, ChevronDown, ChevronUp, Clock, Cpu, DoorOpen, Key, Loader2, PanelRight, Phone, Plus, Server, Upload, Zap, ClipboardList } from "lucide-react";
 import { clsx } from "clsx";
 import { API, fileHref, ApiError } from "../../api";
 import { EmptyState } from "../../components/EmptyState";
@@ -10,6 +10,7 @@ import { useAutoTutorial } from "../../lib/contexts";
 import type { IconType, InstallStatus, InstallZone, Page, Project, TaskPriority, TutorialStep, AsBuilt, InstallDevice } from "../../types";
 import { cacheData, isNetworkError, readCachedData, submit } from "../../lib/offlineQueue";
 import { AsBuiltModal } from "../../components/AsBuiltModal";
+import { CamsSendModal } from "./CamsSendModal";
 
 export const STATUS_META: Record<InstallStatus, { label: string; color: string; bg: string; icon: IconType }> = {
   complete: { label: "Complete", color: "text-emerald-400", bg: "bg-emerald-500/12", icon: CheckCircle2 },
@@ -38,6 +39,10 @@ export function InstallTracker({ navigate: _navigate }: { navigate: (p: Page) =>
   const [taskPriority, setTaskPriority] = useState<TaskPriority>("medium");
   const [taskDueDate, setTaskDueDate] = useState("");
   const [uploadingDevicePhoto, setUploadingDevicePhoto] = useState<string | null>(null);
+  // Send to CAMS is offered only when the server has CAMS credentials.
+  const [camsConfigured, setCamsConfigured] = useState(false);
+  const [camsProject, setCamsProject] = useState<Project | null>(null);
+  useEffect(() => { API.cams.status().then((s) => setCamsConfigured(s.configured)).catch(() => {}); }, []);
 
   const fetchData = useCallback(async () => {
     setLoading(true);
@@ -55,6 +60,13 @@ export function InstallTracker({ navigate: _navigate }: { navigate: (p: Page) =>
     finally { setLoading(false); }
   }, []);
   useEffect(() => { fetchData(); }, [fetchData]);
+  // Changes made elsewhere (e.g. from the CAMS mobile app) show up without a manual reload.
+  useEffect(() => {
+    const refresh = () => { if (document.visibilityState === "visible") API.install.zones().then((z) => { setZones(z); cacheData("install", { projects, zones: z }); }).catch(() => {}); };
+    const timer = setInterval(refresh, 15000);
+    document.addEventListener("visibilitychange", refresh);
+    return () => { clearInterval(timer); document.removeEventListener("visibilitychange", refresh); };
+  }, [projects]);
 
   const [asBuiltFor, setAsBuiltFor] = useState<{ zoneId: string; device: InstallDevice } | null>(null);
   const saveAsBuilt = async (zoneId: string, deviceId: string, asBuilt: AsBuilt) => {
@@ -94,7 +106,7 @@ export function InstallTracker({ navigate: _navigate }: { navigate: (p: Page) =>
     } catch { toast.error("Failed to add task"); }
   };
 
-  const typeIcons: Record<string, IconType> = { camera: Camera, access: Key, nvr: Cpu, door: DoorOpen, panel: PanelRight, power: Zap, server: Server, intercom: Phone };
+  const typeIcons: Record<string, IconType> = { camera: Camera, access: Key, nvr: Cpu, door: DoorOpen, panel: PanelRight, power: Zap, server: Server, intercom: Phone, software: AppWindow };
 
   if (loading) return (<div className="px-3 md:px-5 py-4 md:py-6 space-y-4"><Skeleton className="h-10 w-48" /><Skeleton className="h-32 rounded-2xl" /><Skeleton className="h-48 rounded-2xl" /></div>);
 
@@ -105,6 +117,7 @@ export function InstallTracker({ navigate: _navigate }: { navigate: (p: Page) =>
 
   return (
     <div className="px-3 md:px-5 py-4 md:py-6 max-w-[1600px] mx-auto w-full">
+      {camsProject && <CamsSendModal projectId={camsProject.id} projectName={camsProject.name} onClose={() => setCamsProject(null)} onSent={() => { API.install.zones().then(setZones).catch(() => {}); }} />}
       {asBuiltFor && <AsBuiltModal deviceName={asBuiltFor.device.name} value={asBuiltFor.device.asBuilt} onClose={() => setAsBuiltFor(null)} onSave={(v) => saveAsBuilt(asBuiltFor.zoneId, asBuiltFor.device.id, v)} />}
       <div className="mb-4 md:mb-6 flex items-center justify-between">
         <div><h1 className="text-white font-extrabold text-2xl md:text-3xl tracking-tight">Installation</h1><p className="text-[#8b949e] text-[13px] mt-0.5">{total} devices across {zones.length} zones</p></div>
@@ -142,6 +155,7 @@ export function InstallTracker({ navigate: _navigate }: { navigate: (p: Page) =>
                       <div className="flex-1 min-w-0 text-left"><p className="text-white text-[14px] font-extrabold">{project.name}</p><p className="text-[#8b949e] text-[12px]">{projectDevices.length} devices</p></div>
                       {isExpanded ? <ChevronUp className="w-4 h-4 text-[#8b949e]" /> : <ChevronDown className="w-4 h-4 text-[#8b949e]" />}
                     </button>
+                    {camsConfigured && <button onClick={() => setCamsProject(project)} className="flex items-center gap-1 h-7 px-2.5 rounded-lg text-[12px] font-extrabold text-[#c9d1d9] hover:text-white cursor-pointer flex-shrink-0" style={G.btn} title="Send this project's completed devices to CAMS"><CloudUpload className="w-3 h-3" /> Send to CAMS</button>}
                     <button onClick={() => setAddTaskProjectId(addTaskProjectId === project.id ? null : project.id)} className="flex items-center gap-1 h-7 px-2.5 rounded-lg text-[12px] font-extrabold text-white cursor-pointer flex-shrink-0" style={{ background: "#3b82f6" }}><Plus className="w-3 h-3" /> Task</button>
                   </div>
                   {addTaskProjectId === project.id && (

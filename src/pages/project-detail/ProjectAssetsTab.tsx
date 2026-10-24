@@ -19,7 +19,7 @@ export const CATALOG_CATEGORIES_FOR_ASSET: Record<AssetCategory, CatalogDevice["
   other: ["camera", "access-control", "nvr", "analytics", "intercom", "other", "switch", "poe-injector", "patch-panel", "rack", "ups", "server"],
 };
 
-export const INSTALL_DEVICE_TYPE_FOR_ASSET: Record<AssetCategory, InstallDevice["type"] | null> = { camera: "camera", "access-control": "access", "network-hardware": "server", "cable-wire": null, intercom: "intercom", software: null, other: "panel" };
+export const INSTALL_DEVICE_TYPE_FOR_ASSET: Record<AssetCategory, InstallDevice["type"] | null> = { camera: "camera", "access-control": "access", "network-hardware": "server", "cable-wire": null, intercom: "intercom", software: "software", other: "panel" };
 
 export const DEFAULT_SYSTEM_FOR_ASSET: Record<AssetCategory, SystemType> = { camera: "VSS", "access-control": "EAC", "network-hardware": "VSS", "cable-wire": "VSS", intercom: "Intercom", software: "VSS", other: "VSS" };
 
@@ -125,7 +125,7 @@ export function ProjectAssetsTab({ projectId, projectName, clientName }: { proje
         setAssets(prev => [...prev, result]);
         const installType = INSTALL_DEVICE_TYPE_FOR_ASSET[category];
         if (zoneId && installType) {
-          API.install.addDevice(zoneId, { name: describeAsset(result, storeDevices), type: installType, location: location.trim(), status: "pending" }).catch(() => toast.error("Asset saved, but adding it to the install tracker failed"));
+          API.install.addDevice(zoneId, { name: describeAsset(result, storeDevices), type: installType, location: location.trim(), status: "pending", projectAssetId: result.id }).catch(() => toast.error("Asset saved, but adding it to the install tracker failed"));
         }
         toast.success("Asset added");
       }

@@ -131,7 +131,16 @@ export interface QuoteCtx {
 
 export type InstallStatus = "pending" | "in-progress" | "complete" | "failed";
 
-export interface InstallDevice { id: string; name: string; type: "camera" | "access" | "nvr" | "door" | "panel" | "power" | "server" | "intercom"; location: string; status: InstallStatus; assignee: string; notes?: string; installedPhotos?: string[]; asBuilt?: AsBuilt; }
+export interface InstallDevice { id: string; name: string; type: "camera" | "access" | "nvr" | "door" | "panel" | "power" | "server" | "intercom" | "software"; location: string; status: InstallStatus; assignee: string; notes?: string; installedPhotos?: string[]; asBuilt?: AsBuilt; projectAssetId?: string; camsSentAt?: string; }
+
+// Send to CAMS (routes/cams.ts).
+export type CamsImportType = "cameras" | "doors" | "servers" | "switches" | "software";
+export interface CamsPlan {
+  camsClientId: number | null;
+  zoneChoices: Record<string, string>;
+  zones: { id: string; name: string; devices: { id: string; name: string; status: InstallStatus; sentAt: string | null; camsType: CamsImportType | null; skipReason: string | null }[] }[];
+}
+export interface CamsSendResult { imported: Partial<Record<CamsImportType, number>>; total: number; errors: { type: CamsImportType; error: string }[]; createdZones: string[] }
 
 export interface InstallZone { id: string; name: string; devices: InstallDevice[]; projectId?: string; isQuickSupport?: boolean; }
 
