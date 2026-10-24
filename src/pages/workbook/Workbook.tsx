@@ -74,6 +74,14 @@ export function Workbook({ navigate }: { navigate: (p: Page) => void }) {
   const [synthesisOverrides, setSynthesisOverrides] = useState<SynthesisOverride[]>([]);
   const [workbookAudit, setWorkbookAudit] = useState<WorkbookAuditEntry[]>([]);
   const [showPricingIssues, setShowPricingIssues] = useState(false);
+  const [showExportMenu, setShowExportMenu] = useState(false);
+  const exportCurrent = async (kind: "xlsx" | "quickbooks") => {
+    setShowExportMenu(false);
+    try {
+      const { blob, filename } = kind === "xlsx" ? await API.workbook.exportFullXlsx(selectedProjectId, selectedQuoteId || undefined) : await API.workbook.exportQuickbooks(selectedProjectId, selectedQuoteId || undefined);
+      downloadBlob(blob, filename);
+    } catch { toast.error(kind === "xlsx" ? "Failed to generate Workbook export" : "Failed to build the QuickBooks export"); }
+  };
   // Team-wide setting stored on the server; the input edits a local draft saved on blur/Enter.
   const [minMargin, setMinMargin] = useState<number>(20);
   const [minMarginDraft, setMinMarginDraft] = useState("20");
@@ -168,9 +176,6 @@ export function Workbook({ navigate }: { navigate: (p: Page) => void }) {
     if (!selectedProjectId || !selectedQuoteId) { setSynthesisOverrides([]); return; }
     API.workbook.getOverrides(selectedProjectId, selectedQuoteId).then(setSynthesisOverrides).catch(() => setSynthesisOverrides([]));
   }, [selectedProjectId, selectedQuoteId]);
-  // Sent, approved and rejected versions are frozen; editing one offers a new draft instead.
-  const frozen = !!selectedQuote && selectedQuote.status !== "draft";
-  const [frozenPrompt, setFrozenPrompt] = useState(false);
   // Counted items with no price ($0 cost or 0% markup), and priced items under the minimum margin.
   const pricingIssues = useMemo(() => {
     let unpriced = 0, lowMargin = 0;
@@ -185,12 +190,11 @@ export function Workbook({ navigate }: { navigate: (p: Page) => void }) {
     }
     return { unpriced, lowMargin, total: unpriced + lowMargin };
   }, [selectedQuote, minMargin]);
-  const blockIfFrozen = () => { if (frozen) { setFrozenPrompt(true); return true; } return false; };
-  // Draft quotes use the live rate and save it to the quote, so exports and the client share link
-  // match what's on screen. Frozen (approved, rejected or legacy sent) versions keep their stored rate.
-  const exchangeRate = !frozen && liveRate ? liveRate : toNum(selectedQuote?.exchangeRate, DEFAULT_EXCHANGE_RATE);
+  // Every quote version uses the live rate and saves it to the quote, so exports and the client
+  // share link match what's on screen.
+  const exchangeRate = liveRate || toNum(selectedQuote?.exchangeRate, DEFAULT_EXCHANGE_RATE);
   useEffect(() => {
-    if (!selectedQuote || frozen || !liveRate || Math.abs(toNum(selectedQuote.exchangeRate) - liveRate) < 0.005) return;
+    if (!selectedQuote || !liveRate || Math.abs(toNum(selectedQuote.exchangeRate) - liveRate) < 0.005) return;
     const { id, exchangeRate: stored } = selectedQuote;
     API.quotes.update(id, { exchangeRate: liveRate })
       .then(() => {
@@ -198,7 +202,7 @@ export function Workbook({ navigate }: { navigate: (p: Page) => void }) {
         API.workbook.logAudit(selectedProjectId, "Quote exchange rate (live)", toNum(stored).toFixed(2), liveRate.toFixed(2)).catch(() => {});
       })
       .catch(() => {});
-  }, [selectedQuote?.id, selectedQuote?.exchangeRate, frozen, liveRate]);
+  }, [selectedQuote?.id, selectedQuote?.exchangeRate, liveRate]);
   // Every Workbook tab follows the USD/JMD toggle, converting at this rate.
   const fmt = useMemo(() => makeFmt(currency, exchangeRate), [currency, exchangeRate]);
   const quoteCategories = selectedQuote?.categories || [];
@@ -237,7 +241,6 @@ export function Workbook({ navigate }: { navigate: (p: Page) => void }) {
   };
 
   const updateQuoteLineItem = (categoryId: string, itemId: string, updates: Partial<QuoteLineItem>) => {
-    if (blockIfFrozen()) return;
     const cat = selectedQuote?.categories.find(c => c.id === categoryId);
     const li = cat?.lineItems.find(x => x.id === itemId);
     if (!selectedQuote || !cat || !li) return;
@@ -292,7 +295,6 @@ export function Workbook({ navigate }: { navigate: (p: Page) => void }) {
     setQuotes(prev => prev.map(q => ({ ...q, categories: q.categories.map(c => ({ ...c, lineItems: c.lineItems.filter(li => li.id !== itemId) })) })));
 
   const requestDeleteLineItem = (categoryId: string, itemId: string) => {
-    if (blockIfFrozen()) return;
     const item = selectedQuote?.categories.find(c => c.id === categoryId)?.lineItems.find(li => li.id === itemId);
     if (!item) return;
     if (draftItemIds.current.has(itemId)) { draftItemIds.current.delete(itemId); removeLineItemLocally(itemId); return; }
@@ -316,7 +318,6 @@ export function Workbook({ navigate }: { navigate: (p: Page) => void }) {
   };
 
   const reorderLineItems = (categoryId: string, orderedIds: string[]) => {
-    if (blockIfFrozen()) return;
     setQuotes(prev => prev.map(q => ({ ...q, categories: q.categories.map(c => {
       if (c.id !== categoryId) return c;
       const byId = new Map(c.lineItems.map(li => [li.id, li]));
@@ -329,7 +330,6 @@ export function Workbook({ navigate }: { navigate: (p: Page) => void }) {
   // A catalog device becomes a regular (manual) line item: description and cost from the device.
   const addLineItemFromDevice = async (categoryId: string, device: CatalogDevice) => {
     setPickerCategoryId(null);
-    if (blockIfFrozen()) return;
     const cat = selectedQuote?.categories.find(c => c.id === categoryId);
     if (!selectedQuote || !cat) return;
     const markupPercent = SYSTEM_CATEGORIES[cat.system]?.find((s) => s.sectionNumber === cat.sectionNumber)?.defaultMarkup ?? 0.35;
@@ -347,7 +347,7 @@ export function Workbook({ navigate }: { navigate: (p: Page) => void }) {
   // already made, deletes removed ones, creates new ones, then reloads the quote from the server.
   const applyLabour = async (categoryId: string, rows: LabourRow[]) => {
     setLabourCategoryId(null);
-    if (blockIfFrozen() || !selectedQuote) return;
+    if (!selectedQuote) return;
     const cat = selectedQuote.categories.find(c => c.id === categoryId);
     if (!cat) return;
     const markupPercent = SYSTEM_CATEGORIES[cat.system]?.find((s) => s.sectionNumber === cat.sectionNumber)?.defaultMarkup ?? 0.5;
@@ -380,7 +380,7 @@ export function Workbook({ navigate }: { navigate: (p: Page) => void }) {
   // the system's total without contingency and without the PM line itself. Updates the line if
   // it's already there (sold at cost, so it isn't counted as unpriced), then reloads the quote.
   const applyPmFee = async (rate: number) => {
-    if (blockIfFrozen() || !selectedQuote) return;
+    if (!selectedQuote) return;
     const totals = computeWorkbookTotals(selectedQuote.categories, synthesisOverrides);
     let failed = false, applied = 0;
     const hidden: string[] = [];
@@ -412,7 +412,6 @@ export function Workbook({ navigate }: { navigate: (p: Page) => void }) {
   };
 
   const addLineItem = (categoryId: string) => {
-    if (blockIfFrozen()) return;
     setQuotes((prev) => prev.map((q) => {
       if (q.id !== selectedQuoteId) return q;
       const updated = { ...q, categories: q.categories.map((cat) => {
@@ -427,7 +426,6 @@ export function Workbook({ navigate }: { navigate: (p: Page) => void }) {
   };
 
   const handleSaveOverride = async (sectionNumber: string, value: number | null, isOverridden: boolean) => {
-    if (blockIfFrozen()) return;
     const fieldKey = `synth-${sectionNumber}`;
     const previous = synthesisOverrides.find(o => o.sectionNumber === sectionNumber);
     const oldDisplay = previous?.isOverridden ? String(previous.overrideValue) : "auto-calculated";
@@ -446,7 +444,6 @@ export function Workbook({ navigate }: { navigate: (p: Page) => void }) {
   };
 
   const handleResetCost = async (categoryId: string, itemId: string) => {
-    if (blockIfFrozen()) return;
     try {
       const fresh = await API.quotes.resetLineItemCost(itemId);
       itemVersions.current.set(itemId, fresh.version ?? 1);
@@ -456,26 +453,16 @@ export function Workbook({ navigate }: { navigate: (p: Page) => void }) {
     } catch { toast.error("Failed to reset cost"); }
   };
 
-  const createDraftFromSelected = async () => {
-    setFrozenPrompt(false);
+  // Copies the selected version into a new one with the next revision number.
+  const createVersion = async () => {
     if (!selectedQuote) return;
     try {
-      const draft = await API.quotes.revise(selectedQuote.id);
-      setQuotes(prev => [draft, ...prev]);
-      setSelectedQuoteId(draft.id);
-      API.workbook.logAudit(selectedProjectId, "Quote version", `Rev ${selectedQuote.revision ?? 1} (${selectedQuote.status})`, `Rev ${draft.revision} draft`).catch(() => {});
-      toast.success(`Created Rev ${draft.revision} as a draft — make your changes there`);
-    } catch { toast.error("Failed to create a new draft"); }
-  };
-
-  const setQuoteStatus = async (status: Quote["status"]) => {
-    if (!selectedQuote) return;
-    try {
-      await API.quotes.update(selectedQuote.id, { status });
-      setQuotes(prev => prev.map(q => q.id === selectedQuote.id ? { ...q, status, sentAt: status === "sent" ? new Date().toISOString() : q.sentAt } : q));
-      API.workbook.logAudit(selectedProjectId, `Quote Rev ${selectedQuote.revision ?? 1} status`, selectedQuote.status, status).catch(() => {});
-      toast.success(`Marked as ${status} — this version is now frozen`);
-    } catch { toast.error("Failed to update quote status"); }
+      const created = await API.quotes.revise(selectedQuote.id);
+      setQuotes(prev => [created, ...prev]);
+      setSelectedQuoteId(created.id);
+      API.workbook.logAudit(selectedProjectId, "Quote version", `Rev ${selectedQuote.revision ?? 1}`, `Rev ${created.revision}`).catch(() => {});
+      toast.success(`Created Rev ${created.revision} from Rev ${selectedQuote.revision ?? 1}`);
+    } catch { toast.error("Failed to create a new version"); }
   };
 
   // Puts a logged change back to its old value through the normal save path (which logs the revert).
@@ -485,7 +472,6 @@ export function Workbook({ navigate }: { navigate: (p: Page) => void }) {
       toast.error(rev ? `That change was made on Rev ${rev} — switch to it to revert` : "That change belongs to another quote version");
       return;
     }
-    if (blockIfFrozen()) return;
     if (entry.entityType === "override" && entry.entityId) {
       const old = entry.oldValue;
       if (old === "auto-calculated" || old === "" || old === "null") handleSaveOverride(entry.entityId, null, false);
@@ -530,7 +516,6 @@ export function Workbook({ navigate }: { navigate: (p: Page) => void }) {
       {showProjectSelect && <SelectProjectModal onClose={() => setShowProjectSelect(false)} onSelect={(id: string) => { setSelectedProjectId(id); setSelectedQuoteId(latestQuoteFor(quotes, id)?.id || ""); setShowProjectSelect(false); }} currentId={selectedProjectId} projects={projects} />}
       {labourCategoryId && selectedQuote?.categories.find(c => c.id === labourCategoryId) && <LabourCalculatorModal category={selectedQuote.categories.find(c => c.id === labourCategoryId)!} currency={currency} exchangeRate={exchangeRate} fmt={fmt} onClose={() => setLabourCategoryId(null)} onSave={(rows) => applyLabour(labourCategoryId, rows)} />}
       {pickerCategoryId && <DevicePickerModal devices={storeDevices} fmt={fmt} onClose={() => setPickerCategoryId(null)} onPick={(d) => addLineItemFromDevice(pickerCategoryId, d)} />}
-      {frozenPrompt && selectedQuote && <ConfirmDialog open={true} danger={false} confirmLabel="Create new draft" title="This version is frozen" message={`Rev ${selectedQuote.revision ?? 1} is ${selectedQuote.status}, so it can't be edited. Create a new draft (Rev ${Math.max(...projectQuotes.map(q => q.revision ?? 1)) + 1}) from it to make changes?`} onCancel={() => setFrozenPrompt(false)} onConfirm={createDraftFromSelected} />}
       {pendingDelete && <ConfirmDialog open={true} title="Delete line item" message={`Delete "${pendingDelete.item.description || "this line item"}" from the quote?`} onCancel={() => setPendingDelete(null)} onConfirm={confirmDeleteLineItem} />}
       <div className="px-4 md:px-6 py-3 flex flex-col md:flex-row md:items-center justify-between flex-shrink-0 gap-2" style={{ borderBottom: "1px solid rgba(255,255,255,0.07)" }}>
         <div>
@@ -539,20 +524,26 @@ export function Workbook({ navigate }: { navigate: (p: Page) => void }) {
             <button onClick={() => setShowProjectSelect(true)} className="flex items-center gap-1.5 text-[#8b949e] hover:text-white text-[13px] font-bold cursor-pointer" style={{ ...G.btn, padding: "4px 10px", borderRadius: "8px" }}><Building2 className="w-3 h-3" />{selectedProject ? selectedProject.name : "Select project"}<ChevronDown className="w-3 h-3" /></button>
             {selectedQuote && (
               <select value={selectedQuoteId} onChange={e => setSelectedQuoteId(e.target.value)} className="h-7 rounded-lg px-2 text-[12px] font-extrabold cursor-pointer" style={{ ...G.input, background: "#0d1117", color: "#e6edf3" }} title="Quote version">
-                {projectQuotes.map(q => <option key={q.id} value={q.id} style={{ background: "#0d1117", color: "#e6edf3" }}>{q.refNumber} · Rev {q.revision ?? 1} · {q.status}</option>)}
+                {projectQuotes.map(q => <option key={q.id} value={q.id} style={{ background: "#0d1117", color: "#e6edf3" }}>{q.refNumber} · Rev {q.revision ?? 1}</option>)}
               </select>
             )}
-            {selectedQuote && <span className={clsx("text-[12px] font-extrabold px-2 py-0.5 rounded-full", selectedQuote.status === "draft" ? "bg-amber-500/12 text-amber-400" : selectedQuote.status === "approved" ? "bg-emerald-500/12 text-emerald-400" : selectedQuote.status === "rejected" ? "bg-rose-500/12 text-rose-400" : "bg-blue-500/12 text-blue-400")}>{selectedQuote.status}{frozen ? " · frozen" : ""}</span>}
-            {selectedQuote?.status === "sent" && <><button onClick={() => setQuoteStatus("approved")} className="h-7 px-2.5 rounded-lg text-[12px] font-extrabold text-emerald-400 cursor-pointer" style={G.btn}>Approved</button><button onClick={() => setQuoteStatus("rejected")} className="h-7 px-2.5 rounded-lg text-[12px] font-extrabold text-rose-400 cursor-pointer" style={G.btn}>Rejected</button></>}
-            {frozen && <button onClick={createDraftFromSelected} className="h-7 px-2.5 rounded-lg text-[12px] font-extrabold text-white cursor-pointer" style={G.btn}>New draft from this</button>}
+            {selectedQuote && <button onClick={createVersion} className="h-7 px-2.5 rounded-lg text-[12px] font-extrabold text-white cursor-pointer" style={G.btn} title="Copy this version into a new revision">New version</button>}
             {saveStatus === "saving" && <span className="text-[12px] text-[#8b949e] flex items-center gap-1"><Loader2 className="w-3 h-3 animate-spin" /> Saving…</span>}
             {saveStatus === "saved" && <span className="text-[12px] text-emerald-400 flex items-center gap-1"><CheckCircle2 className="w-3 h-3" /> Saved</span>}
           </div>
         </div>
         <div className="flex items-center gap-2 flex-wrap">
-          <div className="flex items-center gap-2 px-3 py-1 rounded-xl" style={G.subtle} title={frozen ? "Exchange rate stored on this frozen version" : "Live exchange rate, refreshed each time the Workbook opens"}><span className="text-[#8b949e] text-[12px] font-extrabold uppercase">FX Rate</span><span className="text-white text-[14px] font-extrabold">J$ {exchangeRate.toFixed(2)}</span></div>
+          <div className="flex items-center gap-2 px-3 py-1 rounded-xl" style={G.subtle} title="Live exchange rate, refreshed each time the Workbook opens"><span className="text-[#8b949e] text-[12px] font-extrabold uppercase">FX Rate</span><span className="text-white text-[14px] font-extrabold">J$ {exchangeRate.toFixed(2)}</span></div>
           <button onClick={() => { API.workbook.getAudit(selectedProjectId).then(setWorkbookAudit).catch(() => {}); setShowAuditModal(true); }} className="flex items-center gap-1.5 h-9 md:h-7 px-3 rounded-lg text-[#8b949e] hover:text-white text-[12px] font-extrabold cursor-pointer" style={G.btn}><History className="w-3 h-3" /> History</button>
-          <button onClick={async () => { try { const { blob, filename } = await API.workbook.exportFullXlsx(selectedProjectId, selectedQuoteId || undefined); downloadBlob(blob, filename); } catch { toast.error("Failed to generate Workbook export"); } }} className="flex items-center gap-1.5 h-9 md:h-7 px-3 rounded-lg text-[#8b949e] hover:text-white text-[12px] font-extrabold cursor-pointer" style={G.btn} title="Asset List, Cost & Margin, BOM and Synthesis with live formulas (internal)"><FileDown className="w-3 h-3" /> Workbook .xlsx</button>
+          <div className="relative">
+            <button onClick={() => setShowExportMenu(v => !v)} className="flex items-center gap-1.5 h-9 md:h-7 px-3 rounded-lg text-[#8b949e] hover:text-white text-[12px] font-extrabold cursor-pointer" style={G.btn} title="Export this quote version"><FileDown className="w-3 h-3" /> Export <ChevronDown className="w-3 h-3" /></button>
+            {showExportMenu && (
+              <div className="absolute right-0 top-full mt-2 z-50 w-60 rounded-xl p-1.5" style={G.liquidGlass}>
+                <button onClick={() => exportCurrent("xlsx")} className="w-full text-left px-3 py-2 rounded-lg hover:bg-white/[0.06] cursor-pointer"><p className="text-white text-[13px] font-bold">Workbook (.xlsx)</p><p className="text-[#8b949e] text-[11px]">Asset List, Cost & Margin, BOM and Synthesis (internal)</p></button>
+                <button onClick={() => exportCurrent("quickbooks")} className="w-full text-left px-3 py-2 rounded-lg hover:bg-white/[0.06] cursor-pointer"><p className="text-white text-[13px] font-bold">Export for QuickBooks (.csv)</p><p className="text-[#8b949e] text-[11px]">This version as a QuickBooks invoice import</p></button>
+              </div>
+            )}
+          </div>
           {selectedQuote && (
             <div className="relative">
               <button onClick={() => setShowPricingIssues(v => !v)} className={clsx("flex items-center gap-1.5 h-9 md:h-7 px-3 rounded-lg text-[12px] font-extrabold cursor-pointer", pricingIssues.total > 0 ? "text-amber-400" : "text-emerald-400")} style={G.btn} title="Unpriced items and items below the minimum margin">

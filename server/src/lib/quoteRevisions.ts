@@ -1,18 +1,10 @@
 import type { PoolClient } from "pg";
 import pool from "../db";
 
-export const QUOTE_STATUSES = ["draft", "sent", "approved", "rejected"] as const;
-export type QuoteStatus = (typeof QUOTE_STATUSES)[number];
-
-export const FROZEN_QUOTE_MESSAGE = "This quote version has been sent and is frozen. Create a new draft to change it.";
+// Quote versions have no status (the old status/sent_at columns are left unused); every
+// version stays editable.
 
 type Db = Pick<PoolClient, "query">;
-
-// Only draft versions can be edited; sent, approved and rejected versions are frozen.
-export async function isQuoteFrozen(db: Db, quoteId: string): Promise<boolean> {
-  const result = await db.query(`SELECT status FROM quotes WHERE id::text = $1`, [quoteId]);
-  return result.rows.length > 0 && result.rows[0].status !== "draft";
-}
 
 export async function quoteIdForCategory(db: Db, categoryId: string): Promise<string | null> {
   const result = await db.query(`SELECT quote_id FROM quote_categories WHERE id::text = $1`, [categoryId]);
@@ -33,15 +25,15 @@ export async function latestQuoteId(db: Db, projectId: string): Promise<string |
   return result.rows[0]?.id ?? null;
 }
 
-// Copies a version (categories, line items, Synthesis overrides) into a new draft with the next
-// revision number. The exchange rate stays as it was locked on the source.
+// Copies a version (categories, line items, Synthesis overrides) into a new version with the next
+// revision number. The Workbook moves it to the live exchange rate when it's opened.
 export async function reviseQuote(client: PoolClient, sourceQuoteId: string): Promise<string> {
   const src = (await client.query(`SELECT * FROM quotes WHERE id = $1`, [sourceQuoteId])).rows[0];
   if (!src) throw new Error("Quote not found");
   const next = await client.query(`SELECT COALESCE(MAX(revision), 0) + 1 AS n FROM quotes WHERE project_id IS NOT DISTINCT FROM $1`, [src.project_id]);
   const inserted = await client.query(
-    `INSERT INTO quotes (project_id, client_name, ref_number, date, status, quote_type, exchange_rate, revision)
-     VALUES ($1, $2, $3, CURRENT_DATE, 'draft', $4, $5, $6) RETURNING id`,
+    `INSERT INTO quotes (project_id, client_name, ref_number, date, quote_type, exchange_rate, revision)
+     VALUES ($1, $2, $3, CURRENT_DATE, $4, $5, $6) RETURNING id`,
     [src.project_id, src.client_name, src.ref_number, src.quote_type, src.exchange_rate, next.rows[0].n]
   );
   const newQuoteId = inserted.rows[0].id;

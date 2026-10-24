@@ -5,7 +5,8 @@ import { buildFullWorkbookXlsx } from "../lib/workbookXlsxFull";
 import { loadProjectWorkbook } from "../lib/workbookData";
 import { buildSectionRows } from "../lib/workbookTotals";
 import { DEFAULT_EXCHANGE_RATE } from "../lib/exchangeRate";
-import { FROZEN_QUOTE_MESSAGE, isQuoteFrozen, latestQuoteId } from "../lib/quoteRevisions";
+import { latestQuoteId } from "../lib/quoteRevisions";
+import { buildQuickbooksCsv } from "../lib/quickbooksCsv";
 
 // Which quote version a request is about: ?quoteId= (or body.quoteId), defaulting to the
 // project's newest version. Returns null if the quote doesn't belong to the project.
@@ -83,7 +84,6 @@ router.put("/:projectId/overrides", async (req: Request, res: Response) => {
     if (!Array.isArray(overrides)) return res.status(400).json({ error: "overrides must be an array" });
     const quoteId = await resolveQuoteId(req);
     if (!quoteId) return res.status(400).json({ error: "This project has no quote to override" });
-    if (await isQuoteFrozen(pool, quoteId)) return res.status(409).json({ error: FROZEN_QUOTE_MESSAGE, frozen: true });
     const client = await pool.connect();
     try {
       await client.query("BEGIN");
@@ -193,6 +193,23 @@ router.get("/:projectId/export-workbook-xlsx", async (req: Request, res: Respons
   } catch (err) {
     console.error("GET /workbook/:projectId/export-workbook-xlsx error:", err);
     res.status(500).json({ error: "Failed to generate workbook export" });
+  }
+});
+
+// GET /api/workbook/:projectId/export-quickbooks?quoteId= — the quote version as a QuickBooks
+// invoice-import CSV (see lib/quickbooksCsv.ts).
+router.get("/:projectId/export-quickbooks", async (req: Request, res: Response) => {
+  try {
+    const quoteId = await resolveQuoteId(req);
+    if (!quoteId) return res.status(404).json({ error: "This project has no quote" });
+    const built = await buildQuickbooksCsv(req.params.projectId, quoteId);
+    if (!built) return res.status(404).json({ error: "Project not found" });
+    res.setHeader("Content-Type", "text/csv; charset=utf-8");
+    res.setHeader("Content-Disposition", `attachment; filename="${built.filename}"`);
+    res.send(built.csv);
+  } catch (err) {
+    console.error("GET /workbook/:projectId/export-quickbooks error:", err);
+    res.status(500).json({ error: "Failed to build the QuickBooks export" });
   }
 });
 

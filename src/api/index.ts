@@ -140,9 +140,6 @@ export const API = {
     equipmentSummary: (projectId: string) => apiFetchBlob(`/projects/${projectId}/assets/equipment-summary`),
   },
   search: (q: string) => apiFetch<SearchResults>(`/search?q=${encodeURIComponent(q)}`),
-  exports: {
-    quickbooks: (from?: string, to?: string) => apiFetchBlob(`/exports/quickbooks.csv?${new URLSearchParams({ ...(from ? { from } : {}), ...(to ? { to } : {}) })}`),
-  },
   clients: {
     list: () => apiFetch<ClientSummary[]>("/clients"),
     get: (id: string) => apiFetch<ClientDetail>(`/clients/${id}`),
@@ -206,6 +203,7 @@ export const API = {
     logAudit: (projectId: string, fieldPath: string, oldValue: string, newValue: string, target?: AuditTarget) => apiFetch<void>(`/workbook/${projectId}/audit`, { method: "POST", body: JSON.stringify({ fieldPath, oldValue, newValue, ...target }) }),
     getPriceHistory: (deviceId: string) => apiFetch<{ price: number; recordedAt: string }[]>(`/workbook/devices/${deviceId}/price-history`),
     exportFullXlsx: (projectId: string, quoteId?: string) => apiFetchBlob(`/workbook/${projectId}/export-workbook-xlsx${quoteId ? `?quoteId=${quoteId}` : ""}`),
+    exportQuickbooks: (projectId: string, quoteId?: string) => apiFetchBlob(`/workbook/${projectId}/export-quickbooks${quoteId ? `?quoteId=${quoteId}` : ""}`),
   },
   publicStatus: {
     get: (token: string) => apiFetch<PublicProjectStatus>(`/public/status/${token}`),

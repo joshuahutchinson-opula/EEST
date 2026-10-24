@@ -9,11 +9,8 @@ import { latestQuoteId } from "../lib/quoteRevisions";
 const MAX_SIGNATURE_LENGTH = 400_000; // characters of PNG data URL
 const money = (n: number) => Math.round(n * 100) / 100;
 
-// Statuses a quote version can be approved from by the client.
-const APPROVABLE_QUOTE_STATUSES = ["draft", "sent"];
-
-// The quote version the client sees: the project's newest one, whatever its status. Amounts are
-// JMD at the rate stored on that version.
+// The quote version the client sees: the project's newest one, read-only. Amounts are JMD at the
+// rate stored on that version.
 async function clientQuote(projectId: string) {
   const quoteId = await latestQuoteId(pool, projectId);
   if (!quoteId) return null;
@@ -26,7 +23,6 @@ async function clientQuote(projectId: string) {
     id: wb.quote.id,
     refNumber: wb.quote.refNumber,
     revision: wb.quote.revision,
-    status: wb.quote.status,
     exchangeRate: rate,
     sections: wb.totals.sections
       .filter((s) => (rows.get(s.section) || []).length > 0)
@@ -131,7 +127,7 @@ router.get("/status/:token", async (req: Request, res: Response) => {
         team,
       },
       changeOrders: coResult.rows.map((co) => ({ ...co, costImpact: Number(co.costImpact), approval: approvalFor("change_order", co.id) })),
-      quote: quote ? { ...quote, approval: approvalFor("quote", quote.id) } : null,
+      quote,
       assets: assetsResult.rows.map((a) => ({ ...a, coveragePhotos: signFileUrls(a.coveragePhotos) })),
     });
   } catch (err) {
@@ -140,12 +136,12 @@ router.get("/status/:token", async (req: Request, res: Response) => {
   }
 });
 
-// POST /api/public/status/:token/approve — the client signs off the newest quote version or a submitted
-// change order: typed name + drawn signature. Stored with time, IP and user agent; the quote or
-// change order becomes approved and admins are notified.
+// POST /api/public/status/:token/approve — the client signs off a submitted change order: typed
+// name + drawn signature. Stored with time, IP and user agent; the change order becomes approved
+// and admins are notified. (Quotes aren't approved on the share link.)
 router.post("/status/:token/approve", async (req: Request, res: Response) => {
   const { targetType, targetId, signerName, signature } = req.body || {};
-  if (targetType !== "quote" && targetType !== "change_order") return res.status(400).json({ error: "targetType must be quote or change_order" });
+  if (targetType !== "change_order") return res.status(400).json({ error: "targetType must be change_order" });
   if (typeof targetId !== "string") return res.status(400).json({ error: "targetId is required" });
   if (typeof signerName !== "string" || !signerName.trim() || signerName.length > 120) return res.status(400).json({ error: "Type your full name to approve" });
   if (typeof signature !== "string" || !/^data:image\/png;base64,[A-Za-z0-9+/=]+$/.test(signature) || signature.length > MAX_SIGNATURE_LENGTH) return res.status(400).json({ error: "A drawn signature is required" });
@@ -160,24 +156,17 @@ router.post("/status/:token/approve", async (req: Request, res: Response) => {
 
     await client.query("BEGIN");
     // Lock the target row so two simultaneous approvals can't both succeed.
-    const target = targetType === "quote"
-      ? (await client.query(`SELECT id, status, ref_number, revision FROM quotes WHERE id::text = $1 AND project_id = $2 FOR UPDATE`, [targetId, project.id])).rows[0]
-      : (await client.query(`SELECT id, status, title FROM change_orders WHERE id::text = $1 AND project_id = $2 FOR UPDATE`, [targetId, project.id])).rows[0];
+    const target = (await client.query(`SELECT id, status, title FROM change_orders WHERE id::text = $1 AND project_id = $2 FOR UPDATE`, [targetId, project.id])).rows[0];
     if (!target) { await client.query("ROLLBACK"); return res.status(404).json({ error: "Nothing to approve here" }); }
-    // A quote can be approved only while it's the version the client is shown (the newest one).
-    const awaiting = targetType === "quote"
-      ? APPROVABLE_QUOTE_STATUSES.includes(target.status) && (await latestQuoteId(client, project.id)) === target.id
-      : target.status === "submitted";
-    if (!awaiting) { await client.query("ROLLBACK"); return res.status(409).json({ error: target.status === "approved" ? "This has already been approved" : "This isn't awaiting approval" }); }
+    if (target.status !== "submitted") { await client.query("ROLLBACK"); return res.status(409).json({ error: target.status === "approved" ? "This has already been approved" : "This isn't awaiting approval" }); }
 
     const ip = (req.headers["x-forwarded-for"] as string | undefined)?.split(",")[0].trim() || req.socket.remoteAddress || null;
     await client.query(
       `INSERT INTO approvals (project_id, target_type, target_id, signer_name, signature, ip_address, user_agent) VALUES ($1, $2, $3, $4, $5, $6, $7)`,
       [project.id, targetType, target.id, signerName.trim(), signature, ip, String(req.headers["user-agent"] || "").slice(0, 300)]
     );
-    if (targetType === "quote") await client.query(`UPDATE quotes SET status = 'approved', updated_at = NOW() WHERE id = $1`, [target.id]);
-    else await client.query(`UPDATE change_orders SET status = 'approved', updated_at = NOW() WHERE id = $1`, [target.id]);
-    const what = targetType === "quote" ? `quote ${target.ref_number} (Rev ${target.revision})` : `change order "${target.title}"`;
+    await client.query(`UPDATE change_orders SET status = 'approved', updated_at = NOW() WHERE id = $1`, [target.id]);
+    const what = `change order "${target.title}"`;
     await client.query(
       `INSERT INTO audit_logs (project_id, event, details, user_name, notification_type, action_url) VALUES ($1, 'Client Approval', $2, 'System', 'client-approval', $3)`,
       [project.id, `${signerName.trim()} approved ${what} for ${project.name}.`, `/project/${project.id}`]

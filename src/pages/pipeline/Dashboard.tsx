@@ -1,9 +1,9 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import { motion } from "motion/react";
-import { Activity, AlertTriangle, BarChart3, CheckCircle2, DollarSign, FileDown, Grid3x3, Kanban, Layers, List, Plus, Search, Star, TrendingUp, Wrench } from "lucide-react";
+import { Activity, AlertTriangle, BarChart3, CheckCircle2, DollarSign, Grid3x3, Kanban, Layers, List, Plus, Search, Star, TrendingUp, Wrench } from "lucide-react";
 import { clsx } from "clsx";
-import { API, downloadBlob } from "../../api";
+import { API } from "../../api";
 import { EmptyState } from "../../components/EmptyState";
 import { Skeleton } from "../../components/Skeleton";
 import { G, PROJECT_COLUMNS } from "../../lib/constants";
@@ -226,7 +226,6 @@ export function Dashboard({ navigate }: { navigate: (p: Page) => void }) {
             <p className="text-[#8b949e] text-[13px] md:text-[15px] mt-0.5">{pipelineProjects.length} projects</p>
           </div>
           <div className="flex items-center gap-2">
-          {!tech && <button onClick={async () => { try { const { blob, filename } = await API.exports.quickbooks(); downloadBlob(blob, filename); toast.success("QuickBooks export downloaded"); } catch { toast.error("Failed to build the QuickBooks export"); } }} className="hidden md:flex items-center gap-1.5 h-8 px-3 rounded-xl text-[#8b949e] hover:text-white text-[13px] font-bold cursor-pointer" style={G.btn} title="Approved quotes as a QuickBooks invoice-import CSV"><FileDown className="w-3.5 h-3.5" /> QuickBooks CSV</button>}
           <button data-tour="db-new-project" onClick={() => setShowNewProject(true)} className="flex items-center gap-1.5 h-8 px-3 md:px-4 rounded-xl text-white text-[13px] md:text-[14px] font-extrabold cursor-pointer min-h-[44px]" style={{ background: "#3b82f6", boxShadow: "0 4px 16px rgba(59,130,246,0.35)" }}><Plus className="w-3.5 h-3.5" /> New Project</button>
           </div>
         </div>

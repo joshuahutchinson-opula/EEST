@@ -8,10 +8,10 @@ import { isTechRole, useAutoTutorial, useRole } from "../../lib/contexts";
 import { fmtDateFull } from "../../lib/utils";
 import { CalendarSection } from "./CalendarSection";
 import { daysUntil } from "./shared";
-import type { CommissioningItem, Page, Project, Quote, Task, TutorialStep } from "../../types";
+import type { CommissioningItem, Page, Project, Task, TutorialStep } from "../../types";
 
 export const OPS_DASHBOARD_STEPS: TutorialStep[] = [
-  { target: "ops-now", title: "Now", description: "Everything that needs a human today — overdue tasks and overdue subcontractor work, projects with no activity in a week, and commissioning items or proposals that have been sitting too long." },
+  { target: "ops-now", title: "Now", description: "Everything that needs a human today — overdue tasks and overdue subcontractor work, projects with no activity in a week, and commissioning items that have been sitting too long." },
   { target: "ops-pulse", title: "Pulse", description: "A health check on the Project pipeline — how projects are distributed across stages, average time spent per stage, and new vs. closed this week." },
   { target: "ops-next", title: "Next", description: "What's coming in the next 14 days — project due dates and upcoming task deadlines, across every active project." },
   { target: "ops-calendar", title: "Calendar", description: "Everyone's Outlook calendar for the week, with project tasks added automatically. Filter by person, and add, edit or delete events — changes save to Outlook." },
@@ -33,7 +33,6 @@ export function OpsDashboard({ navigate }: { navigate: (p: Page) => void }) {
   useAutoTutorial("ops-dashboard", OPS_DASHBOARD_STEPS);
   const [loading, setLoading] = useState(true);
   const [projects, setProjects] = useState<Project[]>([]);
-  const [quotes, setQuotes] = useState<Quote[]>([]);
   const [tasks, setTasks] = useState<Task[]>([]);
   const [commissioning, setCommissioning] = useState<CommissioningItem[]>([]);
 
@@ -43,16 +42,14 @@ export function OpsDashboard({ navigate }: { navigate: (p: Page) => void }) {
     API.projects.list().then(async (allProjects) => {
       if (!alive) return;
       const projectPipeline = allProjects.filter((p) => p.pipelineType === "project");
-      const [taskLists, commissioningLists, quoteList] = await Promise.all([
+      const [taskLists, commissioningLists] = await Promise.all([
         Promise.all(projectPipeline.map((p) => API.tasks.list(p.id).catch(() => [] as Task[]))),
         Promise.all(projectPipeline.map((p) => API.commissioning.list(p.id).catch(() => [] as CommissioningItem[]))),
-        API.quotes.list().catch(() => [] as Quote[]),
       ]);
       if (!alive) return;
       setProjects(allProjects);
       setTasks(taskLists.flat());
       setCommissioning(commissioningLists.flat());
-      setQuotes(quoteList);
       setLoading(false);
     }).catch(() => { if (alive) setLoading(false); });
     return () => { alive = false; };
@@ -66,14 +63,12 @@ export function OpsDashboard({ navigate }: { navigate: (p: Page) => void }) {
   const overdueSubTasks = overdueTasks.filter((t) => t.subcontractorId);
   const stalledProjects = projectPipeline.filter((p) => p.projectStage !== "complete" && daysSince(p.updatedAt) >= OPS_STALLED_DAYS);
   const pendingCommissioning = commissioning.filter((c) => c.status === "pending" && daysSince(c.createdAt) >= OPS_PENDING_DAYS);
-  const staleProposals = quotes.filter((q) => q.status === "draft" && daysSince(q.createdAt || q.date) >= OPS_PENDING_DAYS);
 
   const nowRows: { label: string; count: number; urgency: "high" | "medium" | "low" }[] = ([
     { label: "Overdue tasks", count: overdueTasks.length, urgency: "high" },
     { label: "Overdue subcontractor tasks", count: overdueSubTasks.length, urgency: "high" },
     { label: `Projects stalled ${OPS_STALLED_DAYS}+ days`, count: stalledProjects.length, urgency: "medium" },
     { label: `Commissioning pending ${OPS_PENDING_DAYS}+ days`, count: pendingCommissioning.length, urgency: "medium" },
-    { label: `Proposals in draft ${OPS_PENDING_DAYS}+ days`, count: staleProposals.length, urgency: "low" },
   ] as const).filter((r) => r.count > 0);
 
   const stageCounts = PROJECT_COLUMNS.map((c) => ({ label: c.label, count: projectPipeline.filter((p) => p.projectStage === c.id).length })).filter((s) => s.count > 0);

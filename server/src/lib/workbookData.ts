@@ -7,7 +7,7 @@ export type WorkbookLineItem = TotalsCategory["lineItems"][number] & { projectAs
 
 export interface ProjectWorkbook {
   project: { id: string; name: string; client: string; summary?: string; location?: string };
-  quote: { id: string; refNumber: string; date: string | null; status: string; exchangeRate: number; revision: number } | null;
+  quote: { id: string; refNumber: string; date: string | null; exchangeRate: number; revision: number } | null;
   categories: TotalsCategory[];
   overrides: TotalsOverride[];
   totals: WorkbookTotals;
@@ -21,8 +21,8 @@ export async function loadProjectWorkbook(projectId: string, quoteId?: string | 
   if (projectResult.rows.length === 0) return null;
 
   const quoteResult = quoteId
-    ? await pool.query(`SELECT id, ref_number, date, status, exchange_rate, revision FROM quotes WHERE id = $1 AND project_id = $2`, [quoteId, projectId])
-    : await pool.query(`SELECT id, ref_number, date, status, exchange_rate, revision FROM quotes WHERE project_id = $1 ORDER BY revision DESC, created_at DESC LIMIT 1`, [projectId]);
+    ? await pool.query(`SELECT id, ref_number, date, exchange_rate, revision FROM quotes WHERE id = $1 AND project_id = $2`, [quoteId, projectId])
+    : await pool.query(`SELECT id, ref_number, date, exchange_rate, revision FROM quotes WHERE project_id = $1 ORDER BY revision DESC, created_at DESC LIMIT 1`, [projectId]);
   const q = quoteResult.rows[0];
 
   const [rowsResult, overridesResult] = await Promise.all([
@@ -62,7 +62,7 @@ export async function loadProjectWorkbook(projectId: string, quoteId?: string | 
   return {
     project: projectResult.rows[0],
     quote: q
-      ? { id: q.id, refNumber: q.ref_number || "", date: q.date ? new Date(q.date).toISOString().slice(0, 10) : null, status: q.status, exchangeRate: Number(q.exchange_rate) || DEFAULT_EXCHANGE_RATE, revision: Number(q.revision) || 1 }
+      ? { id: q.id, refNumber: q.ref_number || "", date: q.date ? new Date(q.date).toISOString().slice(0, 10) : null, exchangeRate: Number(q.exchange_rate) || DEFAULT_EXCHANGE_RATE, revision: Number(q.revision) || 1 }
       : null,
     categories: categoryList,
     overrides,

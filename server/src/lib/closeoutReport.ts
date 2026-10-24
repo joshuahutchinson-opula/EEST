@@ -20,8 +20,8 @@ export async function buildCloseoutReport(projectId: string): Promise<{ buffer: 
   const project = projectResult.rows[0];
   if (!project) return null;
 
-  const approved = await pool.query(`SELECT id FROM quotes WHERE project_id = $1 AND status = 'approved' ORDER BY revision DESC LIMIT 1`, [projectId]);
-  const wb = await loadProjectWorkbook(projectId, approved.rows[0]?.id ?? null);
+  // The project's newest quote version.
+  const wb = await loadProjectWorkbook(projectId, null);
   const [changeOrders, assets, installed, commissioning, tasks, subs, procurement] = await Promise.all([
     pool.query(`SELECT title, cost_impact, status, created_at FROM change_orders WHERE project_id = $1 ORDER BY created_at`, [projectId]),
     pool.query(
@@ -73,7 +73,6 @@ export async function buildCloseoutReport(projectId: string): Promise<{ buffer: 
   if (!wb?.quote) {
     body.push(bodyText("This project has no quote.", { italics: true, color: "666666" }));
   } else {
-    if (!approved.rows[0]) body.push(bodyText(`No approved quote version — figures use the latest version (Rev ${wb.quote.revision}, ${wb.quote.status}).`, { italics: true, color: "8A6D00", spaceAfter: 120 }));
     const approvedCOs = changeOrders.rows.filter((c) => c.status === "approved");
     const coTotal = approvedCOs.reduce((s, c) => s + Number(c.cost_impact || 0), 0);
     const quoted = wb.totals.subtotal;

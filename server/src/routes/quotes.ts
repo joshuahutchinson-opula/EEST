@@ -3,13 +3,13 @@ import pool from "../db";
 import { isTech, requireAdmin, techMayAccessProject } from "../lib/roles";
 import { getLiveExchangeRate } from "../lib/exchangeRate";
 import { syncAssetLineItem } from "../lib/assetSync";
-import { FROZEN_QUOTE_MESSAGE, QUOTE_STATUSES, isQuoteFrozen, latestQuoteId, quoteIdForCategory, quoteIdForLineItem, reviseQuoteStandalone } from "../lib/quoteRevisions";
+import { latestQuoteId, quoteIdForCategory, quoteIdForLineItem, reviseQuoteStandalone } from "../lib/quoteRevisions";
 
 function mapQuote(q: any, categories: any[]) {
   return {
     id: q.id, clientName: q.client_name, refNumber: q.ref_number, date: q.date ? new Date(q.date).toISOString().slice(0, 10) : "",
-    status: q.status, quoteType: q.quote_type, categories, exchangeRate: Number(q.exchange_rate),
-    projectId: q.project_id || undefined, revision: Number(q.revision) || 1, sentAt: q.sent_at || undefined,
+    quoteType: q.quote_type, categories, exchangeRate: Number(q.exchange_rate),
+    projectId: q.project_id || undefined, revision: Number(q.revision) || 1,
     createdAt: q.created_at, updatedAt: q.updated_at,
   };
 }
@@ -147,10 +147,10 @@ router.get("/:id", async (req: Request, res: Response) => {
 // POST /api/quotes
 router.post("/", requireAdmin, async (req: Request, res: Response) => {
   try {
-    const { clientName, refNumber, date, status, quoteType, categories, exchangeRate, projectId } = req.body;
+    const { clientName, refNumber, date, quoteType, categories, exchangeRate, projectId } = req.body;
     const qResult = await pool.query(
-      "INSERT INTO quotes (client_name, ref_number, date, status, quote_type, exchange_rate, project_id) VALUES ($1,$2,$3,$4,$5,$6,$7) RETURNING *",
-      [clientName, refNumber, date, status || "draft", quoteType || "Multiple", Number(exchangeRate) > 0 ? Number(exchangeRate) : await getLiveExchangeRate(), projectId || null]
+      "INSERT INTO quotes (client_name, ref_number, date, quote_type, exchange_rate, project_id) VALUES ($1,$2,$3,$4,$5,$6) RETURNING *",
+      [clientName, refNumber, date, quoteType || "Multiple", Number(exchangeRate) > 0 ? Number(exchangeRate) : await getLiveExchangeRate(), projectId || null]
     );
     const quote = qResult.rows[0];
     if (categories && Array.isArray(categories)) {
@@ -181,17 +181,14 @@ router.post("/", requireAdmin, async (req: Request, res: Response) => {
 // PATCH /api/quotes/:id
 router.patch("/:id", requireAdmin, async (req: Request, res: Response) => {
   const { id } = req.params;
-  const { clientName, refNumber, status, exchangeRate, categories } = req.body;
-  if (status !== undefined && !QUOTE_STATUSES.includes(status)) return res.status(400).json({ error: `status must be one of ${QUOTE_STATUSES.join(", ")}` });
-  // Content and the locked rate can only change on a draft; status changes are how a version is sent.
-  if ((Array.isArray(categories) || exchangeRate !== undefined) && (await isQuoteFrozen(pool, id))) return res.status(409).json({ error: FROZEN_QUOTE_MESSAGE, frozen: true });
+  const { clientName, refNumber, exchangeRate, categories } = req.body;
   const client = await pool.connect();
   try {
     await client.query("BEGIN");
     await client.query(
-      `UPDATE quotes SET client_name=COALESCE($2,client_name), ref_number=COALESCE($3,ref_number), status=COALESCE($4,status), exchange_rate=COALESCE($5,exchange_rate),
-         sent_at = CASE WHEN $4 = 'sent' AND status <> 'sent' THEN NOW() ELSE sent_at END, updated_at=NOW() WHERE id=$1`,
-      [id, clientName, refNumber, status, exchangeRate]
+      `UPDATE quotes SET client_name=COALESCE($2,client_name), ref_number=COALESCE($3,ref_number), exchange_rate=COALESCE($4,exchange_rate),
+         updated_at=NOW() WHERE id=$1`,
+      [id, clientName, refNumber, exchangeRate]
     );
 
     if (Array.isArray(categories)) {
@@ -305,7 +302,6 @@ router.post("/:quoteId/line-items", requireAdmin, async (req: Request, res: Resp
     if (labour === false) return res.status(400).json({ error: "labour must be { role, hours, rate }" });
     const cat = await pool.query(`SELECT id FROM quote_categories WHERE id::text = $1 AND quote_id::text = $2`, [categoryId, quoteId]);
     if (cat.rows.length === 0) return res.status(404).json({ error: "Category not found on this quote" });
-    if (await isQuoteFrozen(pool, quoteId)) return res.status(409).json({ error: FROZEN_QUOTE_MESSAGE, frozen: true });
     const inserted = await pool.query(
       `INSERT INTO quote_line_items (category_id, item_number, description, unit_cost, quantity, markup_percent, labour)
        VALUES ($1, COALESCE($2, LPAD(((SELECT COUNT(*) FROM quote_line_items WHERE category_id = $1) + 1)::text, 2, '0')), $3, $4, $5, $6, $7)
@@ -332,7 +328,6 @@ router.patch("/line-items/:itemId", requireAdmin, async (req: Request, res: Resp
     const labour = parseLabour(req.body.labour);
     if (labour === false) return res.status(400).json({ error: "labour must be { role, hours, rate }" });
     const itemQuoteId = await quoteIdForLineItem(pool, itemId);
-    if (itemQuoteId && (await isQuoteFrozen(pool, itemQuoteId))) return res.status(409).json({ error: FROZEN_QUOTE_MESSAGE, frozen: true });
     // Editing the cost of an asset-synced line marks it as a manual override (see lib/assetSync.ts).
     const result = await pool.query(
       `UPDATE quote_line_items SET
@@ -371,7 +366,6 @@ router.delete("/line-items/:itemId", requireAdmin, async (req: Request, res: Res
     if (!current) return res.status(404).json({ error: "Line item not found" });
     if (current.projectAssetId) return res.status(400).json({ error: "This line comes from a project asset — remove the asset instead" });
     const itemQuoteId = await quoteIdForLineItem(pool, itemId);
-    if (itemQuoteId && (await isQuoteFrozen(pool, itemQuoteId))) return res.status(409).json({ error: FROZEN_QUOTE_MESSAGE, frozen: true });
     const result = await pool.query(`DELETE FROM quote_line_items WHERE id::text = $1 AND version = $2 RETURNING id`, [itemId, version]);
     if (result.rows.length === 0) return res.status(409).json({ error: "This line item was changed by someone else", current: await loadLineItem(itemId) });
     res.json({ success: true });
@@ -388,7 +382,6 @@ router.put("/categories/:categoryId/order", requireAdmin, async (req: Request, r
   const { itemIds } = req.body;
   if (!Array.isArray(itemIds) || itemIds.some((id) => typeof id !== "string")) return res.status(400).json({ error: "itemIds must be an array of ids" });
   const categoryQuoteId = await quoteIdForCategory(pool, categoryId);
-  if (categoryQuoteId && (await isQuoteFrozen(pool, categoryQuoteId))) return res.status(409).json({ error: FROZEN_QUOTE_MESSAGE, frozen: true });
   const client = await pool.connect();
   try {
     const existing = await client.query(`SELECT id FROM quote_line_items WHERE category_id::text = $1`, [categoryId]);
@@ -424,7 +417,6 @@ router.post("/line-items/:itemId/reset-cost", requireAdmin, async (req: Request,
       `SELECT q.id, q.project_id FROM quote_line_items li JOIN quote_categories c ON c.id = li.category_id JOIN quotes q ON q.id = c.quote_id WHERE li.id::text = $1`,
       [req.params.itemId]
     )).rows[0];
-    if (await isQuoteFrozen(client, itemQuote.id)) return res.status(409).json({ error: FROZEN_QUOTE_MESSAGE, frozen: true });
     if ((await latestQuoteId(client, itemQuote.project_id)) !== itemQuote.id) return res.status(409).json({ error: "Only the latest quote version follows project assets" });
     await client.query("BEGIN");
     await client.query(`UPDATE quote_line_items SET cost_overridden = FALSE, version = version + 1 WHERE id = $1`, [req.params.itemId]);
@@ -445,7 +437,7 @@ router.post("/line-items/:itemId/reset-cost", requireAdmin, async (req: Request,
   }
 });
 
-// POST /api/quotes/:id/revise — copy a version into a new draft (the way to edit a sent version).
+// POST /api/quotes/:id/revise — copy a version into a new version.
 router.post("/:id/revise", requireAdmin, async (req: Request, res: Response) => {
   try {
     const exists = await pool.query(`SELECT 1 FROM quotes WHERE id::text = $1`, [req.params.id]);
@@ -455,7 +447,7 @@ router.post("/:id/revise", requireAdmin, async (req: Request, res: Response) => 
     res.status(201).json(mapQuote(q, await loadCategories(newId, Number(q.exchange_rate))));
   } catch (err) {
     console.error("POST /quotes/:id/revise error:", err);
-    res.status(500).json({ error: "Failed to create a new draft" });
+    res.status(500).json({ error: "Failed to create a new version" });
   }
 });
 

@@ -59,7 +59,7 @@ export async function buildFullWorkbookXlsx(wb: ProjectWorkbook): Promise<Buffer
   const info: [string, string | number][] = [
     ["Project", wb.project.name],
     ["Client", wb.project.client],
-    ["Quote", wb.quote ? `${wb.quote.refNumber} · Rev ${wb.quote.revision} · ${wb.quote.status}` : "No quote yet"],
+    ["Quote", wb.quote ? `${wb.quote.refNumber} · Rev ${wb.quote.revision}` : "No quote yet"],
     ["Exchange rate (J$ per US$1)", rate],
     ["Generated", new Date().toLocaleDateString()],
   ];
