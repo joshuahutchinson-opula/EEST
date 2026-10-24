@@ -1,7 +1,7 @@
 # EEST — Operations Center
 
 E-Tech Systems Jamaica's project management app: sales pipeline, project tracking, the
-quoting Workbook (Cost & Margin, BOM, Synthesis, proposals), installation and commissioning,
+quoting Workbook (Cost & Margin, BOM, Synthesis, exports), installation and commissioning,
 device library and inventory, plus read-only share links for clients and subcontractors.
 
 - **Frontend** (`/`): React 19 + Vite + Tailwind. Pages live in `src/pages/<page>/`, shared UI in

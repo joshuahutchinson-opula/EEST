@@ -112,7 +112,7 @@ export function ClientStatusPage({ token }: { token: string }) {
                   <div><p className="text-white text-[15px] font-extrabold">Quotation {data.quote.refNumber} · Rev {data.quote.revision}</p><p className="text-[#8b949e] text-[12px] mt-0.5">Prices in Jamaican dollars (J$ {data.quote.exchangeRate.toFixed(2)} per US$1)</p></div>
                   {data.quote.approval
                     ? <span className="text-[12px] font-extrabold px-2.5 py-1 rounded-full bg-emerald-500/12 text-emerald-400">Approved by {data.quote.approval.signerName} · {fmtDateFull(data.quote.approval.approvedAt)}</span>
-                    : data.quote.status === "sent" && <button onClick={() => setApproving({ targetType: "quote", targetId: data.quote!.id, title: `Approve quotation ${data.quote!.refNumber}`, summary: `Rev ${data.quote!.revision} · total ${jmd(data.quote!.totalJmd)} incl. GCT` })} className="h-9 px-4 rounded-xl text-white text-[13px] font-extrabold cursor-pointer" style={{ background: "#10b981" }}>Review &amp; approve</button>}
+                    : (data.quote.status === "sent" || data.quote.status === "draft") && <button onClick={() => setApproving({ targetType: "quote", targetId: data.quote!.id, title: `Approve quotation ${data.quote!.refNumber}`, summary: `Rev ${data.quote!.revision} · total ${jmd(data.quote!.totalJmd)} incl. GCT` })} className="h-9 px-4 rounded-xl text-white text-[13px] font-extrabold cursor-pointer" style={{ background: "#10b981" }}>Review &amp; approve</button>}
                 </div>
                 <div className="space-y-3">
                   {data.quote.sections.map((s) => (

@@ -1,11 +1,9 @@
 import { Router, Request, Response } from "express";
 import pool from "../db";
 import { requireAdmin, sessionUserName } from "../lib/roles";
-import { buildProposalDocx } from "../lib/docxDocuments";
-import { buildWorkbookXlsx } from "../lib/xlsxExport";
 import { buildFullWorkbookXlsx } from "../lib/workbookXlsxFull";
 import { loadProjectWorkbook } from "../lib/workbookData";
-import { buildSectionRows, totalsForSystems } from "../lib/workbookTotals";
+import { buildSectionRows } from "../lib/workbookTotals";
 import { DEFAULT_EXCHANGE_RATE } from "../lib/exchangeRate";
 import { FROZEN_QUOTE_MESSAGE, isQuoteFrozen, latestQuoteId } from "../lib/quoteRevisions";
 
@@ -20,7 +18,7 @@ async function resolveQuoteId(req: Request): Promise<string | null> {
 
 const router = Router();
 
-// The Workbook (Asset List, Cost & Margin, BOM, Synthesis, proposals) is fully off-limits
+// The Workbook (Asset List, Cost & Margin, BOM, Synthesis, exports) is fully off-limits
 // to the Tech role — not just visually hidden, since these routes are exclusively read/
 // written by the Workbook UI itself (unlike quotes.ts, which Project Assets syncing also
 // depends on and therefore can't be blocked wholesale).
@@ -179,75 +177,8 @@ router.post("/devices/:deviceId/price-history", async (req: Request, res: Respon
   }
 });
 
-router.post("/:projectId/proposal", async (req: Request, res: Response) => {
-  try {
-    const quoteId = await resolveQuoteId(req);
-    const wb = await loadProjectWorkbook(req.params.projectId, quoteId);
-    if (!wb) return res.status(404).json({ error: "Project not found" });
-
-    const rows = buildSectionRows(wb.totals, wb.categories, { foldAdjustments: true });
-    // Options: which systems to include (default all), a validity date and terms text.
-    const { systems, validUntil, terms } = (req.body || {}) as { systems?: unknown; validUntil?: unknown; terms?: unknown };
-    const included = Array.isArray(systems) && systems.length > 0 ? systems.filter((s): s is string => typeof s === "string") : wb.totals.systems.map((s) => s.system as string);
-    const subset = totalsForSystems(wb.totals, included);
-    const categories = wb.totals.sections
-      .filter((s) => included.includes(s.system))
-      .map((s) => ({ system: s.system, sectionNumber: s.section, name: s.name, items: (rows.get(s.section) || []).map((r) => ({ description: r.description, quantity: r.quantity, total: r.extended })) }))
-      .filter((c) => c.items.length > 0);
-
-    const proposalData = {
-      project: wb.project,
-      refNumber: wb.quote?.refNumber || undefined,
-      exchangeRate: wb.quote?.exchangeRate ?? DEFAULT_EXCHANGE_RATE,
-      categories,
-      grandTotal: subset.subtotal,
-      gctAmount: subset.gct,
-      grandTotalWithTax: subset.total,
-      generatedAt: new Date().toISOString(),
-      validUntil: typeof validUntil === "string" && /^\d{4}-\d{2}-\d{2}$/.test(validUntil) ? validUntil : undefined,
-      terms: typeof terms === "string" ? terms.slice(0, 5000) : undefined,
-    };
-    const buffer = await buildProposalDocx(proposalData);
-    const filename = `${(wb.project.name as string).replace(/\s+/g, "-")}-proposal.docx`;
-    res.setHeader("Content-Type", "application/vnd.openxmlformats-officedocument.wordprocessingml.document");
-    res.setHeader("Content-Disposition", `attachment; filename="${filename}"`);
-    res.send(buffer);
-  } catch (err) {
-    console.error("POST /workbook/:projectId/proposal error:", err);
-    res.status(500).json({ error: "Failed to generate proposal" });
-  }
-});
-
-// GET /api/workbook/:projectId/export-xlsx — populates the real MOH-SurAc template's Synthesis
-// and {System} BoM sheets with this project's live Workbook data. Separate from the docx
-// Proposal — an additional export option, not a replacement.
-router.get("/:projectId/export-xlsx", async (req: Request, res: Response) => {
-  try {
-    const quoteId = await resolveQuoteId(req);
-    const wb = await loadProjectWorkbook(req.params.projectId, quoteId);
-    if (!wb) return res.status(404).json({ error: "Project not found" });
-
-    const buffer = await buildWorkbookXlsx({
-      projectName: wb.project.name,
-      clientName: wb.project.client,
-      refNumber: wb.quote?.refNumber || "",
-      exchangeRate: wb.quote?.exchangeRate ?? DEFAULT_EXCHANGE_RATE,
-      generatedAt: new Date().toISOString(),
-      totals: wb.totals,
-      rows: buildSectionRows(wb.totals, wb.categories, { foldAdjustments: true }),
-    });
-    const filename = `${(wb.project.name as string).replace(/\s+/g, "-")}-workbook.xlsx`;
-    res.setHeader("Content-Type", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
-    res.setHeader("Content-Disposition", `attachment; filename="${filename}"`);
-    res.send(buffer);
-  } catch (err) {
-    console.error("GET /workbook/:projectId/export-xlsx error:", err);
-    res.status(500).json({ error: "Failed to generate workbook export" });
-  }
-});
-
 // GET /api/workbook/:projectId/export-workbook-xlsx — the whole Workbook (Asset List, Cost & Margin,
-// BOM, Synthesis, cover sheet) as an internal spreadsheet. Separate from the MOH template export.
+// BOM, Synthesis, cover sheet) as an internal spreadsheet.
 router.get("/:projectId/export-workbook-xlsx", async (req: Request, res: Response) => {
   try {
     const quoteId = await resolveQuoteId(req);

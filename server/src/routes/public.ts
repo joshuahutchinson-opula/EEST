@@ -4,16 +4,20 @@ import { signFileUrls } from "../lib/uploads";
 import { loadProjectWorkbook } from "../lib/workbookData";
 import { buildSectionRows } from "../lib/workbookTotals";
 import { notifyClientApproval } from "../lib/alerts";
+import { latestQuoteId } from "../lib/quoteRevisions";
 
 const MAX_SIGNATURE_LENGTH = 400_000; // characters of PNG data URL
 const money = (n: number) => Math.round(n * 100) / 100;
 
-// The quote version the client should see: the newest sent (awaiting approval) or approved one.
-// Drafts are never shown. Amounts are JMD at the quote's locked rate, like the proposal.
+// Statuses a quote version can be approved from by the client.
+const APPROVABLE_QUOTE_STATUSES = ["draft", "sent"];
+
+// The quote version the client sees: the project's newest one, whatever its status. Amounts are
+// JMD at the rate stored on that version.
 async function clientQuote(projectId: string) {
-  const q = (await pool.query(`SELECT id FROM quotes WHERE project_id = $1 AND status IN ('sent', 'approved') ORDER BY revision DESC LIMIT 1`, [projectId])).rows[0];
-  if (!q) return null;
-  const wb = await loadProjectWorkbook(projectId, q.id);
+  const quoteId = await latestQuoteId(pool, projectId);
+  if (!quoteId) return null;
+  const wb = await loadProjectWorkbook(projectId, quoteId);
   if (!wb?.quote) return null;
   const rate = wb.quote.exchangeRate;
   // Client-facing: Synthesis overrides are folded into the section's rows, no adjustment line.
@@ -136,7 +140,7 @@ router.get("/status/:token", async (req: Request, res: Response) => {
   }
 });
 
-// POST /api/public/status/:token/approve — the client signs off a sent quote version or a submitted
+// POST /api/public/status/:token/approve — the client signs off the newest quote version or a submitted
 // change order: typed name + drawn signature. Stored with time, IP and user agent; the quote or
 // change order becomes approved and admins are notified.
 router.post("/status/:token/approve", async (req: Request, res: Response) => {
@@ -160,8 +164,11 @@ router.post("/status/:token/approve", async (req: Request, res: Response) => {
       ? (await client.query(`SELECT id, status, ref_number, revision FROM quotes WHERE id::text = $1 AND project_id = $2 FOR UPDATE`, [targetId, project.id])).rows[0]
       : (await client.query(`SELECT id, status, title FROM change_orders WHERE id::text = $1 AND project_id = $2 FOR UPDATE`, [targetId, project.id])).rows[0];
     if (!target) { await client.query("ROLLBACK"); return res.status(404).json({ error: "Nothing to approve here" }); }
-    const awaiting = targetType === "quote" ? "sent" : "submitted";
-    if (target.status !== awaiting) { await client.query("ROLLBACK"); return res.status(409).json({ error: target.status === "approved" ? "This has already been approved" : "This isn't awaiting approval" }); }
+    // A quote can be approved only while it's the version the client is shown (the newest one).
+    const awaiting = targetType === "quote"
+      ? APPROVABLE_QUOTE_STATUSES.includes(target.status) && (await latestQuoteId(client, project.id)) === target.id
+      : target.status === "submitted";
+    if (!awaiting) { await client.query("ROLLBACK"); return res.status(409).json({ error: target.status === "approved" ? "This has already been approved" : "This isn't awaiting approval" }); }
 
     const ip = (req.headers["x-forwarded-for"] as string | undefined)?.split(",")[0].trim() || req.socket.remoteAddress || null;
     await client.query(

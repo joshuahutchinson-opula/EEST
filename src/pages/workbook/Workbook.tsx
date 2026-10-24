@@ -1,6 +1,6 @@
 import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
-import { Building2, CheckCircle2, ChevronDown, ChevronLeft, ChevronRight, DollarSign, FileDown, History, Loader2, RotateCw, AlertTriangle } from "lucide-react";
+import { Building2, CheckCircle2, ChevronDown, ChevronLeft, ChevronRight, DollarSign, FileDown, History, Loader2, AlertTriangle } from "lucide-react";
 import { clsx } from "clsx";
 import { computeWorkbookTotals, isImportSection } from "../../../server/src/lib/workbookTotals";
 import { API, ApiError, downloadBlob } from "../../api";
@@ -17,7 +17,6 @@ import { LabourCalculatorModal, type LabourRow } from "./LabourCalculatorModal";
 import { CostMarginTab } from "./CostMarginTab";
 import { FieldAuditModal } from "./FieldAuditModal";
 import { OverrideConflictModal } from "./OverrideConflictModal";
-import { ProposalGeneratorModal } from "./ProposalGeneratorModal";
 import { SelectProjectModal } from "./SelectProjectModal";
 import { SummaryBar } from "./SummaryBar";
 import { isPmLine, PM_LINE_DESCRIPTION, PRO_SERVICES_SECTIONS, SynthesisTab } from "./SynthesisTab";
@@ -61,7 +60,8 @@ export function Workbook({ navigate }: { navigate: (p: Page) => void }) {
   const [selectedProjectId, setSelectedProjectId] = useState<string>(() => localStorage.getItem("wb_last_project") || "");
   const [selectedQuoteId, setSelectedQuoteId] = useState<string>("");
   const [showProjectSelect, setShowProjectSelect] = useState(false);
-  const [rateUpdate, setRateUpdate] = useState<{ liveRate: number } | null>(null);
+  // Today's live JMD rate, fetched when the Workbook opens; draft quotes follow it.
+  const [liveRate, setLiveRate] = useState<number | null>(null);
   const [pendingDelete, setPendingDelete] = useState<{ categoryId: string; item: QuoteLineItem } | null>(null);
   const [pickerCategoryId, setPickerCategoryId] = useState<string | null>(null);
   const [labourCategoryId, setLabourCategoryId] = useState<string | null>(null);
@@ -73,8 +73,6 @@ export function Workbook({ navigate }: { navigate: (p: Page) => void }) {
   const [fieldSaveStatus, setFieldSaveStatus] = useState<Record<string, "saved" | "saving" | "">>({});
   const [synthesisOverrides, setSynthesisOverrides] = useState<SynthesisOverride[]>([]);
   const [workbookAudit, setWorkbookAudit] = useState<WorkbookAuditEntry[]>([]);
-  const [showProposalModal, setShowProposalModal] = useState(false);
-  const [proposalWarning, setProposalWarning] = useState(false);
   const [showPricingIssues, setShowPricingIssues] = useState(false);
   // Team-wide setting stored on the server; the input edits a local draft saved on blur/Enter.
   const [minMargin, setMinMargin] = useState<number>(20);
@@ -101,6 +99,7 @@ export function Workbook({ navigate }: { navigate: (p: Page) => void }) {
 
   useEffect(() => { localStorage.setItem("wb_tab", activeTab); }, [activeTab]);
   useEffect(() => { API.devices.list().then(setStoreDevices).catch(() => setStoreDevices([])); }, []);
+  useEffect(() => { API.fx.getRate().then((r) => { const n = toNum(r); if (n > 0) setLiveRate(n); }).catch(() => {}); }, []);
 
   const fetchData = useCallback(async () => {
     setLoading(true);
@@ -187,9 +186,20 @@ export function Workbook({ navigate }: { navigate: (p: Page) => void }) {
     return { unpriced, lowMargin, total: unpriced + lowMargin };
   }, [selectedQuote, minMargin]);
   const blockIfFrozen = () => { if (frozen) { setFrozenPrompt(true); return true; } return false; };
-  // Locked on the quote when it's created; only the explicit "Update rate" action changes it.
-  const exchangeRate = toNum(selectedQuote?.exchangeRate, DEFAULT_EXCHANGE_RATE);
-  // Every Workbook tab follows the USD/JMD toggle, converting at this quote's locked rate.
+  // Draft quotes use the live rate and save it to the quote, so exports and the client share link
+  // match what's on screen. Frozen (approved, rejected or legacy sent) versions keep their stored rate.
+  const exchangeRate = !frozen && liveRate ? liveRate : toNum(selectedQuote?.exchangeRate, DEFAULT_EXCHANGE_RATE);
+  useEffect(() => {
+    if (!selectedQuote || frozen || !liveRate || Math.abs(toNum(selectedQuote.exchangeRate) - liveRate) < 0.005) return;
+    const { id, exchangeRate: stored } = selectedQuote;
+    API.quotes.update(id, { exchangeRate: liveRate })
+      .then(() => {
+        setQuotes(prev => prev.map(q => q.id === id ? { ...q, exchangeRate: liveRate } : q));
+        API.workbook.logAudit(selectedProjectId, "Quote exchange rate (live)", toNum(stored).toFixed(2), liveRate.toFixed(2)).catch(() => {});
+      })
+      .catch(() => {});
+  }, [selectedQuote?.id, selectedQuote?.exchangeRate, frozen, liveRate]);
+  // Every Workbook tab follows the USD/JMD toggle, converting at this rate.
   const fmt = useMemo(() => makeFmt(currency, exchangeRate), [currency, exchangeRate]);
   const quoteCategories = selectedQuote?.categories || [];
 
@@ -464,20 +474,8 @@ export function Workbook({ navigate }: { navigate: (p: Page) => void }) {
       await API.quotes.update(selectedQuote.id, { status });
       setQuotes(prev => prev.map(q => q.id === selectedQuote.id ? { ...q, status, sentAt: status === "sent" ? new Date().toISOString() : q.sentAt } : q));
       API.workbook.logAudit(selectedProjectId, `Quote Rev ${selectedQuote.revision ?? 1} status`, selectedQuote.status, status).catch(() => {});
-      toast.success(status === "sent" ? "Marked as sent — this version is now frozen" : `Marked as ${status}`);
+      toast.success(`Marked as ${status} — this version is now frozen`);
     } catch { toast.error("Failed to update quote status"); }
-  };
-
-  const handleUpdateRate = async () => {
-    if (!selectedQuote || !rateUpdate) return;
-    const { liveRate } = rateUpdate;
-    setRateUpdate(null);
-    try {
-      await API.quotes.update(selectedQuote.id, { exchangeRate: liveRate });
-      API.workbook.logAudit(selectedProjectId, "Quote exchange rate", exchangeRate.toFixed(2), liveRate.toFixed(2)).catch(() => {});
-      setQuotes(prev => prev.map(q => q.id === selectedQuote.id ? { ...q, exchangeRate: liveRate } : q));
-      toast.success(`Exchange rate updated to J$ ${liveRate.toFixed(2)}`);
-    } catch { toast.error("Failed to update exchange rate"); }
   };
 
   // Puts a logged change back to its old value through the normal save path (which logs the revert).
@@ -530,13 +528,10 @@ export function Workbook({ navigate }: { navigate: (p: Page) => void }) {
     <div className="flex flex-col h-[calc(100vh-56px)] overflow-hidden">
       {overrideConflict && <OverrideConflictModal open={true} sectionName={overrideConflict.sectionName} onUpdateOverride={() => { overrideConflict.pendingCallback?.(); handleSaveOverride(overrideConflict.sectionNumber, null, false); setOverrideConflict(null); }} onKeepOverride={() => { overrideConflict.pendingCallback?.(); setOverrideConflict(null); }} onCancel={() => setOverrideConflict(null)} />}
       {showProjectSelect && <SelectProjectModal onClose={() => setShowProjectSelect(false)} onSelect={(id: string) => { setSelectedProjectId(id); setSelectedQuoteId(latestQuoteFor(quotes, id)?.id || ""); setShowProjectSelect(false); }} currentId={selectedProjectId} projects={projects} />}
-      {showProposalModal && <ProposalGeneratorModal open={true} onClose={() => setShowProposalModal(false)} projectId={selectedProjectId} quoteId={selectedQuoteId || undefined} totals={fullTotals} exchangeRate={exchangeRate} />}
       {labourCategoryId && selectedQuote?.categories.find(c => c.id === labourCategoryId) && <LabourCalculatorModal category={selectedQuote.categories.find(c => c.id === labourCategoryId)!} currency={currency} exchangeRate={exchangeRate} fmt={fmt} onClose={() => setLabourCategoryId(null)} onSave={(rows) => applyLabour(labourCategoryId, rows)} />}
       {pickerCategoryId && <DevicePickerModal devices={storeDevices} fmt={fmt} onClose={() => setPickerCategoryId(null)} onPick={(d) => addLineItemFromDevice(pickerCategoryId, d)} />}
       {frozenPrompt && selectedQuote && <ConfirmDialog open={true} danger={false} confirmLabel="Create new draft" title="This version is frozen" message={`Rev ${selectedQuote.revision ?? 1} is ${selectedQuote.status}, so it can't be edited. Create a new draft (Rev ${Math.max(...projectQuotes.map(q => q.revision ?? 1)) + 1}) from it to make changes?`} onCancel={() => setFrozenPrompt(false)} onConfirm={createDraftFromSelected} />}
-      {proposalWarning && <ConfirmDialog open={true} danger={false} confirmLabel="Generate anyway" title="Pricing isn't complete" message={`${pricingIssues.unpriced} item(s) have no price ($0 cost or 0% markup) and ${pricingIssues.lowMargin} are below the ${minMargin}% minimum margin. Generate the proposal anyway?`} onCancel={() => setProposalWarning(false)} onConfirm={() => { setProposalWarning(false); setShowProposalModal(true); }} />}
       {pendingDelete && <ConfirmDialog open={true} title="Delete line item" message={`Delete "${pendingDelete.item.description || "this line item"}" from the quote?`} onCancel={() => setPendingDelete(null)} onConfirm={confirmDeleteLineItem} />}
-      {rateUpdate && selectedQuote && <ConfirmDialog open={true} danger={false} confirmLabel="Update rate" title="Update exchange rate" message={`This quote is locked at J$ ${exchangeRate.toFixed(2)} per US$1. The current live rate is J$ ${rateUpdate.liveRate.toFixed(2)}. Update the quote to the live rate? JMD figures on this quote will change.`} onCancel={() => setRateUpdate(null)} onConfirm={handleUpdateRate} />}
       <div className="px-4 md:px-6 py-3 flex flex-col md:flex-row md:items-center justify-between flex-shrink-0 gap-2" style={{ borderBottom: "1px solid rgba(255,255,255,0.07)" }}>
         <div>
           <h1 className="text-white font-extrabold text-2xl md:text-3xl tracking-tight">Workbook</h1>
@@ -548,7 +543,6 @@ export function Workbook({ navigate }: { navigate: (p: Page) => void }) {
               </select>
             )}
             {selectedQuote && <span className={clsx("text-[12px] font-extrabold px-2 py-0.5 rounded-full", selectedQuote.status === "draft" ? "bg-amber-500/12 text-amber-400" : selectedQuote.status === "approved" ? "bg-emerald-500/12 text-emerald-400" : selectedQuote.status === "rejected" ? "bg-rose-500/12 text-rose-400" : "bg-blue-500/12 text-blue-400")}>{selectedQuote.status}{frozen ? " · frozen" : ""}</span>}
-            {selectedQuote?.status === "draft" && <button onClick={() => setQuoteStatus("sent")} className="h-7 px-2.5 rounded-lg text-[12px] font-extrabold text-white cursor-pointer" style={{ background: "rgba(59,130,246,0.25)", border: "1px solid rgba(59,130,246,0.40)" }}>Mark as sent</button>}
             {selectedQuote?.status === "sent" && <><button onClick={() => setQuoteStatus("approved")} className="h-7 px-2.5 rounded-lg text-[12px] font-extrabold text-emerald-400 cursor-pointer" style={G.btn}>Approved</button><button onClick={() => setQuoteStatus("rejected")} className="h-7 px-2.5 rounded-lg text-[12px] font-extrabold text-rose-400 cursor-pointer" style={G.btn}>Rejected</button></>}
             {frozen && <button onClick={createDraftFromSelected} className="h-7 px-2.5 rounded-lg text-[12px] font-extrabold text-white cursor-pointer" style={G.btn}>New draft from this</button>}
             {saveStatus === "saving" && <span className="text-[12px] text-[#8b949e] flex items-center gap-1"><Loader2 className="w-3 h-3 animate-spin" /> Saving…</span>}
@@ -556,11 +550,9 @@ export function Workbook({ navigate }: { navigate: (p: Page) => void }) {
           </div>
         </div>
         <div className="flex items-center gap-2 flex-wrap">
-          <div className="flex items-center gap-2 px-3 py-1 rounded-xl" style={G.subtle} title="Exchange rate locked on this quote"><span className="text-[#8b949e] text-[12px] font-extrabold uppercase">FX Rate</span><span className="text-white text-[14px] font-extrabold">J$ {exchangeRate.toFixed(2)}</span></div>
-          {selectedQuote && <button onClick={async () => { if (blockIfFrozen()) return; const liveRate = await API.fx.getRate(); setRateUpdate({ liveRate: toNum(liveRate, DEFAULT_EXCHANGE_RATE) }); }} className="flex items-center gap-1.5 h-9 md:h-7 px-3 rounded-lg text-[#8b949e] hover:text-white text-[12px] font-extrabold cursor-pointer" style={G.btn}><RotateCw className="w-3 h-3" /> Update rate</button>}
+          <div className="flex items-center gap-2 px-3 py-1 rounded-xl" style={G.subtle} title={frozen ? "Exchange rate stored on this frozen version" : "Live exchange rate, refreshed each time the Workbook opens"}><span className="text-[#8b949e] text-[12px] font-extrabold uppercase">FX Rate</span><span className="text-white text-[14px] font-extrabold">J$ {exchangeRate.toFixed(2)}</span></div>
           <button onClick={() => { API.workbook.getAudit(selectedProjectId).then(setWorkbookAudit).catch(() => {}); setShowAuditModal(true); }} className="flex items-center gap-1.5 h-9 md:h-7 px-3 rounded-lg text-[#8b949e] hover:text-white text-[12px] font-extrabold cursor-pointer" style={G.btn}><History className="w-3 h-3" /> History</button>
           <button onClick={async () => { try { const { blob, filename } = await API.workbook.exportFullXlsx(selectedProjectId, selectedQuoteId || undefined); downloadBlob(blob, filename); } catch { toast.error("Failed to generate Workbook export"); } }} className="flex items-center gap-1.5 h-9 md:h-7 px-3 rounded-lg text-[#8b949e] hover:text-white text-[12px] font-extrabold cursor-pointer" style={G.btn} title="Asset List, Cost & Margin, BOM and Synthesis with live formulas (internal)"><FileDown className="w-3 h-3" /> Workbook .xlsx</button>
-          <button onClick={async () => { try { const { blob, filename } = await API.workbook.exportXlsx(selectedProjectId, selectedQuoteId || undefined); downloadBlob(blob, filename); } catch { toast.error("Failed to generate Excel export"); } }} className="flex items-center gap-1.5 h-9 md:h-7 px-3 rounded-lg text-[#8b949e] hover:text-white text-[12px] font-extrabold cursor-pointer" style={G.btn} title="The MOH-SurAc client template (Synthesis and BoM sheets)"><FileDown className="w-3 h-3" /> MOH template</button>
           {selectedQuote && (
             <div className="relative">
               <button onClick={() => setShowPricingIssues(v => !v)} className={clsx("flex items-center gap-1.5 h-9 md:h-7 px-3 rounded-lg text-[12px] font-extrabold cursor-pointer", pricingIssues.total > 0 ? "text-amber-400" : "text-emerald-400")} style={G.btn} title="Unpriced items and items below the minimum margin">
@@ -579,7 +571,6 @@ export function Workbook({ navigate }: { navigate: (p: Page) => void }) {
               )}
             </div>
           )}
-          <button onClick={() => (pricingIssues.total > 0 ? setProposalWarning(true) : setShowProposalModal(true))} className="flex items-center gap-1.5 h-9 md:h-7 px-3 rounded-lg text-white text-[12px] font-extrabold cursor-pointer" style={{ background: "#3b82f6" }}><FileDown className="w-3 h-3" /> Proposal</button>
         </div>
       </div>
       <FieldAuditModal open={showAuditModal} entries={workbookAudit} onClose={() => setShowAuditModal(false)} onRevert={revertAuditEntry} />

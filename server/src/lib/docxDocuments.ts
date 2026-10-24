@@ -10,67 +10,10 @@ import {
   sectionHeading,
   brandRuleParagraph,
   BRAND_COLORS,
-  fmtJMD,
   fmtUSD,
 } from "./reportTemplate";
 
 // The Word documents the app generates, all built on the shared report template.
-
-// === Proposal ================================================================================
-
-export interface ProposalDocxData {
-  project: { id: string; name: string; client: string; summary?: string; location?: string };
-  refNumber?: string;
-  exchangeRate: number;
-  categories: { system: string; sectionNumber: string; name: string; items: { description: string; quantity: number; total: number }[] }[];
-  grandTotal: number;
-  gctAmount: number;
-  grandTotalWithTax: number;
-  generatedAt: string;
-  validUntil?: string;
-  terms?: string;
-}
-
-// Client-facing, so amounts are in JMD at the quote's locked exchange rate (data stays USD).
-export async function buildProposalDocx(data: ProposalDocxData): Promise<Buffer> {
-  const jmd = (usd: number) => fmtJMD(usd * data.exchangeRate);
-  const body: Block[] = [];
-  if (data.project.location) body.push(...reportIntro(`${data.project.name} — ${data.project.client}`, [{ text: data.project.location, size: 18, color: "666666" }], 0));
-  else body.push(...reportIntro(`${data.project.name} — ${data.project.client}`, [], 0));
-  body.push(new Paragraph({ spacing: { after: data.validUntil ? 0 : 200 }, children: [new TextRun({ text: `Generated ${new Date(data.generatedAt).toLocaleDateString()}`, size: 16, color: "999999" })] }));
-  if (data.validUntil) body.push(new Paragraph({ spacing: { after: 200 }, children: [new TextRun({ text: `Valid until ${new Date(data.validUntil + "T00:00:00").toLocaleDateString()}`, size: 18, bold: true, color: "555555" })] }));
-  if (data.project.summary) {
-    body.push(sectionHeading("Scope of Work"));
-    body.push(bodyText(data.project.summary, { spaceAfter: 200 }));
-  }
-
-  for (const cat of data.categories) {
-    if (cat.items.length === 0) continue;
-    body.push(sectionHeading(`${cat.sectionNumber} — ${cat.name}`));
-    body.push(dataTable(
-      [{ header: "Description", width: 60 }, { header: "Qty", width: 15, align: AlignmentType.CENTER }, { header: "Total", width: 25, align: AlignmentType.RIGHT }],
-      cat.items.map((item) => [item.description, String(item.quantity), jmd(item.total)])
-    ));
-  }
-
-  body.push(new Paragraph({ spacing: { before: 300 }, children: [] }));
-  body.push(totalsTable([
-    { label: "Grand Total", value: jmd(data.grandTotal) },
-    { label: "GCT (15%)", value: jmd(data.gctAmount) },
-    { label: "Total", value: jmd(data.grandTotalWithTax), emphasis: true },
-  ]));
-  body.push(new Paragraph({ alignment: AlignmentType.RIGHT, spacing: { before: 120 }, children: [new TextRun({ text: `All prices in Jamaican dollars at J$${data.exchangeRate.toFixed(2)} per US$1.`, size: 16, color: "666666" })] }));
-  if (data.terms?.trim()) {
-    body.push(sectionHeading("Terms and Conditions"));
-    for (const line of data.terms.trim().split(/\r?\n/)) body.push(new Paragraph({ spacing: { after: 80 }, children: [new TextRun({ text: line, size: 18 })] }));
-  }
-
-  return buildReport({
-    title: "Project Proposal",
-    cover: { preparedFor: data.project.client, reference: data.refNumber, date: new Date(data.generatedAt).toLocaleDateString() },
-    body,
-  });
-}
 
 // === Commissioning Report ====================================================================
 
