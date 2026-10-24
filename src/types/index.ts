@@ -14,7 +14,7 @@ export type Role = "admin" | "tech";
 // The real signed-in identity (from /api/auth/me), separate from RoleContext.
 export interface SessionUserInfo { name: string; email: string }
 
-export type Page = "login" | "ops-dashboard" | "pipeline" | "projects" | "project-detail" | "workbook" | "install-tracker" | "device-library" | "clients";
+export type Page = "login" | "ops-dashboard" | "pipeline" | "project-detail" | "workbook" | "install-tracker" | "device-library" | "clients";
 
 export type Stage = "lead" | "opportunity" | "assessment-scheduled" | "assessment-completed" | "proposal" | "negotiation" | "win" | "lose";
 

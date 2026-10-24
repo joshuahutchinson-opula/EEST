@@ -1,9 +1,9 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import { motion } from "motion/react";
-import { Activity, AlertTriangle, BarChart3, CheckCircle2, DollarSign, Layers, Plus, Star, TrendingUp, Wrench } from "lucide-react";
+import { Activity, AlertTriangle, BarChart3, CheckCircle2, DollarSign, FileDown, Grid3x3, Kanban, Layers, List, Plus, Search, Star, TrendingUp, Wrench } from "lucide-react";
 import { clsx } from "clsx";
-import { API } from "../../api";
+import { API, downloadBlob } from "../../api";
 import { EmptyState } from "../../components/EmptyState";
 import { Skeleton } from "../../components/Skeleton";
 import { G, PROJECT_COLUMNS } from "../../lib/constants";
@@ -12,6 +12,7 @@ import { computeSynthesisTotal, latestQuoteFor } from "../../lib/utils";
 import { DealModal } from "./DealModal";
 import { KanbanColumn } from "./KanbanColumn";
 import { NewProjectModal } from "./NewProjectModal";
+import { ProjectBrowser } from "./ProjectBrowser";
 import { COLUMNS } from "./shared";
 import type { Page, PipelineType, Project, ProjectStage, Quote, Stage, TutorialStep } from "../../types";
 
@@ -19,9 +20,10 @@ export const DASHBOARD_STEPS: TutorialStep[] = [
   { target: "db-stats", title: "Pipeline Stats", description: "Track pipeline value, win rate, deals in negotiation, and average deal size at a glance — these switch to project-health stats (active projects, in installation, overdue, tickets resolved) when you're viewing the Project pipeline." },
   { target: "db-pipeline-toggle", title: "Sales vs. Project Pipeline", description: "Toggle between the Sales pipeline (Lead through Won) and the Project pipeline (Planning through Complete) — two different boards sharing this one screen." },
   { target: "db-kanban-column", title: "Kanban Columns", description: "Each column is a stage. Drag any card from one column to another to move it through the pipeline — the move saves automatically and logs to the project's audit trail." },
-  { target: "db-kanban-card", title: "Card Details", description: "Every card shows the client, value, risk, assignee, due date, and a quick-actions menu for deleting the deal or (once a sales deal is Won) moving it into the Project pipeline. Click a card to open its full detail." },
+  { target: "db-kanban-card", title: "Card Details", description: "Every card shows the client, value, risk, assignee and due date. Click a card to open its Project Detail; the quick-actions menu has a quick view for editing the deal, delete, and (once a sales deal is Won) moving it into the Project pipeline." },
+  { target: "db-view-toggle", title: "Board, Grid or List", description: "Switch between the Kanban board, a card grid with each project's asset summary, and a dense list. Search works in every view; Grid and List can also filter by stage." },
   { target: "db-new-project", title: "New Project", description: "Add a new lead or project directly from here." },
-  { target: "nav-projects", title: "More Sections", description: "Head to Projects, Workbook, Installation, or Device Library from the nav bar to dig into a specific project." },
+  { target: "nav-clients", title: "More Sections", description: "Head to Clients, Workbook, Installation, or Device Library from the nav bar to dig into a specific project." },
 ];
 
 export function Dashboard({ navigate }: { navigate: (p: Page) => void }) {
@@ -38,13 +40,18 @@ export function Dashboard({ navigate }: { navigate: (p: Page) => void }) {
   const [showNewProject, setShowNewProject] = useState(false);
   const [progressAnim, setProgressAnim] = useState<{ id: string; stage: string } | null>(null);
   const [pipelineType, setPipelineType] = useState<PipelineType>(() => (localStorage.getItem("pipeline_type") as PipelineType) || "sales");
+  // Board (Kanban), or the Grid/List views that used to be the Projects page.
+  const [viewMode, setViewMode] = useState<"board" | "grid" | "list">(() => { const v = localStorage.getItem("pipeline_view"); return v === "grid" || v === "list" ? v : "board"; });
+  const [search, setSearch] = useState("");
+  const [stageFilter, setStageFilter] = useState<string>("all");
   const boardScrollRef = useRef<HTMLDivElement>(null);
   const scrollTrackRef = useRef<HTMLDivElement>(null);
   const scrollDragRef = useRef<{ startX: number; startScrollLeft: number } | null>(null);
   const [scrollThumb, setScrollThumb] = useState({ widthPct: 100, leftPct: 0 });
   const [scrollThumbActive, setScrollThumbActive] = useState(false);
 
-  useEffect(() => { localStorage.setItem("pipeline_type", pipelineType); }, [pipelineType]);
+  useEffect(() => { localStorage.setItem("pipeline_type", pipelineType); setStageFilter("all"); }, [pipelineType]);
+  useEffect(() => { localStorage.setItem("pipeline_view", viewMode); }, [viewMode]);
   useEffect(() => { if (tech) setPipelineType("project"); }, [tech]);
 
   const fetchProjects = useCallback(async () => { setLoading(true); try { const data = await API.projects.list(); setProjects(data); } catch { setProjects([]); } finally { setLoading(false); } }, []);
@@ -53,7 +60,11 @@ export function Dashboard({ navigate }: { navigate: (p: Page) => void }) {
 
   const salesProjects = projects.filter(p => !p.pipelineType || p.pipelineType === "sales");
   const projectProjects = projects.filter(p => p.pipelineType === "project");
-  const currentProjects = pipelineType === "sales" ? salesProjects : projectProjects;
+  const pipelineProjects = pipelineType === "sales" ? salesProjects : projectProjects;
+  const searchTerm = search.trim().toLowerCase();
+  const currentProjects = searchTerm ? pipelineProjects.filter((p) => p.name.toLowerCase().includes(searchTerm) || p.client.toLowerCase().includes(searchTerm) || (p.location || "").toLowerCase().includes(searchTerm)) : pipelineProjects;
+  const browsedProjects = stageFilter === "all" ? currentProjects : currentProjects.filter((p) => (pipelineType === "sales" ? p.stage : p.projectStage) === stageFilter);
+  const openProject = (projectId: string) => { localStorage.setItem("active_project_id", projectId); navigate("project-detail"); };
   // Project-pipeline items never have a manually-entered value — their card/column totals are
   // always the live Workbook Synthesis grand total (no per-project override lookup here, to
   // avoid an extra fetch per card; ProjectDetail's own stat card is override-aware).
@@ -212,9 +223,12 @@ export function Dashboard({ navigate }: { navigate: (p: Page) => void }) {
                 </div>
               )}
             </div>
-            <p className="text-[#8b949e] text-[13px] md:text-[15px] mt-0.5">{currentProjects.length} projects</p>
+            <p className="text-[#8b949e] text-[13px] md:text-[15px] mt-0.5">{pipelineProjects.length} projects</p>
           </div>
+          <div className="flex items-center gap-2">
+          {!tech && <button onClick={async () => { try { const { blob, filename } = await API.exports.quickbooks(); downloadBlob(blob, filename); toast.success("QuickBooks export downloaded"); } catch { toast.error("Failed to build the QuickBooks export"); } }} className="hidden md:flex items-center gap-1.5 h-8 px-3 rounded-xl text-[#8b949e] hover:text-white text-[13px] font-bold cursor-pointer" style={G.btn} title="Approved quotes as a QuickBooks invoice-import CSV"><FileDown className="w-3.5 h-3.5" /> QuickBooks CSV</button>}
           <button data-tour="db-new-project" onClick={() => setShowNewProject(true)} className="flex items-center gap-1.5 h-8 px-3 md:px-4 rounded-xl text-white text-[13px] md:text-[14px] font-extrabold cursor-pointer min-h-[44px]" style={{ background: "#3b82f6", boxShadow: "0 4px 16px rgba(59,130,246,0.35)" }}><Plus className="w-3.5 h-3.5" /> New Project</button>
+          </div>
         </div>
         {pipelineType === "sales" ? (
           <div data-tour="db-stats" className="grid grid-cols-2 md:grid-cols-4 gap-2 md:gap-3">
@@ -236,8 +250,26 @@ export function Dashboard({ navigate }: { navigate: (p: Page) => void }) {
           </div>
         )}
       </div>
-      {currentProjects.length === 0 ? (
+      <div className="px-3 md:px-5 pt-4 flex items-center gap-2 flex-wrap">
+        <div data-tour="db-view-toggle" className="flex items-center rounded-xl p-0.5 gap-0.5" style={G.btn}>
+          {([["board", Kanban, "Board"], ["grid", Grid3x3, "Grid"], ["list", List, "List"]] as const).map(([m, Icon, label]) => (
+            <button key={m} onClick={() => setViewMode(m)} title={label} className={clsx("h-7 px-2 rounded-lg flex items-center gap-1 text-[12px] font-bold cursor-pointer", viewMode === m ? "text-white" : "text-[#8b949e]")} style={viewMode === m ? { background: "rgba(255,255,255,0.12)" } : undefined}><Icon className="w-3.5 h-3.5" />{label}</button>
+          ))}
+        </div>
+        <div className="relative"><Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3 h-3 text-[#484f58]" /><input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search name, client, location…" className="h-8 rounded-xl pl-7 pr-3 text-[13px] text-[#e6edf3] focus:outline-none w-48 md:w-60" style={G.input} /></div>
+        {viewMode !== "board" && (
+          <div className="flex items-center gap-1.5 flex-wrap">
+            {[{ id: "all", label: "All" }, ...(pipelineType === "sales" ? COLUMNS : PROJECT_COLUMNS)].map((f) => (
+              <button key={f.id} onClick={() => setStageFilter(f.id)} className={clsx("h-7 px-3 rounded-full text-[12px] md:text-[13px] font-bold cursor-pointer", stageFilter === f.id ? "text-white" : "text-[#8b949e]")} style={stageFilter === f.id ? { background: "#3b82f6", boxShadow: "0 2px 12px rgba(59,130,246,0.3)" } : G.subtle}>{f.label}</button>
+            ))}
+          </div>
+        )}
+        {(searchTerm || (viewMode !== "board" && stageFilter !== "all")) && <span className="text-[#8b949e] text-[13px]">{viewMode === "board" ? currentProjects.length : browsedProjects.length} match</span>}
+      </div>
+      {pipelineProjects.length === 0 ? (
         <EmptyState icon={Layers} title="No projects yet" description={`Create your first ${pipelineType === "sales" ? "sales" : "project"} pipeline item.`} action={{ label: "New Project", onClick: () => setShowNewProject(true) }} />
+      ) : viewMode !== "board" ? (
+        <div className="px-3 md:px-5 py-4 md:py-5"><ProjectBrowser projects={browsedProjects} viewMode={viewMode} onOpen={openProject} onDelete={handleDelete} /></div>
       ) : (
         <div className="px-3 md:px-5 py-4 md:py-5">
           {scrollThumb.widthPct < 100 && (
@@ -264,7 +296,7 @@ export function Dashboard({ navigate }: { navigate: (p: Page) => void }) {
               {columns.map((col) => {
                 const colProjects = currentProjects.filter((p) => pipelineType === "sales" ? p.stage === col.id : p.projectStage === col.id);
                 const totalValue = pipelineType === "sales" ? colProjects.reduce((s, p) => s + p.value, 0) : colProjects.reduce((s, p) => s + (projectValues.get(p.id) || 0), 0);
-                return <KanbanColumn key={col.id} column={col} projects={colProjects} totalValue={totalValue} dragging={dragging} isOver={dragOverCol === col.id} onDragStart={handleDragStart} onDragEnd={handleDragEnd} onDragOver={(e) => { e.preventDefault(); setDragOverCol(col.id); }} onDragLeave={() => setDragOverCol(null)} onDrop={() => handleDrop(col.id)} onCardClick={(p) => setSelectedDeal(p)} onDelete={handleDelete} onMoveToProjects={handleMoveToProjects} projectValues={projectValues} />;
+                return <KanbanColumn key={col.id} column={col} projects={colProjects} totalValue={totalValue} dragging={dragging} isOver={dragOverCol === col.id} onDragStart={handleDragStart} onDragEnd={handleDragEnd} onDragOver={(e) => { e.preventDefault(); setDragOverCol(col.id); }} onDragLeave={() => setDragOverCol(null)} onDrop={() => handleDrop(col.id)} onCardClick={(p) => openProject(p.id)} onQuickView={(p) => setSelectedDeal(p)} onDelete={handleDelete} onMoveToProjects={handleMoveToProjects} projectValues={projectValues} />;
               })}
             </div>
           </div>

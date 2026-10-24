@@ -4,7 +4,7 @@ import { useCurrency } from "../../lib/contexts";
 import { KanbanCard } from "./KanbanCard";
 import type { Column, Project, ProjectColumn } from "../../types";
 
-export function KanbanColumn({ column, projects, totalValue, dragging, isOver, onDragStart, onDragEnd, onDragOver, onDragLeave, onDrop, onCardClick, onDelete, onMoveToProjects, projectValues }: { column: Column | ProjectColumn; projects: Project[]; totalValue: number; dragging: string | null; isOver: boolean; onDragStart: (e: React.DragEvent<HTMLDivElement>, id: string) => void; onDragEnd: () => void; onDragOver: (e: React.DragEvent<HTMLDivElement>) => void; onDragLeave: () => void; onDrop: () => void; onCardClick: (p: Project) => void; onDelete: (id: string) => void; onMoveToProjects?: (id: string) => void; projectValues?: Map<string, number | null>; }) {
+export function KanbanColumn({ column, projects, totalValue, dragging, isOver, onDragStart, onDragEnd, onDragOver, onDragLeave, onDrop, onCardClick, onQuickView, onDelete, onMoveToProjects, projectValues }: { column: Column | ProjectColumn; projects: Project[]; totalValue: number; dragging: string | null; isOver: boolean; onDragStart: (e: React.DragEvent<HTMLDivElement>, id: string) => void; onDragEnd: () => void; onDragOver: (e: React.DragEvent<HTMLDivElement>) => void; onDragLeave: () => void; onDrop: () => void; onCardClick: (p: Project) => void; onQuickView: (p: Project) => void; onDelete: (id: string) => void; onMoveToProjects?: (id: string) => void; projectValues?: Map<string, number | null>; }) {
   const { fmt } = useCurrency();
   const isProjectColumn = PROJECT_COLUMNS.some(c => c.id === column.id);
   return (
@@ -22,7 +22,7 @@ export function KanbanColumn({ column, projects, totalValue, dragging, isOver, o
       <div className="flex-1 p-2 space-y-2 overflow-y-auto" style={{ scrollbarWidth: "none", scrollBehavior: "smooth", WebkitOverflowScrolling: "touch", minHeight: "120px", maxHeight: "calc(100vh - 250px)" }}>
         <AnimatePresence mode="popLayout">
           {projects.map((p) => (
-            <KanbanCard key={p.id} project={p} column={column} dragging={dragging} onDragStart={onDragStart} onDragEnd={onDragEnd} onClick={() => onCardClick(p)} onDelete={onDelete} onMoveToProjects={onMoveToProjects} liveValue={projectValues?.get(p.id)} />
+            <KanbanCard key={p.id} project={p} column={column} dragging={dragging} onDragStart={onDragStart} onDragEnd={onDragEnd} onClick={() => onCardClick(p)} onQuickView={() => onQuickView(p)} onDelete={onDelete} onMoveToProjects={onMoveToProjects} liveValue={projectValues?.get(p.id)} />
           ))}
         </AnimatePresence>
         {isOver && <div className="h-14 rounded-xl border-2 border-dashed border-blue-500/35 bg-blue-500/[0.04] flex items-center justify-center"><p className="text-blue-400/60 text-[14px] font-extrabold">Drop here</p></div>}

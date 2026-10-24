@@ -153,8 +153,8 @@ export function DealModal({ project, column, onClose, navigate, onUpdate, onDele
           )}
         </div>
         <div className="px-5 md:px-7 pb-7 flex gap-2.5">
-          <button onClick={() => { navigate("project-detail"); onClose(); }} className="flex-1 h-10 rounded-xl flex items-center justify-center gap-2 text-white text-[15px] font-extrabold cursor-pointer min-h-[44px]" style={{ background: "#3b82f6", boxShadow: "0 4px 20px rgba(59,130,246,0.4)" }}><ExternalLink className="w-3.5 h-3.5" />Open</button>
-          <button onClick={() => { localStorage.setItem("pd_tab", "assets"); navigate("project-detail"); onClose(); }} className="flex-1 h-10 rounded-xl flex items-center justify-center gap-2 text-[#e6edf3] text-[15px] font-extrabold cursor-pointer min-h-[44px]" style={G.btn}><Package className="w-3.5 h-3.5 text-violet-400" />Assets</button>
+          <button onClick={() => { localStorage.setItem("active_project_id", project.id); navigate("project-detail"); onClose(); }} className="flex-1 h-10 rounded-xl flex items-center justify-center gap-2 text-white text-[15px] font-extrabold cursor-pointer min-h-[44px]" style={{ background: "#3b82f6", boxShadow: "0 4px 20px rgba(59,130,246,0.4)" }}><ExternalLink className="w-3.5 h-3.5" />Open</button>
+          <button onClick={() => { localStorage.setItem("active_project_id", project.id); localStorage.setItem("pd_tab", "assets"); navigate("project-detail"); onClose(); }} className="flex-1 h-10 rounded-xl flex items-center justify-center gap-2 text-[#e6edf3] text-[15px] font-extrabold cursor-pointer min-h-[44px]" style={G.btn}><Package className="w-3.5 h-3.5 text-violet-400" />Assets</button>
           {!tech && <button onClick={() => { onDelete(project.id); onClose(); }} className="h-10 px-3 rounded-xl text-rose-400 text-[15px] font-extrabold cursor-pointer min-h-[44px]" style={{ background: "rgba(244,63,94,0.10)", border: "1px solid rgba(244,63,94,0.20)" }}><Trash2 className="w-3.5 h-3.5" /></button>}
         </div>
       </motion.div>

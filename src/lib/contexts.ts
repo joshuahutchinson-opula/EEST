@@ -25,8 +25,7 @@ export const QuoteContext = createContext<QuoteCtx>({ currentQuote: null, setCur
 export const useQuote = () => useContext(QuoteContext);
 
 export const APP_INTRO_STEPS: TutorialStep[] = [
-  { target: "nav-pipeline", title: "Pipeline", description: "Track every sales lead and support project through its stages — Lead to Won on the sales side, Planning to Complete on the project side." },
-  { target: "nav-projects", title: "Projects", description: "Browse every active project here. Click into one to see its assets, workbook, tasks, and install progress in one place." },
+  { target: "nav-pipeline", title: "Pipeline", description: "Every sales lead and project, on a board, grid or list — Lead to Won on the sales side, Planning to Complete on the project side. Click any project to open its assets, workbook, tasks, and install progress." },
   { target: "nav-workbook", title: "Workbook", description: "Build out Asset List, Cost & Margin, BOM, and Synthesis for a project's quote — everything rolls up automatically as you go." },
   { target: "nav-install-tracker", title: "Installation", description: "Track device-by-device installation progress across every project currently in the Installation stage." },
   { target: "nav-device-library", title: "Device Library", description: "Your catalog of cameras, access control, and network hardware — the building blocks you pull into a project's Assets." },

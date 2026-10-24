@@ -16,7 +16,6 @@ import { DeviceLibrary } from "./pages/device-library/DeviceLibrary";
 import { InstallTracker } from "./pages/install/InstallTracker";
 import { Dashboard } from "./pages/pipeline/Dashboard";
 import { ProjectDetail } from "./pages/project-detail/ProjectDetail";
-import { ProjectsPage } from "./pages/projects/ProjectsPage";
 import { ClientStatusPage } from "./pages/public/ClientStatusPage";
 import { SubcontractorPortal } from "./pages/public/SubcontractorPortal";
 import { Workbook } from "./pages/workbook/Workbook";
@@ -47,8 +46,9 @@ export default function App() {
 
 export function AuthenticatedApp() {
   const [page, setPage] = useState<Page>(() => {
-    // The Calendar now lives on the Dashboard.
-    const saved = localStorage.getItem("app_page") === "calendar" ? "ops-dashboard" : localStorage.getItem("app_page");
+    // Retired pages: the Calendar now lives on the Dashboard, and projects are found on the Pipeline.
+    const stored = localStorage.getItem("app_page");
+    const saved = stored === "calendar" ? "ops-dashboard" : stored === "projects" ? "pipeline" : stored;
     const loggedIn = localStorage.getItem("auth_token") || localStorage.getItem("app_logged_in");
     return loggedIn ? ((saved as Page) || "ops-dashboard") : "login";
   });
@@ -144,7 +144,7 @@ export function AuthenticatedApp() {
 
   if (page === "login") return (<CurrencyContext.Provider value={currencyCtx}><LoginPage /></CurrencyContext.Provider>);
 
-  const breadcrumb = page === "project-detail" ? { label: "Projects", parent: "projects" as Page } : undefined;
+  const breadcrumb = page === "project-detail" ? { label: "Pipeline", parent: "pipeline" as Page } : undefined;
 
   return (
     <RoleContext.Provider value={role}>
@@ -160,7 +160,6 @@ export function AuthenticatedApp() {
               <motion.div key={page} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }} transition={{ duration: 0.2, ease: "easeOut" }}>
                 {page === "ops-dashboard" && (isTechRole(role) ? <TechDashboard navigate={setPage} /> : <OpsDashboard navigate={setPage} />)}
                 {page === "pipeline" && <Dashboard navigate={setPage} />}
-                {page === "projects" && <ProjectsPage navigate={setPage} />}
                 {page === "project-detail" && <ProjectDetail navigate={setPage} />}
                 {page === "workbook" && !isTechRole(role) && <Workbook navigate={setPage} />}
                 {page === "clients" && <ClientsPage navigate={setPage} />}

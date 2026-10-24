@@ -24,10 +24,10 @@ export function NotificationBell() {
     API.notifications.markRead(n.id).catch(() => {});
     setNotifications(prev => prev.map(x => x.id === n.id ? { ...x, isRead: true } : x));
     if (n.actionUrl) {
-      const page = localStorage.getItem("app_page") || "ops-dashboard";
       if (n.actionUrl.includes("/project/")) {
         const projectId = n.actionUrl.split("/project/")[1];
         localStorage.setItem("active_project_id", projectId);
+        localStorage.setItem("app_page", "project-detail");
         window.location.href = "/";
       }
     }

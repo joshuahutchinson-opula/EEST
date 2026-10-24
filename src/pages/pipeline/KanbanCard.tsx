@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { toast } from "sonner";
 import { motion } from "motion/react";
-import { Building2, Calendar, Camera, Fingerprint, MoreHorizontal, StickyNote, Trash2 } from "lucide-react";
+import { Building2, Calendar, Camera, Eye, Fingerprint, MoreHorizontal, StickyNote, Trash2 } from "lucide-react";
 import { clsx } from "clsx";
 import { ConfirmDialog } from "../../components/ConfirmDialog";
 import { LEAD_SOURCE_STYLES, SUPPORT_TYPE_LABELS } from "../../lib/constants";
@@ -9,7 +9,7 @@ import { isTechRole, useCurrency, useRole } from "../../lib/contexts";
 import { fmtDate, projectStageBadge } from "../../lib/utils";
 import type { Column, Project, ProjectColumn } from "../../types";
 
-export function KanbanCard({ project, column, dragging, onDragStart, onDragEnd, onClick, onDelete, onMoveToProjects, liveValue }: { project: Project; column: Column | ProjectColumn; dragging: string | null; onDragStart: (e: React.DragEvent<HTMLDivElement>, id: string) => void; onDragEnd: () => void; onClick: () => void; onDelete: (id: string) => void; onMoveToProjects?: (id: string) => void; liveValue?: number | null; }) {
+export function KanbanCard({ project, column, dragging, onDragStart, onDragEnd, onClick, onQuickView, onDelete, onMoveToProjects, liveValue }: { project: Project; column: Column | ProjectColumn; dragging: string | null; onDragStart: (e: React.DragEvent<HTMLDivElement>, id: string) => void; onDragEnd: () => void; onClick: () => void; onQuickView: () => void; onDelete: (id: string) => void; onMoveToProjects?: (id: string) => void; liveValue?: number | null; }) {
   const { fmt } = useCurrency();
   const tech = isTechRole(useRole());
   const isDragging = dragging === project.id;
@@ -40,6 +40,7 @@ export function KanbanCard({ project, column, dragging, onDragStart, onDragEnd, 
                 <>
                   <div className="fixed inset-0 z-10" onClick={(e) => { e.stopPropagation(); setMenuOpen(false); }} />
                   <div className="absolute right-0 top-7 z-20 w-40 rounded-xl overflow-hidden py-1" style={{ background: "rgba(7,12,26,0.97)", border: "1px solid rgba(255,255,255,0.12)", boxShadow: "0 8px 32px rgba(0,0,0,0.8)", backdropFilter: "blur(20px)" }}>
+                    <button onClick={(e) => { e.stopPropagation(); setMenuOpen(false); onQuickView(); }} className="w-full flex items-center gap-2.5 px-3 py-2.5 text-[#e6edf3] text-[14px] font-bold hover:bg-white/[0.06] transition-colors text-left cursor-pointer min-h-[44px]"><Eye className="w-3.5 h-3.5" /> Quick view</button>
                     {!tech && <button onClick={(e) => { e.stopPropagation(); setConfirmDelete(true); setMenuOpen(false); }} className="w-full flex items-center gap-2.5 px-3 py-2.5 text-rose-400 text-[14px] font-bold hover:bg-rose-500/10 transition-colors text-left cursor-pointer min-h-[44px]"><Trash2 className="w-3.5 h-3.5" /> Delete</button>}
                   </div>
                 </>
