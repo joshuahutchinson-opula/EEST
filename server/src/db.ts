@@ -1,5 +1,6 @@
 import { Pool } from "pg";
 import dotenv from "dotenv";
+import { NO_CLIENT_RECORD_NAMES } from "./lib/clientNames";
 
 dotenv.config();
 
@@ -435,8 +436,8 @@ export async function initDB() {
                        WHERE lower(trim(p3.client)) = names.key AND p3.deleted_at IS NULL AND trim(COALESCE(p3.location, '')) <> ''), '[]'::jsonb)
       FROM (SELECT DISTINCT ON (lower(trim(client))) lower(trim(client)) AS key, trim(client) AS name
             FROM projects WHERE trim(COALESCE(client, '')) <> '' ORDER BY lower(trim(client)), created_at) names
-      WHERE NOT EXISTS (SELECT 1 FROM clients c WHERE lower(trim(c.name)) = names.key)
-    `);
+      WHERE NOT EXISTS (SELECT 1 FROM clients c WHERE lower(trim(c.name)) = names.key) AND NOT (names.key = ANY($1::text[]))
+    `, [NO_CLIENT_RECORD_NAMES]);
     await client.query(`
       UPDATE projects p SET client_id = c.id FROM clients c
       WHERE p.client_id IS NULL AND lower(trim(p.client)) = lower(trim(c.name))
@@ -573,6 +574,16 @@ export async function initDB() {
       await client.query(`ALTER TABLE inventory_transactions ADD COLUMN IF NOT EXISTS ${col}`);
     }
     await client.query(`CREATE INDEX IF NOT EXISTS inventory_transactions_item_idx ON inventory_transactions (item_id, created_at)`);
+
+    // Rows imported from Microsoft Planner (scripts/seedPlanner.ts) keep their Planner id so a re-run
+    // skips them.
+    await client.query(`ALTER TABLE projects ADD COLUMN IF NOT EXISTS planner_task_id TEXT`);
+    await client.query(`ALTER TABLE tasks ADD COLUMN IF NOT EXISTS planner_task_id TEXT`);
+    await client.query(`CREATE UNIQUE INDEX IF NOT EXISTS projects_planner_task_id_uniq ON projects (planner_task_id) WHERE planner_task_id IS NOT NULL`);
+    // False for tasks that must never get an Outlook event (Planner imports); EEST's own calendar
+    // shows them from the database instead.
+    await client.query(`ALTER TABLE tasks ADD COLUMN IF NOT EXISTS outlook_sync BOOLEAN NOT NULL DEFAULT TRUE`);
+    await client.query(`CREATE UNIQUE INDEX IF NOT EXISTS tasks_planner_task_id_uniq ON tasks (planner_task_id) WHERE planner_task_id IS NOT NULL`);
 
     console.log("Database tables initialized");
   } finally {

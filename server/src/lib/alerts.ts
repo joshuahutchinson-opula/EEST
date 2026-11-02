@@ -4,11 +4,12 @@ import { emailForTeamMember, teamDirectory } from "./team";
 import { getRoleForEmail } from "./microsoftAuth";
 
 // Email alerts sent through Microsoft Graph sendMail from MAIL_SENDER (a mailbox in the tenant),
-// using the app registration's Mail.Send application permission. Off unless MAIL_SENDER is set.
+// using the app registration's Mail.Send application permission. Off unless MAIL_SENDER is set
+// and EMAIL_ALERTS_ENABLED is "true"; every email the app sends goes through this check.
 // Best effort: failures are logged, never thrown at callers.
 
 export function isMailConfigured(): boolean {
-  return isGraphConfigured() && Boolean(process.env.MAIL_SENDER);
+  return process.env.EMAIL_ALERTS_ENABLED === "true" && isGraphConfigured() && Boolean(process.env.MAIL_SENDER);
 }
 
 const esc = (s: unknown) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]!));

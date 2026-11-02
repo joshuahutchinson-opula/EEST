@@ -114,7 +114,7 @@ export function isAllowedDomain(email: string): boolean {
 
 // Two roles, decided by an email list rather than a database table: anyone in TECH_EMAILS
 // (comma-separated env var) is "tech", everyone else "admin".
-const DEFAULT_TECH_EMAILS = "akeem@e-techsystemsja.com,marvin@e-techsystemsja.com,shanice@e-techsystemsja.com,shavene@e-techsystemsja.com";
+const DEFAULT_TECH_EMAILS = "akeem@e-techsystemsja.com,marvin@e-techsystemsja.com,shanice@e-techsystemsja.com,shavene@e-techsystemsja.com,venessa@e-techsystemsja.com";
 const TECH_EMAILS = new Set(
   (process.env.TECH_EMAILS || DEFAULT_TECH_EMAILS).split(",").map((e) => e.trim().toLowerCase()).filter(Boolean)
 );

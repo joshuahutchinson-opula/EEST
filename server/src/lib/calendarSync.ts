@@ -27,7 +27,7 @@ function taskEventBody(t: any) {
   };
 }
 
-// Keeps a task's Outlook event in step with the task: created on the assignee's calendar when
+// Keeps a task's Outlook event in step with the task (unless the task has outlook_sync off): created on the assignee's calendar when
 // it has a due date and an assignee, updated when it changes, moved when the assignee changes,
 // removed when either is cleared. Best effort — failures are logged, never thrown at callers.
 export async function syncTaskToCalendar(taskId: string): Promise<void> {
@@ -35,7 +35,7 @@ export async function syncTaskToCalendar(taskId: string): Promise<void> {
   try {
     const task = (await pool.query(`SELECT t.*, p.name AS project_name FROM tasks t JOIN projects p ON p.id = t.project_id WHERE t.id = $1`, [taskId])).rows[0];
     const link = (await pool.query(`SELECT user_email, event_id FROM task_calendar_events WHERE task_id = $1`, [taskId])).rows[0];
-    const email = task && task.due_date ? emailForTeamMember(task.assignee) : null;
+    const email = task && task.due_date && task.outlook_sync !== false ? emailForTeamMember(task.assignee) : null;
 
     if (link && link.user_email !== email) {
       await graph("DELETE", `/users/${encodeURIComponent(link.user_email)}/events/${link.event_id}`).catch((err) => { if (!(err instanceof GraphError && err.status === 404)) throw err; });

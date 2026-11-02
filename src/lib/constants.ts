@@ -1,20 +1,10 @@
 import { type WorkbookSystem } from "../../server/src/lib/workbookTotals";
+import { TEAM_MEMBERS } from "../../server/src/lib/teamMembers";
 import type { AssetCategory, CameraType, LeadSource, ProjectColumn, SupportType } from "../types";
 
 export const DEFAULT_EXCHANGE_RATE = 163;
 
-export const TEAM = [
-  { name: "Joshua", initials: "JS", color: "#3b82f6" },
-  { name: "Roger", initials: "RG", color: "#06b6d4" },
-  { name: "Donovan", initials: "DV", color: "#8b5cf6" },
-  { name: "Michael", initials: "MC", color: "#f59e0b" },
-  { name: "Denise", initials: "DN", color: "#f97316" },
-  { name: "Rochelle", initials: "RC", color: "#10b981" },
-  { name: "Shanice", initials: "SC", color: "#ef4444" },
-  { name: "Shavene", initials: "SV", color: "#ec4899" },
-  { name: "Marvin", initials: "MV", color: "#14b8a6" },
-  { name: "Akeem", initials: "AK", color: "#f97316" },
-];
+export const TEAM = TEAM_MEMBERS;
 
 
 export const TEAM_ALPHABETICAL = [...TEAM].sort((a, b) => a.name.localeCompare(b.name));
@@ -22,7 +12,7 @@ export const TEAM_ALPHABETICAL = [...TEAM].sort((a, b) => a.name.localeCompare(b
 // The Dashboard calendar's team filter. A person can sit on more than one team (Rochelle does).
 export const CALENDAR_TEAMS = {
   Sales: ["Roger", "Donovan", "Michael", "Denise", "Rochelle"],
-  Tech: ["Joshua", "Shanice", "Shavene", "Marvin", "Akeem", "Rochelle"],
+  Tech: ["Joshua", "Shanice", "Shavene", "Marvin", "Akeem", "Rochelle", "Venessa"],
 } as const;
 export type CalendarTeam = keyof typeof CALENDAR_TEAMS;
 

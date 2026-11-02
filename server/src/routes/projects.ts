@@ -33,6 +33,7 @@ function mapRow(row: any) {
     stageHistory: row.stage_history || [],
     pipelineType: row.pipeline_type || "sales",
     projectStage: row.project_stage || null,
+    supportType: row.support_type || undefined,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
   };
@@ -92,12 +93,12 @@ router.get("/:id", async (req: Request, res: Response) => {
 router.post("/", async (req: Request, res: Response) => {
   try {
     const tech = isTech(req);
-    const { name, client, value, stage, risk, assignee, dueDate, cameras, devices, location, contacts, summary, notes, collaborators, leadSource, stageHistory, projectStage } = stripTechWriteFields(req.body, tech);
+    const { name, client, value, stage, risk, assignee, dueDate, cameras, devices, location, contacts, summary, notes, collaborators, leadSource, stageHistory, projectStage, supportType } = stripTechWriteFields(req.body, tech);
     // Tech can't see the Sales pipeline, so anything they create belongs to Projects.
     const pipelineType = tech ? "project" : req.body.pipelineType;
     const result = await pool.query(
-      `INSERT INTO projects (name, client, value, stage, risk, assignee_name, assignee_initials, assignee_color, due_date, cameras, devices, location, contacts, summary, notes, collaborators, lead_source, stage_history, pipeline_type, project_stage)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20) RETURNING *`,
+      `INSERT INTO projects (name, client, value, stage, risk, assignee_name, assignee_initials, assignee_color, due_date, cameras, devices, location, contacts, summary, notes, collaborators, lead_source, stage_history, pipeline_type, project_stage, support_type)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21) RETURNING *`,
       [
         name, client, value || 0, stage || "assessment-scheduled", risk || "low",
         assignee?.name || "", assignee?.initials || "", assignee?.color || "#3b82f6",
@@ -105,7 +106,7 @@ router.post("/", async (req: Request, res: Response) => {
         JSON.stringify(contacts || []),
         summary || null, notes || null, JSON.stringify(collaborators || []),
         leadSource || null, JSON.stringify(stageHistory || []),
-        pipelineType || "sales", projectStage || null,
+        pipelineType || "sales", projectStage || null, supportType || null,
       ]
     );
     await linkProjectClient(result.rows[0].id);
@@ -129,7 +130,7 @@ router.patch("/:id", async (req: Request, res: Response) => {
       if (current.rows.length === 0) return res.status(404).json({ error: "Project not found" });
       if (current.rows[0].pipeline_type !== "project") return res.status(403).json({ error: "Forbidden for this role" });
     }
-    const { name, client, value, stage, risk, assignee, dueDate, cameras, devices, location, contacts, summary, notes, collaborators, leadSource, stageHistory, projectStage } = stripTechWriteFields(req.body, tech);
+    const { name, client, value, stage, risk, assignee, dueDate, cameras, devices, location, contacts, summary, notes, collaborators, leadSource, stageHistory, projectStage, supportType } = stripTechWriteFields(req.body, tech);
     // Tech can't move a project into the Sales pipeline.
     const pipelineType = tech ? undefined : req.body.pipelineType;
     const result = await pool.query(
@@ -139,12 +140,12 @@ router.patch("/:id", async (req: Request, res: Response) => {
        contacts=COALESCE($14,contacts),
        summary=COALESCE($15,summary), notes=COALESCE($16,notes), collaborators=COALESCE($17,collaborators),
        lead_source=COALESCE($18,lead_source), stage_history=COALESCE($19,stage_history),
-       pipeline_type=COALESCE($20,pipeline_type), project_stage=COALESCE($21,project_stage),
+       pipeline_type=COALESCE($20,pipeline_type), project_stage=COALESCE($21,project_stage), support_type=COALESCE($22,support_type),
        updated_at=NOW() WHERE id=$1 AND deleted_at IS NULL RETURNING *`,
       [id, name, client, value, stage, risk, assignee?.name, assignee?.initials, assignee?.color, dueDate, cameras, devices, location,
        contacts ? JSON.stringify(contacts) : null, summary, notes, collaborators ? JSON.stringify(collaborators) : null,
        leadSource, stageHistory ? JSON.stringify(stageHistory) : null,
-       pipelineType, projectStage]
+       pipelineType, projectStage, supportType]
     );
     if (result.rows.length === 0) return res.status(404).json({ error: "Project not found" });
     let row = result.rows[0];

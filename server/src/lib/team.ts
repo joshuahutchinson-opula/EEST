@@ -1,10 +1,11 @@
 import { ALLOWED_EMAIL_DOMAIN } from "./microsoftAuth";
+import { TEAM_MEMBERS } from "./teamMembers";
 
 // The people whose Outlook calendars the Calendar tab shows, and the email each task assignee
 // name maps to. Names match the app's TEAM list (task assignees are stored by name). Emails
 // default to firstname@<ALLOWED_EMAIL_DOMAIN>; set TEAM_EMAILS ("Name=email, Name=email") to
 // replace the list.
-const DEFAULT_TEAM = ["Joshua", "Roger", "Donovan", "Michael", "Denise", "Rochelle", "Shanice", "Shavene", "Marvin", "Akeem"];
+const DEFAULT_TEAM = TEAM_MEMBERS.map((m) => m.name);
 
 export interface TeamMember { name: string; email: string }
 

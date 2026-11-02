@@ -151,6 +151,7 @@ export const API = {
   },
   calendar: {
     employees: () => apiFetch<{ configured: boolean; employees: TeamMemberInfo[] }>("/calendar/employees"),
+    tasks: (start: string, end: string) => apiFetch<CalendarEvent[]>(`/calendar/tasks?start=${start}&end=${end}`),
     events: (start: string, end: string, emails: string[]) => apiFetch<{ email: string; events: CalendarEvent[]; error?: string }[]>(`/calendar/events?start=${start}&end=${end}&emails=${encodeURIComponent(emails.join(","))}`),
     create: (data: { email: string; subject: string; start: string; end: string; isAllDay: boolean; location?: string; notes?: string }) => apiFetch<CalendarEvent>("/calendar/events", { method: "POST", body: JSON.stringify(data) }),
     update: (email: string, id: string, data: Partial<{ subject: string; start: string; end: string; isAllDay: boolean; location: string; notes: string }>) => apiFetch<CalendarEvent>(`/calendar/events/${encodeURIComponent(email)}/${encodeURIComponent(id)}`, { method: "PATCH", body: JSON.stringify(data) }),

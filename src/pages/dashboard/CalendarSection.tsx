@@ -43,13 +43,21 @@ export function CalendarSection() {
     API.calendar.employees().then((r) => { setEmployees(r.employees); setConfigured(r.configured); }).catch(() => setConfigured(false));
   }, []);
 
+  // Outlook events (when connected) plus project tasks that have no Outlook event, which come
+  // straight from EEST.
   const load = useCallback(async () => {
-    if (!configured || visible.length === 0) { setLoading(false); return; }
+    if (visible.length === 0) { setLoading(false); return; }
     setLoading(true);
     try {
       const emails = visible.map((e) => e.email);
-      const res = await API.calendar.events(`${isoDate(weekStart)}T00:00`, `${isoDate(addDays(weekStart, 7))}T00:00`, emails);
-      setByEmail(Object.fromEntries(res.map((r) => [r.email, { events: r.events, error: r.error }])));
+      const [outlook, tasks] = await Promise.all([
+        configured ? API.calendar.events(`${isoDate(weekStart)}T00:00`, `${isoDate(addDays(weekStart, 7))}T00:00`, emails) : Promise.resolve([]),
+        API.calendar.tasks(isoDate(weekStart), isoDate(addDays(weekStart, 7))),
+      ]);
+      const next: Record<string, { events: CalendarEvent[]; error?: string }> = Object.fromEntries(emails.map((e) => [e, { events: [] as CalendarEvent[] }]));
+      for (const r of outlook) next[r.email] = { events: [...r.events], error: r.error };
+      for (const t of tasks) next[t.email]?.events.push(t);
+      setByEmail(next);
     } catch (err) {
       if (err instanceof ApiError && err.status === 503) setConfigured(false);
       else toast.error("Failed to load calendars");
@@ -67,7 +75,7 @@ export function CalendarSection() {
   };
 
   const openNew = (email: string, day: Date) => setDraft({ email, subject: "", date: isoDate(day), endDate: isoDate(day), startTime: "09:00", endTime: "10:00", isAllDay: false, location: "", notes: "", readOnly: false });
-  const openExisting = (e: CalendarEvent) => setDraft({
+  const openExisting = (e: CalendarEvent) => e.id.startsWith("task-") ? void toast.message("This is a project task. Open its project to change it.") : setDraft({
     id: e.id, email: e.email, subject: e.subject, date: e.start.slice(0, 10),
     endDate: e.isAllDay ? isoDate(addDays(new Date(`${e.end.slice(0, 10)}T00:00`), -1)) : e.end.slice(0, 10),
     startTime: e.start.slice(11, 16), endTime: e.end.slice(11, 16), isAllDay: e.isAllDay, location: e.location, notes: e.notes, readOnly: e.isTaskEvent,
@@ -116,13 +124,16 @@ export function CalendarSection() {
         </div>
       </div>
 
-      {!configured ? (
-        <div className="rounded-2xl p-6 text-center space-y-2" style={G.card}>
-          <CalendarDays className="w-10 h-10 text-[#484f58] mx-auto" />
-          <p className="text-white text-[15px] font-extrabold">Outlook calendars aren't connected yet</p>
-          <p className="text-[#8b949e] text-[13px]">The server needs Microsoft Graph access: MS_TENANT_ID set to the tenant id, and the Calendars.ReadWrite application permission granted with admin consent on the app registration.</p>
+      {!configured && (
+        <div className="rounded-2xl p-4 flex items-start gap-3" style={G.card}>
+          <CalendarDays className="w-6 h-6 text-[#484f58] flex-shrink-0" />
+          <div>
+            <p className="text-white text-[14px] font-extrabold">Outlook calendars aren't connected yet, so only project tasks are shown</p>
+            <p className="text-[#8b949e] text-[12px]">The server needs Microsoft Graph access: MS_TENANT_ID set to the tenant id, and the Calendars.ReadWrite application permission granted with admin consent on the app registration.</p>
+          </div>
         </div>
-      ) : (
+      )}
+      {(
         <>
           <div className="flex items-center gap-1.5 flex-wrap">
             {([null, ...Object.keys(CALENDAR_TEAMS)] as (CalendarTeam | null)[]).map((t) => {
@@ -154,7 +165,7 @@ export function CalendarSection() {
                               <span className="block text-[11px] text-white font-bold truncate">{e.subject}</span>
                             </button>
                           ))}
-                          <button onClick={() => openNew(emp.email, d)} className="opacity-0 group-hover:opacity-100 w-full h-5 rounded flex items-center justify-center cursor-pointer hover:bg-white/[0.06]" title="Add event"><Plus className="w-3 h-3 text-[#8b949e]" /></button>
+                          {configured && <button onClick={() => openNew(emp.email, d)} className="opacity-0 group-hover:opacity-100 w-full h-5 rounded flex items-center justify-center cursor-pointer hover:bg-white/[0.06]" title="Add event"><Plus className="w-3 h-3 text-[#8b949e]" /></button>}
                         </div>
                       </td>
                     ))}
@@ -163,7 +174,7 @@ export function CalendarSection() {
               </tbody>
             </table>
           </div>
-          <p className="text-[#484f58] text-[11px]">Amber events come from project tasks (due date + assignee) and update when the task changes — edit the task rather than the event.</p>
+          <p className="text-[#484f58] text-[11px]">Amber entries are project tasks (due date + assignee) and follow the task — edit the task rather than the event.</p>
         </>
       )}
 
