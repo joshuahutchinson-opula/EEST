@@ -1,9 +1,10 @@
 import { Router, Request, Response } from "express";
 import pool from "../db";
-import { isTech, requireProjectAccess, techMayAccessProject } from "../lib/roles";
+import { isTech, requireProjectAccess, sessionUserName, techMayAccessProject } from "../lib/roles";
 import { signFileUrls, toStoredFileUrl } from "../lib/uploads";
 import { mapAsBuilt, parseAsBuilt } from "../lib/asBuilt";
 import { SET_INSTALL_STATUS } from "../lib/installStatus";
+import { applyAction, InventoryError, ITEM_SELECT, mapItem } from "../lib/inventory";
 
 const router = Router();
 
@@ -31,6 +32,9 @@ router.get("/zones", async (req: Request, res: Response) => {
            ORDER BY sort_order`
         )
       : await pool.query("SELECT * FROM install_zones ORDER BY sort_order");
+    // The inventory unit installed as each device, if one was picked.
+    const units = await pool.query(`SELECT id, install_device_id FROM inventory_items WHERE install_device_id IS NOT NULL`);
+    const unitByDevice = new Map(units.rows.map((u) => [u.install_device_id, u.id]));
     const zones = [];
     for (const z of zonesResult.rows) {
       const devicesResult = await pool.query("SELECT * FROM install_devices WHERE zone_id = $1 ORDER BY id", [z.id]);
@@ -50,6 +54,7 @@ router.get("/zones", async (req: Request, res: Response) => {
           installedPhotos: signFileUrls(d.installed_photos),
           asBuilt: mapAsBuilt(d),
           camsSentAt: d.cams_sent_at || undefined,
+          inventoryUnitId: unitByDevice.get(d.id) || undefined,
         })),
       });
     }
@@ -124,6 +129,106 @@ router.patch("/zones/:zoneId/devices/:deviceId", async (req: Request, res: Respo
   } catch (err) {
     console.error("PATCH /install/zones/:zoneId/devices/:deviceId error:", err);
     res.status(500).json({ error: "Failed to update device status" });
+  }
+});
+
+// GET /api/install/zones/:zoneId/devices/:deviceId/units — tracked units that can be installed as
+// this device: the same Device Library model (when the device has one), in storage or checked out
+// to the requester.
+router.get("/zones/:zoneId/devices/:deviceId/units", async (req: Request, res: Response) => {
+  try {
+    const { zoneId, deviceId } = req.params;
+    const dev = await pool.query(
+      `SELECT pa.device_store_ref FROM install_devices d LEFT JOIN project_assets pa ON pa.id = d.project_asset_id WHERE d.id::text = $1 AND d.zone_id::text = $2`,
+      [deviceId, zoneId]
+    );
+    if (!dev.rows.length) return res.status(404).json({ error: "Device not found" });
+    const model = dev.rows[0].device_store_ref || null;
+    const result = await pool.query(
+      `${ITEM_SELECT}
+       WHERE ii.kind = 'unit' AND ($1::text IS NULL OR ii.device_id::text = $1)
+         AND (ii.status = 'in_storage' OR (ii.status = 'checked_out' AND lower(ii.holder_email) = lower($2)))
+       ORDER BY ii.status = 'checked_out' DESC, ii.name, ii.serial_number`,
+      [model, (req as any).user?.email || ""]
+    );
+    res.json({ matchedModel: !!model, units: result.rows.map((r) => mapItem(r, isTech(req))) });
+  } catch (err) {
+    console.error("GET /install/zones/:zoneId/devices/:deviceId/units error:", err);
+    res.status(500).json({ error: "Failed to fetch units" });
+  }
+});
+
+// POST /api/install/zones/:zoneId/devices/:deviceId/unit { unitId } — installs a tracked unit as
+// this device: copies its serial/MAC into the as-built details, marks it Installed at the project
+// and logs it.
+router.post("/zones/:zoneId/devices/:deviceId/unit", async (req: Request, res: Response) => {
+  const client = await pool.connect();
+  try {
+    const { zoneId, deviceId } = req.params;
+    const unitId = typeof req.body?.unitId === "string" ? req.body.unitId : "";
+    await client.query("BEGIN");
+    const dev = await client.query(
+      `SELECT d.id, d.name, z.project_id, pa.device_store_ref FROM install_devices d JOIN install_zones z ON z.id = d.zone_id
+       LEFT JOIN project_assets pa ON pa.id = d.project_asset_id WHERE d.id::text = $1 AND d.zone_id::text = $2 FOR UPDATE OF d`,
+      [deviceId, zoneId]
+    );
+    const device = dev.rows[0];
+    if (!device) throw new InventoryError("Device not found", 404);
+    if (!device.project_id) throw new InventoryError("Only devices on a project can take an inventory unit");
+    const unit = (await client.query(`SELECT * FROM inventory_items WHERE id::text = $1 AND kind = 'unit'`, [unitId])).rows[0];
+    if (!unit) throw new InventoryError("Unit not found", 404);
+    if (device.device_store_ref && String(unit.device_id) !== String(device.device_store_ref)) throw new InventoryError("That unit is a different model");
+    const email = String((req as any).user?.email || "").toLowerCase();
+    if (unit.status === "checked_out" && String(unit.holder_email || "").toLowerCase() !== email) throw new InventoryError("That unit is checked out to someone else", 409);
+    const already = await client.query(`SELECT id FROM inventory_items WHERE install_device_id = $1 AND id <> $2`, [device.id, unit.id]);
+    if (already.rows.length) throw new InventoryError("This device already has a unit installed", 409);
+
+    await applyAction(client, unit.id, { action: "install", projectId: device.project_id, installDeviceId: device.id, destination: device.name }, { name: sessionUserName(req), email: email || null });
+    await client.query(
+      `UPDATE install_devices SET serial_number = COALESCE($2, serial_number), mac_address = COALESCE($3, mac_address), warranty_expiry = COALESCE(warranty_expiry, $4) WHERE id = $1`,
+      [device.id, unit.serial_number || null, unit.mac_address || null, unit.warranty_expiry || null]
+    );
+    await client.query("COMMIT");
+    const updated = (await pool.query(`SELECT * FROM install_devices WHERE id = $1`, [device.id])).rows[0];
+    res.json({ asBuilt: mapAsBuilt(updated), inventoryUnitId: unit.id });
+  } catch (err) {
+    await client.query("ROLLBACK").catch(() => {});
+    if (err instanceof InventoryError) return res.status(err.status).json({ error: err.message });
+    console.error("POST /install/zones/:zoneId/devices/:deviceId/unit error:", err);
+    res.status(500).json({ error: "Failed to install unit" });
+  } finally {
+    client.release();
+  }
+});
+
+// DELETE /api/install/zones/:zoneId/devices/:deviceId?returnUnit=1 — removes a device from the
+// project. Its inventory unit (if any) is logged as removed from site, and with returnUnit it is
+// also checked back in to Storage.
+router.delete("/zones/:zoneId/devices/:deviceId", async (req: Request, res: Response) => {
+  const client = await pool.connect();
+  try {
+    const { zoneId, deviceId } = req.params;
+    await client.query("BEGIN");
+    const dev = await client.query(`SELECT id FROM install_devices WHERE id::text = $1 AND zone_id::text = $2 FOR UPDATE`, [deviceId, zoneId]);
+    if (!dev.rows.length) throw new InventoryError("Device not found", 404);
+    const by = { name: sessionUserName(req), email: (req as any).user?.email || null };
+    const returnUnit = req.query.returnUnit === "1";
+    const unit = (await client.query(`SELECT id FROM inventory_items WHERE install_device_id = $1 AND status = 'installed'`, [dev.rows[0].id])).rows[0];
+    if (unit) {
+      await applyAction(client, unit.id, { action: "remove_from_site", installDeviceId: dev.rows[0].id }, by);
+      if (returnUnit) await applyAction(client, unit.id, { action: "check_in", purpose: "Returned from site" }, by);
+    }
+    await client.query(`DELETE FROM commissioning_checklists WHERE device_id = $1`, [String(dev.rows[0].id)]);
+    await client.query(`DELETE FROM install_devices WHERE id = $1`, [dev.rows[0].id]);
+    await client.query("COMMIT");
+    res.json({ success: true, unitId: unit?.id, returned: !!unit && returnUnit });
+  } catch (err) {
+    await client.query("ROLLBACK").catch(() => {});
+    if (err instanceof InventoryError) return res.status(err.status).json({ error: err.message });
+    console.error("DELETE /install/zones/:zoneId/devices/:deviceId error:", err);
+    res.status(500).json({ error: "Failed to remove device" });
+  } finally {
+    client.release();
   }
 });
 

@@ -14,6 +14,7 @@ import { OpsDashboard } from "./pages/dashboard/OpsDashboard";
 import { TechDashboard } from "./pages/dashboard/TechDashboard";
 import { DeviceLibrary } from "./pages/device-library/DeviceLibrary";
 import { InstallTracker } from "./pages/install/InstallTracker";
+import { InventoryPage } from "./pages/inventory/InventoryPage";
 import { Dashboard } from "./pages/pipeline/Dashboard";
 import { ProjectDetail } from "./pages/project-detail/ProjectDetail";
 import { ClientStatusPage } from "./pages/public/ClientStatusPage";
@@ -164,6 +165,7 @@ export function AuthenticatedApp() {
                 {page === "workbook" && !isTechRole(role) && <Workbook navigate={setPage} />}
                 {page === "clients" && <ClientsPage navigate={setPage} />}
                 {page === "install-tracker" && <InstallTracker navigate={setPage} />}
+                {page === "inventory" && <InventoryPage navigate={setPage} />}
                 {page === "device-library" && <DeviceLibrary navigate={setPage} />}
               </motion.div>
             </AnimatePresence>

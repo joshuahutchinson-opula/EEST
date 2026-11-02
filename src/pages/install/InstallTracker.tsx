@@ -1,16 +1,18 @@
 import { useCallback, useEffect, useState } from "react";
 import { toast } from "sonner";
-import { AlertCircle, AlertTriangle, AppWindow, Camera, CloudUpload, CheckCircle2, CheckSquare, ChevronDown, ChevronUp, Clock, Cpu, DoorOpen, Key, Loader2, PanelRight, Phone, Plus, Server, Upload, Zap, ClipboardList } from "lucide-react";
+import { AlertCircle, AlertTriangle, AppWindow, Camera, CloudUpload, CheckCircle2, CheckSquare, ChevronDown, ChevronUp, Clock, Cpu, DoorOpen, Key, Loader2, Package, PanelRight, Phone, Plus, Server, Trash2, Upload, Zap, ClipboardList } from "lucide-react";
 import { clsx } from "clsx";
 import { API, fileHref, ApiError } from "../../api";
 import { EmptyState } from "../../components/EmptyState";
 import { Skeleton } from "../../components/Skeleton";
 import { G } from "../../lib/constants";
 import { useAutoTutorial } from "../../lib/contexts";
-import type { IconType, InstallStatus, InstallZone, Page, Project, TaskPriority, TutorialStep, AsBuilt, InstallDevice } from "../../types";
+import type { IconType, InstallStatus, InstallZone, InventoryItem, Page, Project, TaskPriority, TutorialStep, AsBuilt, InstallDevice } from "../../types";
 import { cacheData, isNetworkError, readCachedData, submit } from "../../lib/offlineQueue";
 import { AsBuiltModal } from "../../components/AsBuiltModal";
 import { CamsSendModal } from "./CamsSendModal";
+import { RemoveDeviceModal } from "./RemoveDeviceModal";
+import { UnitPickerModal } from "./UnitPickerModal";
 
 export const STATUS_META: Record<InstallStatus, { label: string; color: string; bg: string; icon: IconType }> = {
   complete: { label: "Complete", color: "text-emerald-400", bg: "bg-emerald-500/12", icon: CheckCircle2 },
@@ -77,9 +79,50 @@ export function InstallTracker({ navigate: _navigate }: { navigate: (p: Page) =>
     } catch (err) { toast.error(((err instanceof ApiError ? (err.body as { error?: string } | null)?.error : null)) || "Failed to save as-built details"); }
   };
 
-  const updateStatus = async (zoneId: string, deviceId: string, status: InstallStatus) => {
-    setZones((prev) => prev.map((z) => z.id !== zoneId ? z : { ...z, devices: z.devices.map((d) => d.id !== deviceId ? d : { ...d, status }) }));
-    try { await submit({ kind: "request", label: "install status", path: `/install/zones/${zoneId}/devices/${deviceId}`, method: "PATCH", body: { status } }); } catch { toast.error("Failed to save device status"); fetchData(); }
+  const setDevice = (zoneId: string, deviceId: string, patch: Partial<InstallDevice>) =>
+    setZones((prev) => prev.map((z) => z.id !== zoneId ? z : { ...z, devices: z.devices.map((d) => d.id !== deviceId ? d : { ...d, ...patch }) }));
+
+  // Picking the inventory unit installed as a device (offered when it's completed).
+  const [unitPick, setUnitPick] = useState<{ zoneId: string; device: InstallDevice; units: InventoryItem[]; matchedModel: boolean } | null>(null);
+  const [unitBusy, setUnitBusy] = useState(false);
+  const offerUnits = async (zoneId: string, device: InstallDevice, openWhenEmpty: boolean) => {
+    try {
+      const { units, matchedModel } = await API.install.unitCandidates(zoneId, device.id);
+      if (units.length > 0 || openWhenEmpty) setUnitPick({ zoneId, device, units, matchedModel });
+    } catch { if (openWhenEmpty) toast.error("Couldn't load inventory units"); }
+  };
+  const pickUnit = async (unit: InventoryItem) => {
+    if (!unitPick) return;
+    setUnitBusy(true);
+    try {
+      const r = await API.install.installUnit(unitPick.zoneId, unitPick.device.id, unit.id);
+      setDevice(unitPick.zoneId, unitPick.device.id, { asBuilt: r.asBuilt, inventoryUnitId: r.inventoryUnitId });
+      toast.success(`S/N ${unit.serialNumber || "—"} marked installed`);
+      setUnitPick(null);
+    } catch (err) { toast.error(((err instanceof ApiError ? (err.body as { error?: string } | null)?.error : null)) || "Failed to install unit"); }
+    finally { setUnitBusy(false); }
+  };
+
+  const [removeFor, setRemoveFor] = useState<{ zoneId: string; device: InstallDevice } | null>(null);
+  const [removing, setRemoving] = useState(false);
+  const removeDevice = async (returnUnit: boolean) => {
+    if (!removeFor) return;
+    setRemoving(true);
+    try {
+      const r = await API.install.removeDevice(removeFor.zoneId, removeFor.device.id, returnUnit);
+      setZones((prev) => prev.map((z) => z.id !== removeFor.zoneId ? z : { ...z, devices: z.devices.filter((d) => d.id !== removeFor.device.id) }));
+      toast.success(r.returned ? "Device removed — unit returned to storage" : r.unitId ? "Device removed — unit marked to be returned" : "Device removed");
+      setRemoveFor(null);
+    } catch (err) { toast.error(((err instanceof ApiError ? (err.body as { error?: string } | null)?.error : null)) || "Failed to remove device"); }
+    finally { setRemoving(false); }
+  };
+
+  const updateStatus = async (zoneId: string, device: InstallDevice, status: InstallStatus) => {
+    setDevice(zoneId, device.id, { status });
+    try {
+      const result = await submit({ kind: "request", label: "install status", path: `/install/zones/${zoneId}/devices/${device.id}`, method: "PATCH", body: { status } });
+      if (status === "complete" && !device.inventoryUnitId && !result.queued) offerUnits(zoneId, device, false);
+    } catch { toast.error("Failed to save device status"); fetchData(); }
   };
 
   const handleDevicePhotoUpload = async (projectId: string, zoneId: string, deviceId: string, e: React.ChangeEvent<HTMLInputElement>) => {
@@ -118,6 +161,8 @@ export function InstallTracker({ navigate: _navigate }: { navigate: (p: Page) =>
   return (
     <div className="px-3 md:px-5 py-4 md:py-6 max-w-[1600px] mx-auto w-full">
       {camsProject && <CamsSendModal projectId={camsProject.id} projectName={camsProject.name} onClose={() => setCamsProject(null)} onSent={() => { API.install.zones().then(setZones).catch(() => {}); }} />}
+      {unitPick && <UnitPickerModal deviceName={unitPick.device.name} units={unitPick.units} matchedModel={unitPick.matchedModel} busy={unitBusy} onPick={pickUnit} onClose={() => setUnitPick(null)} />}
+      {removeFor && <RemoveDeviceModal device={removeFor.device} busy={removing} onConfirm={removeDevice} onClose={() => setRemoveFor(null)} />}
       {asBuiltFor && <AsBuiltModal deviceName={asBuiltFor.device.name} value={asBuiltFor.device.asBuilt} onClose={() => setAsBuiltFor(null)} onSave={(v) => saveAsBuilt(asBuiltFor.zoneId, asBuiltFor.device.id, v)} />}
       <div className="mb-4 md:mb-6 flex items-center justify-between">
         <div><h1 className="text-white font-extrabold text-2xl md:text-3xl tracking-tight">Installation</h1><p className="text-[#8b949e] text-[13px] mt-0.5">{total} devices across {zones.length} zones</p></div>
@@ -179,7 +224,7 @@ export function InstallTracker({ navigate: _navigate }: { navigate: (p: Page) =>
                           <div className="w-7 h-7 rounded-xl flex items-center justify-center" style={{ background: "rgba(255,255,255,0.04)" }}><TypeIcon className="w-3.5 h-3.5 text-[#8b949e]" /></div>
                           <div className="min-w-0"><p className="text-white text-[13px] font-bold truncate">{device.name}</p><p className="text-[#8b949e] text-[11px]">{device.location}</p></div>
                           <span className="text-[#8b949e] text-[12px] truncate">{device.assignee}</span>
-                          <select value={device.status} onChange={(e) => { const z = projectZones.find(z => z.devices.some(d => d.id === device.id)); if (z) updateStatus(z.id, device.id, e.target.value as InstallStatus); }} className={clsx("w-full h-7 rounded-xl border px-2 text-[12px] font-extrabold appearance-none cursor-pointer", meta.bg, meta.color)} style={{ background: "#0d1117" }}>
+                          <select value={device.status} onChange={(e) => { const z = projectZones.find(z => z.devices.some(d => d.id === device.id)); if (z) updateStatus(z.id, device, e.target.value as InstallStatus); }} className={clsx("w-full h-7 rounded-xl border px-2 text-[12px] font-extrabold appearance-none cursor-pointer", meta.bg, meta.color)} style={{ background: "#0d1117" }}>
                             {Object.entries(STATUS_META).map(([val, m]) => (<option key={val} value={val} style={{ background: "#0d1117", color: "#e6edf3" }}>{m.label}</option>))}
                           </select>
                         </div>
@@ -188,10 +233,13 @@ export function InstallTracker({ navigate: _navigate }: { navigate: (p: Page) =>
                           <button onClick={() => { const z = projectZones.find(z => z.devices.some(d => d.id === device.id)); if (z) setAsBuiltFor({ zoneId: z.id, device }); }} className="inline-flex items-center gap-1 text-[11px] text-violet-400 cursor-pointer" title={device.asBuilt?.serialNumber ? `S/N ${device.asBuilt.serialNumber}` : "Record serial, MAC, IP, firmware and warranty"}>
                             <ClipboardList className="w-3 h-3" /> {device.asBuilt?.serialNumber ? `S/N ${device.asBuilt.serialNumber}` : "As-built details"}
                           </button>
+                          {device.inventoryUnitId ? <span className="inline-flex items-center gap-1 text-[11px] text-emerald-400" title="An inventory unit is installed as this device"><Package className="w-3 h-3" /> From inventory</span>
+                            : device.status === "complete" && <button onClick={() => { const z = projectZones.find(z => z.devices.some(d => d.id === device.id)); if (z) offerUnits(z.id, device, true); }} className="inline-flex items-center gap-1 text-[11px] text-emerald-400 cursor-pointer"><Package className="w-3 h-3" /> Pick inventory unit</button>}
                           <label className="inline-flex items-center gap-1 text-[11px] text-blue-400 cursor-pointer">
                             {uploadingDevicePhoto === device.id ? <Loader2 className="w-3 h-3 animate-spin" /> : <Upload className="w-3 h-3" />} {uploadingDevicePhoto === device.id ? "Uploading…" : "Add as-installed photo"}
                             <input type="file" accept="image/*" className="hidden" onChange={(e) => { const z = projectZones.find(z => z.devices.some(d => d.id === device.id)); if (z) handleDevicePhotoUpload(project.id, z.id, device.id, e); }} disabled={uploadingDevicePhoto === device.id} />
                           </label>
+                          <button onClick={() => { const z = projectZones.find(z => z.devices.some(d => d.id === device.id)); if (z) setRemoveFor({ zoneId: z.id, device }); }} className="inline-flex items-center gap-1 text-[11px] text-rose-400 cursor-pointer ml-auto"><Trash2 className="w-3 h-3" /> Remove</button>
                         </div>
                       </div>
                     );

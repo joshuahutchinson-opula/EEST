@@ -478,6 +478,58 @@ export async function initDB() {
       )
     `);
 
+    // Inventory (F19): tracked units (one row per serial-numbered unit) and bulk stock (counted by
+    // quantity) share inventory_items, so existing items and their transactions keep their ids.
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS inventory_locations (
+        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+        name TEXT NOT NULL,
+        archived BOOLEAN NOT NULL DEFAULT FALSE,
+        created_at TIMESTAMPTZ DEFAULT NOW()
+      )
+    `);
+    await client.query(`CREATE UNIQUE INDEX IF NOT EXISTS inventory_locations_name_uniq ON inventory_locations (lower(trim(name)))`);
+    await client.query(`INSERT INTO inventory_locations (name) VALUES ('Storage') ON CONFLICT DO NOTHING`);
+    for (const col of [
+      "kind TEXT", "status TEXT", "category TEXT", "part_number TEXT", "size_spec TEXT", "compatible_with TEXT",
+      "supplier TEXT", "photos JSONB DEFAULT '[]'", "low_stock_level INTEGER", "serial_number TEXT", "mac_address TEXT",
+      "purchase_date DATE", "warranty_expiry DATE", "purchase_cost NUMERIC",
+      "location_id UUID REFERENCES inventory_locations(id) ON DELETE SET NULL", "storage_spot TEXT",
+      "holder_name TEXT", "holder_email TEXT", "project_id UUID REFERENCES projects(id) ON DELETE SET NULL",
+      "install_device_id UUID REFERENCES install_devices(id) ON DELETE SET NULL",
+    ]) {
+      await client.query(`ALTER TABLE inventory_items ADD COLUMN IF NOT EXISTS ${col}`);
+    }
+    // Pre-F19 items become bulk stock unless they have a serial; their free-text location becomes a
+    // location record (Storage when blank). Only touches rows not yet migrated.
+    await client.query(`
+      UPDATE inventory_items SET kind = CASE WHEN trim(COALESCE(serial_number, '')) <> '' THEN 'unit' ELSE 'bulk' END
+      WHERE kind IS NULL
+    `);
+    await client.query(`UPDATE inventory_items SET status = 'in_storage', quantity_on_hand = 1 WHERE kind = 'unit' AND status IS NULL`);
+    await client.query(`
+      INSERT INTO inventory_locations (name)
+      SELECT DISTINCT trim(location) FROM inventory_items WHERE location_id IS NULL AND trim(COALESCE(location, '')) <> ''
+      ON CONFLICT DO NOTHING
+    `);
+    await client.query(`
+      UPDATE inventory_items i SET location_id = l.id FROM inventory_locations l
+      WHERE i.location_id IS NULL AND lower(trim(l.name)) = lower(trim(COALESCE(NULLIF(trim(i.location), ''), 'Storage')))
+    `);
+    await client.query(`UPDATE inventory_items SET photos = '[]'::jsonb WHERE photos IS NULL`);
+    await client.query(`ALTER TABLE inventory_items ALTER COLUMN kind SET DEFAULT 'bulk'`);
+    await client.query(`CREATE UNIQUE INDEX IF NOT EXISTS inventory_items_serial_uniq ON inventory_items (lower(trim(serial_number))) WHERE kind = 'unit' AND trim(COALESCE(serial_number, '')) <> ''`);
+    // Transactions are written by the server from an action (pre-F19 rows keep their old free-text
+    // action, e.g. "Sold"). quantity is the signed change to stock for bulk items.
+    for (const col of [
+      "user_email TEXT", "project_id UUID REFERENCES projects(id) ON DELETE SET NULL",
+      "location_id UUID REFERENCES inventory_locations(id) ON DELETE SET NULL", "destination TEXT",
+      "install_device_id UUID", "status_after TEXT", "quantity_after INTEGER",
+    ]) {
+      await client.query(`ALTER TABLE inventory_transactions ADD COLUMN IF NOT EXISTS ${col}`);
+    }
+    await client.query(`CREATE INDEX IF NOT EXISTS inventory_transactions_item_idx ON inventory_transactions (item_id, created_at)`);
+
     console.log("Database tables initialized");
   } finally {
     client.release();

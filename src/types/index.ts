@@ -14,7 +14,7 @@ export type Role = "admin" | "tech";
 // The real signed-in identity (from /api/auth/me), separate from RoleContext.
 export interface SessionUserInfo { name: string; email: string }
 
-export type Page = "login" | "ops-dashboard" | "pipeline" | "project-detail" | "workbook" | "install-tracker" | "device-library" | "clients";
+export type Page = "login" | "ops-dashboard" | "pipeline" | "project-detail" | "workbook" | "install-tracker" | "device-library" | "clients" | "inventory";
 
 export type Stage = "lead" | "opportunity" | "assessment-scheduled" | "assessment-completed" | "proposal" | "negotiation" | "win" | "lose";
 
@@ -34,7 +34,6 @@ export type TaskPriority = "low" | "medium" | "high";
 
 export type SupportType = "contract-support" | "pre-paid" | "post-paid" | "sla";
 
-export type DeviceLibraryTab = "store" | "inventory";
 
 export type WorkbookTab = "asset-list" | "cost-margin" | "bom" | "synthesis";
 
@@ -129,7 +128,7 @@ export interface QuoteCtx {
 
 export type InstallStatus = "pending" | "in-progress" | "complete" | "failed";
 
-export interface InstallDevice { id: string; name: string; type: "camera" | "access" | "nvr" | "door" | "panel" | "power" | "server" | "intercom" | "software"; location: string; status: InstallStatus; assignee: string; notes?: string; installedPhotos?: string[]; asBuilt?: AsBuilt; projectAssetId?: string; camsSentAt?: string; }
+export interface InstallDevice { id: string; name: string; type: "camera" | "access" | "nvr" | "door" | "panel" | "power" | "server" | "intercom" | "software"; location: string; status: InstallStatus; assignee: string; notes?: string; installedPhotos?: string[]; asBuilt?: AsBuilt; projectAssetId?: string; camsSentAt?: string; inventoryUnitId?: string; }
 
 // Send to CAMS (routes/cams.ts).
 export type CamsImportType = "cameras" | "doors" | "servers" | "switches" | "software";
@@ -239,9 +238,23 @@ export interface WorkbookAuditEntry extends Partial<AuditTarget> { id: string; p
 
 export interface AssetListItem { id: string; item: string; qty: number; cost: number; markupPercent: number; sell: number; costTotal: number; total: number; profit: number; isProjectAsset?: boolean; deviceType?: string; system?: SystemType; sourceCategory?: string; sourceItemId?: string; }
 
-export interface InventoryItem { id: string; name: string; quantityOnHand: number; location?: string; notes?: string; deviceId?: string; model?: string; manufacturer?: string; sku?: string; }
-
-export interface InventoryTransaction { id: string; itemId: string; itemName: string; userName: string; action: string; quantity: number; purpose?: string; notes?: string; createdAt: string; }
+export type InventoryKind = "unit" | "bulk";
+export type UnitStatus = "in_storage" | "checked_out" | "reserved" | "installed" | "defective" | "under_repair" | "to_be_returned" | "returned_to_supplier" | "retired";
+// Pre-F19 log rows keep their free-text action (e.g. "Sold"), so action is any string.
+export type InventoryAction = "received" | "check_out" | "check_in" | "reserve" | "install" | "remove_from_site" | "mark_defective" | "send_for_repair" | "send_to_supplier" | "retire" | "adjust";
+export interface InventoryLocation { id: string; name: string; archived: boolean }
+// purchaseCost is only ever sent to admins.
+export interface InventoryItem {
+  id: string; kind: InventoryKind; name: string; status?: UnitStatus; quantityOnHand: number;
+  deviceId?: string; manufacturer?: string; model?: string; deviceImageUrl?: string; sku?: string;
+  category?: string; partNumber?: string; sizeSpec?: string; compatibleWith?: string; supplier?: string; photos: string[]; notes?: string; lowStockLevel?: number;
+  serialNumber?: string; macAddress?: string; purchaseDate?: string; warrantyExpiry?: string; purchaseCost?: number;
+  locationId?: string; locationName?: string; storageSpot?: string; holderName?: string; holderEmail?: string; projectId?: string; projectName?: string; installDeviceId?: string;
+  createdAt: string; updatedAt: string;
+}
+export interface InventoryTransaction { id: string; itemId: string; itemName?: string; userName: string; action: InventoryAction | string; quantity: number; quantityAfter?: number; statusAfter?: UnitStatus; purpose?: string; notes?: string; projectId?: string; projectName?: string; locationName?: string; destination?: string; createdAt: string; }
+export interface InventoryItemDetail extends InventoryItem { transactions: InventoryTransaction[] }
+export interface InventoryActionInput { action: InventoryAction; quantity?: number; purpose?: string; projectId?: string; locationId?: string; destination?: string; notes?: string }
 
 export interface Subcontractor { id: string; projectId: string; name: string; trade?: string; email?: string; shareToken?: string | null; createdAt: string; documents: { id: string; filename: string; fileUrl: string; uploadedBy?: string; createdAt: string; }[]; }
 

@@ -1,5 +1,5 @@
 import { DEFAULT_EXCHANGE_RATE } from "../lib/constants";
-import type { AuditLogEntry, CatalogDevice, ChangeOrder, CommissioningItem, DocumentItem, InstallDevice, InstallStatus, InstallZone, InventoryItem, InventoryTransaction, NotificationItem, Project, ProjectAsset, PublicProjectStatus, PublicSubcontractor, Quote, QuoteLineItem, Subcontractor, SynthesisOverride, Task, WorkbookAuditEntry, WorkbookSettings, AuditTarget, CalendarEvent, TeamMemberInfo, ClientContact, ClientDetail, ClientSummary, SearchResults, CamsPlan, CamsSendResult } from "../types";
+import type { AsBuilt, AuditLogEntry, CatalogDevice, ChangeOrder, CommissioningItem, DocumentItem, InstallDevice, InstallStatus, InstallZone, InventoryActionInput, InventoryItem, InventoryItemDetail, InventoryLocation, InventoryTransaction, NotificationItem, Project, ProjectAsset, PublicProjectStatus, PublicSubcontractor, Quote, QuoteLineItem, Subcontractor, SynthesisOverride, Task, WorkbookAuditEntry, WorkbookSettings, AuditTarget, CalendarEvent, TeamMemberInfo, ClientContact, ClientDetail, ClientSummary, SearchResults, CamsPlan, CamsSendResult } from "../types";
 
 export const API_BASE = import.meta.env.VITE_API_URL || "/api";
 
@@ -124,6 +124,9 @@ export const API = {
     addDevice: (zoneId: string, data: Partial<InstallDevice>) => apiFetch<InstallDevice>(`/install/zones/${zoneId}/devices`, { method: "POST", body: JSON.stringify(data) }),
     updateStatus: (zoneId: string, deviceId: string, status: InstallStatus) => apiFetch<void>(`/install/zones/${zoneId}/devices/${deviceId}`, { method: "PATCH", body: JSON.stringify({ status }) }),
     addInstalledPhoto: (zoneId: string, deviceId: string, photoUrl: string) => apiFetch<void>(`/install/zones/${zoneId}/devices/${deviceId}`, { method: "PATCH", body: JSON.stringify({ addPhoto: photoUrl }) }),
+    unitCandidates: (zoneId: string, deviceId: string) => apiFetch<{ matchedModel: boolean; units: InventoryItem[] }>(`/install/zones/${zoneId}/devices/${deviceId}/units`),
+    installUnit: (zoneId: string, deviceId: string, unitId: string) => apiFetch<{ asBuilt: AsBuilt; inventoryUnitId: string }>(`/install/zones/${zoneId}/devices/${deviceId}/unit`, { method: "POST", body: JSON.stringify({ unitId }) }),
+    removeDevice: (zoneId: string, deviceId: string, returnUnit: boolean) => apiFetch<{ success: boolean; unitId?: string; returned: boolean }>(`/install/zones/${zoneId}/devices/${deviceId}${returnUnit ? "?returnUnit=1" : ""}`, { method: "DELETE" }),
   },
   cams: {
     status: () => apiFetch<{ configured: boolean }>("/cams/status"),
@@ -211,10 +214,16 @@ export const API = {
   },
   inventory: {
     items: () => apiFetch<InventoryItem[]>("/inventory/items"),
-    createItem: (data: Partial<InventoryItem>) => apiFetch<InventoryItem>("/inventory/items", { method: "POST", body: JSON.stringify(data) }),
+    get: (id: string) => apiFetch<InventoryItemDetail>(`/inventory/items/${id}`),
+    createItem: (data: Partial<InventoryItem> & { quantity?: number }) => apiFetch<InventoryItem>("/inventory/items", { method: "POST", body: JSON.stringify(data) }),
     updateItem: (id: string, data: Partial<InventoryItem>) => apiFetch<InventoryItem>(`/inventory/items/${id}`, { method: "PATCH", body: JSON.stringify(data) }),
+    deleteItem: (id: string) => apiFetch<void>(`/inventory/items/${id}`, { method: "DELETE" }),
+    act: (id: string, data: InventoryActionInput) => apiFetch<InventoryItem>(`/inventory/items/${id}/actions`, { method: "POST", body: JSON.stringify(data) }),
     transactions: () => apiFetch<InventoryTransaction[]>("/inventory/transactions"),
-    createTransaction: (data: Partial<InventoryTransaction>) => apiFetch<InventoryTransaction>("/inventory/transactions", { method: "POST", body: JSON.stringify(data) }),
+    uploadPhoto: (file: File) => { const fd = new FormData(); fd.append("file", file); return apiFetch<{ url: string }>("/inventory/photos", { method: "POST", body: fd }); },
+    locations: () => apiFetch<InventoryLocation[]>("/inventory/locations"),
+    createLocation: (name: string) => apiFetch<InventoryLocation>("/inventory/locations", { method: "POST", body: JSON.stringify({ name }) }),
+    updateLocation: (id: string, data: Partial<{ name: string; archived: boolean }>) => apiFetch<InventoryLocation>(`/inventory/locations/${id}`, { method: "PATCH", body: JSON.stringify(data) }),
   },
   commissioning: {
     list: (projectId: string) => apiFetch<CommissioningItem[]>(`/commissioning/${projectId}`),

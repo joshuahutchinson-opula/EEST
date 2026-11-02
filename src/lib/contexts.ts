@@ -28,6 +28,7 @@ export const APP_INTRO_STEPS: TutorialStep[] = [
   { target: "nav-pipeline", title: "Pipeline", description: "Every sales lead and project, on a board, grid or list — Lead to Won on the sales side, Planning to Complete on the project side. Click any project to open its assets, workbook, tasks, and install progress." },
   { target: "nav-workbook", title: "Workbook", description: "Build out Asset List, Cost & Margin, BOM, and Synthesis for a project's quote — everything rolls up automatically as you go." },
   { target: "nav-install-tracker", title: "Installation", description: "Track device-by-device installation progress across every project currently in the Installation stage." },
+  { target: "nav-inventory", title: "Inventory", description: "Every serial-numbered unit and every bin of bulk stock — where it is, who has it, and its full history across projects." },
   { target: "nav-device-library", title: "Device Library", description: "Your catalog of cameras, access control, and network hardware — the building blocks you pull into a project's Assets." },
   { target: "tour-notifications", title: "Notifications", description: "Stay on top of task assignments, sales wins, and updates across every project from here." },
   { target: "tour-user-menu", title: "Your Account", description: "Sign out from here. Every other page and tab has its own quick walkthrough too, the first time you land on it." },
