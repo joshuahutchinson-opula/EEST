@@ -489,7 +489,37 @@ export async function initDB() {
       )
     `);
     await client.query(`CREATE UNIQUE INDEX IF NOT EXISTS inventory_locations_name_uniq ON inventory_locations (lower(trim(name)))`);
-    await client.query(`INSERT INTO inventory_locations (name) VALUES ('Storage') ON CONFLICT DO NOTHING`);
+    // The default location (where new stock and returned units go) is flagged rather than found by
+    // name, so admins can rename it. First seeded as "Storage"; now "Storage Unit".
+    await client.query(`ALTER TABLE inventory_locations ADD COLUMN IF NOT EXISTS is_default BOOLEAN NOT NULL DEFAULT FALSE`);
+    await client.query(`
+      UPDATE inventory_locations SET is_default = TRUE
+      WHERE id = (SELECT id FROM inventory_locations WHERE lower(trim(name)) IN ('storage unit', 'storage') ORDER BY lower(trim(name)) = 'storage unit' DESC LIMIT 1)
+        AND NOT EXISTS (SELECT 1 FROM inventory_locations WHERE is_default)
+    `);
+    await client.query(`
+      UPDATE inventory_locations SET name = 'Storage Unit'
+      WHERE is_default AND lower(trim(name)) = 'storage' AND NOT EXISTS (SELECT 1 FROM inventory_locations WHERE lower(trim(name)) = 'storage unit')
+    `);
+    await client.query(`INSERT INTO inventory_locations (name, is_default) SELECT 'Storage Unit', TRUE WHERE NOT EXISTS (SELECT 1 FROM inventory_locations WHERE is_default) ON CONFLICT DO NOTHING`);
+    await client.query(`CREATE UNIQUE INDEX IF NOT EXISTS inventory_locations_one_default ON inventory_locations (is_default) WHERE is_default`);
+    // Item categories: a managed list (admins add, rename, archive), seeded once.
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS inventory_categories (
+        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+        name TEXT NOT NULL,
+        archived BOOLEAN NOT NULL DEFAULT FALSE,
+        sort_order INTEGER NOT NULL DEFAULT 0,
+        created_at TIMESTAMPTZ DEFAULT NOW()
+      )
+    `);
+    await client.query(`CREATE UNIQUE INDEX IF NOT EXISTS inventory_categories_name_uniq ON inventory_categories (lower(trim(name)))`);
+    await client.query(`
+      INSERT INTO inventory_categories (name, sort_order)
+      SELECT v.name, v.ord FROM (VALUES ('Cameras', 1), ('Access Control', 2), ('Network', 3), ('Servers & Recorders', 4), ('Intercom', 5),
+        ('Cable & Wire', 6), ('Mounts & Brackets', 7), ('Power (PSU/UPS)', 8), ('Tools', 9), ('Other', 10)) AS v(name, ord)
+      WHERE NOT EXISTS (SELECT 1 FROM inventory_categories)
+    `);
     for (const col of [
       "kind TEXT", "status TEXT", "category TEXT", "part_number TEXT", "size_spec TEXT", "compatible_with TEXT",
       "supplier TEXT", "photos JSONB DEFAULT '[]'", "low_stock_level INTEGER", "serial_number TEXT", "mac_address TEXT",
@@ -497,9 +527,21 @@ export async function initDB() {
       "location_id UUID REFERENCES inventory_locations(id) ON DELETE SET NULL", "storage_spot TEXT",
       "holder_name TEXT", "holder_email TEXT", "project_id UUID REFERENCES projects(id) ON DELETE SET NULL",
       "install_device_id UUID REFERENCES install_devices(id) ON DELETE SET NULL",
+      "category_id UUID REFERENCES inventory_categories(id) ON DELETE SET NULL",
     ]) {
       await client.query(`ALTER TABLE inventory_items ADD COLUMN IF NOT EXISTS ${col}`);
     }
+    // Free-text categories from before the managed list keep their name as a category.
+    await client.query(`
+      INSERT INTO inventory_categories (name, sort_order)
+      SELECT DISTINCT ON (lower(trim(category))) trim(category), 100 FROM inventory_items WHERE category_id IS NULL AND trim(COALESCE(category, '')) <> ''
+      ORDER BY lower(trim(category)), created_at, id
+      ON CONFLICT DO NOTHING
+    `);
+    await client.query(`
+      UPDATE inventory_items i SET category_id = c.id FROM inventory_categories c
+      WHERE i.category_id IS NULL AND trim(COALESCE(i.category, '')) <> '' AND lower(trim(c.name)) = lower(trim(i.category))
+    `);
     // Pre-F19 items become bulk stock unless they have a serial; their free-text location becomes a
     // location record (Storage when blank). Only touches rows not yet migrated.
     await client.query(`
@@ -509,13 +551,15 @@ export async function initDB() {
     await client.query(`UPDATE inventory_items SET status = 'in_storage', quantity_on_hand = 1 WHERE kind = 'unit' AND status IS NULL`);
     await client.query(`
       INSERT INTO inventory_locations (name)
-      SELECT DISTINCT trim(location) FROM inventory_items WHERE location_id IS NULL AND trim(COALESCE(location, '')) <> ''
+      SELECT DISTINCT ON (lower(trim(location))) trim(location) FROM inventory_items WHERE location_id IS NULL AND trim(COALESCE(location, '')) <> ''
+      ORDER BY lower(trim(location)), created_at, id
       ON CONFLICT DO NOTHING
     `);
     await client.query(`
       UPDATE inventory_items i SET location_id = l.id FROM inventory_locations l
-      WHERE i.location_id IS NULL AND lower(trim(l.name)) = lower(trim(COALESCE(NULLIF(trim(i.location), ''), 'Storage')))
+      WHERE i.location_id IS NULL AND trim(COALESCE(i.location, '')) <> '' AND lower(trim(l.name)) = lower(trim(i.location))
     `);
+    await client.query(`UPDATE inventory_items SET location_id = (SELECT id FROM inventory_locations WHERE is_default) WHERE location_id IS NULL AND trim(COALESCE(location, '')) = ''`);
     await client.query(`UPDATE inventory_items SET photos = '[]'::jsonb WHERE photos IS NULL`);
     await client.query(`ALTER TABLE inventory_items ALTER COLUMN kind SET DEFAULT 'bulk'`);
     await client.query(`CREATE UNIQUE INDEX IF NOT EXISTS inventory_items_serial_uniq ON inventory_items (lower(trim(serial_number))) WHERE kind = 'unit' AND trim(COALESCE(serial_number, '')) <> ''`);

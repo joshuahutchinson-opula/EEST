@@ -6,7 +6,7 @@ import pool from "../db";
 import { isTech, requireAdmin, sessionUserName } from "../lib/roles";
 import { signFileUrl, toStoredFileUrls, UPLOAD_ROOT } from "../lib/uploads";
 import {
-  applyAction, InventoryError, ITEM_SELECT, mapItem, mapTransaction, MANUAL_ACTIONS, parseActionInput, TECH_ACTIONS, TRANSACTION_SELECT,
+  applyAction, defaultLocationId, InventoryError, ITEM_SELECT, mapItem, mapTransaction, MANUAL_ACTIONS, parseActionInput, TECH_ACTIONS, TRANSACTION_SELECT,
 } from "../lib/inventory";
 
 const router = Router();
@@ -28,7 +28,7 @@ function sendError(res: Response, err: unknown, fallback: string, where: string)
 // GET /api/inventory/locations
 router.get("/locations", async (_req: Request, res: Response) => {
   try {
-    const result = await pool.query(`SELECT id, name, archived FROM inventory_locations ORDER BY archived, lower(name) = 'storage' DESC, name`);
+    const result = await pool.query(`SELECT id, name, archived, is_default AS "isDefault" FROM inventory_locations ORDER BY archived, is_default DESC, name`);
     res.json(result.rows);
   } catch (err) {
     sendError(res, err, "Failed to fetch locations", "GET /inventory/locations");
@@ -40,7 +40,7 @@ router.post("/locations", requireAdmin, async (req: Request, res: Response) => {
   try {
     const name = typeof req.body?.name === "string" ? req.body.name.trim().slice(0, 100) : "";
     if (!name) return res.status(400).json({ error: "name is required" });
-    const result = await pool.query(`INSERT INTO inventory_locations (name) VALUES ($1) RETURNING id, name, archived`, [name]);
+    const result = await pool.query(`INSERT INTO inventory_locations (name) VALUES ($1) RETURNING id, name, archived, is_default AS "isDefault"`, [name]);
     res.status(201).json(result.rows[0]);
   } catch (err) {
     if ((err as { code?: string })?.code === "23505") return res.status(409).json({ error: "A location with that name already exists" });
@@ -54,8 +54,10 @@ router.patch("/locations/:id", requireAdmin, async (req: Request, res: Response)
     const name = typeof req.body?.name === "string" ? req.body.name.trim().slice(0, 100) : null;
     if (name === "") return res.status(400).json({ error: "name can't be blank" });
     const archived = typeof req.body?.archived === "boolean" ? req.body.archived : null;
+    // The default location can be renamed but not archived: returned units always need somewhere to go.
     const result = await pool.query(
-      `UPDATE inventory_locations SET name = COALESCE($2, name), archived = COALESCE($3, archived) WHERE id::text = $1 RETURNING id, name, archived`,
+      `UPDATE inventory_locations SET name = COALESCE($2, name), archived = CASE WHEN is_default THEN FALSE ELSE COALESCE($3, archived) END
+       WHERE id::text = $1 RETURNING id, name, archived, is_default AS "isDefault"`,
       [req.params.id, name, archived]
     );
     if (!result.rows.length) return res.status(404).json({ error: "Location not found" });
@@ -63,6 +65,52 @@ router.patch("/locations/:id", requireAdmin, async (req: Request, res: Response)
   } catch (err) {
     if ((err as { code?: string })?.code === "23505") return res.status(409).json({ error: "A location with that name already exists" });
     sendError(res, err, "Failed to update location", "PATCH /inventory/locations/:id");
+  }
+});
+
+// ── Categories ──────────────────────────────────────────────────────────────
+
+// GET /api/inventory/categories
+router.get("/categories", async (_req: Request, res: Response) => {
+  try {
+    const result = await pool.query(`SELECT id, name, archived FROM inventory_categories ORDER BY archived, sort_order, name`);
+    res.json(result.rows);
+  } catch (err) {
+    sendError(res, err, "Failed to fetch categories", "GET /inventory/categories");
+  }
+});
+
+// POST /api/inventory/categories
+router.post("/categories", requireAdmin, async (req: Request, res: Response) => {
+  try {
+    const name = typeof req.body?.name === "string" ? req.body.name.trim().slice(0, 100) : "";
+    if (!name) return res.status(400).json({ error: "name is required" });
+    const result = await pool.query(
+      `INSERT INTO inventory_categories (name, sort_order) VALUES ($1, (SELECT COALESCE(MAX(sort_order), 0) + 1 FROM inventory_categories)) RETURNING id, name, archived`,
+      [name]
+    );
+    res.status(201).json(result.rows[0]);
+  } catch (err) {
+    if ((err as { code?: string })?.code === "23505") return res.status(409).json({ error: "A category with that name already exists" });
+    sendError(res, err, "Failed to add category", "POST /inventory/categories");
+  }
+});
+
+// PATCH /api/inventory/categories/:id — rename and/or archive.
+router.patch("/categories/:id", requireAdmin, async (req: Request, res: Response) => {
+  try {
+    const name = typeof req.body?.name === "string" ? req.body.name.trim().slice(0, 100) : null;
+    if (name === "") return res.status(400).json({ error: "name can't be blank" });
+    const archived = typeof req.body?.archived === "boolean" ? req.body.archived : null;
+    const result = await pool.query(
+      `UPDATE inventory_categories SET name = COALESCE($2, name), archived = COALESCE($3, archived) WHERE id::text = $1 RETURNING id, name, archived`,
+      [req.params.id, name, archived]
+    );
+    if (!result.rows.length) return res.status(404).json({ error: "Category not found" });
+    res.json(result.rows[0]);
+  } catch (err) {
+    if ((err as { code?: string })?.code === "23505") return res.status(409).json({ error: "A category with that name already exists" });
+    sendError(res, err, "Failed to update category", "PATCH /inventory/categories/:id");
   }
 });
 
@@ -103,7 +151,7 @@ function parseItemFields(body: any) {
   return {
     name: text(body.name, 200),
     device_id: text(body.deviceId, 64),
-    category: text(body.category, 100),
+    category_id: text(body.categoryId, 64),
     part_number: text(body.partNumber, 100),
     size_spec: text(body.sizeSpec, 200),
     compatible_with: text(body.compatibleWith, 300),
@@ -159,12 +207,12 @@ router.post("/items", requireAdmin, async (req: Request, res: Response) => {
     const qty = kind === "unit" ? 1 : Number(req.body.quantity ?? 0);
     if (!Number.isInteger(qty) || qty < 0) return res.status(400).json({ error: "Quantity must be a whole number" });
     await client.query("BEGIN");
-    const locationId = f.location_id || (await client.query(`SELECT id FROM inventory_locations WHERE lower(name) = 'storage'`)).rows[0]?.id || null;
+    const locationId = f.location_id || (await defaultLocationId(client));
     const created = await client.query(
-      `INSERT INTO inventory_items (kind, status, name, quantity_on_hand, device_id, category, part_number, size_spec, compatible_with, supplier, photos, notes,
+      `INSERT INTO inventory_items (kind, status, name, quantity_on_hand, device_id, category_id, part_number, size_spec, compatible_with, supplier, photos, notes,
          low_stock_level, serial_number, mac_address, purchase_date, warranty_expiry, purchase_cost, location_id, storage_spot)
        VALUES ($1, $2, $3, 0, $4, $5, $6, $7, $8, $9, $10::jsonb, $11, $12, $13, $14, $15, $16, $17, $18, $19) RETURNING id`,
-      [kind, kind === "unit" ? "in_storage" : null, name, f.device_id, f.category, f.part_number, f.size_spec, f.compatible_with, f.supplier, f.photos, f.notes,
+      [kind, kind === "unit" ? "in_storage" : null, name, f.device_id, f.category_id, f.part_number, f.size_spec, f.compatible_with, f.supplier, f.photos, f.notes,
        kind === "bulk" ? f.low_stock_level : null, kind === "unit" ? f.serial_number : null, kind === "unit" ? f.mac_address : null,
        f.purchase_date, f.warranty_expiry, f.purchase_cost, locationId, f.storage_spot]
     );
@@ -198,7 +246,7 @@ router.patch("/items/:id", requireAdmin, async (req: Request, res: Response) => 
     const body = req.body || {};
     const f = parseItemFields(body) as Record<string, unknown>;
     const keyFor: Record<string, string> = {
-      name: "name", deviceId: "device_id", category: "category", partNumber: "part_number", sizeSpec: "size_spec", compatibleWith: "compatible_with",
+      name: "name", deviceId: "device_id", categoryId: "category_id", partNumber: "part_number", sizeSpec: "size_spec", compatibleWith: "compatible_with",
       supplier: "supplier", photos: "photos", notes: "notes", lowStockLevel: "low_stock_level", serialNumber: "serial_number", macAddress: "mac_address",
       purchaseDate: "purchase_date", warrantyExpiry: "warranty_expiry", purchaseCost: "purchase_cost", locationId: "location_id", storageSpot: "storage_spot",
     };

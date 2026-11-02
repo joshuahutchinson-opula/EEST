@@ -242,12 +242,13 @@ export type InventoryKind = "unit" | "bulk";
 export type UnitStatus = "in_storage" | "checked_out" | "reserved" | "installed" | "defective" | "under_repair" | "to_be_returned" | "returned_to_supplier" | "retired";
 // Pre-F19 log rows keep their free-text action (e.g. "Sold"), so action is any string.
 export type InventoryAction = "received" | "check_out" | "check_in" | "reserve" | "install" | "remove_from_site" | "mark_defective" | "send_for_repair" | "send_to_supplier" | "retire" | "adjust";
-export interface InventoryLocation { id: string; name: string; archived: boolean }
+export interface InventoryLocation { id: string; name: string; archived: boolean; isDefault?: boolean }
+export interface InventoryCategory { id: string; name: string; archived: boolean }
 // purchaseCost is only ever sent to admins.
 export interface InventoryItem {
   id: string; kind: InventoryKind; name: string; status?: UnitStatus; quantityOnHand: number;
   deviceId?: string; manufacturer?: string; model?: string; deviceImageUrl?: string; sku?: string;
-  category?: string; partNumber?: string; sizeSpec?: string; compatibleWith?: string; supplier?: string; photos: string[]; notes?: string; lowStockLevel?: number;
+  categoryId?: string; category?: string; partNumber?: string; sizeSpec?: string; compatibleWith?: string; supplier?: string; photos: string[]; notes?: string; lowStockLevel?: number;
   serialNumber?: string; macAddress?: string; purchaseDate?: string; warrantyExpiry?: string; purchaseCost?: number;
   locationId?: string; locationName?: string; storageSpot?: string; holderName?: string; holderEmail?: string; projectId?: string; projectName?: string; installDeviceId?: string;
   createdAt: string; updatedAt: string;

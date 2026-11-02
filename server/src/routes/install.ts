@@ -4,7 +4,7 @@ import { isTech, requireProjectAccess, sessionUserName, techMayAccessProject } f
 import { signFileUrls, toStoredFileUrl } from "../lib/uploads";
 import { mapAsBuilt, parseAsBuilt } from "../lib/asBuilt";
 import { SET_INSTALL_STATUS } from "../lib/installStatus";
-import { applyAction, InventoryError, ITEM_SELECT, mapItem } from "../lib/inventory";
+import { applyAction, defaultLocationId, InventoryError, ITEM_SELECT, mapItem } from "../lib/inventory";
 
 const router = Router();
 
@@ -216,7 +216,7 @@ router.delete("/zones/:zoneId/devices/:deviceId", async (req: Request, res: Resp
     const unit = (await client.query(`SELECT id FROM inventory_items WHERE install_device_id = $1 AND status = 'installed'`, [dev.rows[0].id])).rows[0];
     if (unit) {
       await applyAction(client, unit.id, { action: "remove_from_site", installDeviceId: dev.rows[0].id }, by);
-      if (returnUnit) await applyAction(client, unit.id, { action: "check_in", purpose: "Returned from site" }, by);
+      if (returnUnit) await applyAction(client, unit.id, { action: "check_in", purpose: "Returned from site", locationId: await defaultLocationId(client) }, by);
     }
     await client.query(`DELETE FROM commissioning_checklists WHERE device_id = $1`, [String(dev.rows[0].id)]);
     await client.query(`DELETE FROM install_devices WHERE id = $1`, [dev.rows[0].id]);

@@ -17,7 +17,7 @@ export function RemoveDeviceModal({ device, busy, onConfirm, onClose }: { device
         {device.inventoryUnitId && (
           <label className="flex items-start gap-2 mb-5 text-[#e6edf3] text-[13px] cursor-pointer">
             <input type="checkbox" checked={returnUnit} onChange={(e) => setReturnUnit(e.target.checked)} className="mt-0.5" />
-            <span>Return its inventory unit to storage<span className="block text-[#8b949e] text-[12px]">Untick to leave the unit marked “To be returned”.</span></span>
+            <span>Return its inventory unit to the Storage Unit<span className="block text-[#8b949e] text-[12px]">Untick to leave the unit marked “To be returned”.</span></span>
           </label>
         )}
         <div className="flex gap-2">

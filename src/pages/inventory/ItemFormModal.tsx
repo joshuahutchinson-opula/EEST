@@ -4,18 +4,18 @@ import { toast } from "sonner";
 import { Loader2, Upload, X } from "lucide-react";
 import { API, ApiError, fileHref } from "../../api";
 import { G } from "../../lib/constants";
-import type { CatalogDevice, InventoryItem, InventoryKind, InventoryLocation } from "../../types";
+import type { CatalogDevice, InventoryCategory, InventoryItem, InventoryKind, InventoryLocation } from "../../types";
 
 type Draft = Record<string, string>;
 
-const FIELD_KEYS = ["name", "deviceId", "category", "partNumber", "sizeSpec", "compatibleWith", "supplier", "notes", "lowStockLevel", "serialNumber", "macAddress",
+const FIELD_KEYS = ["name", "deviceId", "categoryId", "partNumber", "sizeSpec", "compatibleWith", "supplier", "notes", "lowStockLevel", "serialNumber", "macAddress",
   "purchaseDate", "warrantyExpiry", "purchaseCost", "locationId", "storageSpot"] as const;
 
 const inputCls = "mt-1 w-full h-9 rounded-lg px-3 text-[13px] text-white";
 const labelCls = "block text-[#8b949e] text-[11px] font-bold";
 
 // Add or edit (admin only) a tracked unit or a bulk item.
-export function ItemFormModal({ kind, item, locations, onClose, onSaved }: { kind: InventoryKind; item?: InventoryItem; locations: InventoryLocation[]; onClose: () => void; onSaved: (item: InventoryItem) => void }) {
+export function ItemFormModal({ kind, item, locations, categories, onClose, onSaved }: { kind: InventoryKind; item?: InventoryItem; locations: InventoryLocation[]; categories: InventoryCategory[]; onClose: () => void; onSaved: (item: InventoryItem) => void }) {
   const [draft, setDraft] = useState<Draft>(() => Object.fromEntries(FIELD_KEYS.map((k) => [k, item?.[k] !== undefined && item?.[k] !== null ? String(item[k]) : ""])));
   const [photos, setPhotos] = useState<string[]>(item?.photos ?? []);
   const [quantity, setQuantity] = useState("0");
@@ -34,6 +34,8 @@ export function ItemFormModal({ kind, item, locations, onClose, onSaved }: { kin
     return devices.filter((d) => `${d.manufacturer} ${d.model} ${d.sku ?? ""}`.toLowerCase().includes(q)).slice(0, 8);
   }, [devices, deviceSearch]);
   const activeLocations = locations.filter((l) => !l.archived || l.id === draft.locationId);
+  const activeCategories = categories.filter((c) => !c.archived || c.id === draft.categoryId);
+  const defaultLocation = locations.find((l) => l.isDefault)?.name ?? "Storage Unit";
 
   const uploadPhotos = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(e.target.files ?? []);
@@ -103,7 +105,13 @@ export function ItemFormModal({ kind, item, locations, onClose, onSaved }: { kin
 
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           {field("name", unit ? "Name (defaults to make + model)" : "Name", { placeholder: unit ? "" : "e.g. Pendant mount, white" })}
-          {unit ? field("serialNumber", "Serial number") : field("category", "Category", { placeholder: "e.g. Mounts" })}
+          <label className={labelCls}>Category
+            <select value={draft.categoryId} onChange={(e) => set("categoryId", e.target.value)} className={`${inputCls} cursor-pointer`} style={{ ...G.input, background: "#0d1117" }}>
+              <option value="">None</option>
+              {activeCategories.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
+            </select>
+          </label>
+          {unit && field("serialNumber", "Serial number")}
           {unit ? field("macAddress", "MAC address", { placeholder: "AA:BB:CC:DD:EE:FF" }) : field("partNumber", "Part number")}
           {unit ? field("purchaseDate", "Purchase date", { type: "date" }) : field("sizeSpec", "Size / spec", { placeholder: "e.g. 1.5 in, 10 m" })}
           {unit ? field("warrantyExpiry", "Warranty expiry", { type: "date" }) : field("compatibleWith", "Compatible with")}
@@ -116,8 +124,8 @@ export function ItemFormModal({ kind, item, locations, onClose, onSaved }: { kin
           )}
           <label className={labelCls}>Location
             <select value={draft.locationId} onChange={(e) => set("locationId", e.target.value)} className={`${inputCls} cursor-pointer`} style={{ ...G.input, background: "#0d1117" }}>
-              {!item && <option value="">Storage</option>}
-              {activeLocations.map((l) => <option key={l.id} value={l.id}>{l.name}</option>)}
+              {!item && <option value="">{defaultLocation}</option>}
+              {activeLocations.filter((l) => item || !l.isDefault).map((l) => <option key={l.id} value={l.id}>{l.name}</option>)}
             </select>
           </label>
           {field("storageSpot", "Storage spot", { placeholder: "e.g. Shelf B2" })}

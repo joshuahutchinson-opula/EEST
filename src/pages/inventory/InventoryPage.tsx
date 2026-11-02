@@ -1,15 +1,15 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Boxes, Download, MapPin, Package, PackageOpen, Plus, Search } from "lucide-react";
+import { Boxes, Download, MapPin, Package, PackageOpen, Plus, Search, Tags } from "lucide-react";
 import { API, fileHref } from "../../api";
 import { EmptyState } from "../../components/EmptyState";
 import { Skeleton } from "../../components/Skeleton";
 import { G } from "../../lib/constants";
 import { isTechRole, useAutoTutorial, useRole } from "../../lib/contexts";
 import { downloadCSV } from "../../lib/utils";
-import type { InventoryItem, InventoryKind, InventoryLocation, Page, TutorialStep, UnitStatus } from "../../types";
+import type { InventoryCategory, InventoryItem, InventoryKind, InventoryLocation, Page, TutorialStep, UnitStatus } from "../../types";
 import { ItemDetailModal } from "./ItemDetailModal";
 import { ItemFormModal } from "./ItemFormModal";
-import { LocationsModal } from "./LocationsModal";
+import { ListManagerModal } from "./ListManagerModal";
 import { isLowStock, itemPhoto, itemTitle, UNIT_STATUS_META, whereLabel } from "./shared";
 
 export const INVENTORY_STEPS: TutorialStep[] = [
@@ -33,6 +33,7 @@ export function InventoryPage({ navigate: _navigate }: { navigate: (p: Page) => 
   useAutoTutorial("inventory", INVENTORY_STEPS);
   const [items, setItems] = useState<InventoryItem[]>([]);
   const [locations, setLocations] = useState<InventoryLocation[]>([]);
+  const [categories, setCategories] = useState<InventoryCategory[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [kindFilter, setKindFilter] = useState<InventoryKind | "all">("all");
@@ -41,19 +42,18 @@ export function InventoryPage({ navigate: _navigate }: { navigate: (p: Page) => 
   const [locationFilter, setLocationFilter] = useState("all");
   const [adding, setAdding] = useState<InventoryKind | null>(null);
   const [openItemId, setOpenItemId] = useState<string | null>(null);
-  const [showLocations, setShowLocations] = useState(false);
+  const [managing, setManaging] = useState<"locations" | "categories" | null>(null);
 
   const fetchAll = useCallback(async () => {
     try {
-      const [its, locs] = await Promise.all([API.inventory.items(), API.inventory.locations()]);
-      setItems(its); setLocations(locs);
+      const [its, locs, cats] = await Promise.all([API.inventory.items(), API.inventory.locations(), API.inventory.categories()]);
+      setItems(its); setLocations(locs); setCategories(cats);
     } catch { setItems([]); }
     finally { setLoading(false); }
   }, []);
   useEffect(() => { fetchAll(); }, [fetchAll]);
   const closeItem = useCallback(() => setOpenItemId(null), []);
 
-  const categories = useMemo(() => [...new Set(items.map((i) => i.category).filter((c): c is string => !!c))].sort(), [items]);
   const counts = useMemo(() => Object.fromEntries(COUNTS.map((c) => [c.status, items.filter((i) => i.kind === "unit" && i.status === c.status).length])), [items]);
 
   const filtered = useMemo(() => {
@@ -61,7 +61,7 @@ export function InventoryPage({ navigate: _navigate }: { navigate: (p: Page) => 
     return items.filter((i) => {
       if (kindFilter !== "all" && i.kind !== kindFilter) return false;
       if (statusFilter !== "all" && i.status !== statusFilter) return false;
-      if (categoryFilter !== "all" && i.category !== categoryFilter) return false;
+      if (categoryFilter !== "all" && i.categoryId !== categoryFilter) return false;
       if (locationFilter !== "all" && i.locationId !== locationFilter) return false;
       if (!q) return true;
       return [i.name, i.manufacturer, i.model, i.serialNumber, i.macAddress, i.partNumber, i.category, i.supplier, i.holderName, i.projectName, i.storageSpot]
@@ -87,15 +87,17 @@ export function InventoryPage({ navigate: _navigate }: { navigate: (p: Page) => 
 
   return (
     <div className="px-3 md:px-5 py-4 md:py-6 max-w-[1600px] mx-auto w-full">
-      {adding && <ItemFormModal kind={adding} locations={locations} onClose={() => setAdding(null)} onSaved={(item) => { setAdding(null); fetchAll(); setOpenItemId(item.id); }} />}
-      {openItemId && <ItemDetailModal itemId={openItemId} locations={locations} onClose={closeItem} onChanged={fetchAll} />}
-      {showLocations && <LocationsModal locations={locations} onClose={() => setShowLocations(false)} onChanged={fetchAll} />}
+      {adding && <ItemFormModal kind={adding} locations={locations} categories={categories} onClose={() => setAdding(null)} onSaved={(item) => { setAdding(null); fetchAll(); setOpenItemId(item.id); }} />}
+      {openItemId && <ItemDetailModal itemId={openItemId} locations={locations} categories={categories} onClose={closeItem} onChanged={fetchAll} />}
+      {managing === "locations" && <ListManagerModal title="Locations" noun="Location" placeholder="New location, e.g. Van 2" entries={locations} create={API.inventory.createLocation} update={API.inventory.updateLocation} onClose={() => setManaging(null)} onChanged={fetchAll} />}
+      {managing === "categories" && <ListManagerModal title="Categories" noun="Category" placeholder="New category" entries={categories} create={API.inventory.createCategory} update={API.inventory.updateCategory} onClose={() => setManaging(null)} onChanged={fetchAll} />}
 
       <div className="flex items-center justify-between gap-3 mb-4 md:mb-6 flex-wrap">
         <div><h1 className="text-white font-extrabold text-2xl md:text-3xl tracking-tight">Inventory</h1><p className="text-[#8b949e] text-[13px] mt-0.5">{items.filter((i) => i.kind === "unit").length} tracked units · {items.filter((i) => i.kind === "bulk").length} bulk items</p></div>
         {!tech && (
           <div className="flex items-center gap-2 flex-wrap">
-            <button onClick={() => setShowLocations(true)} className="flex items-center gap-1.5 h-8 px-3 rounded-xl text-[#c9d1d9] hover:text-white text-[13px] font-bold cursor-pointer" style={G.btn}><MapPin className="w-3.5 h-3.5" /> Locations</button>
+            <button onClick={() => setManaging("categories")} className="flex items-center gap-1.5 h-8 px-3 rounded-xl text-[#c9d1d9] hover:text-white text-[13px] font-bold cursor-pointer" style={G.btn}><Tags className="w-3.5 h-3.5" /> Categories</button>
+            <button onClick={() => setManaging("locations")} className="flex items-center gap-1.5 h-8 px-3 rounded-xl text-[#c9d1d9] hover:text-white text-[13px] font-bold cursor-pointer" style={G.btn}><MapPin className="w-3.5 h-3.5" /> Locations</button>
             <button onClick={() => setAdding("bulk")} className="flex items-center gap-1.5 h-8 px-3 rounded-xl text-white text-[13px] font-extrabold cursor-pointer" style={{ background: "#8b5cf6" }}><Plus className="w-3.5 h-3.5" /> Bulk item</button>
             <button onClick={() => setAdding("unit")} className="flex items-center gap-1.5 h-8 px-3 rounded-xl text-white text-[13px] font-extrabold cursor-pointer" style={{ background: "#3b82f6" }}><Plus className="w-3.5 h-3.5" /> Tracked unit</button>
           </div>
@@ -126,7 +128,7 @@ export function InventoryPage({ navigate: _navigate }: { navigate: (p: Page) => 
         </select>
         <select value={categoryFilter} onChange={(e) => setCategoryFilter(e.target.value)} className="h-8 rounded-xl px-2 text-[13px] cursor-pointer" style={selectStyle}>
           <option value="all">All categories</option>
-          {categories.map((c) => <option key={c} value={c}>{c}</option>)}
+          {categories.map((c) => <option key={c.id} value={c.id}>{c.name}{c.archived ? " (archived)" : ""}</option>)}
         </select>
         <select value={locationFilter} onChange={(e) => setLocationFilter(e.target.value)} className="h-8 rounded-xl px-2 text-[13px] cursor-pointer" style={selectStyle}>
           <option value="all">All locations</option>

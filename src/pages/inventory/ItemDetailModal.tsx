@@ -6,7 +6,7 @@ import { API, ApiError, fileHref } from "../../api";
 import { ConfirmDialog } from "../../components/ConfirmDialog";
 import { G } from "../../lib/constants";
 import { isTechRole, useRole } from "../../lib/contexts";
-import type { InventoryAction, InventoryItemDetail, InventoryLocation, Project } from "../../types";
+import type { InventoryAction, InventoryCategory, InventoryItemDetail, InventoryLocation, Project } from "../../types";
 import { ItemFormModal } from "./ItemFormModal";
 import {
   ACTION_BUTTON_LABELS, actionLabel, BULK_ACTIONS, isLowStock, itemPhoto, itemTitle, TECH_ACTIONS, TECH_CHECK_IN_FROM, UNIT_ACTIONS_FROM, UNIT_STATUS_META, whereLabel,
@@ -16,7 +16,7 @@ const errMsg = (err: unknown, fallback: string) => (err instanceof ApiError ? (e
 const when = (d: string) => new Date(d).toLocaleString("en-US", { month: "short", day: "numeric", year: "numeric", hour: "numeric", minute: "2-digit" });
 
 // An item's details, the actions available to the viewer, and its full transaction timeline.
-export function ItemDetailModal({ itemId, locations, onClose, onChanged }: { itemId: string; locations: InventoryLocation[]; onClose: () => void; onChanged: () => void }) {
+export function ItemDetailModal({ itemId, locations, categories, onClose, onChanged }: { itemId: string; locations: InventoryLocation[]; categories: InventoryCategory[]; onClose: () => void; onChanged: () => void }) {
   const tech = isTechRole(useRole());
   const [item, setItem] = useState<InventoryItemDetail | null>(null);
   const [action, setAction] = useState<InventoryAction | null>(null);
@@ -76,7 +76,7 @@ export function ItemDetailModal({ itemId, locations, onClose, onChanged }: { ite
   const photos = item.photos.length ? item.photos : item.deviceImageUrl ? [item.deviceImageUrl] : [];
   const meta = item.status ? UNIT_STATUS_META[item.status] : null;
   const details: [string, string | undefined][] = unit
-    ? [["Make / model", [item.manufacturer, item.model].filter(Boolean).join(" ") || undefined], ["Serial", item.serialNumber], ["MAC", item.macAddress], ["Purchase date", item.purchaseDate],
+    ? [["Category", item.category], ["Make / model", [item.manufacturer, item.model].filter(Boolean).join(" ") || undefined], ["Serial", item.serialNumber], ["MAC", item.macAddress], ["Purchase date", item.purchaseDate],
        ["Warranty expiry", item.warrantyExpiry], ["Supplier", item.supplier], ...(!tech ? [["Purchase cost", item.purchaseCost !== undefined ? item.purchaseCost.toLocaleString("en-US", { style: "currency", currency: "USD" }) : undefined] as [string, string | undefined]] : []),
        ["Location", whereLabel(item)], ["Held by", item.status === "checked_out" ? item.holderName : undefined]]
     : [["Category", item.category], ["Part number", item.partNumber], ["Size / spec", item.sizeSpec], ["Compatible with", item.compatibleWith], ["Supplier", item.supplier],
@@ -86,7 +86,7 @@ export function ItemDetailModal({ itemId, locations, onClose, onChanged }: { ite
 
   return (
     <>
-    {editing && <ItemFormModal kind={item.kind} item={item} locations={locations} onClose={() => setEditing(false)} onSaved={() => { setEditing(false); load(); onChanged(); }} />}
+    {editing && <ItemFormModal kind={item.kind} item={item} locations={locations} categories={categories} onClose={() => setEditing(false)} onSaved={() => { setEditing(false); load(); onChanged(); }} />}
     <ConfirmDialog open={confirmDelete} title="Delete this item?" message="This removes the item and its whole history. Use Retire instead to keep the history." onConfirm={deleteItem} onCancel={() => setConfirmDelete(false)} />
     <div className="fixed inset-0 z-[300] flex items-center justify-center p-4" onClick={onClose}>
       <div className="absolute inset-0" style={{ background: "rgba(0,0,0,0.65)", backdropFilter: "blur(8px)" }} />
@@ -146,7 +146,7 @@ export function ItemDetailModal({ itemId, locations, onClose, onChanged }: { ite
                 {(action === "check_in" || action === "received") && (
                   <label className="block text-[#8b949e] text-[11px] font-bold">Location
                     <select value={form.locationId} onChange={(e) => setForm({ ...form, locationId: e.target.value })} className={`${inputCls} cursor-pointer`} style={{ ...G.input, background: "#0d1117" }}>
-                      <option value="">{item.locationName ? `Keep (${item.locationName})` : "Storage"}</option>
+                      <option value="">{item.locationName ? `Keep (${item.locationName})` : locations.find((l) => l.isDefault)?.name ?? "Storage Unit"}</option>
                       {activeLocations.map((l) => <option key={l.id} value={l.id}>{l.name}</option>)}
                     </select>
                   </label>

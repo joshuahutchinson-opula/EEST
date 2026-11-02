@@ -72,8 +72,9 @@ export function parseActionInput(body: any): ActionInput {
   };
 }
 
-async function storageLocationId(client: PoolClient): Promise<string | null> {
-  const r = await client.query(`SELECT id FROM inventory_locations WHERE lower(name) = 'storage' LIMIT 1`);
+// The default location ("Storage Unit"), where new stock and returned units go.
+export async function defaultLocationId(client: PoolClient): Promise<string | null> {
+  const r = await client.query(`SELECT id FROM inventory_locations WHERE is_default LIMIT 1`);
   return r.rows[0]?.id ?? null;
 }
 
@@ -117,7 +118,7 @@ export async function applyAction(client: PoolClient, itemId: string, input: Act
     // Holder: whoever checked it out. Project: the one it's reserved for / installed at.
     const holding = statusAfter === "checked_out";
     const atProject = statusAfter === "reserved" || statusAfter === "installed";
-    if (statusAfter === "in_storage" && !locationId) locationId = item.location_id || (await storageLocationId(client));
+    if (statusAfter === "in_storage" && !locationId) locationId = item.location_id || (await defaultLocationId(client));
     await client.query(
       `UPDATE inventory_items SET status = $2,
          holder_name = $3, holder_email = $4,
@@ -154,9 +155,11 @@ export async function applyAction(client: PoolClient, itemId: string, input: Act
     );
   }
 
+  // clock_timestamp(), not NOW(): two actions in one transaction (removed from site, then checked
+  // in) must keep their order in the timeline.
   const log = await client.query(
-    `INSERT INTO inventory_transactions (item_id, user_name, user_email, action, quantity, purpose, notes, project_id, location_id, destination, install_device_id, status_after, quantity_after)
-     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13) RETURNING id`,
+    `INSERT INTO inventory_transactions (item_id, user_name, user_email, action, quantity, purpose, notes, project_id, location_id, destination, install_device_id, status_after, quantity_after, created_at)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, clock_timestamp()) RETURNING id`,
     [item.id, actor.name, actor.email, action, quantity, input.purpose || null, input.notes || null, projectId || (action === "remove_from_site" ? item.project_id : null),
      locationId, input.destination || null, input.installDeviceId || null, statusAfter, quantityAfter]
   );
@@ -165,10 +168,11 @@ export async function applyAction(client: PoolClient, itemId: string, input: Act
 
 // Item columns the list and detail endpoints select (joined with location, device and project).
 export const ITEM_SELECT = `
-  SELECT ii.*, l.name AS location_name, d.manufacturer AS device_manufacturer, d.model AS device_model, d.image_url AS device_image_url,
+  SELECT ii.*, l.name AS location_name, c.name AS category_name, d.manufacturer AS device_manufacturer, d.model AS device_model, d.image_url AS device_image_url,
          d.sku AS device_sku, p.name AS project_name
   FROM inventory_items ii
   LEFT JOIN inventory_locations l ON l.id = ii.location_id
+  LEFT JOIN inventory_categories c ON c.id = ii.category_id
   LEFT JOIN devices d ON d.id = ii.device_id
   LEFT JOIN projects p ON p.id = ii.project_id`;
 
@@ -187,7 +191,8 @@ export function mapItem(row: any, tech: boolean) {
     model: row.device_model || undefined,
     deviceImageUrl: row.device_image_url || undefined,
     sku: row.device_sku || undefined,
-    category: row.category || undefined,
+    categoryId: row.category_id || undefined,
+    category: row.category_name || undefined,
     partNumber: row.part_number || undefined,
     sizeSpec: row.size_spec || undefined,
     compatibleWith: row.compatible_with || undefined,

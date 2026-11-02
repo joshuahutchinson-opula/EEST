@@ -1,5 +1,5 @@
 import { DEFAULT_EXCHANGE_RATE } from "../lib/constants";
-import type { AsBuilt, AuditLogEntry, CatalogDevice, ChangeOrder, CommissioningItem, DocumentItem, InstallDevice, InstallStatus, InstallZone, InventoryActionInput, InventoryItem, InventoryItemDetail, InventoryLocation, InventoryTransaction, NotificationItem, Project, ProjectAsset, PublicProjectStatus, PublicSubcontractor, Quote, QuoteLineItem, Subcontractor, SynthesisOverride, Task, WorkbookAuditEntry, WorkbookSettings, AuditTarget, CalendarEvent, TeamMemberInfo, ClientContact, ClientDetail, ClientSummary, SearchResults, CamsPlan, CamsSendResult } from "../types";
+import type { AsBuilt, AuditLogEntry, CatalogDevice, ChangeOrder, CommissioningItem, DocumentItem, InstallDevice, InstallStatus, InstallZone, InventoryActionInput, InventoryCategory, InventoryItem, InventoryItemDetail, InventoryLocation, InventoryTransaction, NotificationItem, Project, ProjectAsset, PublicProjectStatus, PublicSubcontractor, Quote, QuoteLineItem, Subcontractor, SynthesisOverride, Task, WorkbookAuditEntry, WorkbookSettings, AuditTarget, CalendarEvent, TeamMemberInfo, ClientContact, ClientDetail, ClientSummary, SearchResults, CamsPlan, CamsSendResult } from "../types";
 
 export const API_BASE = import.meta.env.VITE_API_URL || "/api";
 
@@ -224,6 +224,9 @@ export const API = {
     locations: () => apiFetch<InventoryLocation[]>("/inventory/locations"),
     createLocation: (name: string) => apiFetch<InventoryLocation>("/inventory/locations", { method: "POST", body: JSON.stringify({ name }) }),
     updateLocation: (id: string, data: Partial<{ name: string; archived: boolean }>) => apiFetch<InventoryLocation>(`/inventory/locations/${id}`, { method: "PATCH", body: JSON.stringify(data) }),
+    categories: () => apiFetch<InventoryCategory[]>("/inventory/categories"),
+    createCategory: (name: string) => apiFetch<InventoryCategory>("/inventory/categories", { method: "POST", body: JSON.stringify({ name }) }),
+    updateCategory: (id: string, data: Partial<{ name: string; archived: boolean }>) => apiFetch<InventoryCategory>(`/inventory/categories/${id}`, { method: "PATCH", body: JSON.stringify(data) }),
   },
   commissioning: {
     list: (projectId: string) => apiFetch<CommissioningItem[]>(`/commissioning/${projectId}`),
