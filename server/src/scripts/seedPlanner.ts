@@ -21,6 +21,8 @@ import { isGraphConfigured } from "../lib/graph";
 import { removeTaskFromCalendar } from "../lib/calendarSync";
 
 const JMD_PER_USD = 163;
+// The day of the run in Jamaica (UTC-5, no daylight saving), as YYYY-MM-DD.
+const TODAY_JAMAICA = new Date(Date.now() - 5 * 60 * 60 * 1000).toISOString().slice(0, 10);
 
 interface SeedContact { name: string; title?: string; phone?: string; email?: string }
 interface SeedChecklistItem { title: string; status: string }
@@ -162,11 +164,13 @@ async function seedProject(client: PoolClient, p: SeedProject, clients: Map<stri
       t.otherAssignees.length > 0 && `Also assigned: ${t.otherAssignees.join(", ")}`,
       done && t.completedBy && `Completed by ${t.completedBy}`,
     );
-    // Anything due before today counts as already notified, so the overdue check skips it.
+    // Anything due before today counts as already notified, so the overdue check skips it. (Worked
+    // out here rather than in SQL: tasks.due_date is DATE on older databases, TIMESTAMPTZ on new ones.)
     await client.query(
       `INSERT INTO tasks (project_id, title, description, assignee, status, priority, due_date, planner_task_id, created_at, updated_at, outlook_sync, overdue_notified_at)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, FALSE, CASE WHEN $7::timestamptz < CURRENT_DATE THEN NOW() END)`,
-      [projectId, t.title, description, t.assignee, t.status, t.priority, t.dueDate, t.plannerTaskId, at(t.createdAt), at(done ? t.completedAt || t.createdAt : t.createdAt)]
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, FALSE, CASE WHEN $11 THEN NOW() END)`,
+      [projectId, t.title, description, t.assignee, t.status, t.priority, t.dueDate, t.plannerTaskId, at(t.createdAt), at(done ? t.completedAt || t.createdAt : t.createdAt),
+       !!t.dueDate && t.dueDate < TODAY_JAMAICA]
     );
     counts.projectTasks.created++;
   }
